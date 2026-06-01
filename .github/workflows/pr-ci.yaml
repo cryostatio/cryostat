@@ -244,8 +244,6 @@ jobs:
         cd src/main/webui
         yarn install && yarn yarn:frzinstall
         cd -
-    - name: Add CRIU PPA
-      run: sudo add-apt-repository ppa:criu/ppa
     - name: Run integration tests
       id: run-tests
       continue-on-error: true
