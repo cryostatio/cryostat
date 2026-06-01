@@ -26,16 +26,6 @@ pull_request_rules:
         approved: [ 'mergify', 'Mergifyio' ]
         changes_requested: [ 'mergify', 'Mergifyio' ]
 
-  - name: set reviewers for pull requests that update web-client
-    conditions:
-      - or:
-        - files=src/main/webui
-        - files~=src/main/webui/
-    actions:
-      request_reviews:
-        teams:
-          - "@cryostatio/maintainers"
-
   - name: request reviews from the reviewers team
     conditions:
       - label=review-requested
