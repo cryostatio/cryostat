@@ -2,7 +2,14 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
     "config:recommended",
-    ":dependencyDashboard"
+    ":dependencyDashboard",
+    "helpers:pinGitHubActionDigestsToSemver",
+    "docker:pinDigests",
+    ":configMigration",
+    ":docker",
+    ":separateMajorReleases",
+    ":separateMultipleMinorReleases",
+    ":separatePatchReleases"
   ],
   "reviewersFromCodeOwners": true,
   "labels": [
