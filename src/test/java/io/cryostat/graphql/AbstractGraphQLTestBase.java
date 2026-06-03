@@ -20,7 +20,6 @@ import static org.hamcrest.Matchers.*;
 
 import java.time.Duration;
 import java.util.Map;
-import java.util.concurrent.*;
 
 import io.cryostat.AbstractTransactionalTestBase;
 
@@ -36,16 +35,13 @@ import org.junit.jupiter.api.BeforeEach;
 
 /**
  * Base class for GraphQL tests providing common functionality including: - Shared fields
- * (ObjectMapper, ExecutorService, constants) - Lifecycle methods (setup/cleanup) - Helper methods
- * for recording operations
+ * (ObjectMapper, constants) - Lifecycle methods (setup/cleanup) - Helper methods for recording
+ * operations
  */
 public abstract class AbstractGraphQLTestBase extends AbstractTransactionalTestBase {
 
     @Inject protected ObjectMapper mapper;
 
-    protected final ExecutorService worker = ForkJoinPool.commonPool();
-
-    protected static final long DATA_COLLECTION_DELAY_MS = 5_000L;
     protected static final long REQUEST_TIMEOUT_SECONDS = 30L;
 
     @BeforeEach
@@ -89,8 +85,6 @@ public abstract class AbstractGraphQLTestBase extends AbstractTransactionalTestB
      * @return JsonObject containing the recording details from the notification
      */
     protected JsonObject createRecording(String name) throws Exception {
-        CountDownLatch latch = new CountDownLatch(1);
-
         JsonObject query = new JsonObject();
         query.put(
                 "query",
@@ -98,22 +92,11 @@ public abstract class AbstractGraphQLTestBase extends AbstractTransactionalTestB
                         "mutation { createRecording( nodes:{annotations: [\"REALM = Custom"
                             + " Targets\"]}, recording: { name: \"%s\", template: \"Profiling\","
                             + " templateType: \"TARGET\", duration: 30, continuous: false,"
-                            + " archiveOnStop: true, toDisk: true }) { name state duration"
-                            + " continuous metadata { labels { key value } } } }",
+                            + " archiveOnStop: true, toDisk: true, replace: \"ALWAYS\" }) { name"
+                            + " state duration continuous metadata { labels { key value } } } }",
                         name));
-        Future<JsonObject> f =
-                worker.submit(
-                        () -> {
-                            try {
-                                return webSocketClient.expectNotification(
-                                        "ActiveRecordingCreated", Duration.ofSeconds(15));
-                            } catch (Exception e) {
-                                throw new RuntimeException(e);
-                            } finally {
-                                latch.countDown();
-                            }
-                        });
 
+        // Trigger recording creation
         given().contentType(ContentType.JSON)
                 .body(query.encode())
                 .when()
@@ -123,8 +106,10 @@ public abstract class AbstractGraphQLTestBase extends AbstractTransactionalTestB
                 .extract()
                 .response();
 
-        latch.await(30, TimeUnit.SECONDS);
-        JsonObject notification = f.get(30, TimeUnit.SECONDS);
+        // wait for notification
+        JsonObject notification =
+                webSocketClient.expectNotification(
+                        "ActiveRecordingCreated", Duration.ofSeconds(15));
         return notification.getJsonObject("message").getJsonObject("recording");
     }
 
@@ -135,8 +120,6 @@ public abstract class AbstractGraphQLTestBase extends AbstractTransactionalTestB
      * @return JsonObject containing the stopped recording details from the notification
      */
     protected JsonObject stopRecording() throws Exception {
-        CountDownLatch latch = new CountDownLatch(1);
-
         JsonObject query = new JsonObject();
         query.put(
                 "query",
@@ -144,19 +127,7 @@ public abstract class AbstractGraphQLTestBase extends AbstractTransactionalTestB
                     + " name target { recordings { active { data { doStop { name state } } } } } }"
                     + " }");
 
-        Future<JsonObject> f2 =
-                worker.submit(
-                        () -> {
-                            try {
-                                return webSocketClient.expectNotification(
-                                        "ActiveRecordingStopped", Duration.ofSeconds(15));
-                            } catch (Exception e) {
-                                throw new RuntimeException(e);
-                            } finally {
-                                latch.countDown();
-                            }
-                        });
-
+        // Trigger recording stop
         given().contentType(ContentType.JSON)
                 .body(query.encode())
                 .when()
@@ -166,8 +137,10 @@ public abstract class AbstractGraphQLTestBase extends AbstractTransactionalTestB
                 .extract()
                 .response();
 
-        latch.await(30, TimeUnit.SECONDS);
-        JsonObject notification = f2.get(30, TimeUnit.SECONDS);
+        // wait for notification
+        JsonObject notification =
+                webSocketClient.expectNotification(
+                        "ActiveRecordingStopped", Duration.ofSeconds(15));
         return notification.getJsonObject("message").getJsonObject("recording");
     }
 
@@ -198,7 +171,6 @@ public abstract class AbstractGraphQLTestBase extends AbstractTransactionalTestB
      * @return JsonObject containing the recording details from the notification
      */
     protected JsonObject restartRecording(String name, String replace) throws Exception {
-        CountDownLatch latch = new CountDownLatch(1);
         JsonObject query = new JsonObject();
         query.put(
                 "query",
@@ -208,19 +180,8 @@ public abstract class AbstractGraphQLTestBase extends AbstractTransactionalTestB
                             + " template: \"Profiling\", templateType: \"TARGET\", replace: \"%s\""
                             + " }) { name state } } } }",
                         name, replace));
-        Future<JsonObject> f =
-                worker.submit(
-                        () -> {
-                            try {
-                                return webSocketClient.expectNotification(
-                                        "ActiveRecordingCreated", Duration.ofSeconds(15));
-                            } catch (Exception e) {
-                                throw new RuntimeException(e);
-                            } finally {
-                                latch.countDown();
-                            }
-                        });
 
+        // Trigger recording restart
         given().contentType(ContentType.JSON)
                 .body(query.encode())
                 .when()
@@ -230,8 +191,10 @@ public abstract class AbstractGraphQLTestBase extends AbstractTransactionalTestB
                 .extract()
                 .response();
 
-        latch.await(30, TimeUnit.SECONDS);
-        JsonObject notification = f.get(30, TimeUnit.SECONDS);
+        // wait for notification
+        JsonObject notification =
+                webSocketClient.expectNotification(
+                        "ActiveRecordingCreated", Duration.ofSeconds(15));
         return notification.getJsonObject("message").getJsonObject("recording");
     }
 

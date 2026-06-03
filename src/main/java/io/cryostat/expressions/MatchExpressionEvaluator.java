@@ -177,34 +177,66 @@ public class MatchExpressionEvaluator {
     public List<Target> getMatchedTargets(MatchExpression matchExpression) {
         List<Target> targets =
                 QuarkusTransaction.joiningExisting()
-                        .call(() -> Target.<Target>listAll())
-                        .parallelStream()
+                        .call(
+                                () -> {
+                                    List<Target> allTargets = Target.<Target>listAll();
+                                    // Force eager loading of lazy associations before detaching
+                                    allTargets.forEach(this::eagerLoadAssociations);
+                                    return allTargets;
+                                });
+        List<Target> matched =
+                targets.parallelStream()
                         .filter(
                                 target -> {
                                     try {
                                         return applies(matchExpression, target);
                                     } catch (ScriptException e) {
-                                        logger.error(
-                                                "Error while processing expression: "
-                                                        + matchExpression,
-                                                e);
+                                        logger.warnv(
+                                                e,
+                                                "Script error evaluating expression for target {0}"
+                                                        + " ({1}): {2}",
+                                                target.id,
+                                                target.connectUrl,
+                                                matchExpression);
+                                        return false;
+                                    } catch (Exception e) {
+                                        logger.warnv(
+                                                e,
+                                                "Unexpected error evaluating expression for target"
+                                                        + " {0} ({1})",
+                                                target.id,
+                                                target.connectUrl);
                                         return false;
                                     }
                                 })
                         .collect(Collectors.toList());
 
-        var ids = new HashSet<>();
-        var it = targets.iterator();
+        // Deduplicate by jvmId
+        var ids = new HashSet<String>();
+        var it = matched.iterator();
         while (it.hasNext()) {
             var t = it.next();
-            if (ids.contains(t.jvmId)) {
+            if (t.jvmId != null && ids.contains(t.jvmId)) {
                 it.remove();
                 continue;
             }
-            ids.add(t.jvmId);
+            if (t.jvmId != null) {
+                ids.add(t.jvmId);
+            }
         }
 
-        return targets;
+        return matched;
+    }
+
+    @SuppressFBWarnings("RV_RETURN_VALUE_IGNORED_NO_SIDE_EFFECT")
+    private void eagerLoadAssociations(Target t) {
+        if (t.annotations != null) {
+            t.annotations.cryostat();
+            t.annotations.platform();
+        }
+        if (t.labels != null) {
+            t.labels.size();
+        }
     }
 
     @Name("io.cryostat.rules.MatchExpressionEvaluator.MatchExpressionApplies")
@@ -315,7 +347,13 @@ public class MatchExpressionEvaluator {
                                         .toList()
                                         .toArray(new String[0]));
             } catch (Exception e) {
-                Log.error(e);
+                // Log with more context about the failure to help diagnose issues
+                Log.warnv(
+                        e,
+                        "Failed to get JFR event types for target {0} ({1}). Match expression"
+                                + " evaluation may be incomplete.",
+                        st.jvmId,
+                        st.connectUrl);
                 return new String[0];
             }
         }

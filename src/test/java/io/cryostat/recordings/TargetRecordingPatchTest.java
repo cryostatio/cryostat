@@ -18,10 +18,6 @@ package io.cryostat.recordings;
 import static io.restassured.RestAssured.given;
 
 import java.time.Duration;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.ForkJoinPool;
-import java.util.concurrent.TimeUnit;
 
 import io.cryostat.AbstractTransactionalTestBase;
 import io.cryostat.resources.S3StorageResource;
@@ -42,9 +38,6 @@ import org.junit.jupiter.api.Test;
 @QuarkusTest
 @QuarkusTestResource(value = S3StorageResource.class, restrictToAnnotatedClass = true)
 public class TargetRecordingPatchTest extends AbstractTransactionalTestBase {
-
-    private final ExecutorService worker = ForkJoinPool.commonPool();
-    private static final int REQUEST_TIMEOUT_SECONDS = 30;
 
     final String TEST_RECORDING_NAME = "patchRecording";
 
@@ -99,6 +92,8 @@ public class TargetRecordingPatchTest extends AbstractTransactionalTestBase {
                         .extract()
                         .response();
 
+        webSocketClient.expectNotification("ActiveRecordingCreated", Duration.ofSeconds(15));
+
         JsonObject postResult = new JsonObject(postResponse.body().asString());
         long remoteId = postResult.getLong("remoteId");
 
@@ -122,21 +117,11 @@ public class TargetRecordingPatchTest extends AbstractTransactionalTestBase {
 
         MatcherAssert.assertThat(saveResponse.body().asString(), Matchers.any(String.class));
 
-        // Expect ArchiveRecordingFailed notification
-        CountDownLatch latch = new CountDownLatch(1);
-        worker.submit(
-                () -> {
-                    try {
-                        return webSocketClient.expectNotification(
-                                "ArchiveRecordingFailed", Duration.ofSeconds(15));
-                    } catch (Exception e) {
-                        throw new RuntimeException(e);
-                    } finally {
-                        latch.countDown();
-                    }
-                });
+        JsonObject notification =
+                webSocketClient.expectNotification(
+                        "ArchiveRecordingFailure", Duration.ofSeconds(15));
 
-        latch.await(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        Assertions.assertNotNull(notification);
 
         // Assert that no recording was archived
         Response listResponse =

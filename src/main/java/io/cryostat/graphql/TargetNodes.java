@@ -52,14 +52,20 @@ import io.smallrye.graphql.api.Context;
 import io.smallrye.graphql.api.Nullable;
 import io.smallrye.mutiny.Uni;
 import jakarta.inject.Inject;
+import jakarta.persistence.EntityManager;
 import jakarta.transaction.Transactional;
 import org.apache.commons.lang3.StringUtils;
+import org.eclipse.microprofile.graphql.DefaultValue;
 import org.eclipse.microprofile.graphql.Description;
 import org.eclipse.microprofile.graphql.GraphQLApi;
 import org.eclipse.microprofile.graphql.Ignore;
 import org.eclipse.microprofile.graphql.NonNull;
 import org.eclipse.microprofile.graphql.Query;
 import org.eclipse.microprofile.graphql.Source;
+import org.hibernate.envers.AuditReader;
+import org.hibernate.envers.AuditReaderFactory;
+import org.hibernate.envers.query.AuditEntity;
+import org.jboss.logging.Logger;
 
 @GraphQLApi
 public class TargetNodes {
@@ -68,14 +74,30 @@ public class TargetNodes {
     @Inject TargetConnectionManager connectionManager;
     @Inject AnalysisReportAggregator reportAggregator;
     @Inject DiagnosticsHelper diagnosticsHelper;
+    @Inject EntityManager em;
+    @Inject Logger logger;
 
     @Query("targetNodes")
     @Description("Get the Target discovery nodes, i.e. the leaf nodes of the discovery tree")
-    public List<DiscoveryNode> getTargetNodes(DiscoveryNodeFilter filter) {
-        // TODO do this filtering at the database query level as much as possible. As is, this will
-        // load the entire discovery tree out of the database, then perform the filtering at the
-        // application level.
-        return Target.<Target>findAll().stream()
+    public List<DiscoveryNode> getTargetNodes(
+            DiscoveryNodeFilter filter,
+            @Nullable
+                    @DefaultValue("false")
+                    @Description(
+                            "Query historical targets from audit log. This is more expensive and"
+                                    + " should only be used when historical data is needed.")
+                    boolean useAuditLog) {
+        List<Target> targets;
+        if (useAuditLog) {
+            targets = queryAuditLogTargets();
+        } else {
+            // TODO do this filtering at the database query level as much as possible. As is, this
+            // will load the entire discovery tree out of the database, then perform the filtering
+            // at the application level.
+            targets = Target.<Target>findAll().stream().toList();
+        }
+
+        return targets.stream()
                 // FIXME filtering by distinct JVM ID breaks clients that expect to be able to use a
                 // different connection URL (in the node filter or for client-side filtering) than
                 // the one we end up selecting for here.
@@ -208,6 +230,107 @@ public class TargetNodes {
     public MBeanMetrics mbeanMetrics(@Source Target target) {
         var fTarget = Target.getTargetById(target.id);
         return connectionManager.executeConnectedTask(fTarget, JFRConnection::getMBeanMetrics);
+    }
+
+    private List<Target> queryAuditLogTargets() {
+        try {
+            AuditReader ar = AuditReaderFactory.get(em);
+
+            // Get all unique jvmIds from audit history using native SQL
+            @SuppressWarnings("unchecked")
+            List<String> jvmIds =
+                    em.createNativeQuery(
+                                    "SELECT DISTINCT jvmId FROM Target_AUD WHERE jvmId IS NOT"
+                                            + " NULL")
+                            .getResultList();
+
+            // For each jvmId, get the most recent Target and manually reconstruct its
+            // DiscoveryNode
+            List<Target> historicalTargets = new ArrayList<>();
+            for (String jvmId : jvmIds) {
+                if (StringUtils.isNotBlank(jvmId)) {
+                    Target target = getLatestTargetFromAudit(ar, jvmId);
+                    if (target != null) {
+                        // Manually get the DiscoveryNode to avoid lazy loading issues
+                        DiscoveryNode node = getDiscoveryNodeFromAudit(ar, target);
+                        if (node != null) {
+                            // Set up the bidirectional relationship
+                            node.target = target;
+                            target.discoveryNode = node;
+                            // Clear parent and children to prevent further lazy loading
+                            node.parent = null;
+                            node.children = new ArrayList<>();
+                            historicalTargets.add(target);
+                        }
+                    }
+                }
+            }
+            return historicalTargets;
+        } catch (Exception e) {
+            logger.debug("Error querying audit log", e);
+            return List.of();
+        }
+    }
+
+    private Target getLatestTargetFromAudit(AuditReader ar, String jvmId) {
+        try {
+            @SuppressWarnings("unchecked")
+            var q =
+                    ar.createQuery()
+                            .forRevisionsOfEntity(Target.class, false, true)
+                            .add(AuditEntity.property("jvmId").eq(jvmId))
+                            .add(
+                                    AuditEntity.revisionType()
+                                            .ne(org.hibernate.envers.RevisionType.DEL))
+                            .addOrder(AuditEntity.revisionNumber().desc())
+                            .setMaxResults(1)
+                            .getResultList();
+            if (!q.isEmpty()) {
+                Object[] result = (Object[]) q.get(0);
+                return (Target) result[0];
+            }
+        } catch (Exception e) {
+            logger.warn("Failed to get Target from audit for jvmId: " + jvmId, e);
+        }
+        return null;
+    }
+
+    private DiscoveryNode getDiscoveryNodeFromAudit(AuditReader ar, Target target) {
+        try {
+            // Get ALL revisions of this Target to find when the DiscoveryNode was set
+            // The Target may be created first with null discoveryNode, then updated later
+            @SuppressWarnings("unchecked")
+            List<Object[]> targetRevisions =
+                    em.createNativeQuery(
+                                    "SELECT discoveryNode, REV FROM Target_AUD WHERE id = :id AND"
+                                            + " discoveryNode IS NOT NULL ORDER BY REV DESC")
+                            .setParameter("id", target.id)
+                            .getResultList();
+
+            if (!targetRevisions.isEmpty()) {
+                Object[] latestWithNode = targetRevisions.get(0);
+                Long nodeId = ((Number) latestWithNode[0]).longValue();
+                // Now get the DiscoveryNode from audit history
+                @SuppressWarnings("unchecked")
+                var q =
+                        ar.createQuery()
+                                .forRevisionsOfEntity(DiscoveryNode.class, false, true)
+                                .add(AuditEntity.id().eq(nodeId))
+                                .add(
+                                        AuditEntity.revisionType()
+                                                .ne(org.hibernate.envers.RevisionType.DEL))
+                                .addOrder(AuditEntity.revisionNumber().desc())
+                                .setMaxResults(1)
+                                .getResultList();
+                if (!q.isEmpty()) {
+                    Object[] revisionResult = (Object[]) q.get(0);
+                    return (DiscoveryNode) revisionResult[0];
+                }
+            }
+        } catch (Exception e) {
+            logger.warn("Failed to get DiscoveryNode from audit for target: " + target.id, e);
+        }
+        return null;
     }
 
     public static class Recordings {

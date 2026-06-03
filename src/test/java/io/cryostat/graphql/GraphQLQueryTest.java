@@ -19,6 +19,7 @@ import static io.restassured.RestAssured.given;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.*;
 
+import java.time.Duration;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -219,8 +220,15 @@ class GraphQLQueryTest extends AbstractGraphQLTestBase {
         JsonObject notificationRecording = createRecording(recordingName1);
         assertThat(notificationRecording.getString("name"), equalTo(recordingName1));
 
-        // Wait for first recording to fully complete before creating second
-        Thread.sleep(DATA_COLLECTION_DELAY_MS);
+        JsonObject stoppedNotification =
+                webSocketClient.expectNotification(
+                        "ActiveRecordingStopped", Duration.ofSeconds(35));
+        assertThat(
+                stoppedNotification
+                        .getJsonObject("message")
+                        .getJsonObject("recording")
+                        .getString("name"),
+                equalTo(recordingName1));
 
         // Create Recording 2
         String recordingName2 = "testQueryForFilteredActiveRecordingsByNames2";
@@ -304,6 +312,8 @@ class GraphQLQueryTest extends AbstractGraphQLTestBase {
                         .statusCode(allOf(greaterThanOrEqualTo(200), lessThan(300)))
                         .extract()
                         .response();
+
+        webSocketClient.expectNotification("ArchivedRecordingCreated", Duration.ofSeconds(15));
 
         ArchiveMutationResponse archiveResponse =
                 mapper.readValue(response1.body().asString(), ArchiveMutationResponse.class);

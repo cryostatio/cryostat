@@ -1090,4 +1090,333 @@ public class JfrAnalyticsTest {
         MatcherAssert.assertThat(result.get(1), Matchers.hasItem("thread"));
         MatcherAssert.assertThat(result.get(2), Matchers.hasItem("startTime"));
     }
+
+    @Test
+    void testCPULoadMinMaxAvgMetrics() {
+        List<List<String>> result =
+                given().log()
+                        .all()
+                        .when()
+                        .pathParams("jvmId", "uploads", "filename", RECORDING_FILENAME)
+                        .formParam(
+                                "query",
+                                """
+                                SELECT
+                                  MIN("jvmUser") as "min_jvm_user",
+                                  MAX("jvmUser") as "max_jvm_user",
+                                  AVG("jvmUser") as "avg_jvm_user",
+                                  MIN("machineTotal") as "min_machine_total",
+                                  MAX("machineTotal") as "max_machine_total",
+                                  AVG("machineTotal") as "avg_machine_total"
+                                FROM "JFR"."jdk.CPULoad"
+                                """)
+                        .post("/api/beta/recording_analytics/{jvmId}/{filename}")
+                        .then()
+                        .log()
+                        .all()
+                        .and()
+                        .assertThat()
+                        .statusCode(200)
+                        .contentType(ContentType.JSON)
+                        .and()
+                        .extract()
+                        .body()
+                        .jsonPath()
+                        .getList("$");
+
+        MatcherAssert.assertThat(result, Matchers.notNullValue());
+        MatcherAssert.assertThat(result.size(), Matchers.equalTo(1));
+        MatcherAssert.assertThat(result.get(0).size(), Matchers.equalTo(6));
+
+        MatcherAssert.assertThat(result.get(0).get(0), Matchers.equalTo("0.0")); // min_jvm_user
+        MatcherAssert.assertThat(
+                result.get(0).get(1), Matchers.equalTo("0.26130652")); // max_jvm_user
+        MatcherAssert.assertThat(
+                result.get(0).get(2), Matchers.equalTo("0.035028797")); // avg_jvm_user
+        MatcherAssert.assertThat(
+                result.get(0).get(3), Matchers.equalTo("0.0")); // min_machine_total
+        MatcherAssert.assertThat(
+                result.get(0).get(4), Matchers.equalTo("1.0")); // max_machine_total
+        MatcherAssert.assertThat(
+                result.get(0).get(5), Matchers.equalTo("0.32000855")); // avg_machine_total
+    }
+
+    @Test
+    void testCPULoadP95JvmUser() {
+        List<List<String>> result =
+                given().log()
+                        .all()
+                        .when()
+                        .pathParams("jvmId", "uploads", "filename", RECORDING_FILENAME)
+                        .formParam(
+                                "query",
+                                """
+                                SELECT "jvmUser"
+                                FROM (
+                                  SELECT "jvmUser", ROW_NUMBER() OVER (ORDER BY "jvmUser" DESC) as rn,
+                                         COUNT(*) OVER () as total
+                                  FROM "JFR"."jdk.CPULoad"
+                                )
+                                WHERE rn = CAST(total * 0.05 AS INTEGER)
+                                """)
+                        .post("/api/beta/recording_analytics/{jvmId}/{filename}")
+                        .then()
+                        .log()
+                        .all()
+                        .and()
+                        .assertThat()
+                        .statusCode(200)
+                        .contentType(ContentType.JSON)
+                        .and()
+                        .extract()
+                        .body()
+                        .jsonPath()
+                        .getList("$");
+
+        MatcherAssert.assertThat(result, Matchers.notNullValue());
+        MatcherAssert.assertThat(result.size(), Matchers.equalTo(1));
+        MatcherAssert.assertThat(result.get(0).size(), Matchers.equalTo(1));
+
+        MatcherAssert.assertThat(result.get(0).get(0), Matchers.equalTo("0.185"));
+    }
+
+    @Test
+    void testCPULoadP95MachineTotal() {
+        List<List<String>> result =
+                given().log()
+                        .all()
+                        .when()
+                        .pathParams("jvmId", "uploads", "filename", RECORDING_FILENAME)
+                        .formParam(
+                                "query",
+                                """
+                                SELECT "machineTotal"
+                                FROM (
+                                  SELECT "machineTotal", ROW_NUMBER() OVER (ORDER BY "machineTotal" DESC) as rn,
+                                         COUNT(*) OVER () as total
+                                  FROM "JFR"."jdk.CPULoad"
+                                )
+                                WHERE rn = CAST(total * 0.05 AS INTEGER)
+                                """)
+                        .post("/api/beta/recording_analytics/{jvmId}/{filename}")
+                        .then()
+                        .log()
+                        .all()
+                        .and()
+                        .assertThat()
+                        .statusCode(200)
+                        .contentType(ContentType.JSON)
+                        .and()
+                        .extract()
+                        .body()
+                        .jsonPath()
+                        .getList("$");
+
+        MatcherAssert.assertThat(result, Matchers.notNullValue());
+        MatcherAssert.assertThat(result.size(), Matchers.equalTo(1));
+        MatcherAssert.assertThat(result.get(0).size(), Matchers.equalTo(1));
+
+        MatcherAssert.assertThat(result.get(0).get(0), Matchers.equalTo("0.97504157"));
+    }
+
+    /**
+     * Test documenting why PERCENTILE_CONT fails with Apache Calcite and jfr-analytics.
+     *
+     * <p>This test demonstrates that the standard SQL PERCENTILE_CONT function cannot be used with
+     * Apache Calcite and jfr-analytics for calculating percentiles (e.g., p95) of JFR metrics.
+     *
+     * <p><b>ROOT CAUSE IDENTIFIED:</b>
+     *
+     * <p>The query fails with {@code java.lang.UnsupportedOperationException} at {@code
+     * org.apache.calcite.sql.SqlOperatorBinding.getCollationType(SqlOperatorBinding.java:237)}
+     * during query preparation. This occurs because:
+     *
+     * <ol>
+     *   <li>PERCENTILE_CONT is an ordered-set aggregate function (SQL:2003 standard) that requires
+     *       collation type information
+     *   <li>Apache Calcite's {@code SqlOperatorBinding.getCollationType()} throws {@code
+     *       UnsupportedOperationException} by default
+     *   <li>The jfr-analytics library uses Calcite's default configuration without implementing
+     *       collation support for ordered-set aggregates
+     *   <li>The error occurs during the query planning phase (specifically during field trimming)
+     *       when Calcite tries to infer the return type of the PERCENTILE_CONT function
+     * </ol>
+     */
+    @Test
+    void testCPULoadP95WithPercentileCont() {
+        given().log()
+                .all()
+                .when()
+                .pathParams("jvmId", "uploads", "filename", RECORDING_FILENAME)
+                .formParam(
+                        "query",
+                        """
+                        SELECT PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY "machineTotal") as "p95_cpu"
+                        FROM "JFR"."jdk.CPULoad"
+                        """)
+                .post("/api/beta/recording_analytics/{jvmId}/{filename}")
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(400);
+    }
+
+    @Test
+    void testNetworkUtilizationMinMaxAvgMetrics() {
+        List<List<String>> result =
+                given().log()
+                        .all()
+                        .when()
+                        .pathParams("jvmId", "uploads", "filename", RECORDING_FILENAME)
+                        .formParam(
+                                "query",
+                                """
+                                SELECT
+                                  MIN("readRate") as "min_read_rate",
+                                  MAX("readRate") as "max_read_rate",
+                                  AVG("readRate") as "avg_read_rate"
+                                FROM "JFR"."jdk.NetworkUtilization"
+                                """)
+                        .post("/api/beta/recording_analytics/{jvmId}/{filename}")
+                        .then()
+                        .log()
+                        .all()
+                        .and()
+                        .assertThat()
+                        .statusCode(200)
+                        .contentType(ContentType.JSON)
+                        .and()
+                        .extract()
+                        .body()
+                        .jsonPath()
+                        .getList("$");
+
+        MatcherAssert.assertThat(result, Matchers.notNullValue());
+        MatcherAssert.assertThat(result.size(), Matchers.equalTo(1));
+        MatcherAssert.assertThat(result.get(0).size(), Matchers.equalTo(3));
+
+        MatcherAssert.assertThat(result.get(0).get(0), Matchers.equalTo("160")); // min_read_rate
+        MatcherAssert.assertThat(
+                result.get(0).get(1), Matchers.equalTo("16825144")); // max_read_rate
+        MatcherAssert.assertThat(result.get(0).get(2), Matchers.equalTo("589114")); // avg_read_rate
+    }
+
+    @Test
+    void testNetworkUtilizationP95ReadRate() {
+        List<List<String>> result =
+                given().log()
+                        .all()
+                        .when()
+                        .pathParams("jvmId", "uploads", "filename", RECORDING_FILENAME)
+                        .formParam(
+                                "query",
+                                """
+                                SELECT "readRate"
+                                FROM (
+                                  SELECT "readRate", ROW_NUMBER() OVER (ORDER BY "readRate" DESC) as rn,
+                                         COUNT(*) OVER () as total
+                                  FROM "JFR"."jdk.NetworkUtilization"
+                                )
+                                WHERE rn = CAST(total * 0.05 AS INTEGER)
+                                """)
+                        .post("/api/beta/recording_analytics/{jvmId}/{filename}")
+                        .then()
+                        .log()
+                        .all()
+                        .and()
+                        .assertThat()
+                        .statusCode(200)
+                        .contentType(ContentType.JSON)
+                        .and()
+                        .extract()
+                        .body()
+                        .jsonPath()
+                        .getList("$");
+
+        MatcherAssert.assertThat(result, Matchers.notNullValue());
+        MatcherAssert.assertThat(result.size(), Matchers.equalTo(1));
+        MatcherAssert.assertThat(result.get(0).size(), Matchers.equalTo(1));
+
+        MatcherAssert.assertThat(result.get(0).get(0), Matchers.equalTo("2787648"));
+    }
+
+    @Test
+    void testResidentSetSizeMinMaxAvgMetrics() {
+        List<List<String>> result =
+                given().log()
+                        .all()
+                        .when()
+                        .pathParams("jvmId", "uploads", "filename", RECORDING_FILENAME)
+                        .formParam(
+                                "query",
+                                """
+                                SELECT
+                                  MIN("size") as "min_rss",
+                                  MAX("size") as "max_rss",
+                                  AVG("size") as "avg_rss"
+                                FROM "JFR"."jdk.ResidentSetSize"
+                                """)
+                        .post("/api/beta/recording_analytics/{jvmId}/{filename}")
+                        .then()
+                        .log()
+                        .all()
+                        .and()
+                        .assertThat()
+                        .statusCode(200)
+                        .contentType(ContentType.JSON)
+                        .and()
+                        .extract()
+                        .body()
+                        .jsonPath()
+                        .getList("$");
+
+        MatcherAssert.assertThat(result, Matchers.notNullValue());
+        MatcherAssert.assertThat(result.size(), Matchers.equalTo(1));
+        MatcherAssert.assertThat(result.get(0).size(), Matchers.equalTo(3));
+
+        MatcherAssert.assertThat(result.get(0).get(0), Matchers.equalTo("449454080")); // min_rss
+        MatcherAssert.assertThat(result.get(0).get(1), Matchers.equalTo("535076864")); // max_rss
+        MatcherAssert.assertThat(result.get(0).get(2), Matchers.equalTo("502108405")); // avg_rss
+    }
+
+    @Test
+    void testResidentSetSizeP95() {
+        List<List<String>> result =
+                given().log()
+                        .all()
+                        .when()
+                        .pathParams("jvmId", "uploads", "filename", RECORDING_FILENAME)
+                        .formParam(
+                                "query",
+                                """
+                                SELECT "size"
+                                FROM (
+                                  SELECT "size", ROW_NUMBER() OVER (ORDER BY "size" DESC) as rn,
+                                         COUNT(*) OVER () as total
+                                  FROM "JFR"."jdk.ResidentSetSize"
+                                )
+                                WHERE rn = CAST(total * 0.05 AS INTEGER)
+                                """)
+                        .post("/api/beta/recording_analytics/{jvmId}/{filename}")
+                        .then()
+                        .log()
+                        .all()
+                        .and()
+                        .assertThat()
+                        .statusCode(200)
+                        .contentType(ContentType.JSON)
+                        .and()
+                        .extract()
+                        .body()
+                        .jsonPath()
+                        .getList("$");
+
+        MatcherAssert.assertThat(result, Matchers.notNullValue());
+        MatcherAssert.assertThat(result.size(), Matchers.equalTo(1));
+        MatcherAssert.assertThat(result.get(0).size(), Matchers.equalTo(1));
+
+        MatcherAssert.assertThat(result.get(0).get(0), Matchers.equalTo("533557248"));
+    }
 }

@@ -151,7 +151,8 @@ public class AsyncAPISchemaBuilder {
         message.put("name", category);
         message.put("title", formatTitle(category));
         message.put("summary", "Notification: " + category);
-        message.put("description", "WebSocket notification for " + formatTitle(category) + " events");
+        message.put(
+                "description", "WebSocket notification for " + formatTitle(category) + " events");
 
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("type", "object");

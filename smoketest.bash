@@ -110,6 +110,7 @@ while getopts "hs:prGtAOVXc:bnkv" opt; do
             ;;
         X)
             FILES+=("${DIR}/compose/db-viewer.yml")
+            FILES+=("${DIR}/compose/prometheus.yml")
             ;;
         c)
             container_engine="${OPTARG}"
@@ -285,7 +286,7 @@ createProxyCfgVolume() {
     "${container_engine}" cp "${htpasswd}" proxy_cfg_helper:/tmp/auth_proxy_htpasswd
     "${container_engine}" cp "${cfg}" proxy_cfg_helper:/tmp/auth_proxy_alpha_config.yml
     if [ "${DRY_RUN}" = "true" ]; then
-        "${container_engine}" volume export auth_proxy_cfg > auth_proxy_cfg.tar.gz
+        "${container_engine}" volume export auth_proxy_cfg > auth_proxy_cfg.tar
     fi
     rm "${htpasswd}"
 }
@@ -299,7 +300,7 @@ createProxyCertsVolume() {
         "${container_engine}" cp "${DIR}/compose/auth_certs/private.key" proxy_certs_helper:/certs/private.key
     fi
     if [ "${DRY_RUN}" = "true" ]; then
-        "${container_engine}" volume export auth_proxy_certs > auth_proxy_certs.tar.gz
+        "${container_engine}" volume export auth_proxy_certs > auth_proxy_certs.tar
     fi
 }
 
@@ -308,7 +309,7 @@ createLocalstackCfgVolume() {
     "${container_engine}" container create --name localstack_cfg_helper -v localstack_cfg:/tmp registry.access.redhat.com/ubi9/ubi-micro
     "${container_engine}" cp "${DIR}/compose/localstack_buckets.sh" localstack_cfg_helper:/tmp
     if [ "${DRY_RUN}" = "true" ]; then
-        "${container_engine}" volume export localstack_cfg > localstack_cfg.tar.gz
+        "${container_engine}" volume export localstack_cfg > localstack_cfg.tar
     fi
 }
 
@@ -319,7 +320,7 @@ createJmxTlsCertVolume() {
         "${container_engine}" cp "${DIR}/truststore" jmxtls_cfg_helper:/truststore
     fi
     if [ "${DRY_RUN}" = "true" ]; then
-        "${container_engine}" volume export jmxtls_cfg > jmxtls_cfg.tar.gz
+        "${container_engine}" volume export jmxtls_cfg > jmxtls_cfg.tar
     fi
 }
 
@@ -330,7 +331,7 @@ createEventTemplateVolume() {
         "${container_engine}" cp "${DIR}/templates" templates_helper:/templates
     fi
     if [ "${DRY_RUN}" = "true" ]; then
-        "${container_engine}" volume export templates > templates.tar.gz
+        "${container_engine}" volume export templates > templates.tar
     fi
 }
 
@@ -341,7 +342,7 @@ createProbeTemplateVolume() {
         "${container_engine}" cp "${DIR}/probes" probes_helper:/probes
     fi
     if [ "${DRY_RUN}" = "true" ]; then
-        "${container_engine}" volume export probes > probes.tar.gz
+        "${container_engine}" volume export probes > probes.tar
     fi
 }
 
@@ -352,7 +353,16 @@ createCredentialVolume() {
         "${container_engine}" cp "${DIR}/credentials" credentials_helper:/credentials
     fi
     if [ "${DRY_RUN}" = "true" ]; then
-        "${container_engine}" volume export credentials > credentials.tar.gz
+        "${container_engine}" volume export credentials > credentials.tar
+    fi
+}
+
+createPrometheusCfgVolume() {
+    "${container_engine}" volume create prometheus_cfg
+    "${container_engine}" container create --name prometheus_cfg_helper -v prometheus_cfg:/etc/prometheus registry.access.redhat.com/ubi9/ubi-micro
+    "${container_engine}" cp "${DIR}/compose/prometheus_config.yml" prometheus_cfg_helper:/etc/prometheus/prometheus.yml
+    if [ "${DRY_RUN}" = "true" ]; then
+        "${container_engine}" volume export prometheus_cfg > prometheus_cfg.tar
     fi
 }
 
@@ -371,6 +381,9 @@ createVolumes() {
     createEventTemplateVolume
     createProbeTemplateVolume
     createCredentialVolume
+    if printf '%s\n' "${FILES[@]}" | grep -q "prometheus.yml"; then
+        createPrometheusCfgVolume
+    fi
 }
 
 cleanupVolumes() {
@@ -392,6 +405,8 @@ cleanupVolumes() {
     ${container_engine} volume rm probes || true
     ${container_engine} rm credentials_helper || true
     ${container_engine} volume rm credentials || true
+    ${container_engine} rm prometheus_cfg_helper || true
+    ${container_engine} volume rm prometheus_cfg || true
 }
 
 if [ "${KEEP_VOLUMES}" != "true" ]; then

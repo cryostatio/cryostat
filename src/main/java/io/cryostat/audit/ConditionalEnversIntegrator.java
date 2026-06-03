@@ -67,7 +67,11 @@ public class ConditionalEnversIntegrator implements Integrator {
         // TODO we don't have CDI/Quarkus ArC at this point so we can't use the smallrye-config
         // configuration loader. This should ideally be a 'cryostat.audit.enabled' config property,
         // not only an environment variable.
-        String auditEnv = System.getenv(AUDIT_ENABLED_ENV_VAR);
+        // Check system property first (for tests), then environment variable
+        String auditEnv = System.getProperty(AUDIT_ENABLED_ENV_VAR);
+        if (StringUtils.isBlank(auditEnv)) {
+            auditEnv = System.getenv(AUDIT_ENABLED_ENV_VAR);
+        }
         if (StringUtils.isNotBlank(auditEnv)) {
             settings.put(ENVERS_ENABLED_PROPERTY, auditEnv);
         }

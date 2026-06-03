@@ -3,7 +3,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>io.cryostat</groupId>
   <artifactId>cryostat</artifactId>
-  <version>4.2.0-SNAPSHOT</version>
+  <version>4.3.0-SNAPSHOT</version>
 
   <repositories>
     <repository>
@@ -35,7 +35,7 @@
 
     <build.arch>amd64</build.arch>
 
-    <io.cryostat.core.version>4.2.0-SNAPSHOT</io.cryostat.core.version>
+    <io.cryostat.core.version>4.3.0-SNAPSHOT</io.cryostat.core.version>
     <org.openjdk.jmc.version>9.1.2</org.openjdk.jmc.version>
 
     <org.apache.commons.io.version>2.16.1</org.apache.commons.io.version>
@@ -44,27 +44,27 @@
     <org.projectnessie.cel.bom.version>0.5.2</org.projectnessie.cel.bom.version>
     <com.google.protobuf-java.version>4.31.1</com.google.protobuf-java.version>
     <com.nimbusds.jose.jwt.version>10.7</com.nimbusds.jose.jwt.version>
-    <org.testcontainers.bom.version>2.0.4</org.testcontainers.bom.version>
+    <org.testcontainers.bom.version>2.0.5</org.testcontainers.bom.version>
     <jfr-analytics.version>352daa673e</jfr-analytics.version>
     <org.apache.calcite.version>1.34.0</org.apache.calcite.version>
     <quarkus.platform.artifact-id>quarkus-bom</quarkus.platform.artifact-id>
     <quarkus.platform.group-id>io.quarkus.platform</quarkus.platform.group-id>
-    <quarkus.platform.version>3.27.2</quarkus.platform.version>
-    <quarkus-quinoa.version>2.8.0</quarkus-quinoa.version>
-    <org.hibernate.orm.hibernate.jfr.version>7.1.4.Final</org.hibernate.orm.hibernate.jfr.version><!-- TODO is there some way to grab the Hibernate version used by Quarkus to match this version? -->
+    <quarkus.platform.version>3.27.3.1</quarkus.platform.version>
+    <quarkus-quinoa.version>2.8.2</quarkus-quinoa.version>
+    <org.hibernate.orm.hibernate.jfr.version>7.1.18.Final</org.hibernate.orm.hibernate.jfr.version>
     <org.codehaus.mojo.build.helper.plugin.version>3.6.1</org.codehaus.mojo.build.helper.plugin.version>
     <org.codehaus.mojo.exec.plugin.version>3.6.3</org.codehaus.mojo.exec.plugin.version>
     <assembly-plugin.version>3.8.0</assembly-plugin.version>
 
     <com.github.spotbugs.version>4.9.8</com.github.spotbugs.version>
     <com.github.spotbugs.plugin.version>4.9.8.3</com.github.spotbugs.plugin.version>
-    <com.diffplug.spotless.maven.plugin.version>3.4.0</com.diffplug.spotless.maven.plugin.version>
+    <com.diffplug.spotless.maven.plugin.version>3.6.0</com.diffplug.spotless.maven.plugin.version>
     <com.google.java-format.version>1.35.0</com.google.java-format.version>
     <com.mycila.license.maven.plugin.version>5.0.0</com.mycila.license.maven.plugin.version>
-    <surefire-plugin.version>3.5.5</surefire-plugin.version>
-    <surefire.rerunFailingTestsCount>0</surefire.rerunFailingTestsCount>
+    <surefire-plugin.version>3.5.6</surefire-plugin.version>
+    <surefire.rerunFailingTestsCount>2</surefire.rerunFailingTestsCount>
     <skip.surefire.tests>${skipTests}</skip.surefire.tests>
-    <failsafe-plugin.version>3.5.5</failsafe-plugin.version>
+    <failsafe-plugin.version>3.5.6</failsafe-plugin.version>
     <failsafe.rerunFailingTestsCount>${surefire.rerunFailingTestsCount}</failsafe.rerunFailingTestsCount>
   </properties>
   <dependencyManagement>
@@ -351,7 +351,11 @@
       <version>${com.google.java-format.version}</version>
       <scope>provided</scope>
     </dependency>
-
+    <dependency>
+      <groupId>me.bechberger</groupId>
+      <artifactId>jthreaddump</artifactId>
+      <version>0.5.8</version>
+    </dependency>
     <dependency>
       <groupId>io.quarkus</groupId>
       <artifactId>quarkus-flyway</artifactId>
@@ -436,6 +440,19 @@
         <artifactId>exec-maven-plugin</artifactId>
         <version>${org.codehaus.mojo.exec.plugin.version}</version>
         <executions>
+          <execution>
+            <id>validate-hibernate-version-alignment</id>
+            <phase>process-sources</phase>
+            <goals>
+              <goal>exec</goal>
+            </goals>
+            <configuration>
+              <executable>${project.basedir}/check-hibernate-version.sh</executable>
+              <arguments>
+                <argument>${org.hibernate.orm.hibernate.jfr.version}</argument>
+              </arguments>
+            </configuration>
+          </execution>
           <execution>
             <id>generate-git-version</id>
             <phase>generate-resources</phase>
@@ -599,6 +616,22 @@
         <quarkus.native.enabled>true</quarkus.native.enabled>
         <quarkus.package.jar.enabled>false</quarkus.package.jar.enabled>
       </properties>
+    </profile>
+
+    <profile>
+      <id>jacoco</id>
+      <activation>
+        <property>
+          <name>jacoco</name>
+        </property>
+      </activation>
+      <dependencies>
+        <dependency>
+          <groupId>io.quarkus</groupId>
+          <artifactId>quarkus-jacoco</artifactId>
+          <scope>test</scope>
+        </dependency>
+      </dependencies>
     </profile>
 
     <profile>

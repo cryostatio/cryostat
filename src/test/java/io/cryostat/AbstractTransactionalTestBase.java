@@ -16,6 +16,7 @@
 package io.cryostat;
 
 import jakarta.inject.Inject;
+import jakarta.persistence.EntityManager;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.BeforeEach;
 import org.quartz.SchedulerException;
@@ -23,6 +24,7 @@ import org.quartz.SchedulerException;
 public abstract class AbstractTransactionalTestBase extends AbstractTestBase {
 
     @Inject Flyway flyway;
+    @Inject EntityManager entityManager;
 
     @BeforeEach
     void migrateFlyway() throws SchedulerException {
@@ -30,6 +32,7 @@ public abstract class AbstractTransactionalTestBase extends AbstractTestBase {
         flyway.clean();
         flyway.migrate();
         flyway.validate();
+        entityManager.clear();
         restartScheduler();
     }
 }

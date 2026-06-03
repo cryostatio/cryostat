@@ -35,6 +35,8 @@ import java.util.Set;
 import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
 
+import io.cryostat.ConfigProperties;
+
 import com.nimbusds.jose.EncryptionMethod;
 import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jose.JWEAlgorithm;
@@ -71,7 +73,7 @@ public class DiscoveryJwtFactory {
     static final String DISCOVERY_V4_API_PATH = "/api/v4/discovery/";
     static final String DISCOVERY_V4_2_API_PATH = "/api/v4.2/discovery/";
 
-    @ConfigProperty(name = "cryostat.discovery.plugins.ping-period")
+    @ConfigProperty(name = ConfigProperties.DISCOVERY_PLUGINS_PING_PERIOD)
     Duration discoveryPingPeriod;
 
     @ConfigProperty(name = "cryostat.discovery.plugins.jwt.signature.algorithm")

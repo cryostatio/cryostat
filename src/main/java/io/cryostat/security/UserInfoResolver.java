@@ -203,24 +203,27 @@ public class UserInfoResolver {
     }
 
     static String getRemoteAddress(RoutingContext routingContext) {
-        String forwardedFor = routingContext.request().getHeader("X-Forwarded-For");
-        if (StringUtils.isNotBlank(forwardedFor)) {
-            // X-Forwarded-For can contain multiple IPs, take the first one (original client)
-            int commaIndex = forwardedFor.indexOf(',');
-            return commaIndex > 0
-                    ? forwardedFor.substring(0, commaIndex).trim()
-                    : forwardedFor.trim();
-        }
+        try {
+            String forwardedFor = routingContext.request().getHeader("X-Forwarded-For");
+            if (StringUtils.isNotBlank(forwardedFor)) {
+                // X-Forwarded-For can contain multiple IPs, take the first one (original client)
+                int commaIndex = forwardedFor.indexOf(',');
+                return commaIndex > 0
+                        ? forwardedFor.substring(0, commaIndex).trim()
+                        : forwardedFor.trim();
+            }
 
-        String realIp = routingContext.request().getHeader("X-Real-IP");
-        if (StringUtils.isNotBlank(realIp)) {
-            return realIp.trim();
-        }
+            String realIp = routingContext.request().getHeader("X-Real-IP");
+            if (StringUtils.isNotBlank(realIp)) {
+                return realIp.trim();
+            }
 
-        if (routingContext.request().remoteAddress() != null) {
-            return routingContext.request().remoteAddress().host();
+            if (routingContext.request().remoteAddress() != null) {
+                return routingContext.request().remoteAddress().host();
+            }
+        } catch (Exception e) {
+            logger.debugf(e, "Could not retrieve remote address via RoutingContext");
         }
-
         return null;
     }
 }

@@ -1,0 +1,12 @@
+global:
+  scrape_interval: 30s
+  evaluation_interval: 30s
+
+scrape_configs:
+  - job_name: 'cryostat-analysis-reports'
+    metrics_path: '/api/v4.1/metrics/reports'
+    scheme: http
+    static_configs:
+      - targets: ['cryostat:8181']
+        labels:
+          instance: 'cryostat-smoketest'

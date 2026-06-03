@@ -15,9 +15,7 @@
  */
 package io.cryostat.recordings;
 
-import java.net.URI;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -25,17 +23,15 @@ import org.openjdk.jmc.common.unit.UnitLookup;
 import org.openjdk.jmc.flightrecorder.configuration.IRecordingDescriptor;
 
 import io.cryostat.ConfigProperties;
-import io.cryostat.recordings.ActiveRecordings.LinkedRecordingDescriptor;
 import io.cryostat.recordings.ActiveRecordings.Metadata;
+import io.cryostat.recordings.events.ActiveRecordingEvents;
 import io.cryostat.targets.Target;
-import io.cryostat.ws.MessagingServer;
-import io.cryostat.ws.Notification;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import io.quarkus.narayana.jta.QuarkusTransaction;
-import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.event.Event;
 import jakarta.inject.Inject;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EntityListeners;
@@ -186,8 +182,10 @@ public class ActiveRecording extends PanacheEntity {
     static class Listener {
 
         @Inject Logger logger;
-        @Inject EventBus bus;
         @Inject RecordingHelper recordingHelper;
+        @Inject Event<ActiveRecordingEvents.ActiveRecordingCreated> createdEvent;
+        @Inject Event<ActiveRecordingEvents.ActiveRecordingStopped> stoppedEvent;
+        @Inject Event<ActiveRecordingEvents.ActiveRecordingDeleted> deletedEvent;
         ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
 
         @ConfigProperty(name = ConfigProperties.EXTERNAL_RECORDINGS_ARCHIVE)
@@ -201,25 +199,25 @@ public class ActiveRecording extends PanacheEntity {
                 // recording
                 return;
             }
-            bus.publish(
-                    ActiveRecordings.RecordingEventCategory.ACTIVE_CREATED.category(),
-                    activeRecording);
-            notify(
-                    new ActiveRecordingEvent(
-                            ActiveRecordings.RecordingEventCategory.ACTIVE_CREATED,
-                            ActiveRecordingEvent.Payload.of(recordingHelper, activeRecording)));
+            createdEvent.fire(
+                    new ActiveRecordingEvents.ActiveRecordingCreated(
+                            activeRecording.id.longValue(),
+                            new ActiveRecordingEvents.ActiveRecordingSnapshot(
+                                    activeRecording.target.connectUrl.toString(),
+                                    recordingHelper.toExternalForm(activeRecording),
+                                    activeRecording.target.jvmId)));
         }
 
         @PostUpdate
         public void postUpdate(ActiveRecording activeRecording) {
             if (RecordingState.STOPPED.equals(activeRecording.state)) {
-                bus.publish(
-                        ActiveRecordings.RecordingEventCategory.ACTIVE_STOPPED.category(),
-                        activeRecording);
-                notify(
-                        new ActiveRecordingEvent(
-                                ActiveRecordings.RecordingEventCategory.ACTIVE_STOPPED,
-                                ActiveRecordingEvent.Payload.of(recordingHelper, activeRecording)));
+                stoppedEvent.fire(
+                        new ActiveRecordingEvents.ActiveRecordingStopped(
+                                activeRecording.id.longValue(),
+                                new ActiveRecordingEvents.ActiveRecordingSnapshot(
+                                        activeRecording.target.connectUrl.toString(),
+                                        recordingHelper.toExternalForm(activeRecording),
+                                        activeRecording.target.jvmId)));
                 if (activeRecording.archiveOnStop
                         && (!activeRecording.external
                                 || (activeRecording.external && archiveExternal))) {
@@ -248,80 +246,13 @@ public class ActiveRecording extends PanacheEntity {
 
         @PostRemove
         public void postRemove(ActiveRecording activeRecording) {
-            bus.publish(
-                    ActiveRecordings.RecordingEventCategory.ACTIVE_DELETED.category(),
-                    activeRecording);
-            notify(
-                    new ActiveRecordingEvent(
-                            ActiveRecordings.RecordingEventCategory.ACTIVE_DELETED,
-                            ActiveRecordingEvent.Payload.of(recordingHelper, activeRecording)));
-        }
-
-        private void notify(ActiveRecordingEvent event) {
-            bus.publish(
-                    MessagingServer.class.getName(),
-                    new Notification(event.category().category(), event.payload()));
-        }
-
-        public record ActiveRecordingEvent(
-                ActiveRecordings.RecordingEventCategory category, Payload payload) {
-            public ActiveRecordingEvent {
-                Objects.requireNonNull(category);
-                Objects.requireNonNull(payload);
-            }
-
-            public record Payload(
-                    String target, LinkedRecordingDescriptor recording, String jvmId) {
-                public Payload {
-                    Objects.requireNonNull(target);
-                    Objects.requireNonNull(recording);
-                    // jvmId may still be null if, for example, Cryostat is starting a recording on
-                    // a newly-discovered Target due to an enabled Automated Rule. The event may be
-                    // processed and the recording started before the parallel/concurrent job to
-                    // acquire the JVM ID has been completed.
-                    // Objects.requireNonNull(jvmId);
-                }
-
-                public static Payload of(RecordingHelper helper, ActiveRecording recording) {
-                    return new Payload(
-                            recording.target.connectUrl.toString(),
-                            helper.toExternalForm(recording),
-                            recording.target.jvmId);
-                }
-            }
-        }
-
-        public record ArchivedRecordingEvent(
-                ActiveRecordings.RecordingEventCategory category, Payload payload) {
-            public ArchivedRecordingEvent {
-                Objects.requireNonNull(category);
-                Objects.requireNonNull(payload);
-            }
-
-            // FIXME the target connectUrl URI may no longer be known if the target
-            // has disappeared and we are emitting an event regarding an archived recording
-            // originally sourced from that target, or if we are accepting a recording upload from a
-            // client.
-            public record Payload(
-                    String target, String jvmId, ArchivedRecordings.ArchivedRecording recording) {
-                public Payload {
-                    Objects.requireNonNull(recording);
-                }
-
-                public static Payload of(
-                        URI connectUrl, ArchivedRecordings.ArchivedRecording recording) {
-                    return new Payload(
-                            Optional.ofNullable(connectUrl).map(URI::toString).orElse(null),
-                            Optional.ofNullable(connectUrl)
-                                    .flatMap(
-                                            url ->
-                                                    Target.find("connectUrl", url)
-                                                            .<Target>singleResultOptional())
-                                    .map(t -> t.jvmId)
-                                    .orElse(null),
-                            recording);
-                }
-            }
+            deletedEvent.fire(
+                    new ActiveRecordingEvents.ActiveRecordingDeleted(
+                            activeRecording.id.longValue(),
+                            new ActiveRecordingEvents.ActiveRecordingSnapshot(
+                                    activeRecording.target.connectUrl.toString(),
+                                    recordingHelper.toExternalForm(activeRecording),
+                                    activeRecording.target.jvmId)));
         }
     }
 }

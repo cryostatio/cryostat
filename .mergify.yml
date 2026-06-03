@@ -1,12 +1,12 @@
 pull_request_rules:
-  - name: backport patches to cryostat-v4.1 branch
+  - name: backport patches to cryostat-v4.2 branch
     conditions:
      - base=main
      - label=backport
     actions:
       backport:
         branches:
-          - cryostat-v4.1
+          - cryostat-v4.2
         assignees:
           - "{{ author }}"
 
@@ -25,16 +25,6 @@ pull_request_rules:
       dismiss_reviews:
         approved: [ 'mergify', 'Mergifyio' ]
         changes_requested: [ 'mergify', 'Mergifyio' ]
-
-  - name: set reviewers for pull requests that update web-client
-    conditions:
-      - or:
-        - files=src/main/webui
-        - files~=src/main/webui/
-    actions:
-      request_reviews:
-        teams:
-          - "@cryostatio/maintainers"
 
   - name: request reviews from the reviewers team
     conditions:

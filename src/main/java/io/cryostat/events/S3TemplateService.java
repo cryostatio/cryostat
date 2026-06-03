@@ -62,6 +62,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
 import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
+import jakarta.transaction.Transactional;
 import jakarta.ws.rs.core.MediaType;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang3.tuple.Pair;
@@ -278,6 +279,7 @@ public class S3TemplateService implements MutableTemplateService {
     }
 
     @Override
+    @Transactional
     public Template addTemplate(InputStream stream)
             throws InvalidXmlException, InvalidEventTemplateException, IOException {
         try (stream) {
@@ -351,6 +353,13 @@ public class S3TemplateService implements MutableTemplateService {
                     .completionFuture()
                     .join();
 
+            EventTemplate.of(
+                            template.getName(),
+                            template.getType().toString(),
+                            template.getProvider(),
+                            template.getDescription())
+                    .persist();
+
             bus.publish(
                     MessagingServer.class.getName(),
                     new Notification(
@@ -368,6 +377,7 @@ public class S3TemplateService implements MutableTemplateService {
     }
 
     @Override
+    @Transactional
     public void deleteTemplate(String templateName) {
         try {
             var template =
@@ -377,6 +387,12 @@ public class S3TemplateService implements MutableTemplateService {
                             .orElseThrow();
             var req = DeleteObjectRequest.builder().bucket(bucket).key(templateName).build();
             if (storage.deleteObject(req).sdkHttpResponse().isSuccessful()) {
+                EventTemplate.<EventTemplate>find(
+                                "templateName = ?1 and templateType = ?2",
+                                templateName,
+                                template.getType().toString())
+                        .firstResultOptional()
+                        .ifPresent(EventTemplate::delete);
                 bus.publish(
                         MessagingServer.class.getName(),
                         new Notification(

@@ -56,6 +56,7 @@ import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.core.MediaType;
+import me.bechberger.jthreaddump.parser.ThreadDumpParser;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
@@ -173,6 +174,17 @@ public class DiagnosticsHelper {
         return t.alias + "_" + uuid + extension;
     }
 
+    public ThreadDumpAnalysis analyzeThreadDump(String jvmId, String threadDumpId)
+            throws IOException {
+        try (InputStream stream = getThreadDumpStream(jvmId, threadDumpId)) {
+            String content = new String(stream.readAllBytes(), StandardCharsets.UTF_8);
+            return new ThreadDumpAnalysis(ThreadDumpParser.parse(content));
+        } catch (IOException ioe) {
+            log.errorv("Failed to parse thread dump", ioe);
+            throw ioe;
+        }
+    }
+
     public void deleteHeapDump(String jvmId, String heapDumpId)
             throws BadRequestException, NoSuchKeyException {
         String key = storageKey(jvmId, heapDumpId);
@@ -195,6 +207,10 @@ public class DiagnosticsHelper {
             default:
                 throw new IllegalStateException();
         }
+
+        QuarkusTransaction.joiningExisting()
+                .run(() -> io.cryostat.diagnostic.HeapDump.delete("filename", heapDumpId));
+
         var event =
                 new HeapDumpEvent(
                         EventCategory.HEAP_DUMP_DELETED,
@@ -292,6 +308,10 @@ public class DiagnosticsHelper {
             default:
                 throw new IllegalStateException();
         }
+
+        QuarkusTransaction.joiningExisting()
+                .run(() -> io.cryostat.diagnostic.ThreadDump.delete("filename", threadDumpId));
+
         var event =
                 new ThreadDumpEvent(
                         EventCategory.DELETED,

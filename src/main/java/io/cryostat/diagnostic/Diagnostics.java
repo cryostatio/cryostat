@@ -15,6 +15,7 @@
  */
 package io.cryostat.diagnostic;
 
+import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.time.Duration;
@@ -134,14 +135,20 @@ public class Diagnostics {
 
     @Path("targets/{targetId}/threaddump")
     @RolesAllowed("write")
+    @Blocking
+    @Transactional
     @POST
     public String threadDump(
             HttpServerResponse response,
             @RestPath long targetId,
             @QueryParam("format") @DefaultValue(DiagnosticsHelper.DUMP_THREADS) String format) {
         log.tracev("Creating new thread dump request for target: {0}", targetId);
-        ThreadDumpRequest request =
-                new ThreadDumpRequest(UUID.randomUUID().toString(), targetId, format);
+        Target target = Target.getTargetById(targetId);
+        String jobId = UUID.randomUUID().toString();
+
+        io.cryostat.diagnostic.ThreadDump.requested(target, jobId, format).persist();
+
+        ThreadDumpRequest request = new ThreadDumpRequest(jobId, targetId, format);
         response.endHandler(
                 (e) -> bus.publish(LongRunningRequestGenerator.THREAD_DUMP_ADDRESS, request));
         return request.id();
@@ -179,6 +186,16 @@ public class Diagnostics {
     public void deleteThreadDump(@RestPath long targetId, @RestPath String threadDumpId) {
         log.tracev("Deleting thread dump with ID: {0}", threadDumpId);
         helper.deleteThreadDump(Target.getTargetById(targetId).jvmId, threadDumpId);
+    }
+
+    @POST
+    @Blocking
+    @Transactional
+    @Path("targets/{jvmId}/threaddump/{threadDumpId}/analyze")
+    @RolesAllowed("write")
+    public ThreadDumpAnalysis analyzeThreadDump(
+            @RestPath String jvmId, @RestPath String threadDumpId) throws IOException {
+        return helper.analyzeThreadDump(jvmId, threadDumpId);
     }
 
     @DELETE
@@ -264,11 +281,14 @@ public class Diagnostics {
                     request. This is generally equivalent to a System.gc() call made within the target JVM.
                     """)
     public void gc(@RestPath long targetId) {
+        Target target = Target.getTargetById(targetId);
         targetConnectionManager.executeConnectedTask(
-                Target.getTargetById(targetId),
+                target,
                 conn ->
                         conn.invokeMBeanOperation(
                                 "java.lang:type=Memory", "gc", null, null, Void.class));
+
+        GarbageCollection.of(target).persist();
     }
 
     @Path("fs/heapdumps")
@@ -307,6 +327,8 @@ public class Diagnostics {
     @Path("targets/{targetId}/heapdump")
     @RolesAllowed("write")
     @POST
+    @Blocking
+    @Transactional
     @Operation(
             summary = "Initiates a heap dump on the specified target",
             description =
@@ -315,12 +337,17 @@ public class Diagnostics {
                     """)
     public String heapDump(HttpServerResponse response, @RestPath long targetId) {
         log.tracev("Initiating heap dump for target: {0}", targetId);
-        if (!Target.getTargetById(targetId).isAgent()) {
+        Target target = Target.getTargetById(targetId);
+        if (!target.isAgent()) {
             // While we can trigger a heap dump in a JMX target, without the agent
             // we can't retrieve it. We should fail here.
             throw new BadRequestException("Target is not an agent connection.");
         }
-        HeapDumpRequest request = new HeapDumpRequest(UUID.randomUUID().toString(), targetId);
+        String jobId = UUID.randomUUID().toString();
+
+        io.cryostat.diagnostic.HeapDump.requested(target, jobId).persist();
+
+        HeapDumpRequest request = new HeapDumpRequest(jobId, targetId);
         response.endHandler(
                 (e) -> bus.publish(LongRunningRequestGenerator.HEAP_DUMP_REQUEST_ADDRESS, request));
         return request.id();
@@ -342,8 +369,19 @@ public class Diagnostics {
     }
 
     @Blocking
+    @Transactional
+    @SuppressFBWarnings("DLS_DEAD_LOCAL_STORE")
     Map<String, Object> doUpload(FileUpload heapDump, String jvmId, String jobId) {
         var dump = helper.addHeapDump(jvmId, heapDump, jobId);
+
+        io.cryostat.diagnostic.HeapDump.<io.cryostat.diagnostic.HeapDump>find("jobId", jobId)
+                .firstResultOptional()
+                .ifPresent(
+                        hd -> {
+                            hd.markCompleted(dump.heapDumpId(), dump.size());
+                            hd.persist();
+                        });
+
         return Map.of("name", dump.heapDumpId());
     }
 

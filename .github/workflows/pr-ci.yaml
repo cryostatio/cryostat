@@ -26,7 +26,7 @@ jobs:
     - name: Show warning if permission is denied
       if: |
         !(github.event.comment.author_association == 'MEMBER' || github.event.comment.author_association == 'OWNER')
-        && (!contains(github.event.issue.labels.*.name, 'safe-to-test') || github.event.issue.user.name != github.event.comment.user.name)
+        && (!contains(github.event.issue.labels.*.name, 'safe-to-test') || github.event.issue.user.login != github.event.comment.user.login)
       uses: thollander/actions-comment-pull-request@v3
       with:
         message: |-
@@ -35,10 +35,10 @@ jobs:
     - name: Fail if command permission is denied
       if: |
         !(github.event.comment.author_association == 'MEMBER' || github.event.comment.author_association == 'OWNER')
-        && (!contains(github.event.issue.labels.*.name, 'safe-to-test') || github.event.issue.user.name != github.event.comment.user.name)
+        && (!contains(github.event.issue.labels.*.name, 'safe-to-test') || github.event.issue.user.login != github.event.comment.user.login)
       run: exit 1
     - name: React to comment
-      uses: actions/github-script@v8
+      uses: actions/github-script@v9
       with:
         script: |
             const {owner, repo} = context.issue
@@ -60,7 +60,7 @@ jobs:
     permissions:
       pull-requests: read
     steps:
-    - uses: actions/github-script@v8
+    - uses: actions/github-script@v9
       id: comment-branch
       with:
         script: |
@@ -78,7 +78,7 @@ jobs:
       pull-requests: write
     steps:
     - name: Leave Actions Run Comment
-      uses: actions/github-script@v8
+      uses: actions/github-script@v9
       with:
         script: |
           const runURL = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${{ github.run_id }}`;
@@ -124,6 +124,10 @@ jobs:
           [[registry]]
           location = "docker.io"
           blocked = true
+    - name: Install ansi2txt utility
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y colorized-logs
     - name: Set pending commit status
       uses: myrotvorets/set-commit-status-action@v2.0.1
       if: always()
@@ -133,6 +137,8 @@ jobs:
         token: ${{ secrets.GITHUB_TOKEN }}
         status: pending
     - name: Run unit tests
+      id: run-tests
+      continue-on-error: true
       run: |
         ./mvnw -B -U \
           -Dquarkus.container-image.builder=docker \
@@ -150,20 +156,16 @@ jobs:
         name: cryostat-unittest.log
         path: test.log
     - name: Add workflow result as comment on PR
-      uses: actions/github-script@v8
       if: always()
-      with:
-        script: |
-          const name = '${{github.workflow}}';
-          const url = '${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}';
-          const success = '${{ job.status }}' === 'success';
-          const body = `${name}: ${success ? 'Unit tests pass ✅' : 'At least one unit test failed ❌'}\n${url}`;
-          github.rest.issues.createComment({
-            issue_number: context.issue.number,
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            body: body
-          })
+      continue-on-error: true
+      run: |
+        > comment.txt
+        echo "${{ github.workflow }}:" >> comment.txt
+        ./parse-test-results.bash test.log "Unit" >> comment.txt
+        echo "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" >> comment.txt
+        gh pr comment ${{ needs.checkout-branch.outputs.PR_num }} --repo ${{ github.repository }} --body-file comment.txt
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     - name: Set latest commit status
       uses: myrotvorets/set-commit-status-action@v2.0.1
       if: always()
@@ -171,7 +173,7 @@ jobs:
         context: unit-test
         sha: ${{ needs.checkout-branch.outputs.PR_head_sha}}
         token: ${{ secrets.GITHUB_TOKEN }}
-        status: ${{ job.status }}
+        status: ${{ steps.run-tests.outcome }}
 
   integration-test:
     needs: [checkout-branch]
@@ -206,6 +208,10 @@ jobs:
           [[registry]]
           location = "docker.io"
           blocked = true
+    - name: Install ansi2txt utility
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y colorized-logs
     - name: Set pending commit status
       uses: myrotvorets/set-commit-status-action@v2.0.1
       if: always()
@@ -238,9 +244,9 @@ jobs:
         cd src/main/webui
         yarn install && yarn yarn:frzinstall
         cd -
-    - name: Add CRIU PPA
-      run: sudo add-apt-repository ppa:criu/ppa
     - name: Run integration tests
+      id: run-tests
+      continue-on-error: true
       run: |
         ./mvnw -B -U \
           -Dquarkus.container-image.builder=docker \
@@ -266,20 +272,16 @@ jobs:
         name: cryostat-itest-server.log
         path: target/quarkus.log
     - name: Add workflow result as comment on PR
-      uses: actions/github-script@v8
       if: always()
-      with:
-        script: |
-          const name = '${{github.workflow}}';
-          const url = '${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}';
-          const success = '${{ job.status }}' === 'success';
-          const body = `${name}: ${success ? 'Integration tests pass ✅' : 'At least one integration test failed ❌'}\n${url}`;
-          github.rest.issues.createComment({
-            issue_number: context.issue.number,
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            body: body
-          })
+      continue-on-error: true
+      run: |
+        > comment.txt
+        echo "${{ github.workflow }}:" >> comment.txt
+        ./parse-test-results.bash test.log "Integration" >> comment.txt
+        echo "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" >> comment.txt
+        gh pr comment ${{ needs.checkout-branch.outputs.PR_num }} --repo ${{ github.repository }} --body-file comment.txt
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     - name: Set latest commit status
       uses: myrotvorets/set-commit-status-action@v2.0.1
       if: always()
@@ -287,20 +289,22 @@ jobs:
         context: integration-test
         sha: ${{ needs.checkout-branch.outputs.PR_head_sha}}
         token: ${{ secrets.GITHUB_TOKEN }}
-        status: ${{ job.status }}
+        status: ${{ steps.run-tests.outcome }}
 
   update-schemas:
     needs: [checkout-branch]
     runs-on: ubuntu-latest
     env:
       SEGMENT_DOWNLOAD_TIMEOUT_MINS: '5'
+    permissions:
+      statuses: write
     outputs:
-      OPENAPI_STATUS: ${{ steps.schema-update.outputs.openapi_status }}
-      OPENAPI_DIFF_FILE: ${{ steps.schema-update.outputs.openapi_diff_file }}
-      GRAPHQL_STATUS: ${{ steps.schema-update.outputs.graphql_status }}
-      GRAPHQL_DIFF_FILE: ${{ steps.schema-update.outputs.graphql_diff_file }}
-      NOTIFICATIONS_STATUS: ${{ steps.schema-update.outputs.notifications_status }}
-      NOTIFICATIONS_DIFF_FILE: ${{ steps.schema-update.outputs.notifications_diff_file }}
+      OPENAPI_STATUS: ${{ fromJSON(steps.schema-update.outputs.outputs).openapi_status }}
+      OPENAPI_DIFF_FILE: ${{ fromJSON(steps.schema-update.outputs.outputs).openapi_diff_file }}
+      GRAPHQL_STATUS: ${{ fromJSON(steps.schema-update.outputs.outputs).graphql_status }}
+      GRAPHQL_DIFF_FILE: ${{ fromJSON(steps.schema-update.outputs.outputs).graphql_diff_file }}
+      NOTIFICATIONS_STATUS: ${{ fromJSON(steps.schema-update.outputs.outputs).notifications_status }}
+      NOTIFICATIONS_DIFF_FILE: ${{ fromJSON(steps.schema-update.outputs.outputs).notifications_diff_file }}
     steps:
     - uses: actions/checkout@v6
       with:
@@ -313,21 +317,51 @@ jobs:
         java-version: '21'
         distribution: 'temurin'
         cache: 'maven'
+    - name: Set pending commit status for OpenAPI schema
+      uses: myrotvorets/set-commit-status-action@v2.0.1
+      with:
+        context: openapi-schema-check
+        sha: ${{ needs.checkout-branch.outputs.PR_head_sha }}
+        token: ${{ secrets.GITHUB_TOKEN }}
+        status: pending
+    - name: Set pending commit status for GraphQL schema
+      uses: myrotvorets/set-commit-status-action@v2.0.1
+      with:
+        context: graphql-schema-check
+        sha: ${{ needs.checkout-branch.outputs.PR_head_sha }}
+        token: ${{ secrets.GITHUB_TOKEN }}
+        status: pending
+    - name: Set pending commit status for Notifications schema
+      uses: myrotvorets/set-commit-status-action@v2.0.1
+      with:
+        context: notifications-schema-check
+        sha: ${{ needs.checkout-branch.outputs.PR_head_sha }}
+        token: ${{ secrets.GITHUB_TOKEN }}
+        status: pending
     - run: git submodule init && git submodule update
     - id: schema-update
       name: Update schemas
-      run: |
-        bash /home/runner/work/cryostat/cryostat/schema/update.bash 90 15
-        set +e
-        git diff -U10 --exit-code /home/runner/work/cryostat/cryostat/schema/openapi.yaml > /home/runner/work/openapi.diff
-        echo "openapi_status=$?" >> "$GITHUB_OUTPUT"
-        echo "openapi_diff_file=openapi.diff" >> "$GITHUB_OUTPUT"
-        git diff -U10 --exit-code /home/runner/work/cryostat/cryostat/schema/schema.graphql > /home/runner/work/graphql.diff
-        echo "graphql_status=$?" >> "$GITHUB_OUTPUT"
-        echo "graphql_diff_file=graphql.diff" >> "$GITHUB_OUTPUT"
-        git diff -U10 --exit-code /home/runner/work/cryostat/cryostat/schema/notifications.yaml > /home/runner/work/notifications.diff
-        echo "notifications_status=$?" >> "$GITHUB_OUTPUT"
-        echo "notifications_diff_file=notifications.diff" >> "$GITHUB_OUTPUT"
+      uses: Wandalen/wretry.action@v3.8.0
+      with:
+        attempt_limit: 3
+        command: |
+          bash /home/runner/work/cryostat/cryostat/schema/update.bash 90 15
+
+          git diff -U10 --exit-code /home/runner/work/cryostat/cryostat/schema/openapi.yaml > /home/runner/work/openapi.diff
+          OPENAPI_STATUS=$?
+
+          git diff -U10 --exit-code /home/runner/work/cryostat/cryostat/schema/schema.graphql > /home/runner/work/graphql.diff
+          GRAPHQL_STATUS=$?
+
+          git diff -U10 --exit-code /home/runner/work/cryostat/cryostat/schema/notifications.yaml > /home/runner/work/notifications.diff
+          NOTIFICATIONS_STATUS=$?
+
+          echo "openapi_status=${OPENAPI_STATUS}" >> "$GITHUB_OUTPUT"
+          echo "openapi_diff_file=openapi.diff" >> "$GITHUB_OUTPUT"
+          echo "graphql_status=${GRAPHQL_STATUS}" >> "$GITHUB_OUTPUT"
+          echo "graphql_diff_file=graphql.diff" >> "$GITHUB_OUTPUT"
+          echo "notifications_status=${NOTIFICATIONS_STATUS}" >> "$GITHUB_OUTPUT"
+          echo "notifications_diff_file=notifications.diff" >> "$GITHUB_OUTPUT"
     - uses: actions/upload-artifact@v7
       with:
         name: openapi-diff
@@ -342,22 +376,23 @@ jobs:
         path: /home/runner/work/notifications.diff
 
   compare-openapi-schema:
-    needs: [update-schemas]
+    needs: [update-schemas, checkout-branch]
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
+      statuses: write
     steps:
     - uses: actions/download-artifact@v8
       with:
         name: openapi-diff
     - name: Comment schema check result
-      uses: actions/github-script@v8
+      uses: actions/github-script@v9
       with:
         script: |
           const diffFmt = s => {
             return "```diff\n" + s + "\n```";
           };
-          const commentBody = ${{ needs.update-schemas.outputs.OPENAPI_STATUS }} == '0'
+          const commentBody = '${{ needs.update-schemas.outputs.OPENAPI_STATUS }}' == '0'
             ? `No OpenAPI schema changes detected.`
             : `OpenAPI schema change detected:\n\n${diffFmt(require('fs').readFileSync('${{ needs.update-schemas.outputs.OPENAPI_DIFF_FILE }}'))}`;
           github.rest.issues.createComment({
@@ -366,24 +401,34 @@ jobs:
             repo: context.repo.repo,
             body: commentBody
           });
+    - name: Set commit status
+      uses: myrotvorets/set-commit-status-action@v2.0.1
+      if: always()
+      with:
+        context: openapi-schema-check
+        sha: ${{ needs.checkout-branch.outputs.PR_head_sha }}
+        token: ${{ secrets.GITHUB_TOKEN }}
+        status: ${{ needs.update-schemas.outputs.OPENAPI_STATUS == '0' && 'success' || 'failure' }}
+        description: ${{ needs.update-schemas.outputs.OPENAPI_STATUS == '0' && 'No schema changes' || 'Schema update required' }}
 
   compare-graphql-schema:
-    needs: [update-schemas]
+    needs: [update-schemas, checkout-branch]
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
+      statuses: write
     steps:
     - uses: actions/download-artifact@v8
       with:
         name: graphql-diff
     - name: Comment schema check result
-      uses: actions/github-script@v8
+      uses: actions/github-script@v9
       with:
         script: |
           const diffFmt = s => {
             return "```diff\n" + s + "\n```";
           };
-          const commentBody = ${{ needs.update-schemas.outputs.GRAPHQL_STATUS }} == '0'
+          const commentBody = '${{ needs.update-schemas.outputs.GRAPHQL_STATUS }}' == '0'
             ? `No GraphQL schema changes detected.`
             : `GraphQL schema change detected:\n\n${diffFmt(require('fs').readFileSync('${{ needs.update-schemas.outputs.GRAPHQL_DIFF_FILE }}'))}`;
           github.rest.issues.createComment({
@@ -392,24 +437,34 @@ jobs:
             repo: context.repo.repo,
             body: commentBody
           });
+    - name: Set commit status
+      uses: myrotvorets/set-commit-status-action@v2.0.1
+      if: always()
+      with:
+        context: graphql-schema-check
+        sha: ${{ needs.checkout-branch.outputs.PR_head_sha }}
+        token: ${{ secrets.GITHUB_TOKEN }}
+        status: ${{ needs.update-schemas.outputs.GRAPHQL_STATUS == '0' && 'success' || 'failure' }}
+        description: ${{ needs.update-schemas.outputs.GRAPHQL_STATUS == '0' && 'No schema changes' || 'Schema update required' }}
 
   compare-notifications-schema:
-    needs: [update-schemas]
+    needs: [update-schemas, checkout-branch]
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
+      statuses: write
     steps:
     - uses: actions/download-artifact@v8
       with:
         name: notifications-diff
     - name: Comment schema check result
-      uses: actions/github-script@v8
+      uses: actions/github-script@v9
       with:
         script: |
           const diffFmt = s => {
             return "```diff\n" + s + "\n```";
           };
-          const commentBody = ${{ needs.update-schemas.outputs.NOTIFICATIONS_STATUS }} == '0'
+          const commentBody = '${{ needs.update-schemas.outputs.NOTIFICATIONS_STATUS }}' == '0'
             ? `No WebSocket notifications schema changes detected.`
             : `WebSocket notifications schema change detected:\n\n${diffFmt(require('fs').readFileSync('${{ needs.update-schemas.outputs.NOTIFICATIONS_DIFF_FILE }}'))}`;
           github.rest.issues.createComment({
@@ -418,79 +473,12 @@ jobs:
             repo: context.repo.repo,
             body: commentBody
           });
-
-  auto-commit-schemas:
-    needs: [compare-graphql-schema, compare-openapi-schema, compare-notifications-schema, checkout-branch, update-schemas]
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      pull-requests: write
-    if: needs.update-schemas.outputs.OPENAPI_STATUS != '0' || needs.update-schemas.outputs.GRAPHQL_STATUS != '0' || needs.update-schemas.outputs.NOTIFICATIONS_STATUS != '0'
-    steps:
-      - name: Check out PR branch
-        uses: actions/checkout@v6
-        with:
-          repository: ${{ needs.checkout-branch.outputs.PR_repo }}
-          ref: ${{ needs.checkout-branch.outputs.PR_head_ref }}
-          submodules: true
-          fetch-depth: 0
-      - name: Import GPG key
-        uses: crazy-max/ghaction-import-gpg@v7
-        with:
-          gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
-          passphrase: ${{ secrets.GPG_PASSPHRASE }}
-          git_config_global: true
-          git_user_signingkey: true
-          git_commit_gpgsign: true
-      - name: Download OpenAPI diff
-        uses: actions/download-artifact@v8
-        with:
-          name: openapi-diff
-          path: diffs
-      - name: Download GraphQL diff
-        uses: actions/download-artifact@v8
-        with:
-          name: graphql-diff
-          path: diffs
-      - name: Download Notifications diff
-        uses: actions/download-artifact@v8
-        with:
-          name: notifications-diff
-          path: diffs
-      - name: List downloaded files
-        run: ls -l diffs/
-      - name: Apply OpenAPI diff
-        if: needs.update-schemas.outputs.OPENAPI_STATUS != '0'
-        run: |
-          patch -p1 < diffs/openapi.diff
-          echo "Contents of OpenAPI schema after patch:"
-          cat schema/openapi.yaml
-      - name: Apply GraphQL diff
-        if: needs.update-schemas.outputs.GRAPHQL_STATUS != '0'
-        run: |
-          patch -p1 < diffs/graphql.diff
-          echo "Contents of GraphQL schema after patch:"
-          cat schema/schema.graphql
-      - name: Apply Notifications diff
-        if: needs.update-schemas.outputs.NOTIFICATIONS_STATUS != '0'
-        run: |
-          patch -p1 < diffs/notifications.diff
-          echo "Contents of Notifications schema after patch:"
-          cat schema/notifications.yaml
-      - name: Commit and push schema changes
-        run: |
-          git add schema/openapi.yaml schema/schema.graphql schema/notifications.yaml
-          git commit -S -m "chore(schema): automatic update"
-          git push origin ${{ needs.checkout-branch.outputs.PR_head_ref }}
-      - name: Comment on schema update
-        uses: actions/github-script@v8
-        with:
-          script: |
-            const prNumber = ${{ needs.checkout-branch.outputs.PR_num }};
-            const comment = "Schema changes committed by the CI.";
-            github.rest.issues.createComment({
-              issue_number: prNumber,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: comment
-            });
+    - name: Set commit status
+      uses: myrotvorets/set-commit-status-action@v2.0.1
+      if: always()
+      with:
+        context: notifications-schema-check
+        sha: ${{ needs.checkout-branch.outputs.PR_head_sha }}
+        token: ${{ secrets.GITHUB_TOKEN }}
+        status: ${{ needs.update-schemas.outputs.NOTIFICATIONS_STATUS == '0' && 'success' || 'failure' }}
+        description: ${{ needs.update-schemas.outputs.NOTIFICATIONS_STATUS == '0' && 'No schema changes' || 'Schema update required' }}

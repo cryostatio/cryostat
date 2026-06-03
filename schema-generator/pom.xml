@@ -19,7 +19,7 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
         <!-- Code quality plugins -->
-        <com.diffplug.spotless.maven.plugin.version>3.4.0</com.diffplug.spotless.maven.plugin.version>
+        <com.diffplug.spotless.maven.plugin.version>3.6.0</com.diffplug.spotless.maven.plugin.version>
         <com.google.java-format.version>1.33.0</com.google.java-format.version>
         <com.mycila.license.maven.plugin.version>5.0.0</com.mycila.license.maven.plugin.version>
     </properties>
@@ -29,7 +29,7 @@
         <dependency>
             <groupId>com.github.javaparser</groupId>
             <artifactId>javaparser-symbol-solver-core</artifactId>
-            <version>3.28.0</version>
+            <version>3.28.2</version>
         </dependency>
 
         <!-- SnakeYAML for AsyncAPI generation -->

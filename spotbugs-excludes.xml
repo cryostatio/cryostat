@@ -7,4 +7,8 @@
     <!-- These are almost always false positives due to bytecode particulars -->
     <Bug pattern="RCN_REDUNDANT_NULLCHECK_OF_NONNULL_VALUE"/>
   </Match>
+  <Match>
+    <!-- False positives with try-with-resources after dereferencing -->
+    <Bug pattern="RCN_REDUNDANT_NULLCHECK_WOULD_HAVE_BEEN_A_NPE"/>
+  </Match>
 </FindBugsFilter>

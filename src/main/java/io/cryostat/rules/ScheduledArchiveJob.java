@@ -15,6 +15,7 @@
  */
 package io.cryostat.rules;
 
+import java.util.Date;
 import java.util.List;
 import java.util.Objects;
 
@@ -35,6 +36,10 @@ import org.jboss.logging.Logger;
 import org.quartz.Job;
 import org.quartz.JobExecutionContext;
 import org.quartz.JobExecutionException;
+import org.quartz.PersistJobDataAfterExecution;
+import org.quartz.SimpleScheduleBuilder;
+import org.quartz.SimpleTrigger;
+import org.quartz.TriggerBuilder;
 import software.amazon.awssdk.services.s3.model.S3Exception;
 import software.amazon.awssdk.services.s3.model.S3Object;
 
@@ -47,6 +52,7 @@ import software.amazon.awssdk.services.s3.model.S3Object;
  * @see io.cryostat.rules.Rule
  * @see io.cryostat.rules.RuleExecutor
  */
+@PersistJobDataAfterExecution
 class ScheduledArchiveJob implements Job {
 
     @Inject RecordingHelper recordingHelper;
@@ -60,6 +66,7 @@ class ScheduledArchiveJob implements Job {
         String jvmId = (String) ctx.getMergedJobDataMap().get("jvmId");
         String ruleName = (String) ctx.getMergedJobDataMap().get("ruleName");
         int preservedArchives = (int) ctx.getMergedJobDataMap().get("preservedArchives");
+        int retryCount = ctx.getMergedJobDataMap().getIntValue("retryCount");
 
         try {
             List<S3Object> previousRecordings = previousRecordings(jvmId, ruleName);
@@ -85,47 +92,112 @@ class ScheduledArchiveJob implements Job {
                             () -> {
                                 long recordingId =
                                         (long) ctx.getMergedJobDataMap().get("recording");
+                                Target target =
+                                        Target.getTargetByJvmId(jvmId)
+                                                .orElseThrow(
+                                                        () ->
+                                                                new NoResultException(
+                                                                        String.format(
+                                                                                "Target %s not"
+                                                                                        + " found",
+                                                                                jvmId)));
                                 ActiveRecording recording =
                                         recordingHelper
-                                                .getActiveRecording(
-                                                        Target.getTargetByJvmId(jvmId)
-                                                                .orElseThrow(),
-                                                        recordingId)
+                                                .getActiveRecording(target, recordingId)
                                                 .orElseThrow(
-                                                        () -> {
-                                                            JobExecutionException ex =
-                                                                    new JobExecutionException(
-                                                                            String.format(
-                                                                                    """
-                                                                                    Target %s did not have recording with remote ID %d
-                                                                                    """
-                                                                                            .strip(),
-                                                                                    jvmId,
-                                                                                    recordingId));
-                                                            ex.setUnscheduleFiringTrigger(true);
-                                                            return ex;
-                                                        });
+                                                        () ->
+                                                                new NoResultException(
+                                                                        String.format(
+                                                                                "Target %s did not"
+                                                                                    + " have"
+                                                                                    + " recording"
+                                                                                    + " with remote"
+                                                                                    + " ID %d",
+                                                                                jvmId,
+                                                                                recordingId)));
                                 return recordingHelper.archiveRecording(recording);
                             });
+
+            if (retryCount > 0) {
+                ctx.getJobDetail().getJobDataMap().put("retryCount", 0);
+                logger.debugv(
+                        "Archive job for rule {0} target {1} succeeded after {2} retries",
+                        ruleName, jvmId, retryCount);
+            }
         } catch (NoResultException | ObjectDeletedException e) {
-            // target disappeared in the meantime. No big deal.
-            logger.debug(e);
+            // Target or recording disappeared - unschedule immediately
+            logger.warnv(
+                    e,
+                    "Target or recording no longer exists for rule {0} target {1}, unscheduling"
+                            + " job",
+                    ruleName,
+                    jvmId);
             JobExecutionException ex = new JobExecutionException(e);
             ex.setRefireImmediately(false);
             ex.setUnscheduleFiringTrigger(true);
             throw ex;
         } catch (S3Exception e) {
-            JobExecutionException ex = new JobExecutionException(e);
-            ex.setRefireImmediately(true);
-            throw ex;
+            handleRetryableFailure(ctx, e, jvmId, ruleName, retryCount);
         } catch (Exception e) {
-            if (e instanceof JobExecutionException) {
-                throw e;
-            }
-            var jee = new JobExecutionException(e);
-            jee.setRefireImmediately(false);
-            throw jee;
+            handleRetryableFailure(ctx, e, jvmId, ruleName, retryCount);
         }
+    }
+
+    private void handleRetryableFailure(
+            JobExecutionContext ctx, Exception e, String jvmId, String ruleName, int retryCount)
+            throws JobExecutionException {
+        int maxRetries = 6;
+
+        if (retryCount >= maxRetries) {
+            logger.errorv(
+                    e,
+                    "Archive job for rule {0} target {1} failed after {2} retries, unscheduling",
+                    ruleName,
+                    jvmId,
+                    retryCount);
+            JobExecutionException ex = new JobExecutionException(e);
+            ex.setRefireImmediately(false);
+            ex.setUnscheduleFiringTrigger(true);
+            throw ex;
+        }
+
+        int backoffSeconds = (int) Math.pow(2, retryCount);
+        ctx.getJobDetail().getJobDataMap().put("retryCount", retryCount + 1);
+
+        logger.warnv(
+                e,
+                "Archive job for rule {0} target {1} failed (attempt {2}/{3}), retrying in {4}s",
+                ruleName,
+                jvmId,
+                retryCount + 1,
+                maxRetries,
+                backoffSeconds);
+
+        try {
+            int intervalSeconds =
+                    (int) (((SimpleTrigger) ctx.getTrigger()).getRepeatInterval() / 1000);
+            ctx.getScheduler()
+                    .rescheduleJob(
+                            ctx.getTrigger().getKey(),
+                            TriggerBuilder.newTrigger()
+                                    .withIdentity(ctx.getTrigger().getKey())
+                                    .startAt(
+                                            new Date(
+                                                    System.currentTimeMillis()
+                                                            + backoffSeconds * 1000L))
+                                    .withSchedule(
+                                            SimpleScheduleBuilder.simpleSchedule()
+                                                    .withIntervalInSeconds(intervalSeconds)
+                                                    .repeatForever()
+                                                    .withMisfireHandlingInstructionNextWithRemainingCount())
+                                    .build());
+        } catch (org.quartz.SchedulerException se) {
+            logger.errorv(se, "Failed to reschedule job with backoff");
+        }
+
+        JobExecutionException ex = new JobExecutionException(e);
+        ex.setRefireImmediately(false);
+        throw ex;
     }
 
     List<S3Object> previousRecordings(String jvmId, String ruleName) {

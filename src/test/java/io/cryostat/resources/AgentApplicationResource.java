@@ -50,6 +50,7 @@ public class AgentApplicationResource
                         """
                         -javaagent:/deployments/app/cryostat-agent.jar
                         -javaagent:/deployments/app/jmc-agent.jar
+                        -javaagent:/deployments/app/async-profiler.jar
                         -Djava.util.logging.manager=org.jboss.logmanager.LogManager
                         -Dio.cryostat.agent.shaded.org.slf4j.simpleLogger.defaultLogLevel=warn
                         """

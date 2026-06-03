@@ -117,7 +117,7 @@ public class AgentClient {
         return httpTimeout;
     }
 
-    Uni<Boolean> ping() {
+    public Uni<Boolean> ping() {
         return agentRestClient
                 .ping()
                 .invoke(Response::close)
