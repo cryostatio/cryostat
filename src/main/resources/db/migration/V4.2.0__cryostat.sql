@@ -248,6 +248,8 @@ CREATE TABLE Rule_AUD (
     maxSizeBytes INTEGER,
     metadata TEXT,
     enabled BOOLEAN,
+    threadDump BOOLEAN,
+    heapDump BOOLEAN,
     PRIMARY KEY (id, REV),
     FOREIGN KEY (REV) REFERENCES REVINFO (REV),
     FOREIGN KEY (REVEND) REFERENCES REVINFO (REV)

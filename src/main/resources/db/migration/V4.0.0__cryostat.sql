@@ -73,6 +73,8 @@
         name text unique check (char_length(name) < 255),
         preservedArchives integer not null,
         matchExpression bigint unique,
+        threadDump boolean not null,
+        heapDump boolean not null,
         primary key (id)
     );
 
