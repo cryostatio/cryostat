@@ -62,7 +62,7 @@ Build requirements:
 - git
 - JDK 21+
 - Maven v3+
-- [Quarkus CLI](https://quarkus.io/guides/cli-tooling) v3.4.1+ (Recommended)
+- [Quarkus CLI](https://quarkus.io/guides/cli-tooling) v3.33.1+ (Recommended)
 - [Podman](https://podman.io/docs/installation) 4.7+
 
 Smoketest run requirements:
