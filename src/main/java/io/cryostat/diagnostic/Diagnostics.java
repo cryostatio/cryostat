@@ -167,7 +167,7 @@ public class Diagnostics {
         var jobId = UUID.randomUUID().toString();
         HeapDumpAnalysisRequest request = new HeapDumpAnalysisRequest(jobId, targetId, heapDumpId);
         response.endHandler(
-                (e) -> bus.publish(LongRunningRequestGenerator.THREAD_DUMP_ADDRESS, request));
+                (e) -> bus.publish(LongRunningRequestGenerator.HEAP_DUMP_ANALYSIS_REQUEST_ADDRESS, request));
         return jobId;
     }
 
