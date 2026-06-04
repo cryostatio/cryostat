@@ -591,10 +591,13 @@ public class Discovery {
                                                         newNs.labels = new HashMap<>();
                                                         newNs.children = new ArrayList<>();
                                                         newNs.target = null;
-                                                        newNs.parent = realm;
-                                                        newNs.persist();
                                                         return newNs;
                                                     });
+
+                            // Set parent relationship for new namespace nodes
+                            if (nsNode.parent == null) {
+                                nsNode.parent = realm;
+                            }
 
                             if (!nsNode.children.contains(lineage)) {
                                 nsNode.children.add(lineage);
