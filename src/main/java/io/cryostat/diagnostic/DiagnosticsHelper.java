@@ -106,6 +106,9 @@ public class DiagnosticsHelper {
     @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_HEAP_DUMPS)
     String heapDumpBucket;
 
+    @ConfigProperty(name = ConfigProperties.ARCHIVED_HEAP_DUMP_REPORTS_STORAGE_CACHE_NAME)
+    String heapDumpReportBucket;
+
     @ConfigProperty(name = ConfigProperties.STORAGE_METADATA_STORAGE_MODE)
     String metadataStorageMode;
 
@@ -133,6 +136,8 @@ public class DiagnosticsHelper {
         buckets.createIfNecessary(heapDumpBucket);
         log.tracev("Creating thread dump bucket: {0}", threadDumpBucket);
         buckets.createIfNecessary(threadDumpBucket);
+        log.tracev("Creating heap dump report bucket: {0}", heapDumpReportBucket);
+        buckets.createIfNecessary(heapDumpReportBucket);
     }
 
     public void dumpHeap(Target target, String requestId) {
