@@ -51,6 +51,7 @@ import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jwt.proc.BadJWTException;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.quarkus.narayana.jta.QuarkusTransaction;
+import io.quarkus.panache.common.Parameters;
 import io.quarkus.runtime.ShutdownEvent;
 import io.smallrye.common.annotation.Blocking;
 import io.smallrye.faulttolerance.api.RateLimit;
@@ -571,14 +572,31 @@ public class Discovery {
                                         n.persist();
                                     });
 
-                            DiscoveryNode nsNode = new DiscoveryNode();
-                            nsNode.name = namespace;
-                            nsNode.nodeType = KubeDiscoveryNodeType.NAMESPACE.getKind();
-                            nsNode.labels = new HashMap<>();
-                            nsNode.children = new ArrayList<>();
-                            nsNode.target = null;
+                            DiscoveryNode nsNode =
+                                    DiscoveryNode.<DiscoveryNode>find(
+                                                    "#DiscoveryNode.byTypeWithName",
+                                                    Parameters.with(
+                                                                    "nodeType",
+                                                                    KubeDiscoveryNodeType.NAMESPACE
+                                                                            .getKind())
+                                                            .and("name", namespace))
+                                            .firstResultOptional()
+                                            .orElseGet(
+                                                    () -> {
+                                                        DiscoveryNode newNs = new DiscoveryNode();
+                                                        newNs.name = namespace;
+                                                        newNs.nodeType =
+                                                                KubeDiscoveryNodeType.NAMESPACE
+                                                                        .getKind();
+                                                        newNs.labels = new HashMap<>();
+                                                        newNs.children = new ArrayList<>();
+                                                        newNs.target = null;
+                                                        return newNs;
+                                                    });
 
-                            nsNode.children.add(lineage);
+                            if (!nsNode.children.contains(lineage)) {
+                                nsNode.children.add(lineage);
+                            }
                             lineage.parent = nsNode;
 
                             DiscoveryNode current = innermost;
