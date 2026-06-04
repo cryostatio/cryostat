@@ -115,17 +115,17 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
                     + "AND NOT EXISTS ("
                     + "  SELECT 1 FROM Target t WHERE t.discoveryNode = n.id"
                     + ")";
+
     // SQL query to find existing DiscoveryNode entities by name/nodeType within a particular
     // namespace
     private static final String FIND_NAMESPACED_NODE_SQL =
-            String.format(
-                    """
-                    SELECT n.id FROM DiscoveryNode n
-                      WHERE n.name = :name AND
-                      n.nodeType = :nodeType AND
-                      n.labels->>'%s' = :namespace
-                    """,
-                    DISCOVERY_NAMESPACE_LABEL_KEY);
+            """
+            SELECT n.id FROM DiscoveryNode n %n\
+            WHERE n.name = :name AND %n\
+            n.nodeType = :nodeType AND %n\
+            n.labels->>'%s' = :namespace\
+            """
+                    .formatted(DISCOVERY_NAMESPACE_LABEL_KEY);
 
     private static final List<String> EMPTY_PORT_NAMES = new ArrayList<>();
 
