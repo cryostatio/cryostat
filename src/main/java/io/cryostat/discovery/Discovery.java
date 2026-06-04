@@ -121,6 +121,10 @@ public class Discovery {
     private static final String PLUGIN_ID_MAP_KEY = "pluginId";
     private static final String REFRESH_MAP_KEY = "refresh";
 
+    public static final String DISCOVERY_PLUGIN_LABEL_PREFIX = "discovery.cryostat.io/";
+    public static final String DISCOVERY_PLUGIN_ID_LABEL_KEY =
+            DISCOVERY_PLUGIN_LABEL_PREFIX + "plugin-id";
+
     @ConfigProperty(name = ConfigProperties.DISCOVERY_PLUGINS_PING_PERIOD)
     Duration discoveryPingPeriod;
 
@@ -602,29 +606,32 @@ public class Discovery {
                             DiscoveryNode lineage =
                                     k8sDiscovery.getOwnershipLineage(namespace, name, nodeType);
                             DiscoveryNode innermost = innermostNode(lineage);
-                            innermost.children.addAll(body.nodes);
 
+                            // Add lineage to Namespace if not already present
                             if (!nsNode.children.contains(lineage)) {
                                 nsNode.children.add(lineage);
                             }
                             lineage.parent = nsNode;
 
+                            innermost.children.addAll(body.nodes);
+                            body.nodes.forEach(
+                                    n -> {
+                                        n.parent = innermost;
+                                        n.labels.put(
+                                                DISCOVERY_PLUGIN_ID_LABEL_KEY,
+                                                plugin.id.toString());
+                                        n.persist();
+                                    });
+
+                            // Persist the k8s lineage hierarchy under KubernetesApi Realm
                             DiscoveryNode current = innermost;
                             while (current != null && current != nsNode) {
                                 current.persist();
                                 current = current.parent;
                             }
                             nsNode.persist();
-
-                            body.nodes.forEach(
-                                    n -> {
-                                        n.parent = realm;
-                                        n.labels.put("discovery.cryostat.io/pod", innermost.name);
-                                        n.labels.put("discovery.cryostat.io/namespace", namespace);
-                                        n.persist();
-                                    });
-
-                            replacementChildren.addAll(body.nodes);
+                            // Agent Realm remains empty - targets are under KubernetesApi. Labels
+                            // are used for cleanup when the plugin goes offline.
                             break;
                         default:
                             replacementChildren.addAll(body.nodes);
@@ -687,7 +694,19 @@ public class Discovery {
             }
             scheduler.deleteJob(key);
         }
+
+        cleanupPluginNodes(plugin);
         plugin.delete();
+    }
+
+    private static void cleanupPluginNodes(DiscoveryPlugin plugin) {
+        // Clean up target nodes that belong to this plugin
+        // For KUBERNETES fill strategy, these are under KubernetesApi Realm, tagged with plugin ID
+        // For NONE fill strategy, cascade deletion handles cleanup when Agent Realm is deleted
+        List<DiscoveryNode> pluginNodes = DiscoveryNode.getByPluginId(plugin.id.toString());
+        for (DiscoveryNode node : pluginNodes) {
+            node.delete();
+        }
     }
 
     @GET
@@ -1025,6 +1044,7 @@ public class Discovery {
                                                     p.consecutiveFailures,
                                                     p.realm.name,
                                                     p.callback);
+                                            cleanupPluginNodes(p);
                                             p.delete();
                                         } else {
                                             logger.warnv(

@@ -72,4 +72,35 @@ BEGIN
       AND (parentNode IS NULL OR parentNode != k8s_realm_id);
 
     RAISE NOTICE 'Re-parented all Namespace nodes to KubernetesApi Realm (id=%)', k8s_realm_id;
+
+    -- Add plugin-id label to existing CryostatAgent target nodes
+    -- This enables cleanup when plugins are deregistered or pruned
+    -- We identify the plugin by finding the Realm that owns the target's ancestor tree
+    UPDATE DiscoveryNode target_node
+    SET labels = COALESCE(labels, '{}'::jsonb) ||
+                 jsonb_build_object('discovery.cryostat.io/plugin-id', plugin.id::text)
+    FROM DiscoveryPlugin plugin
+    WHERE target_node.nodeType = 'CryostatAgent'
+      AND EXISTS (SELECT 1 FROM Target WHERE discoveryNode = target_node.id)
+      AND NOT (target_node.labels ? 'discovery.cryostat.io/plugin-id')
+      AND EXISTS (
+          -- Find the Realm ancestor of this target node
+          WITH RECURSIVE ancestor_tree AS (
+              SELECT id, parentNode, nodeType
+              FROM DiscoveryNode
+              WHERE id = target_node.id
+
+              UNION ALL
+
+              SELECT dn.id, dn.parentNode, dn.nodeType
+              FROM DiscoveryNode dn
+              INNER JOIN ancestor_tree at ON dn.id = at.parentNode
+          )
+          SELECT 1
+          FROM ancestor_tree
+          WHERE nodeType = 'Realm'
+            AND id = plugin.realm_id
+      );
+
+    RAISE NOTICE 'Added plugin-id labels to existing CryostatAgent target nodes';
 END $$;

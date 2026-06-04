@@ -102,7 +102,8 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
 
     public static final String REALM = "KubernetesApi";
 
-    public static final String DISCOVERY_NAMESPACE_LABEL_KEY = "discovery.cryostat.io/namespace";
+    public static final String DISCOVERY_NAMESPACE_LABEL_KEY =
+            Discovery.DISCOVERY_PLUGIN_LABEL_PREFIX + "namespace";
 
     // SQL query to find orphaned nodes - nodes with no children and no associated Target
     // Uses native SQL to access JSONB map keys/values which HQL doesn't support well
@@ -117,10 +118,14 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
     // SQL query to find existing DiscoveryNode entities by name/nodeType within a particular
     // namespace
     private static final String FIND_NAMESPACED_NODE_SQL =
-            "SELECT n.id FROM DiscoveryNode n"
-                    + " WHERE n.name = :name AND"
-                    + " n.nodeType = :nodeType AND"
-                    + " n.labels->>'discovery.cryostat.io/namespace' = :namespace";
+            String.format(
+                    """
+                    SELECT n.id FROM DiscoveryNode n
+                      WHERE n.name = :name AND
+                      n.nodeType = :nodeType AND
+                      n.labels->>'%s' = :namespace
+                    """,
+                    DISCOVERY_NAMESPACE_LABEL_KEY);
 
     private static final List<String> EMPTY_PORT_NAMES = new ArrayList<>();
 

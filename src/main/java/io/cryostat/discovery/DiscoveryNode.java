@@ -80,7 +80,12 @@ import org.jboss.logging.Logger;
 @NamedQueries({
     @NamedQuery(
             name = "DiscoveryNode.byTypeWithName",
-            query = "from DiscoveryNode where nodeType = :nodeType and name = :name")
+            query = "from DiscoveryNode where nodeType = :nodeType and name = :name"),
+    @NamedQuery(
+            name = "DiscoveryNode.byPluginId",
+            query =
+                    "SELECT n FROM DiscoveryNode n WHERE jsonb_extract_path_text(n.labels,"
+                            + " 'discovery.cryostat.io/plugin-id') = :pluginId")
 })
 @Table(indexes = {@Index(columnList = "nodeType"), @Index(columnList = "nodeType, name")})
 public class DiscoveryNode extends PanacheEntity {
@@ -198,6 +203,12 @@ public class DiscoveryNode extends PanacheEntity {
                     n.labels.putAll(target.labels);
                     customizer.accept(n);
                 });
+    }
+
+    public static List<DiscoveryNode> getByPluginId(String pluginId) {
+        return DiscoveryNode.<DiscoveryNode>find(
+                        "#DiscoveryNode.byPluginId", Parameters.with("pluginId", pluginId))
+                .list();
     }
 
     @Override
