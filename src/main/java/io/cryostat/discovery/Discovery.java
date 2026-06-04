@@ -591,6 +591,7 @@ public class Discovery {
                                                         newNs.labels = new HashMap<>();
                                                         newNs.children = new ArrayList<>();
                                                         newNs.target = null;
+                                                        newNs.parent = realm;
                                                         newNs.persist();
                                                         return newNs;
                                                     });
