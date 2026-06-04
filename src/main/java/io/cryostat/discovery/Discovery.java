@@ -562,18 +562,6 @@ public class Discovery {
                                         new IllegalArgumentException(
                                                 String.format("%s cannot be blank", key)));
                             }
-                            DiscoveryNode lineage =
-                                    k8sDiscovery.getOwnershipLineage(namespace, name, nodeType);
-                            DiscoveryNode innermost = innermostNode(lineage);
-                            innermost.children.addAll(body.nodes);
-                            body.nodes.forEach(
-                                    n -> {
-                                        n.parent = innermost;
-                                        n.persist();
-                                    });
-
-                            entityManager.flush();
-
                             DiscoveryNode nsNode =
                                     DiscoveryNode.<DiscoveryNode>find(
                                                     "#DiscoveryNode.byTypeWithName",
@@ -593,29 +581,26 @@ public class Discovery {
                                                         newNs.labels = new HashMap<>();
                                                         newNs.children = new ArrayList<>();
                                                         newNs.target = null;
+                                                        newNs.parent = realm;
+                                                        newNs.persist();
                                                         return newNs;
                                                     });
 
-                            // Set parent relationship for new namespace nodes
                             if (nsNode.parent == null) {
                                 nsNode.parent = realm;
                             }
+
+                            DiscoveryNode lineage =
+                                    k8sDiscovery.getOwnershipLineage(namespace, name, nodeType);
+                            DiscoveryNode innermost = innermostNode(lineage);
+                            innermost.children.addAll(body.nodes);
+                            body.nodes.forEach(n -> n.parent = innermost);
 
                             if (!nsNode.children.contains(lineage)) {
                                 nsNode.children.add(lineage);
                             }
                             lineage.parent = nsNode;
 
-                            DiscoveryNode current = innermost;
-                            while (true) {
-                                current.persist();
-                                current = current.parent;
-                                if (current == null) {
-                                    break;
-                                }
-                            }
-
-                            nsNode.persist();
                             replacementChildren.add(nsNode);
                             break;
                         default:
