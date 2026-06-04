@@ -10,19 +10,28 @@ ALTER TABLE AsyncProfilerRecording ADD CONSTRAINT asyncprofilerrecording_eventty
 ALTER TABLE AsyncProfilerRecording_AUD DROP CONSTRAINT IF EXISTS asyncprofilerrecording_aud_eventtype_check;
 ALTER TABLE AsyncProfilerRecording_AUD ADD CONSTRAINT asyncprofilerrecording_aud_eventtype_check CHECK (char_length(eventType) < 1024);
 
--- Deduplicate Namespace DiscoveryNode instances
--- This migration fixes a bug where multiple Namespace nodes with the same name
--- were created in the database, causing GraphQL queries to return incomplete results.
-
--- For each namespace name that has duplicates, keep only the one with the lowest ID
--- and delete the rest, after updating all references to point to the kept node.
+-- Deduplicate Namespace DiscoveryNode instances and re-parent to KubernetesApi Realm
+-- This migration fixes two issues:
+-- 1. Multiple Namespace nodes with the same name were created, causing GraphQL queries to return incomplete results
+-- 2. Namespace nodes were incorrectly parented to Agent Realms instead of KubernetesApi Realm,
+--    causing all targets to be lost when that Agent went offline
 
 DO $$
 DECLARE
     dup_record RECORD;
     keep_node_id BIGINT;
     delete_node_id BIGINT;
+    k8s_realm_id BIGINT;
 BEGIN
+    -- Find the KubernetesApi Realm ID
+    SELECT id INTO k8s_realm_id
+    FROM DiscoveryNode
+    WHERE nodeType = 'Realm' AND name = 'KubernetesApi';
+
+    IF k8s_realm_id IS NULL THEN
+        RAISE EXCEPTION 'KubernetesApi Realm not found';
+    END IF;
+
     -- Loop through each namespace name that has duplicates
     FOR dup_record IN 
         SELECT name, MIN(id) as keep_id, ARRAY_AGG(id ORDER BY id) as all_ids
@@ -54,4 +63,13 @@ BEGIN
             END IF;
         END LOOP;
     END LOOP;
+
+    -- Re-parent all Namespace nodes to KubernetesApi Realm
+    -- This ensures k8s lineage is owned by KubernetesApi, not Agent Realms
+    UPDATE DiscoveryNode
+    SET parentNode = k8s_realm_id
+    WHERE nodeType = 'Namespace'
+      AND (parentNode IS NULL OR parentNode != k8s_realm_id);
+
+    RAISE NOTICE 'Re-parented all Namespace nodes to KubernetesApi Realm (id=%)', k8s_realm_id;
 END $$;

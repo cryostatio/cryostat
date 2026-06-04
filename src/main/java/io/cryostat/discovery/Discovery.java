@@ -562,6 +562,15 @@ public class Discovery {
                                         new IllegalArgumentException(
                                                 String.format("%s cannot be blank", key)));
                             }
+
+                            DiscoveryNode k8sRealm =
+                                    DiscoveryNode.getRealm(KubeEndpointSlicesDiscovery.REALM)
+                                            .orElseThrow(
+                                                    () ->
+                                                            new IllegalStateException(
+                                                                    "KubernetesApi realm not"
+                                                                            + " found"));
+
                             DiscoveryNode nsNode =
                                     DiscoveryNode.<DiscoveryNode>find(
                                                     "#DiscoveryNode.byTypeWithName",
@@ -581,24 +590,19 @@ public class Discovery {
                                                         newNs.labels = new HashMap<>();
                                                         newNs.children = new ArrayList<>();
                                                         newNs.target = null;
-                                                        newNs.parent = realm;
+                                                        newNs.parent = k8sRealm;
                                                         newNs.persist();
                                                         return newNs;
                                                     });
 
-                            if (nsNode.parent == null) {
-                                nsNode.parent = realm;
+                            if (nsNode.parent == null || !nsNode.parent.equals(k8sRealm)) {
+                                nsNode.parent = k8sRealm;
                             }
 
                             DiscoveryNode lineage =
                                     k8sDiscovery.getOwnershipLineage(namespace, name, nodeType);
                             DiscoveryNode innermost = innermostNode(lineage);
                             innermost.children.addAll(body.nodes);
-                            body.nodes.forEach(
-                                    n -> {
-                                        n.parent = innermost;
-                                        n.persist();
-                                    });
 
                             if (!nsNode.children.contains(lineage)) {
                                 nsNode.children.add(lineage);
@@ -610,9 +614,17 @@ public class Discovery {
                                 current.persist();
                                 current = current.parent;
                             }
-
                             nsNode.persist();
-                            replacementChildren.add(nsNode);
+
+                            body.nodes.forEach(
+                                    n -> {
+                                        n.parent = realm;
+                                        n.labels.put("discovery.cryostat.io/pod", innermost.name);
+                                        n.labels.put("discovery.cryostat.io/namespace", namespace);
+                                        n.persist();
+                                    });
+
+                            replacementChildren.addAll(body.nodes);
                             break;
                         default:
                             replacementChildren.addAll(body.nodes);

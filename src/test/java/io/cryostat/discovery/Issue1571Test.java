@@ -265,6 +265,21 @@ public class Issue1571Test {
         Assertions.assertEquals(
                 keepId, keptNamespace.id, "Should keep the Namespace with the lowest ID");
 
+        // Verify the Namespace is now parented to KubernetesApi Realm
+        DiscoveryNode k8sRealm =
+                DiscoveryNode.getRealm(KubeEndpointSlicesDiscovery.REALM)
+                        .orElseThrow(
+                                () ->
+                                        new AssertionError(
+                                                "KubernetesApi realm should exist after"
+                                                        + " migration"));
+        Assertions.assertNotNull(
+                keptNamespace.parent, "Namespace should have a parent after migration");
+        Assertions.assertEquals(
+                k8sRealm.id,
+                keptNamespace.parent.id,
+                "Namespace should be parented to KubernetesApi Realm after migration");
+
         DiscoveryNode deletedNamespace = DiscoveryNode.findById(deleteId);
         Assertions.assertNull(
                 deletedNamespace, "Duplicate Namespace node should have been deleted");
