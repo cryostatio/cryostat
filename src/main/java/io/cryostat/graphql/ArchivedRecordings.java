@@ -50,7 +50,7 @@ public class ArchivedRecordings {
                 recordingHelper
                         .listArchivedRecordings(filter == null ? null : filter.sourceTarget)
                         .stream()
-                        .filter(filter)
+                        .filter(v -> filter == null ? true : filter.test(v))
                         .toList();
         r.aggregate = RecordingAggregateInfo.fromArchived(r.data);
         return r;
