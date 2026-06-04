@@ -594,10 +594,11 @@ public class Discovery {
                                     k8sDiscovery.getOwnershipLineage(namespace, name, nodeType);
                             DiscoveryNode innermost = innermostNode(lineage);
                             innermost.children.addAll(body.nodes);
-                            body.nodes.forEach(n -> {
-                                n.parent = innermost;
-                                n.persist();
-                            });
+                            body.nodes.forEach(
+                                    n -> {
+                                        n.parent = innermost;
+                                        n.persist();
+                                    });
 
                             if (!nsNode.children.contains(lineage)) {
                                 nsNode.children.add(lineage);
