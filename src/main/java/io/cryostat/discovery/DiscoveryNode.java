@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 
@@ -205,9 +206,10 @@ public class DiscoveryNode extends PanacheEntity {
                 });
     }
 
-    public static List<DiscoveryNode> getByPluginId(String pluginId) {
+    public static List<DiscoveryNode> getByPluginId(UUID pluginId) {
         return DiscoveryNode.<DiscoveryNode>find(
-                        "#DiscoveryNode.byPluginId", Parameters.with("pluginId", pluginId))
+                        "#DiscoveryNode.byPluginId",
+                        Parameters.with("pluginId", pluginId.toString()))
                 .list();
     }
 

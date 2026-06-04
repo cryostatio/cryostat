@@ -700,10 +700,14 @@ public class Discovery {
     }
 
     private static void cleanupPluginNodes(DiscoveryPlugin plugin) {
+        cleanupPluginNodes(plugin.id);
+    }
+
+    private static void cleanupPluginNodes(UUID pluginId) {
         // Clean up target nodes that belong to this plugin
         // For KUBERNETES fill strategy, these are under KubernetesApi Realm, tagged with plugin ID
         // For NONE fill strategy, cascade deletion handles cleanup when Agent Realm is deleted
-        List<DiscoveryNode> pluginNodes = DiscoveryNode.getByPluginId(plugin.id.toString());
+        List<DiscoveryNode> pluginNodes = DiscoveryNode.getByPluginId(pluginId);
         for (DiscoveryNode node : pluginNodes) {
             node.delete();
         }
@@ -1002,6 +1006,13 @@ public class Discovery {
                     logger.warnv(
                             "Unscheduled job for unknown discovery plugin: {0}",
                             context.getMergedJobDataMap().get(PLUGIN_ID_MAP_KEY));
+
+                    // Clean up any orphaned nodes before unscheduling
+                    if (noSuchPlugin) {
+                        QuarkusTransaction.joiningExisting()
+                                .run(() -> cleanupPluginNodes(pluginId));
+                    }
+
                     var ex = new JobExecutionException(e);
                     ex.setUnscheduleFiringTrigger(true);
                     throw ex;
