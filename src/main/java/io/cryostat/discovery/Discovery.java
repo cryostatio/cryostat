@@ -572,6 +572,8 @@ public class Discovery {
                                         n.persist();
                                     });
 
+                            entityManager.flush();
+
                             DiscoveryNode nsNode =
                                     DiscoveryNode.<DiscoveryNode>find(
                                                     "#DiscoveryNode.byTypeWithName",
