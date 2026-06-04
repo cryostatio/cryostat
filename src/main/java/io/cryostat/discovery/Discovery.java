@@ -695,21 +695,73 @@ public class Discovery {
             scheduler.deleteJob(key);
         }
 
-        cleanupPluginNodes(plugin);
+        cleanupPluginNodes(entityManager, logger, plugin);
         plugin.delete();
     }
 
-    private static void cleanupPluginNodes(DiscoveryPlugin plugin) {
-        cleanupPluginNodes(plugin.id);
+    private static void cleanupPluginNodes(
+            EntityManager entityManager, Logger logger, DiscoveryPlugin plugin) {
+        cleanupPluginNodes(entityManager, logger, plugin.id);
     }
 
-    private static void cleanupPluginNodes(UUID pluginId) {
+    private static void cleanupPluginNodes(
+            EntityManager entityManager, Logger logger, UUID pluginId) {
         // Clean up target nodes that belong to this plugin
         // For KUBERNETES fill strategy, these are under KubernetesApi Realm, tagged with plugin ID
         // For NONE fill strategy, cascade deletion handles cleanup when Agent Realm is deleted
         List<DiscoveryNode> pluginNodes = DiscoveryNode.getByPluginId(pluginId);
+        if (pluginNodes == null || pluginNodes.isEmpty()) {
+            return;
+        }
         for (DiscoveryNode node : pluginNodes) {
-            node.delete();
+            try {
+                DiscoveryNode parent = node.parent;
+                node.delete();
+                // Recursively prune empty parent nodes up the tree
+                pruneEmptyAncestors(entityManager, logger, parent);
+            } catch (Exception e) {
+                logger.warn(e);
+            }
+        }
+    }
+
+    private static void pruneEmptyAncestors(
+            EntityManager entityManager, Logger logger, DiscoveryNode child) {
+        // Walk up the hierarchy, removing childless nodes from their parents
+        // Follow the same pattern as KubeEndpointSlicesDiscovery.pruneOwnerChain()
+        while (child != null) {
+            DiscoveryNode parent = child.parent;
+
+            if (parent == null) {
+                logger.debugv(
+                        "Reached orphaned node {0} (id={1}), relying on orphan removal",
+                        child.name, child.id);
+                break;
+            }
+
+            entityManager.refresh(parent); // Reload from DB with current children
+
+            // Remove child from parent's collection - orphan removal will delete it
+            parent.children.remove(child);
+            child.parent = null;
+
+            boolean hasChildren = parent.hasChildren();
+            boolean isNamespace = parent.nodeType.equals(KubeDiscoveryNodeType.NAMESPACE.getKind());
+            boolean isRealm = parent.nodeType.equals("Realm");
+
+            logger.debugv(
+                    "Parent node {0} (id={1}, type={2}): hasChildren={3}, isNamespace={4},"
+                            + " isRealm={5}",
+                    parent.name, parent.id, parent.nodeType, hasChildren, isNamespace, isRealm);
+
+            if (hasChildren || isNamespace || isRealm) {
+                logger.debugv("Stopping pruning at parent node {0}", parent.name);
+                break;
+            }
+
+            logger.debugv("Continuing to prune parent node {0}", parent.name);
+            // Move up to check the parent too
+            child = parent;
         }
     }
 
@@ -1010,7 +1062,7 @@ public class Discovery {
                     // Clean up any orphaned nodes before unscheduling
                     if (noSuchPlugin) {
                         QuarkusTransaction.joiningExisting()
-                                .run(() -> cleanupPluginNodes(pluginId));
+                                .run(() -> cleanupPluginNodes(entityManager, logger, pluginId));
                     }
 
                     var ex = new JobExecutionException(e);
@@ -1055,7 +1107,7 @@ public class Discovery {
                                                     p.consecutiveFailures,
                                                     p.realm.name,
                                                     p.callback);
-                                            cleanupPluginNodes(p);
+                                            cleanupPluginNodes(entityManager, logger, p);
                                             p.delete();
                                         } else {
                                             logger.warnv(
