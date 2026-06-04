@@ -48,6 +48,21 @@ import org.junit.jupiter.api.Test;
 @QuarkusTest
 public class Issue1571Test {
 
+    private static final String GRAPHQL_QUERY =
+            """
+            query {
+              environmentNodes(filter: { nodeTypes: ["Namespace"]} ) {
+                name
+                nodeType
+                descendantTargets {
+                  target {
+                    alias
+                  }
+                }
+              }
+            }
+            """;
+
     @Inject EntityManager entityManager;
     @Inject Flyway flyway;
     @Inject UserTransaction userTransaction;
@@ -99,7 +114,7 @@ public class Issue1571Test {
         namespace1.persist();
 
         DiscoveryNode namespace2 = new DiscoveryNode();
-        namespace2.name = "test-namespace"; // Same name!
+        namespace2.name = namespace1.name; // Same name!
         namespace2.nodeType = KubeDiscoveryNodeType.NAMESPACE.getKind();
         namespace2.labels = new HashMap<>();
         namespace2.children = new ArrayList<>();
@@ -185,14 +200,10 @@ public class Issue1571Test {
         List<Target> targetsBefore = Target.listAll();
         Assertions.assertEquals(2, targetsBefore.size(), "Should have 2 targets before migration");
 
-        // Verify the BUG exists via GraphQL - should only return 1 target due to Set deduplication
-        String graphqlQueryBefore =
-                "query { environmentNodes(filter: { nodeTypes: [\"Namespace\"] }) { name nodeType"
-                        + " descendantTargets { target { alias } } } }";
-
+        // Verify the bug exists via GraphQL - should only return 1 target due to Set deduplication
         JsonPath responseBefore =
                 given().contentType(ContentType.JSON)
-                        .body(Map.of("query", graphqlQueryBefore))
+                        .body(Map.of("query", GRAPHQL_QUERY))
                         .when()
                         .post("/api/v4/graphql")
                         .then()
@@ -200,9 +211,6 @@ public class Issue1571Test {
                         .extract()
                         .jsonPath();
 
-        // Before the fix: Even though there are 2 Namespace nodes in the database,
-        // GraphQL's recurseChildren() uses a Set which deduplicates based on equals(),
-        // so only 1 Namespace node is returned (this is the bug)
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> environmentNodesBefore =
                 (List<Map<String, Object>>)
@@ -224,22 +232,18 @@ public class Issue1571Test {
             }
         }
 
-        // This demonstrates the bug: even though 2 targets exist in the database,
-        // GraphQL only returns 1 due to Set deduplication of duplicate Namespace nodes
         Assertions.assertEquals(
                 1,
                 totalTargetsBefore,
-                "GraphQL should return only 1 target before migration (demonstrates the bug)");
+                "GraphQL should return only 1 target before migration (bug)");
 
         userTransaction.commit();
 
         // Step 3: Run the V4.2.1 migration
         flyway.migrate();
-
         // Clear the EntityManager cache to ensure we're reading fresh data from the database
         // after the migration has run
         entityManager.clear();
-
         // Also clear the Hibernate second-level cache if it exists
         entityManager.getEntityManagerFactory().getCache().evictAll();
 
@@ -261,12 +265,10 @@ public class Issue1571Test {
         Assertions.assertEquals(
                 keepId, keptNamespace.id, "Should keep the Namespace with the lowest ID");
 
-        // Verify the deleted namespace no longer exists
         DiscoveryNode deletedNamespace = DiscoveryNode.findById(deleteId);
         Assertions.assertNull(
                 deletedNamespace, "Duplicate Namespace node should have been deleted");
 
-        // Verify both targets still exist
         List<Target> targetsAfter = Target.listAll();
         Assertions.assertEquals(
                 2, targetsAfter.size(), "Should still have 2 targets after migration");
@@ -309,14 +311,10 @@ public class Issue1571Test {
                 "Should be able to find both targets through the single namespace");
 
         // Step 5: Verify GraphQL API also returns both targets
-        // This tests the actual API that users would call
-        String graphqlQuery =
-                "query { environmentNodes(filter: { nodeTypes: [\"Namespace\"] }) { name nodeType"
-                        + " descendantTargets { target { alias } } } }";
-
+        // This tests the actual API that users would call;
         JsonPath response =
                 given().contentType(ContentType.JSON)
-                        .body(Map.of("query", graphqlQuery))
+                        .body(Map.of("query", GRAPHQL_QUERY))
                         .when()
                         .post("/api/v4/graphql")
                         .then()
