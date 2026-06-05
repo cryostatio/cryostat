@@ -121,13 +121,47 @@ public class Issue1571Test {
         namespace2.parent = realm2;
         namespace2.persist();
 
-        // Create Pod nodes under each namespace
+        // Create DUPLICATE Deployment nodes with the same name under each namespace
+        DiscoveryNode deployment1 = new DiscoveryNode();
+        deployment1.name = "test-deployment";
+        deployment1.nodeType = KubeDiscoveryNodeType.DEPLOYMENT.getKind();
+        deployment1.labels = new HashMap<>();
+        deployment1.children = new ArrayList<>();
+        deployment1.parent = namespace1;
+        deployment1.persist();
+
+        DiscoveryNode deployment2 = new DiscoveryNode();
+        deployment2.name = deployment1.name; // Same name!
+        deployment2.nodeType = KubeDiscoveryNodeType.DEPLOYMENT.getKind();
+        deployment2.labels = new HashMap<>();
+        deployment2.children = new ArrayList<>();
+        deployment2.parent = namespace2;
+        deployment2.persist();
+
+        // Create DUPLICATE ReplicaSet nodes with the same name under each deployment
+        DiscoveryNode replicaSet1 = new DiscoveryNode();
+        replicaSet1.name = "test-replicaset";
+        replicaSet1.nodeType = KubeDiscoveryNodeType.REPLICASET.getKind();
+        replicaSet1.labels = new HashMap<>();
+        replicaSet1.children = new ArrayList<>();
+        replicaSet1.parent = deployment1;
+        replicaSet1.persist();
+
+        DiscoveryNode replicaSet2 = new DiscoveryNode();
+        replicaSet2.name = replicaSet1.name; // Same name!
+        replicaSet2.nodeType = KubeDiscoveryNodeType.REPLICASET.getKind();
+        replicaSet2.labels = new HashMap<>();
+        replicaSet2.children = new ArrayList<>();
+        replicaSet2.parent = deployment2;
+        replicaSet2.persist();
+
+        // Create Pod nodes under each replicaset (different names since they're replicas)
         DiscoveryNode pod1 = new DiscoveryNode();
         pod1.name = "test-pod-1";
         pod1.nodeType = KubeDiscoveryNodeType.POD.getKind();
         pod1.labels = new HashMap<>();
         pod1.children = new ArrayList<>();
-        pod1.parent = namespace1;
+        pod1.parent = replicaSet1;
         pod1.persist();
 
         DiscoveryNode pod2 = new DiscoveryNode();
@@ -135,7 +169,7 @@ public class Issue1571Test {
         pod2.nodeType = KubeDiscoveryNodeType.POD.getKind();
         pod2.labels = new HashMap<>();
         pod2.children = new ArrayList<>();
-        pod2.parent = namespace2;
+        pod2.parent = replicaSet2;
         pod2.persist();
 
         // Create target nodes under each pod
@@ -295,28 +329,63 @@ public class Issue1571Test {
         Assertions.assertNotNull(targetNode1After, "Target node 1 should still exist");
         Assertions.assertNotNull(targetNode2After, "Target node 2 should still exist");
 
-        // Both pods should now be children of the kept namespace
+        // Verify Deployment deduplication
+        List<DiscoveryNode> deploymentsAfter =
+                DiscoveryNode.<DiscoveryNode>find(
+                                "nodeType = ?1 and name = ?2",
+                                KubeDiscoveryNodeType.DEPLOYMENT.getKind(),
+                                "test-deployment")
+                        .list();
+        Assertions.assertEquals(
+                1, deploymentsAfter.size(), "Should have only 1 Deployment node after migration");
+        DiscoveryNode keptDeployment = deploymentsAfter.get(0);
+        Assertions.assertEquals(
+                keepId, keptDeployment.parent.id, "Deployment should be under the kept namespace");
+
+        // Verify ReplicaSet deduplication
+        List<DiscoveryNode> replicaSetsAfter =
+                DiscoveryNode.<DiscoveryNode>find(
+                                "nodeType = ?1 and name = ?2",
+                                KubeDiscoveryNodeType.REPLICASET.getKind(),
+                                "test-replicaset")
+                        .list();
+        Assertions.assertEquals(
+                1, replicaSetsAfter.size(), "Should have only 1 ReplicaSet node after migration");
+        DiscoveryNode keptReplicaSet = replicaSetsAfter.get(0);
+        Assertions.assertEquals(
+                keptDeployment.id,
+                keptReplicaSet.parent.id,
+                "ReplicaSet should be under the kept deployment");
+
+        // Both pods should now be children of the kept replicaset
         DiscoveryNode pod1After = DiscoveryNode.findById(pod1.id);
         DiscoveryNode pod2After = DiscoveryNode.findById(pod2.id);
 
         Assertions.assertNotNull(pod1After, "Pod 1 should still exist");
         Assertions.assertNotNull(pod2After, "Pod 2 should still exist");
         Assertions.assertEquals(
-                keepId, pod1After.parent.id, "Pod 1 should now be under the kept namespace");
+                keptReplicaSet.id,
+                pod1After.parent.id,
+                "Pod 1 should now be under the kept replicaset");
         Assertions.assertEquals(
-                keepId, pod2After.parent.id, "Pod 2 should now be under the kept namespace");
+                keptReplicaSet.id,
+                pod2After.parent.id,
+                "Pod 2 should now be under the kept replicaset");
 
-        // Verify the kept namespace has both pods as children
-        DiscoveryNode keptNamespaceWithChildren = DiscoveryNode.findById(keepId);
+        // Verify the kept replicaset has both pods as children
+        DiscoveryNode keptReplicaSetWithChildren = DiscoveryNode.findById(keptReplicaSet.id);
         Assertions.assertEquals(
                 2,
-                keptNamespaceWithChildren.children.size(),
-                "Kept namespace should have 2 children (both pods)");
+                keptReplicaSetWithChildren.children.size(),
+                "Kept replicaset should have 2 children (both pods)");
 
         // Verify we can query all descendant targets through the single namespace
+        DiscoveryNode keptNamespaceWithChildren = DiscoveryNode.findById(keepId);
         List<DiscoveryNode> descendantTargets =
-                keptNamespaceWithChildren.children.stream()
-                        .flatMap(pod -> pod.children.stream())
+                keptNamespaceWithChildren.children.stream() // Deployments
+                        .flatMap(deployment -> deployment.children.stream()) // ReplicaSets
+                        .flatMap(replicaSet -> replicaSet.children.stream()) // Pods
+                        .flatMap(pod -> pod.children.stream()) // Target nodes
                         .filter(node -> node.target != null)
                         .toList();
 

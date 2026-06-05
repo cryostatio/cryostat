@@ -607,13 +607,10 @@ public class Discovery {
 
                             DiscoveryNode lineage =
                                     k8sDiscovery.getOwnershipLineage(namespace, name, nodeType);
-                            DiscoveryNode innermost = innermostNode(lineage);
 
-                            // Add lineage to Namespace if not already present
-                            if (!nsNode.children.contains(lineage)) {
-                                nsNode.children.add(lineage);
-                            }
-                            lineage.parent = nsNode;
+                            // Merge the lineage into the existing tree, reusing nodes where
+                            // possible
+                            DiscoveryNode innermost = mergeLineageIntoTree(nsNode, lineage);
 
                             innermost.children.addAll(body.nodes);
                             body.nodes.forEach(
@@ -911,6 +908,56 @@ public class Discovery {
         if (source.target != null) {
             target.target = source.target;
         }
+    }
+
+    /**
+     * Merges a lineage chain into an existing tree, reusing nodes where possible. This walks down
+     * the lineage chain and at each level checks if a node with the same name and type already
+     * exists as a child of the parent. If it does, reuses that node; if not, adds the new node.
+     *
+     * @param parent The parent node to merge the lineage into (typically a Namespace node)
+     * @param lineage The root of the lineage chain to merge (typically a Deployment node)
+     * @return The innermost (leaf) node of the merged lineage
+     */
+    private DiscoveryNode mergeLineageIntoTree(DiscoveryNode parent, DiscoveryNode lineage) {
+        DiscoveryNode currentParent = parent;
+        DiscoveryNode currentLineage = lineage;
+
+        while (currentLineage != null) {
+            // Check if a node with the same name and type already exists as a child
+            final DiscoveryNode lineageNode = currentLineage;
+            DiscoveryNode existingNode =
+                    currentParent.children.stream()
+                            .filter(
+                                    child ->
+                                            child.name.equals(lineageNode.name)
+                                                    && child.nodeType.equals(lineageNode.nodeType))
+                            .findFirst()
+                            .orElse(null);
+
+            if (existingNode != null) {
+                // Reuse the existing node
+                // Merge labels from the new lineage into the existing node
+                if (lineageNode.labels != null) {
+                    existingNode.labels.putAll(lineageNode.labels);
+                }
+                currentParent = existingNode;
+            } else {
+                // Add the new node to the parent
+                lineageNode.parent = currentParent;
+                currentParent.children.add(lineageNode);
+                currentParent = lineageNode;
+            }
+
+            // Move to the next level in the lineage
+            if (lineageNode.children == null || lineageNode.children.isEmpty()) {
+                // Reached the leaf node
+                return currentParent;
+            }
+            currentLineage = lineageNode.children.get(0);
+        }
+
+        return currentParent;
     }
 
     private static record NodeContext(
