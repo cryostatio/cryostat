@@ -40,6 +40,7 @@ import java.util.UUID;
 import io.cryostat.ConfigProperties;
 import io.cryostat.credentials.Credential;
 import io.cryostat.discovery.DiscoveryPlugin.PluginCallback;
+import io.cryostat.discovery.DiscoveryPlugin.PluginCleanupHelper;
 import io.cryostat.discovery.KubeEndpointSlicesDiscovery.KubeDiscoveryNodeType;
 import io.cryostat.discovery.NodeType.BaseNodeType;
 import io.cryostat.targets.TargetConnectionManager;
@@ -60,7 +61,6 @@ import io.vertx.ext.web.RoutingContext;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.annotation.security.PermitAll;
 import jakarta.annotation.security.RolesAllowed;
-import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
@@ -671,23 +671,15 @@ public class Discovery {
             @RestPath UUID id,
             @RestHeader("Cryostat-Discovery-Authentication") String token)
             throws SchedulerException {
-        DiscoveryPlugin plugin;
-        try {
-            plugin = DiscoveryPlugin.find("id", id).singleResult();
-        } catch (NoResultException e) {
-            cleanupHelper.cleanupPluginNodes(id);
-            Set<JobKey> jobKeys = new HashSet<>();
-            jobKeys.addAll(scheduler.getJobKeys(GroupMatcher.jobGroupEquals(JOB_PERIODIC)));
-            for (var key : jobKeys) {
-                if (Objects.equals(id.toString(), key.getName())) {
-                    scheduler.deleteJob(key);
-                }
-            }
-
+        DiscoveryPlugin plugin = DiscoveryPlugin.findById(id);
+        if (plugin == null) {
+            logger.debugv("Could not find registered plugin with ID {0}", id);
             throw new NotFoundException();
         }
 
         if (plugin.builtin) {
+            logger.debugv(
+                    "Refusing to delete built-in plugin with ID {0} ({1})", id, plugin.realm.name);
             throw new ForbiddenException();
         }
         try {
@@ -698,6 +690,7 @@ public class Discovery {
                 | SocketException
                 | JOSEException
                 | ParseException e) {
+            logger.debugv("Refusing to delete plugin ID {0} due to invalid JWT", id);
             throw new BadRequestException(e);
         }
 
@@ -710,7 +703,6 @@ public class Discovery {
             scheduler.deleteJob(key);
         }
 
-        cleanupHelper.cleanupPluginNodes(plugin);
         plugin.delete();
     }
 
@@ -872,18 +864,6 @@ public class Discovery {
         return mergedRoot;
     }
 
-    /**
-     * Get the innermost node of a hierarchical lineage. This assumes that the ancestor node passed
-     * in is the root of a tree where each node has either 0 or 1 children.
-     */
-    private DiscoveryNode innermostNode(DiscoveryNode ancestor) {
-        DiscoveryNode node = ancestor;
-        while (node.hasChildren()) {
-            node = node.children.get(0);
-        }
-        return node;
-    }
-
     private DiscoveryNode copyNode(DiscoveryNode source) {
         var copy = new DiscoveryNode();
         copy.id = source.id;
@@ -959,94 +939,6 @@ public class Discovery {
 
     private static record NodeContext(
             DiscoveryNode node, DiscoveryNode parent, boolean fromBuiltin) {}
-
-    /**
-     * Helper class for plugin cleanup operations. This is separate to allow reuse from both
-     * instance methods and static inner classes.
-     */
-    @ApplicationScoped
-    static class PluginCleanupHelper {
-
-        @Inject EntityManager entityManager;
-        @Inject Logger logger;
-
-        void cleanupPluginNodes(DiscoveryPlugin plugin) {
-            cleanupPluginNodes(plugin.id);
-        }
-
-        void cleanupPluginNodes(UUID pluginId) {
-            // Clean up target nodes that belong to this plugin
-            // For KUBERNETES fill strategy, these are under KubernetesApi Realm, tagged with
-            // plugin ID
-            // For NONE fill strategy, cascade deletion handles cleanup when Agent Realm is
-            // deleted
-            List<DiscoveryNode> pluginNodes = DiscoveryNode.getByPluginId(pluginId);
-            if (pluginNodes == null || pluginNodes.isEmpty()) {
-                return;
-            }
-            for (DiscoveryNode node : pluginNodes) {
-                try {
-                    DiscoveryNode parent = node.parent;
-                    if (parent != null) {
-                        // Remove node from parent's collection before deleting
-                        // This ensures parent.hasChildren() will be accurate
-                        parent.children.remove(node);
-                        node.parent = null;
-                    }
-                    node.delete();
-                    // Recursively prune empty parent nodes up the tree
-                    pruneEmptyAncestors(parent);
-                } catch (Exception e) {
-                    logger.warn(e);
-                }
-            }
-        }
-
-        void pruneEmptyAncestors(DiscoveryNode child) {
-            // Walk up the hierarchy, removing childless nodes from their parents
-            // Follow the same pattern as KubeEndpointSlicesDiscovery.pruneOwnerChain()
-            while (child != null) {
-                DiscoveryNode parent = child.parent;
-
-                if (parent == null) {
-                    logger.debugv(
-                            "Reached orphaned node {0} (id={1}), relying on orphan removal",
-                            child.name, child.id);
-                    break;
-                }
-
-                entityManager.refresh(parent); // Reload from DB with current children
-
-                // Remove child from parent's collection - orphan removal will delete it
-                parent.children.remove(child);
-                child.parent = null;
-
-                boolean hasChildren = parent.hasChildren();
-                boolean isNamespace =
-                        parent.nodeType.equals(KubeDiscoveryNodeType.NAMESPACE.getKind());
-                boolean isRealm = parent.nodeType.equals("Realm");
-
-                logger.debugv(
-                        "Parent node {0} (id={1}, type={2}): hasChildren={3}, isNamespace={4},"
-                                + " isRealm={5}",
-                        parent.name, parent.id, parent.nodeType, hasChildren, isNamespace, isRealm);
-
-                // Stop pruning if:
-                // 1. Parent is a Realm (always preserve Realms)
-                // 2. Parent has children (preserve non-empty nodes)
-                // Note: Empty Namespaces should be pruned, so we don't stop just because it's a
-                // Namespace
-                if (isRealm || hasChildren) {
-                    logger.debugv("Stopping pruning at parent node {0}", parent.name);
-                    break;
-                }
-
-                logger.debugv("Continuing to prune parent node {0}", parent.name);
-                // Move up to check the parent too
-                child = parent;
-            }
-        }
-    }
 
     /**
      * Check that discovery plugins are still alive/reachable and prompt them to regenerate expiring
@@ -1194,7 +1086,6 @@ public class Discovery {
                                                     p.consecutiveFailures,
                                                     p.realm.name,
                                                     p.callback);
-                                            cleanupHelper.cleanupPluginNodes(p);
                                             p.delete();
                                         } else {
                                             logger.warnv(
