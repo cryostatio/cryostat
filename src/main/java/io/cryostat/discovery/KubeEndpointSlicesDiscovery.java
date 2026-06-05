@@ -1260,6 +1260,34 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
     }
 
     /**
+     * Retrieves Kubernetes labels for a given resource.
+     *
+     * @param namespace Kubernetes namespace
+     * @param name Resource name
+     * @param nodeType Resource type (e.g., "Pod", "Deployment")
+     * @return Map of Kubernetes labels, or empty map if resource not found or has no labels
+     */
+    public Map<String, String> getKubernetesLabels(String namespace, String name, String nodeType) {
+        Map<String, String> labels = new HashMap<>();
+        try {
+            Pair<HasMetadata, DiscoveryNode> kubeResource =
+                    queryForNodeReadOnly(namespace, name, nodeType);
+            if (kubeResource != null
+                    && kubeResource.getLeft() != null
+                    && kubeResource.getLeft().getMetadata() != null
+                    && kubeResource.getLeft().getMetadata().getLabels() != null) {
+                labels.putAll(kubeResource.getLeft().getMetadata().getLabels());
+                logger.debugv(
+                        "Retrieved {0} Kubernetes labels for {1}/{2}",
+                        labels.size(), namespace, name);
+            }
+        } catch (Exception e) {
+            logger.warnv(e, "Failed to retrieve Kubernetes labels for {0}/{1}", namespace, name);
+        }
+        return labels;
+    }
+
+    /**
      * Queries the database to find an existing DiscoveryNode by composite ID. A DiscoveryNode is
      * uniquely identified by: name + nodeType + namespace label.
      *

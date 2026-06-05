@@ -608,9 +608,9 @@ public class Discovery {
 
                             DiscoveryNode lineage =
                                     k8sDiscovery.getOwnershipLineage(namespace, name, nodeType);
+                            Map<String, String> kubernetesLabels =
+                                    k8sDiscovery.getKubernetesLabels(namespace, name, nodeType);
 
-                            // Merge the lineage into the existing tree, reusing nodes where
-                            // possible
                             DiscoveryNode innermost = mergeLineageIntoTree(nsNode, lineage);
 
                             innermost.children.addAll(body.nodes);
@@ -620,18 +620,28 @@ public class Discovery {
                                         n.labels.put(
                                                 DISCOVERY_PLUGIN_ID_LABEL_KEY,
                                                 plugin.id.toString());
+
+                                        if (n.target != null && !kubernetesLabels.isEmpty()) {
+                                            if (n.target.labels == null) {
+                                                n.target.labels = new HashMap<>();
+                                            }
+                                            kubernetesLabels.forEach(
+                                                    (k, v) -> n.target.labels.putIfAbsent(k, v));
+                                            logger.debugv(
+                                                    "Enriched target {0} with {1} Kubernetes"
+                                                            + " labels",
+                                                    n.target.connectUrl, kubernetesLabels.size());
+                                        }
+
                                         n.persist();
                                     });
 
-                            // Persist the k8s lineage hierarchy under KubernetesApi Realm
                             DiscoveryNode current = innermost;
                             while (current != null && current != nsNode) {
                                 current.persist();
                                 current = current.parent;
                             }
                             nsNode.persist();
-                            // Agent Realm remains empty - targets are under KubernetesApi. Labels
-                            // are used for cleanup when the plugin goes offline.
                             break;
                         default:
                             replacementChildren.addAll(body.nodes);
@@ -914,7 +924,6 @@ public class Discovery {
 
             if (existingNode != null) {
                 // Reuse the existing node
-                // Merge labels from the new lineage into the existing node
                 if (lineageNode.labels != null) {
                     existingNode.labels.putAll(lineageNode.labels);
                 }
@@ -926,7 +935,6 @@ public class Discovery {
                 currentParent = lineageNode;
             }
 
-            // Move to the next level in the lineage
             if (lineageNode.children == null || lineageNode.children.isEmpty()) {
                 // Reached the leaf node
                 return currentParent;
