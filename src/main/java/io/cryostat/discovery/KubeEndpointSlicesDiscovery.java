@@ -20,6 +20,7 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -1639,7 +1640,12 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
      * @param annotations Kubernetes annotations
      */
     public static record KubernetesMetadata(
-            Map<String, String> labels, Map<String, String> annotations) {}
+            Map<String, String> labels, Map<String, String> annotations) {
+        public KubernetesMetadata(Map<String, String> labels, Map<String, String> annotations) {
+            this.labels = Collections.unmodifiableMap(new HashMap<>(labels));
+            this.annotations = Collections.unmodifiableMap(new HashMap<>(annotations));
+        }
+    }
 
     static record NamespaceQueryEvent(Collection<String> namespaces) {
         static NamespaceQueryEvent from(Collection<String> namespaces) {
