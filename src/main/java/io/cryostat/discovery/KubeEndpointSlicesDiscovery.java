@@ -1268,23 +1268,43 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
      * @return Map of Kubernetes labels, or empty map if resource not found or has no labels
      */
     public Map<String, String> getKubernetesLabels(String namespace, String name, String nodeType) {
+        return getKubernetesMetadata(namespace, name, nodeType).labels();
+    }
+
+    /**
+     * Retrieves Kubernetes metadata (labels and annotations) for a given resource.
+     *
+     * @param namespace Kubernetes namespace
+     * @param name Resource name
+     * @param nodeType Resource type (e.g., "Pod", "Deployment")
+     * @return KubernetesMetadata containing labels and annotations, or empty maps if resource not
+     *     found
+     */
+    public KubernetesMetadata getKubernetesMetadata(
+            String namespace, String name, String nodeType) {
         Map<String, String> labels = new HashMap<>();
+        Map<String, String> annotations = new HashMap<>();
         try {
             Pair<HasMetadata, DiscoveryNode> kubeResource =
                     queryForNodeReadOnly(namespace, name, nodeType);
-            if (kubeResource != null
-                    && kubeResource.getLeft() != null
-                    && kubeResource.getLeft().getMetadata() != null
-                    && kubeResource.getLeft().getMetadata().getLabels() != null) {
-                labels.putAll(kubeResource.getLeft().getMetadata().getLabels());
-                logger.debugv(
-                        "Retrieved {0} Kubernetes labels for {1}/{2}",
-                        labels.size(), namespace, name);
+            if (kubeResource != null && kubeResource.getLeft() != null) {
+                HasMetadata metadata = kubeResource.getLeft();
+                if (metadata.getMetadata() != null) {
+                    if (metadata.getMetadata().getLabels() != null) {
+                        labels.putAll(metadata.getMetadata().getLabels());
+                    }
+                    if (metadata.getMetadata().getAnnotations() != null) {
+                        annotations.putAll(metadata.getMetadata().getAnnotations());
+                    }
+                    logger.debugv(
+                            "Retrieved {0} labels and {1} annotations for {2}/{3}",
+                            labels.size(), annotations.size(), namespace, name);
+                }
             }
         } catch (Exception e) {
-            logger.warnv(e, "Failed to retrieve Kubernetes labels for {0}/{1}", namespace, name);
+            logger.warnv(e, "Failed to retrieve Kubernetes metadata for {0}/{1}", namespace, name);
         }
-        return labels;
+        return new KubernetesMetadata(labels, annotations);
     }
 
     /**
@@ -1611,6 +1631,15 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
             return StringUtils.isNotBlank(serviceHost.orElse(""));
         }
     }
+
+    /**
+     * Container for Kubernetes metadata (labels and annotations).
+     *
+     * @param labels Kubernetes labels
+     * @param annotations Kubernetes annotations
+     */
+    public static record KubernetesMetadata(
+            Map<String, String> labels, Map<String, String> annotations) {}
 
     static record NamespaceQueryEvent(Collection<String> namespaces) {
         static NamespaceQueryEvent from(Collection<String> namespaces) {

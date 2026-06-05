@@ -43,6 +43,7 @@ import io.cryostat.discovery.DiscoveryPlugin.PluginCallback;
 import io.cryostat.discovery.DiscoveryPlugin.PluginCleanupHelper;
 import io.cryostat.discovery.KubeEndpointSlicesDiscovery.KubeDiscoveryNodeType;
 import io.cryostat.discovery.NodeType.BaseNodeType;
+import io.cryostat.targets.Target.Annotations;
 import io.cryostat.targets.TargetConnectionManager;
 import io.cryostat.util.URIUtil;
 
@@ -608,8 +609,9 @@ public class Discovery {
 
                             DiscoveryNode lineage =
                                     k8sDiscovery.getOwnershipLineage(namespace, name, nodeType);
-                            Map<String, String> kubernetesLabels =
-                                    k8sDiscovery.getKubernetesLabels(namespace, name, nodeType);
+
+                            KubeEndpointSlicesDiscovery.KubernetesMetadata k8sMetadata =
+                                    k8sDiscovery.getKubernetesMetadata(namespace, name, nodeType);
 
                             DiscoveryNode innermost = mergeLineageIntoTree(nsNode, lineage);
 
@@ -621,16 +623,37 @@ public class Discovery {
                                                 DISCOVERY_PLUGIN_ID_LABEL_KEY,
                                                 plugin.id.toString());
 
-                                        if (n.target != null && !kubernetesLabels.isEmpty()) {
-                                            if (n.target.labels == null) {
-                                                n.target.labels = new HashMap<>();
+                                        if (n.target != null) {
+                                            if (!k8sMetadata.labels().isEmpty()) {
+                                                if (n.target.labels == null) {
+                                                    n.target.labels = new HashMap<>();
+                                                }
+                                                k8sMetadata
+                                                        .labels()
+                                                        .forEach(
+                                                                (k, v) ->
+                                                                        n.target.labels.putIfAbsent(
+                                                                                k, v));
                                             }
-                                            kubernetesLabels.forEach(
-                                                    (k, v) -> n.target.labels.putIfAbsent(k, v));
-                                            logger.debugv(
-                                                    "Enriched target {0} with {1} Kubernetes"
-                                                            + " labels",
-                                                    n.target.connectUrl, kubernetesLabels.size());
+
+                                            if (!k8sMetadata.annotations().isEmpty()) {
+                                                if (n.target.annotations == null) {
+                                                    n.target.annotations = new Annotations();
+                                                }
+                                                Map<String, String> platformAnnotations =
+                                                        new HashMap<>(
+                                                                n.target.annotations.platform());
+                                                k8sMetadata
+                                                        .annotations()
+                                                        .forEach(
+                                                                (k, v) ->
+                                                                        platformAnnotations
+                                                                                .putIfAbsent(k, v));
+                                                n.target.annotations =
+                                                        new Annotations(
+                                                                platformAnnotations,
+                                                                n.target.annotations.cryostat());
+                                            }
                                         }
 
                                         n.persist();
