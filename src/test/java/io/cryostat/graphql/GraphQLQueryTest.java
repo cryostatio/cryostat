@@ -31,6 +31,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
+import io.restassured.path.json.JsonPath;
 import io.restassured.response.Response;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
@@ -390,6 +391,51 @@ class GraphQLQueryTest extends AbstractGraphQLTestBase {
                 equalTo(retrievedArchivedRecordingsName));
 
         // Delete archived recording
+        deleteRecording();
+    }
+
+    @Test
+    void shouldListArchivedRecordingsWithoutSourceTargetFilter() throws Exception {
+        String recordingName = "shouldListArchivedRecordingsWithoutSourceTargetFilter";
+        JsonObject notificationRecording = createRecording(recordingName);
+        assertThat(notificationRecording.getString("name"), equalTo(recordingName));
+
+        JsonObject archiveMutation = new JsonObject();
+        archiveMutation.put(
+                "query",
+                String.format(
+                        "mutation { archiveRecording (nodes: { annotations: [\"REALM = Custom"
+                            + " Targets\"]}, recordings: { name: \"%s\"}) { name downloadUrl } }",
+                        recordingName));
+
+        given().contentType(ContentType.JSON)
+                .body(archiveMutation.encode())
+                .when()
+                .post("/api/v4/graphql")
+                .then()
+                .statusCode(allOf(greaterThanOrEqualTo(200), lessThan(300)));
+
+        webSocketClient.expectNotification("ArchivedRecordingCreated", Duration.ofSeconds(15));
+
+        JsonPath response =
+                graphql("query { archivedRecordings { aggregate { count } data { name jvmId } } }");
+
+        List<Map<String, Object>> errors = response.getList("errors");
+        assertThat(errors, anyOf(nullValue(), empty()));
+
+        Integer count = response.getInt("data.archivedRecordings.aggregate.count");
+        assertThat(count, notNullValue());
+        assertThat(count, greaterThanOrEqualTo(1));
+
+        List<Map<String, Object>> archivedRecordings =
+                response.getList("data.archivedRecordings.data");
+        assertThat(archivedRecordings, is(not(empty())));
+
+        Map<String, Object> archivedRecording = archivedRecordings.getFirst();
+        assertThat(archivedRecording.get("name").toString(), not(emptyOrNullString()));
+        assertThat(archivedRecording.get("jvmId"), notNullValue());
+        assertThat(archivedRecording.get("jvmId").toString(), not(emptyOrNullString()));
+
         deleteRecording();
     }
 
