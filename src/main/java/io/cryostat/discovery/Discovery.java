@@ -75,6 +75,7 @@ import jakarta.ws.rs.DefaultValue;
 import jakarta.ws.rs.ForbiddenException;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.InternalServerErrorException;
+import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
@@ -674,12 +675,7 @@ public class Discovery {
         try {
             plugin = DiscoveryPlugin.find("id", id).singleResult();
         } catch (NoResultException e) {
-            // Plugin already deleted, but we should still clean up any orphaned nodes
-            logger.warnv(
-                    "Plugin {0} not found during deregistration, cleaning up orphaned nodes", id);
             cleanupHelper.cleanupPluginNodes(id);
-
-            // Also try to delete the scheduled job
             Set<JobKey> jobKeys = new HashSet<>();
             jobKeys.addAll(scheduler.getJobKeys(GroupMatcher.jobGroupEquals(JOB_PERIODIC)));
             for (var key : jobKeys) {
@@ -687,7 +683,8 @@ public class Discovery {
                     scheduler.deleteJob(key);
                 }
             }
-            return;
+
+            throw new NotFoundException();
         }
 
         if (plugin.builtin) {
