@@ -107,7 +107,8 @@ public class DiscoveryPlugin extends PanacheEntityBase {
     @OneToOne(
             optional = true, // only nullable for builtins
             fetch = FetchType.LAZY,
-            cascade = CascadeType.REMOVE)
+            cascade = {CascadeType.PERSIST, CascadeType.MERGE, CascadeType.REMOVE},
+            orphanRemoval = true)
     @JsonIgnore
     @Nullable
     @Cache(usage = CacheConcurrencyStrategy.READ_ONLY)
