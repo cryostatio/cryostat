@@ -67,7 +67,7 @@ jobs:
         fetch-depth: 0
     - uses: actions/setup-java@v5
       with:
-        java-version: '21'
+        java-version: '25'
         distribution: 'temurin'
         cache: 'maven'
     - run: git submodule init && git submodule update
@@ -140,7 +140,7 @@ jobs:
         fetch-depth: 0
     - uses: actions/setup-java@v5
       with:
-        java-version: '21'
+        java-version: '25'
         distribution: 'temurin'
         cache: 'maven'
     - run: git submodule init && git submodule update
@@ -225,7 +225,7 @@ jobs:
         fetch-depth: 0
     - uses: actions/setup-java@v5
       with:
-        java-version: '21'
+        java-version: '25'
         distribution: 'temurin'
         cache: 'maven'
     - run: git submodule init && git submodule update
