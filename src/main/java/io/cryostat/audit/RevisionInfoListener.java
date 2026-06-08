@@ -28,6 +28,10 @@ public class RevisionInfoListener implements RevisionListener {
 
     @Override
     public void newRevision(Object revisionEntity) {
+        if (revisionEntity == null) {
+            logger.debugf("Received null revisionEntity");
+            return;
+        }
         if (!(revisionEntity instanceof RevisionInfo revInfo)) {
             logger.debugf("Expected RevisionInfo but got %s", revisionEntity.getClass().getName());
             return;
@@ -36,7 +40,6 @@ public class RevisionInfoListener implements RevisionListener {
         String username = UserInfoResolver.resolveUsername();
 
         if (StringUtils.isNotBlank(username)) {
-            // Truncate if longer than max length (e.g., JWT tokens)
             if (username.length() >= MAX_USERNAME_LENGTH) {
                 logger.debugf(
                         "Truncating username from %d to %d characters",
