@@ -37,11 +37,11 @@ public class RevisionInfoListener implements RevisionListener {
 
         if (StringUtils.isNotBlank(username)) {
             // Truncate if longer than max length (e.g., JWT tokens)
-            if (username.length() > MAX_USERNAME_LENGTH) {
+            if (username.length() >= MAX_USERNAME_LENGTH) {
                 logger.debugf(
                         "Truncating username from %d to %d characters",
-                        username.length(), MAX_USERNAME_LENGTH);
-                username = username.substring(0, MAX_USERNAME_LENGTH);
+                        username.length(), MAX_USERNAME_LENGTH - 1);
+                username = username.substring(0, MAX_USERNAME_LENGTH - 1);
             }
             revInfo.setUsername(username);
             logger.debugf("Revision %d created by user: %s", revInfo.getId(), username);
