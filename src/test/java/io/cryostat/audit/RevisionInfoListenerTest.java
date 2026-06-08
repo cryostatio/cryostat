@@ -161,7 +161,7 @@ class RevisionInfoListenerTest {
                 "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9."
                     + "eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ."
                     + "SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c"
-                        + "a".repeat(50);
+                        + "a".repeat(300);
         try (MockedStatic<UserInfoResolver> mockedResolver =
                 Mockito.mockStatic(UserInfoResolver.class)) {
             mockedResolver.when(UserInfoResolver::resolveUsername).thenReturn(jwtToken);
