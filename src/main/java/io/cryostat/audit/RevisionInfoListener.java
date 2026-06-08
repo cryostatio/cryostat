@@ -24,7 +24,7 @@ import org.jboss.logging.Logger;
 public class RevisionInfoListener implements RevisionListener {
 
     private static final Logger logger = Logger.getLogger(RevisionInfoListener.class);
-    private static final int MAX_USERNAME_LENGTH = 64;
+    private static final int MAX_USERNAME_LENGTH = 255;
 
     @Override
     public void newRevision(Object revisionEntity) {
