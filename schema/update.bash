@@ -17,7 +17,7 @@ fi
     -Dmaven.test.skip \
     -Dspotless.check.skip \
     -Dquarkus.smallrye-openapi.info-title="Cryostat API" \
-    clean quarkus:generate-code compile test-compile quarkus:dev --offline &
+    clean quarkus:generate-code compile test-compile quarkus:dev &
 
 pid="$!"
 function cleanup() {
