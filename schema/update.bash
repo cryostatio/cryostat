@@ -17,11 +17,11 @@ fi
     -Dmaven.test.skip \
     -Dspotless.check.skip \
     -Dquarkus.smallrye-openapi.info-title="Cryostat API" \
-    clean quarkus:generate-code compile test-compile quarkus:dev &
+    clean quarkus:generate-code compile test-compile quarkus:dev --offline &
 
 pid="$!"
 function cleanup() {
-    kill $pid
+    kill $pid || true
 }
 trap cleanup EXIT
 set +e
