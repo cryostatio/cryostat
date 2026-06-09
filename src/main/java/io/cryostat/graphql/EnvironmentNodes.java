@@ -33,7 +33,7 @@ public class EnvironmentNodes {
     public List<DiscoveryNode> environmentNodes(@Nullable DiscoveryNodeFilter filter) {
         return RootNode.recurseChildren(DiscoveryNode.getUniverse(), node -> node.target == null)
                 .stream()
-                .filter(filter)
+                .filter(n -> filter == null ? true : filter.test(n))
                 .toList();
     }
 }

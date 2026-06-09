@@ -49,7 +49,7 @@ public class ThreadDumpGraphQL {
                 diagnosticsHelper
                         .getThreadDumps(filter == null ? null : filter.sourceTarget)
                         .stream()
-                        .filter(filter)
+                        .filter(v -> filter == null ? true : filter.test(v))
                         .toList();
         r.aggregate = ThreadDumpAggregateInfo.fromArchived(r.data);
         return r;

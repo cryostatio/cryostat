@@ -47,7 +47,7 @@ public class HeapDumpGraphQL {
         var r = new TargetNodes.HeapDumps();
         r.data =
                 diagnosticsHelper.getHeapDumps(filter == null ? null : filter.sourceTarget).stream()
-                        .filter(filter)
+                        .filter(v -> filter == null ? true : filter.test(v))
                         .toList();
         r.aggregate = HeapDumpAggregateInfo.fromArchived(r.data);
         return r;
