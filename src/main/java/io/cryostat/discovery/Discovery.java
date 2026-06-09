@@ -40,6 +40,7 @@ import java.util.UUID;
 import io.cryostat.ConfigProperties;
 import io.cryostat.credentials.Credential;
 import io.cryostat.discovery.DiscoveryPlugin.PluginCallback;
+import io.cryostat.discovery.DiscoveryPlugin.PluginCleanupHelper;
 import io.cryostat.discovery.KubeEndpointSlicesDiscovery.KubeDiscoveryNodeType;
 import io.cryostat.discovery.NodeType.BaseNodeType;
 import io.cryostat.targets.TargetConnectionManager;
@@ -51,6 +52,7 @@ import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jwt.proc.BadJWTException;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.quarkus.narayana.jta.QuarkusTransaction;
+import io.quarkus.panache.common.Parameters;
 import io.quarkus.runtime.ShutdownEvent;
 import io.smallrye.common.annotation.Blocking;
 import io.smallrye.faulttolerance.api.RateLimit;
@@ -73,6 +75,7 @@ import jakarta.ws.rs.DefaultValue;
 import jakarta.ws.rs.ForbiddenException;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.InternalServerErrorException;
+import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
@@ -120,6 +123,10 @@ public class Discovery {
     private static final String PLUGIN_ID_MAP_KEY = "pluginId";
     private static final String REFRESH_MAP_KEY = "refresh";
 
+    public static final String DISCOVERY_PLUGIN_LABEL_PREFIX = "discovery.cryostat.io/";
+    public static final String DISCOVERY_PLUGIN_ID_LABEL_KEY =
+            DISCOVERY_PLUGIN_LABEL_PREFIX + "plugin-id";
+
     @ConfigProperty(name = ConfigProperties.DISCOVERY_PLUGINS_PING_PERIOD)
     Duration discoveryPingPeriod;
 
@@ -139,6 +146,7 @@ public class Discovery {
     @Inject URIUtil uriUtil;
     @Inject KubeEndpointSlicesDiscovery k8sDiscovery;
     @Inject PluginCallbackFactory callbackFactory;
+    @Inject PluginCleanupHelper cleanupHelper;
     @Inject EntityManager entityManager;
 
     void onStop(@Observes ShutdownEvent evt) throws SchedulerException {
@@ -561,37 +569,69 @@ public class Discovery {
                                         new IllegalArgumentException(
                                                 String.format("%s cannot be blank", key)));
                             }
+
+                            DiscoveryNode k8sRealm =
+                                    DiscoveryNode.getRealm(KubeEndpointSlicesDiscovery.REALM)
+                                            .orElseThrow(
+                                                    () ->
+                                                            new IllegalStateException(
+                                                                    "KubernetesApi realm not"
+                                                                            + " found"));
+
+                            DiscoveryNode nsNode =
+                                    DiscoveryNode.<DiscoveryNode>find(
+                                                    "#DiscoveryNode.byTypeWithName",
+                                                    Parameters.with(
+                                                                    "nodeType",
+                                                                    KubeDiscoveryNodeType.NAMESPACE
+                                                                            .getKind())
+                                                            .and("name", namespace))
+                                            .firstResultOptional()
+                                            .orElseGet(
+                                                    () -> {
+                                                        DiscoveryNode newNs = new DiscoveryNode();
+                                                        newNs.name = namespace;
+                                                        newNs.nodeType =
+                                                                KubeDiscoveryNodeType.NAMESPACE
+                                                                        .getKind();
+                                                        newNs.labels = new HashMap<>();
+                                                        newNs.children = new ArrayList<>();
+                                                        newNs.target = null;
+                                                        newNs.parent = k8sRealm;
+                                                        newNs.persist();
+                                                        return newNs;
+                                                    });
+
+                            if (nsNode.parent == null || !nsNode.parent.equals(k8sRealm)) {
+                                nsNode.parent = k8sRealm;
+                            }
+
                             DiscoveryNode lineage =
                                     k8sDiscovery.getOwnershipLineage(namespace, name, nodeType);
-                            DiscoveryNode innermost = innermostNode(lineage);
+
+                            // Merge the lineage into the existing tree, reusing nodes where
+                            // possible
+                            DiscoveryNode innermost = mergeLineageIntoTree(nsNode, lineage);
+
                             innermost.children.addAll(body.nodes);
                             body.nodes.forEach(
                                     n -> {
                                         n.parent = innermost;
+                                        n.labels.put(
+                                                DISCOVERY_PLUGIN_ID_LABEL_KEY,
+                                                plugin.id.toString());
                                         n.persist();
                                     });
 
-                            DiscoveryNode nsNode = new DiscoveryNode();
-                            nsNode.name = namespace;
-                            nsNode.nodeType = KubeDiscoveryNodeType.NAMESPACE.getKind();
-                            nsNode.labels = new HashMap<>();
-                            nsNode.children = new ArrayList<>();
-                            nsNode.target = null;
-
-                            nsNode.children.add(lineage);
-                            lineage.parent = nsNode;
-
+                            // Persist the k8s lineage hierarchy under KubernetesApi Realm
                             DiscoveryNode current = innermost;
-                            while (true) {
+                            while (current != null && current != nsNode) {
                                 current.persist();
                                 current = current.parent;
-                                if (current == null) {
-                                    break;
-                                }
                             }
-
                             nsNode.persist();
-                            replacementChildren.add(nsNode);
+                            // Agent Realm remains empty - targets are under KubernetesApi. Labels
+                            // are used for cleanup when the plugin goes offline.
                             break;
                         default:
                             replacementChildren.addAll(body.nodes);
@@ -631,8 +671,15 @@ public class Discovery {
             @RestPath UUID id,
             @RestHeader("Cryostat-Discovery-Authentication") String token)
             throws SchedulerException {
-        DiscoveryPlugin plugin = DiscoveryPlugin.find("id", id).singleResult();
+        DiscoveryPlugin plugin = DiscoveryPlugin.findById(id);
+        if (plugin == null) {
+            logger.debugv("Could not find registered plugin with ID {0}", id);
+            throw new NotFoundException();
+        }
+
         if (plugin.builtin) {
+            logger.debugv(
+                    "Refusing to delete built-in plugin with ID {0} ({1})", id, plugin.realm.name);
             throw new ForbiddenException();
         }
         try {
@@ -643,6 +690,7 @@ public class Discovery {
                 | SocketException
                 | JOSEException
                 | ParseException e) {
+            logger.debugv("Refusing to delete plugin ID {0} due to invalid JWT", id);
             throw new BadRequestException(e);
         }
 
@@ -654,6 +702,7 @@ public class Discovery {
             }
             scheduler.deleteJob(key);
         }
+
         plugin.delete();
     }
 
@@ -815,18 +864,6 @@ public class Discovery {
         return mergedRoot;
     }
 
-    /**
-     * Get the innermost node of a hierarchical lineage. This assumes that the ancestor node passed
-     * in is the root of a tree where each node has either 0 or 1 children.
-     */
-    private DiscoveryNode innermostNode(DiscoveryNode ancestor) {
-        DiscoveryNode node = ancestor;
-        while (node.hasChildren()) {
-            node = node.children.get(0);
-        }
-        return node;
-    }
-
     private DiscoveryNode copyNode(DiscoveryNode source) {
         var copy = new DiscoveryNode();
         copy.id = source.id;
@@ -848,6 +885,56 @@ public class Discovery {
         if (source.target != null) {
             target.target = source.target;
         }
+    }
+
+    /**
+     * Merges a lineage chain into an existing tree, reusing nodes where possible. This walks down
+     * the lineage chain and at each level checks if a node with the same name and type already
+     * exists as a child of the parent. If it does, reuses that node; if not, adds the new node.
+     *
+     * @param parent The parent node to merge the lineage into (typically a Namespace node)
+     * @param lineage The root of the lineage chain to merge (typically a Deployment node)
+     * @return The innermost (leaf) node of the merged lineage
+     */
+    private DiscoveryNode mergeLineageIntoTree(DiscoveryNode parent, DiscoveryNode lineage) {
+        DiscoveryNode currentParent = parent;
+        DiscoveryNode currentLineage = lineage;
+
+        while (currentLineage != null) {
+            // Check if a node with the same name and type already exists as a child
+            final DiscoveryNode lineageNode = currentLineage;
+            DiscoveryNode existingNode =
+                    currentParent.children.stream()
+                            .filter(
+                                    child ->
+                                            child.name.equals(lineageNode.name)
+                                                    && child.nodeType.equals(lineageNode.nodeType))
+                            .findFirst()
+                            .orElse(null);
+
+            if (existingNode != null) {
+                // Reuse the existing node
+                // Merge labels from the new lineage into the existing node
+                if (lineageNode.labels != null) {
+                    existingNode.labels.putAll(lineageNode.labels);
+                }
+                currentParent = existingNode;
+            } else {
+                // Add the new node to the parent
+                lineageNode.parent = currentParent;
+                currentParent.children.add(lineageNode);
+                currentParent = lineageNode;
+            }
+
+            // Move to the next level in the lineage
+            if (lineageNode.children == null || lineageNode.children.isEmpty()) {
+                // Reached the leaf node
+                return currentParent;
+            }
+            currentLineage = lineageNode.children.get(0);
+        }
+
+        return currentParent;
     }
 
     private static record NodeContext(
@@ -874,7 +961,7 @@ public class Discovery {
 
         @Inject PluginCallbackFactory callbackFactory;
 
-        @Inject EntityManager entityManager;
+        @Inject PluginCleanupHelper cleanupHelper;
 
         @Override
         public void execute(JobExecutionContext context) throws JobExecutionException {
@@ -950,6 +1037,13 @@ public class Discovery {
                     logger.warnv(
                             "Unscheduled job for unknown discovery plugin: {0}",
                             context.getMergedJobDataMap().get(PLUGIN_ID_MAP_KEY));
+
+                    // Clean up any orphaned nodes before unscheduling
+                    if (noSuchPlugin) {
+                        QuarkusTransaction.joiningExisting()
+                                .run(() -> cleanupHelper.cleanupPluginNodes(pluginId));
+                    }
+
                     var ex = new JobExecutionException(e);
                     ex.setUnscheduleFiringTrigger(true);
                     throw ex;
