@@ -24,7 +24,7 @@ import java.util.Optional;
 
 import io.cryostat.ConfigProperties;
 import io.cryostat.core.diagnostic.HeapDumpAnalysis;
-import io.cryostat.core.diagnostic.InterruptibleHeapDumpReportGenerator;
+import io.cryostat.core.diagnostic.HeapDumpReportGenerator;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.smallrye.mutiny.Uni;
@@ -72,12 +72,15 @@ class HeapDumpReportsServiceImpl implements HeapDumpReportsService {
     @ConfigProperty(name = ConfigProperties.REPORTS_FILTER)
     Optional<String> configFilter;
 
+    @ConfigProperty(name = ConfigProperties.HEAP_DUMP_ANALYSIS_MEMORY_LIMIT)
+    int memoryLimit;
+
     @Inject ObjectMapper mapper;
     @Inject DiagnosticsHelper helper;
     @Inject @RestClient HeapDumpReportsSidecarService sidecar;
     @Inject S3Presigner presigner;
     @Inject Logger logger;
-    @Inject InterruptibleHeapDumpReportGenerator reportGenerator;
+    @Inject HeapDumpReportGenerator reportGenerator;
 
     @Override
     public Uni<HeapDumpAnalysis> reportFor(String jvmId, String heapDumpId) {
@@ -104,8 +107,7 @@ class HeapDumpReportsServiceImpl implements HeapDumpReportsService {
     }
 
     private Uni<HeapDumpAnalysis> process(String jvmId, String heapDumpId, InputStream stream) {
-        return Uni.createFrom()
-                .future(reportGenerator.generateInterruptibly(jvmId, heapDumpId, stream));
+        return Uni.createFrom().future(reportGenerator.generate(stream, memoryLimit));
     }
 
     private Uni<HeapDumpAnalysis> fireRequest(InputStream stream, String jvmId, String heapDumpId) {

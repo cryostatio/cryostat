@@ -92,6 +92,8 @@ public class ConfigProperties {
             "cryostat.services.heap-dump.reports.storage-cache.name";
     public static final String ARCHIVED_HEAP_DUMP_REPORTS_EXPIRY_DURATION =
             "cryostat.services.heap-dump.reports.storage-cache.expiry-duration";
+    public static final String HEAP_DUMP_ANALYSIS_MEMORY_LIMIT =
+            "cryostat.services.heap-dump.reports.memory-limit";
     public static final String JFR_DATASOURCE_USE_PRESIGNED_TRANSFER =
             "cryostat.services.jfr-datasource.use-presigned-transfer";
     public static final String JFR_ANALYTICS_CACHE_MAX_WEIGHT =
