@@ -67,7 +67,7 @@ public class ActiveRecordings {
             throws QuantityConversionException {
         var list =
                 DiscoveryNode.<DiscoveryNode>listAll().stream()
-                        .filter(nodes)
+                        .filter(n -> nodes == null ? true : nodes.test(n))
                         .flatMap(
                                 node ->
                                         RootNode.recurseChildren(node, n -> n.target != null)
@@ -108,7 +108,7 @@ public class ActiveRecordings {
             throws Exception {
         var list =
                 DiscoveryNode.<DiscoveryNode>listAll().stream()
-                        .filter(nodes)
+                        .filter(n -> nodes == null ? true : nodes.test(n))
                         .flatMap(
                                 node ->
                                         RootNode.recurseChildren(node, n -> n.target != null)
@@ -139,7 +139,7 @@ public class ActiveRecordings {
             throws Exception {
         var list =
                 DiscoveryNode.<DiscoveryNode>listAll().stream()
-                        .filter(nodes)
+                        .filter(n -> nodes == null ? true : nodes.test(n))
                         .flatMap(
                                 node ->
                                         RootNode.recurseChildren(node, n -> n.target != null)
@@ -168,7 +168,7 @@ public class ActiveRecordings {
             @NonNull DiscoveryNodeFilter nodes, @Nullable ActiveRecordingsFilter recordings) {
         var list =
                 DiscoveryNode.<DiscoveryNode>listAll().stream()
-                        .filter(nodes)
+                        .filter(n -> nodes == null ? true : nodes.test(n))
                         .flatMap(
                                 node ->
                                         RootNode.recurseChildren(node, n -> n.target != null)
@@ -196,7 +196,7 @@ public class ActiveRecordings {
     public List<ActiveRecording> createSnapshot(@NonNull DiscoveryNodeFilter nodes) {
         var targets =
                 DiscoveryNode.<DiscoveryNode>listAll().stream()
-                        .filter(nodes)
+                        .filter(n -> nodes == null ? true : nodes.test(n))
                         .flatMap(
                                 node ->
                                         RootNode.recurseChildren(node, n -> n.target != null)

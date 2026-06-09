@@ -51,8 +51,13 @@ public class RootNode {
                 .toList();
     }
 
-    static Set<DiscoveryNode> recurseChildren(
-            DiscoveryNode node, Predicate<DiscoveryNode> predicate) {
+    static Set<DiscoveryNode> recurseChildren(DiscoveryNode node, Predicate<DiscoveryNode> p) {
+        Predicate<DiscoveryNode> predicate;
+        if (p == null) {
+            predicate = n -> true;
+        } else {
+            predicate = p;
+        }
         Set<DiscoveryNode> result = new HashSet<>();
         if (predicate.test(node)) {
             result.add(node);
