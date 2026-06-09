@@ -24,10 +24,14 @@ import org.jboss.logging.Logger;
 public class RevisionInfoListener implements RevisionListener {
 
     private static final Logger logger = Logger.getLogger(RevisionInfoListener.class);
-    private static final int MAX_USERNAME_LENGTH = 64;
+    private static final int MAX_USERNAME_LENGTH = 255;
 
     @Override
     public void newRevision(Object revisionEntity) {
+        if (revisionEntity == null) {
+            logger.debugf("Received null revisionEntity");
+            return;
+        }
         if (!(revisionEntity instanceof RevisionInfo revInfo)) {
             logger.debugf("Expected RevisionInfo but got %s", revisionEntity.getClass().getName());
             return;
@@ -36,12 +40,11 @@ public class RevisionInfoListener implements RevisionListener {
         String username = UserInfoResolver.resolveUsername();
 
         if (StringUtils.isNotBlank(username)) {
-            // Truncate if longer than max length (e.g., JWT tokens)
-            if (username.length() > MAX_USERNAME_LENGTH) {
+            if (username.length() >= MAX_USERNAME_LENGTH) {
                 logger.debugf(
                         "Truncating username from %d to %d characters",
-                        username.length(), MAX_USERNAME_LENGTH);
-                username = username.substring(0, MAX_USERNAME_LENGTH);
+                        username.length(), MAX_USERNAME_LENGTH - 1);
+                username = username.substring(0, MAX_USERNAME_LENGTH - 1);
             }
             revInfo.setUsername(username);
             logger.debugf("Revision %d created by user: %s", revInfo.getId(), username);
