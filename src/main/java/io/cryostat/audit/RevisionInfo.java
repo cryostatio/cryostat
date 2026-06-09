@@ -85,7 +85,7 @@ public class RevisionInfo {
     @Column(name = "REVTSTMP")
     private long timestamp;
 
-    @Column(name = "username", length = 64)
+    @Column(name = "username", length = 255)
     private String username;
 
     public int getId() {
