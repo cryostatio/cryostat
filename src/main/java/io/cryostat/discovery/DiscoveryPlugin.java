@@ -259,8 +259,10 @@ public class DiscoveryPlugin extends PanacheEntityBase {
                 var credential = getCredential(plugin);
                 plugin.credential = credential;
                 credential.discoveryPlugin = plugin;
-                plugin.callback = UriBuilder.fromUri(plugin.callback).userInfo(null).build();
+            } else {
+                plugin.credential.discoveryPlugin = plugin;
             }
+            plugin.callback = UriBuilder.fromUri(plugin.callback).userInfo(null).build();
             if (plugin.nextPingAt != null
                     || plugin.lastFailedPing != null
                     || plugin.lastSuccessfulPing != null) {
