@@ -43,6 +43,7 @@ import io.cryostat.discovery.DiscoveryPlugin.PluginCallback;
 import io.cryostat.discovery.DiscoveryPlugin.PluginCleanupHelper;
 import io.cryostat.discovery.KubeEndpointSlicesDiscovery.KubeDiscoveryNodeType;
 import io.cryostat.discovery.NodeType.BaseNodeType;
+import io.cryostat.targets.Target.Annotations;
 import io.cryostat.targets.TargetConnectionManager;
 import io.cryostat.util.URIUtil;
 
@@ -609,8 +610,9 @@ public class Discovery {
                             DiscoveryNode lineage =
                                     k8sDiscovery.getOwnershipLineage(namespace, name, nodeType);
 
-                            // Merge the lineage into the existing tree, reusing nodes where
-                            // possible
+                            KubeEndpointSlicesDiscovery.KubernetesMetadata k8sMetadata =
+                                    k8sDiscovery.getKubernetesMetadata(namespace, name, nodeType);
+
                             DiscoveryNode innermost = mergeLineageIntoTree(nsNode, lineage);
 
                             innermost.children.addAll(body.nodes);
@@ -620,18 +622,49 @@ public class Discovery {
                                         n.labels.put(
                                                 DISCOVERY_PLUGIN_ID_LABEL_KEY,
                                                 plugin.id.toString());
+
+                                        if (n.target != null) {
+                                            if (!k8sMetadata.labels().isEmpty()) {
+                                                if (n.target.labels == null) {
+                                                    n.target.labels = new HashMap<>();
+                                                }
+                                                k8sMetadata
+                                                        .labels()
+                                                        .forEach(
+                                                                (k, v) ->
+                                                                        n.target.labels.putIfAbsent(
+                                                                                k, v));
+                                            }
+
+                                            if (!k8sMetadata.annotations().isEmpty()) {
+                                                if (n.target.annotations == null) {
+                                                    n.target.annotations = new Annotations();
+                                                }
+                                                Map<String, String> platformAnnotations =
+                                                        new HashMap<>(
+                                                                n.target.annotations.platform());
+                                                k8sMetadata
+                                                        .annotations()
+                                                        .forEach(
+                                                                (k, v) ->
+                                                                        platformAnnotations
+                                                                                .putIfAbsent(k, v));
+                                                n.target.annotations =
+                                                        new Annotations(
+                                                                platformAnnotations,
+                                                                n.target.annotations.cryostat());
+                                            }
+                                        }
+
                                         n.persist();
                                     });
 
-                            // Persist the k8s lineage hierarchy under KubernetesApi Realm
                             DiscoveryNode current = innermost;
                             while (current != null && current != nsNode) {
                                 current.persist();
                                 current = current.parent;
                             }
                             nsNode.persist();
-                            // Agent Realm remains empty - targets are under KubernetesApi. Labels
-                            // are used for cleanup when the plugin goes offline.
                             break;
                         default:
                             replacementChildren.addAll(body.nodes);
@@ -914,7 +947,6 @@ public class Discovery {
 
             if (existingNode != null) {
                 // Reuse the existing node
-                // Merge labels from the new lineage into the existing node
                 if (lineageNode.labels != null) {
                     existingNode.labels.putAll(lineageNode.labels);
                 }
@@ -926,7 +958,6 @@ public class Discovery {
                 currentParent = lineageNode;
             }
 
-            // Move to the next level in the lineage
             if (lineageNode.children == null || lineageNode.children.isEmpty()) {
                 // Reached the leaf node
                 return currentParent;
