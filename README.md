@@ -88,7 +88,8 @@ For ease and convenience, it is suggested to use `podman` with the following con
 ```bash
 $ systemctl --user enable --now podman.socket
 $ # hack to work around testcontainers/podman "Broken pipe" issue
-$ sudo bash -c 'echo -e "[engine]\nservice_timeout=0" >> /etc/containers/containers.conf'
+$ mkdir -p $HOME/.config/containers/containers.conf.d
+$ echo -e "[engine]\nservice_timeout=0" > $HOME/.config/containers/containers.conf.d/999-service-timeout.conf
 ```
 
 `$HOME/.bashrc` (or equivalent shell configuration)

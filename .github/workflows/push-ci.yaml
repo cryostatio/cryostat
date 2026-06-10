@@ -59,7 +59,7 @@ jobs:
           blocked = true
     - uses: DamianReeves/write-file-action@v1.3
       with:
-        path: /etc/containers/containers.conf
+        path: /home/runner/.config/containers/containers.conf.d/999-service-timeout.conf
         write-mode: overwrite
         contents: |
           [engine]
@@ -139,7 +139,7 @@ jobs:
           blocked = true
     - uses: DamianReeves/write-file-action@v1.3
       with:
-        path: /etc/containers/containers.conf
+        path: /home/runner/.config/containers/containers.conf.d/999-service-timeout.conf
         write-mode: overwrite
         contents: |
           [engine]
