@@ -376,11 +376,23 @@ public abstract class ContainerDiscovery {
         @Inject URIUtil uriUtil;
         @Inject Logger logger;
 
-        private JobExecutionContext context;
+        private String realm;
+        private String socket;
+        private String containersQueryURL;
+        private String containerQueryURLTemplate;
+        private String notificationAddress;
 
         @Override
         public void execute(JobExecutionContext context) throws JobExecutionException {
-            this.context = context;
+            this.realm = context.getMergedJobDataMap().getString(JOB_DATA_KEY_REALM);
+            this.socket = context.getMergedJobDataMap().getString(JOB_DATA_KEY_SOCKET_ADDRESS);
+            this.containersQueryURL =
+                    context.getMergedJobDataMap().getString(JOB_DATA_KEY_CONTAINERS_QUERY_URL);
+            this.containerQueryURLTemplate =
+                    context.getMergedJobDataMap().getString(JOB_DATA_KEY_CONTAINER_QUERY_URL);
+            this.notificationAddress =
+                    context.getMergedJobDataMap().getString(JOB_DATA_KEY_NOTIFICATION_ADDRESS);
+
             queryContainers();
         }
 
@@ -402,7 +414,7 @@ public abstract class ContainerDiscovery {
             Map<URI, ContainerSpec> containerRefMap = new HashMap<>();
 
             Set<Target> persistedTargets =
-                    Target.findByRealm(getRealm()).stream().collect(Collectors.toSet());
+                    Target.findByRealm(realm).stream().collect(Collectors.toSet());
             Set<Target> observedTargets =
                     current.stream()
                             .map(
@@ -434,12 +446,12 @@ public abstract class ContainerDiscovery {
         }
 
         private void doContainerListRequest(Consumer<List<ContainerSpec>> successHandler) {
-            URI requestPath = URI.create(getContainersQueryURL());
+            URI requestPath = URI.create(this.containersQueryURL);
             try {
                 webClient
                         .request(
                                 HttpMethod.GET,
-                                domainSocket(getSocket()),
+                                domainSocket(this.socket),
                                 80,
                                 "localhost",
                                 requestPath.toString())
@@ -464,7 +476,7 @@ public abstract class ContainerDiscovery {
                                     }
                                 },
                                 failure -> {
-                                    logger.errorv(failure, "{0} API request failed", getRealm());
+                                    logger.errorv(failure, "{0} API request failed", this.realm);
                                 });
             } catch (JsonProcessingException e) {
                 logger.error("Json processing error", e);
@@ -501,7 +513,7 @@ public abstract class ContainerDiscovery {
                                             .Config
                                             .Hostname;
                         } catch (InterruptedException | TimeoutException | ExecutionException e) {
-                            logger.warnv(e, "Invalid {0} target observed", getRealm());
+                            logger.warnv(e, "Invalid {0} target observed", this.realm);
                             return null;
                         }
                     }
@@ -509,7 +521,7 @@ public abstract class ContainerDiscovery {
                 serviceUrl = connectionToolkit.createServiceURL(hostname, jmxPort);
                 connectUrl = URI.create(serviceUrl.toString());
             } catch (MalformedURLException | URISyntaxException e) {
-                logger.warnv(e, "Invalid {0} target observed", getRealm());
+                logger.warnv(e, "Invalid {0} target observed", this.realm);
                 return null;
             }
 
@@ -523,7 +535,7 @@ public abstract class ContainerDiscovery {
                             null,
                             Map.of(
                                     "REALM", // AnnotationKey.REALM,
-                                    getRealm(),
+                                    this.realm,
                                     "HOST", // AnnotationKey.HOST,
                                     hostname,
                                     "PORT", // "AnnotationKey.PORT,
@@ -532,14 +544,18 @@ public abstract class ContainerDiscovery {
             return target;
         }
 
+        private String getContainerQueryURL(String containerId) {
+            return String.format(this.containerQueryURLTemplate, containerId);
+        }
+
         private CompletableFuture<ContainerDetails> doContainerInspectRequest(
                 ContainerSpec container) {
             CompletableFuture<ContainerDetails> result = new CompletableFuture<>();
-            URI requestPath = URI.create(getContainerQueryURL(container));
+            URI requestPath = URI.create(getContainerQueryURL(container.Id()));
             webClient
                     .request(
                             HttpMethod.GET,
-                            domainSocket(getSocket()),
+                            domainSocket(this.socket),
                             80,
                             "localhost",
                             requestPath.toString())
@@ -558,36 +574,14 @@ public abstract class ContainerDiscovery {
                                 }
                             },
                             failure -> {
-                                logger.errorv(failure, "{0} API request failed", getRealm());
+                                logger.errorv(failure, "{0} API request failed", this.realm);
                                 result.completeExceptionally(failure);
                             });
             return result;
         }
 
         private void notify(ContainerDiscoveryEvent evt) {
-            bus.publish(notificationAddress(), evt);
-        }
-
-        private String getRealm() {
-            return this.context.getMergedJobDataMap().getString(JOB_DATA_KEY_REALM);
-        }
-
-        private String getSocket() {
-            return this.context.getMergedJobDataMap().getString(JOB_DATA_KEY_SOCKET_ADDRESS);
-        }
-
-        private String getContainersQueryURL() {
-            return this.context.getMergedJobDataMap().getString(JOB_DATA_KEY_CONTAINERS_QUERY_URL);
-        }
-
-        private String getContainerQueryURL(ContainerSpec spec) {
-            return String.format(
-                    this.context.getMergedJobDataMap().getString(JOB_DATA_KEY_CONTAINER_QUERY_URL),
-                    spec.Id());
-        }
-
-        private String notificationAddress() {
-            return this.context.getMergedJobDataMap().getString(JOB_DATA_KEY_NOTIFICATION_ADDRESS);
+            bus.publish(this.notificationAddress, evt);
         }
     }
 }
