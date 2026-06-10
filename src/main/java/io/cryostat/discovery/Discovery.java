@@ -320,7 +320,7 @@ public class Discovery {
     @RateLimit
     @Blocking
     @POST
-    @Path("/api/v4/discovery/agents")
+    @Path("/api/v4.3/discovery/agents")
     @Produces(MediaType.APPLICATION_JSON)
     @Consumes(MediaType.APPLICATION_JSON)
     @RolesAllowed("write")
