@@ -33,7 +33,6 @@ import io.cryostat.recordings.RecordingHelper;
 import io.cryostat.recordings.RecordingHelper.RecordingOptions;
 import io.cryostat.recordings.RecordingHelper.RecordingReplace;
 import io.cryostat.rules.Rule.RuleEvent;
-import io.cryostat.rules.RuleService.ActivationAttempt;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.Target.TargetDiscovery;
 import io.cryostat.util.EntityExistsException;
@@ -80,70 +79,6 @@ public class RuleExecutor {
 
     void onStop(@Observes ShutdownEvent evt) throws SchedulerException {
         quartz.shutdown();
-    }
-
-    @ConsumeEvent(blocking = true)
-    @Transactional
-    Uni<Void> onMessage(ActivationAttempt attempt) {
-        logger.tracev(
-                "Attempting to activate rule \"{0}\" for target {1} - attempt #{2}",
-                attempt.ruleId(), attempt.targetId(), attempt.attempts());
-        try {
-            var targetOpt = Target.<Target>find("id", attempt.targetId()).firstResultOptional();
-            if (targetOpt.isEmpty()) {
-                logger.warnv(
-                        "Target {0} no longer exists, skipping rule activation attempt",
-                        attempt.targetId());
-                return Uni.createFrom().nullItem();
-            }
-            Target target = targetOpt.get();
-
-            var ruleOpt = Rule.<Rule>find("id", attempt.ruleId()).firstResultOptional();
-            if (ruleOpt.isEmpty()) {
-                logger.warnv(
-                        "Rule {0} no longer exists, skipping activation attempt", attempt.ruleId());
-                return Uni.createFrom().nullItem();
-            }
-            Rule rule = ruleOpt.get();
-
-            Pair<String, TemplateType> pair =
-                    recordingHelper.parseEventSpecifier(rule.eventSpecifier);
-            Template template =
-                    recordingHelper.getPreferredTemplate(target, pair.getKey(), pair.getValue());
-
-            var priorRecording =
-                    recordingHelper.getActiveRecording(
-                            target, r -> Objects.equals(r.name, rule.getRecordingName()));
-            if (priorRecording.isPresent()) {
-                recordingHelper.stopRecording(priorRecording.get()).await().indefinitely();
-            }
-            var labels = new HashMap<>(rule.metadata.labels());
-            labels.put(RULE_LABEL_KEY, rule.name);
-            ActiveRecording recording = null;
-            try {
-                recording =
-                        recordingHelper
-                                .startRecording(
-                                        target,
-                                        RecordingReplace.STOPPED,
-                                        template,
-                                        createRecordingOptions(rule),
-                                        labels)
-                                .await()
-                                .indefinitely();
-            } catch (EntityExistsException eee) {
-                // ignore - the recording already existed and was running, so we don't want to
-                // replace it - but we should continue on to reschedule the periodic archival job
-            }
-            if (recording != null && rule.isArchiver()) {
-                scheduleArchival(rule, target, recording);
-            }
-        } catch (Exception e) {
-            logger.error("Rule execution failed", e);
-            return Uni.createFrom().failure(e);
-        }
-
-        return Uni.createFrom().nullItem();
     }
 
     @ConsumeEvent(value = Target.TARGET_JVM_DISCOVERY, blocking = true)
@@ -199,6 +134,69 @@ public class RuleExecutor {
     public void handleRuleRecordingCleanup(Rule rule) {
         cancelTasksForRule(rule);
         logger.debugv("Cancelled scheduled tasks for rule \"{0}\"", rule.name);
+    }
+
+    public Uni<Void> activate(Target target, Rule rule) {
+        try {
+            Pair<String, TemplateType> pair =
+                    recordingHelper.parseEventSpecifier(rule.eventSpecifier);
+            Template template =
+                    recordingHelper.getPreferredTemplate(target, pair.getKey(), pair.getValue());
+
+            var priorRecording =
+                    recordingHelper.getActiveRecording(
+                            target, r -> Objects.equals(r.name, rule.getRecordingName()));
+            if (priorRecording.isPresent()) {
+                recordingHelper.stopRecording(priorRecording.get()).await().indefinitely();
+            }
+            var labels = new HashMap<>(rule.metadata.labels());
+            labels.put(RULE_LABEL_KEY, rule.name);
+            ActiveRecording recording = null;
+            try {
+                recording =
+                        recordingHelper
+                                .startRecording(
+                                        target,
+                                        RecordingReplace.STOPPED,
+                                        template,
+                                        createRecordingOptions(rule),
+                                        labels)
+                                .await()
+                                .atMost(java.time.Duration.ofSeconds(30));
+            } catch (EntityExistsException eee) {
+                logger.debugv(
+                        "Recording \"{0}\" already exists on target {1}, fetching existing"
+                                + " recording",
+                        rule.getRecordingName(), target.id);
+                var existingRecording =
+                        recordingHelper.getActiveRecording(
+                                target, r -> Objects.equals(r.name, rule.getRecordingName()));
+                if (existingRecording.isPresent()) {
+                    recording = existingRecording.get();
+                } else {
+                    logger.warnv(
+                            "Recording \"{0}\" should exist on target {1} but was not found",
+                            rule.getRecordingName(), target.id);
+                }
+            }
+            if (recording != null && rule.isArchiver()) {
+                scheduleArchival(rule, target, recording);
+            } else if (recording == null) {
+                logger.errorv(
+                        "Failed to activate rule \"{0}\" on target {1}: recording is null",
+                        rule.name, target.connectUrl);
+                throw new IllegalStateException(
+                        "Recording activation failed but no exception was thrown");
+            }
+            return Uni.createFrom().nullItem();
+        } catch (Exception e) {
+            logger.errorv(
+                    e,
+                    "Rule \"{0}\" activation failed on target {1}",
+                    rule.name,
+                    target.connectUrl);
+            return Uni.createFrom().failure(e);
+        }
     }
 
     private void cancelTasksForRule(Rule rule) {
