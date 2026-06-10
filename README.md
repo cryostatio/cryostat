@@ -65,7 +65,7 @@ We welcome and appreciate any contributions from our community. Please visit our
 
 Build requirements:
 - git
-- JDK 21+
+- JDK 25+
 - Maven v3+
 - [Quarkus CLI](https://quarkus.io/guides/cli-tooling) v3.33.1+ (Recommended)
 - [Podman](https://podman.io/docs/installation) 4.7+
