@@ -110,7 +110,7 @@ public class DiscoveryNode extends PanacheEntity {
 
     @OneToMany(fetch = FetchType.LAZY, orphanRemoval = true, mappedBy = "parent")
     @JsonView(Views.Nested.class)
-    @Nullable
+    @NotNull
     @NotAudited // Inverse side of bidirectional relationship - child DiscoveryNode.parent owns this
     public List<DiscoveryNode> children = new ArrayList<>();
 
