@@ -179,13 +179,10 @@ public class DiscoveryPlugin extends PanacheEntityBase {
                 try {
                     DiscoveryNode parent = node.parent;
                     if (parent != null) {
-                        // Remove node from parent's collection before deleting
-                        // This ensures parent.hasChildren() will be accurate
                         parent.children.remove(node);
                         node.parent = null;
                     }
                     node.delete();
-                    // Recursively prune empty parent nodes up the tree
                     pruneEmptyAncestors(parent);
                 } catch (Exception e) {
                     logger.warn(e);
@@ -195,7 +192,6 @@ public class DiscoveryPlugin extends PanacheEntityBase {
 
         void pruneEmptyAncestors(DiscoveryNode child) {
             // Walk up the hierarchy, removing childless nodes from their parents
-            // Follow the same pattern as KubeEndpointSlicesDiscovery.pruneOwnerChain()
             while (child != null) {
                 DiscoveryNode parent = child.parent;
 
@@ -206,7 +202,7 @@ public class DiscoveryPlugin extends PanacheEntityBase {
                     break;
                 }
 
-                entityManager.refresh(parent); // Reload from DB with current children
+                entityManager.refresh(parent);
 
                 // Remove child from parent's collection - orphan removal will delete it
                 parent.children.remove(child);
@@ -222,18 +218,12 @@ public class DiscoveryPlugin extends PanacheEntityBase {
                                 + " isRealm={5}",
                         parent.name, parent.id, parent.nodeType, hasChildren, isNamespace, isRealm);
 
-                // Stop pruning if:
-                // 1. Parent is a Realm (always preserve Realms)
-                // 2. Parent has children (preserve non-empty nodes)
-                // Note: Empty Namespaces should be pruned, so we don't stop just because it's a
-                // Namespace
                 if (isRealm || hasChildren) {
                     logger.debugv("Stopping pruning at parent node {0}", parent.name);
                     break;
                 }
 
                 logger.debugv("Continuing to prune parent node {0}", parent.name);
-                // Move up to check the parent too
                 child = parent;
             }
         }
