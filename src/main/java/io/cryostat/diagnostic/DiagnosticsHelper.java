@@ -439,11 +439,19 @@ public class DiagnosticsHelper {
         if (!filename.endsWith(".hprof")) {
             filename = filename + ".hprof";
         }
-        log.tracev("Putting Heap dump into storage with key: {0}", storageKey(jvmId, filename));
+
+        String key = storageKey(jvmId, filename);
+        long fileSize = heapDump.filePath().toFile().length();
+
+        log.infov(
+                "Starting heap dump upload: jvmId={0}, filename={1}, key={2}, size={3} bytes,"
+                        + " jobId={4}",
+                jvmId, filename, key, fileSize, requestId);
+
         var req =
                 PutObjectRequest.builder()
                         .bucket(heapDumpBucket)
-                        .key(storageKey(jvmId, filename))
+                        .key(key)
                         .contentType(MediaType.APPLICATION_OCTET_STREAM)
                         .contentDisposition(String.format("attachment; filename=\"%s\"", filename));
 
@@ -465,26 +473,70 @@ public class DiagnosticsHelper {
                 throw new IllegalStateException();
         }
 
-        Uni.createFrom()
-                .completionStage(
-                        transferManager
-                                .uploadFile(
-                                        UploadFileRequest.builder()
-                                                .putObjectRequest(req.build())
-                                                .source(heapDump.filePath())
-                                                .build())
-                                .completionFuture())
-                .runSubscriptionOn(Infrastructure.getDefaultExecutor())
-                .await()
-                .atMost(uploadFailedTimeout);
+        log.infov(
+                "Initiating S3 multipart upload: bucket={0}, key={1}, timeout={2}",
+                heapDumpBucket, key, uploadFailedTimeout);
+
+        long uploadStartTime = System.currentTimeMillis();
+
+        try {
+            var uploadFileRequest =
+                    UploadFileRequest.builder()
+                            .putObjectRequest(req.build())
+                            .source(heapDump.filePath())
+                            .build();
+
+            var fileUpload = transferManager.uploadFile(uploadFileRequest);
+
+            log.infov("S3 upload initiated, waiting for completion: key={0}", key);
+
+            Uni.createFrom()
+                    .completionStage(fileUpload.completionFuture())
+                    .runSubscriptionOn(Infrastructure.getDefaultExecutor())
+                    .onItem()
+                    .invoke(
+                            result -> {
+                                long uploadDuration = System.currentTimeMillis() - uploadStartTime;
+                                log.infov(
+                                        "S3 upload completed successfully: key={0}, duration={1}ms,"
+                                                + " eTag={2}",
+                                        key, uploadDuration, result.response().eTag());
+                            })
+                    .onFailure()
+                    .invoke(
+                            throwable -> {
+                                long uploadDuration = System.currentTimeMillis() - uploadStartTime;
+                                log.errorv(
+                                        throwable,
+                                        "S3 upload failed: key={0}, duration={1}ms",
+                                        key,
+                                        uploadDuration);
+                            })
+                    .await()
+                    .atMost(uploadFailedTimeout);
+
+            log.infov("S3 upload await completed: key={0}", key);
+
+        } catch (Exception e) {
+            long uploadDuration = System.currentTimeMillis() - uploadStartTime;
+            log.errorv(
+                    e, "Exception during S3 upload: key={0}, duration={1}ms", key, uploadDuration);
+            throw e;
+        }
+
         var dump =
                 new HeapDump(
                         jvmId,
                         heapDumpDownloadUrl(jvmId, filename),
                         filename,
                         clock.now().getEpochSecond(),
-                        heapDump.filePath().toFile().length(),
+                        fileSize,
                         new Metadata(Map.of()));
+
+        log.infov(
+                "Broadcasting HeapDumpUploaded notification: jvmId={0}, filename={1}",
+                jvmId, filename);
+
         var event =
                 new HeapDumpEvent(
                         EventCategory.HEAP_DUMP_UPLOADED, HeapDumpEvent.Payload.of(jvmId, dump));
@@ -495,9 +547,11 @@ public class DiagnosticsHelper {
         try {
             // Clean up temporary files
             Files.delete(heapDump.filePath());
+            log.tracev("Deleted temporary file: {0}", heapDump.filePath());
         } catch (IOException ioe) {
             log.warn(ioe);
         }
+
         return dump;
     }
 
