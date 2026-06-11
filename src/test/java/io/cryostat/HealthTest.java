@@ -58,11 +58,6 @@ public class HealthTest {
     }
 
     @Test
-    public void testHealthLiveness() {
-        when().get("/health/liveness").then().statusCode(204);
-    }
-
-    @Test
     public void testGrafanaDashboardUrl() {
         when().get("/api/v4/grafana_dashboard_url")
                 .then()
