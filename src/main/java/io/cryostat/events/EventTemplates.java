@@ -157,7 +157,7 @@ public class EventTemplates {
             throw new BadRequestException(e);
         } finally {
             // Clean up temporary files
-            Files.delete(body.filePath());
+            Files.deleteIfExists(body.filePath());
         }
     }
 

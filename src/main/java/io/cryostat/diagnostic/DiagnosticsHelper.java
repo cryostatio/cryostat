@@ -506,7 +506,7 @@ public class DiagnosticsHelper {
 
         try {
             // Clean up temporary files
-            Files.delete(heapDump.filePath());
+            Files.deleteIfExists(heapDump.filePath());
         } catch (IOException ioe) {
             log.warn(ioe);
         }

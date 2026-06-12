@@ -1386,7 +1386,7 @@ public class RecordingHelper {
                 new Notification(event.category().category(), event.payload()));
         // Clean up the recording file after uploading
         try {
-            Files.delete(recording.filePath());
+            Files.deleteIfExists(recording.filePath());
         } catch (IOException ioe) {
             logger.warn(ioe);
         }

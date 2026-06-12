@@ -102,7 +102,7 @@ public class JMCAgentTemplates {
         }
         var probeTemplate = service.addTemplate(body.filePath(), name);
         try {
-            Files.delete(body.filePath());
+            Files.deleteIfExists(body.filePath());
         } catch (IOException ioe) {
             logger.warn(ioe);
         }
