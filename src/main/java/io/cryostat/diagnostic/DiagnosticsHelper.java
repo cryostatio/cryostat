@@ -15,6 +15,7 @@
  */
 package io.cryostat.diagnostic;
 
+import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -28,6 +29,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import io.cryostat.ConfigProperties;
 import io.cryostat.Producers;
@@ -54,6 +57,7 @@ import jakarta.enterprise.event.Observes;
 import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.BadRequestException;
+import jakarta.ws.rs.InternalServerErrorException;
 import jakarta.ws.rs.core.MediaType;
 import me.bechberger.jthreaddump.parser.ThreadDumpParser;
 import org.apache.commons.codec.binary.Base64;
@@ -77,7 +81,6 @@ import software.amazon.awssdk.services.s3.model.S3Object;
 import software.amazon.awssdk.services.s3.model.Tag;
 import software.amazon.awssdk.services.s3.model.Tagging;
 import software.amazon.awssdk.transfer.s3.S3TransferManager;
-import software.amazon.awssdk.transfer.s3.model.UploadFileRequest;
 import software.amazon.awssdk.transfer.s3.model.UploadRequest;
 
 @ApplicationScoped
@@ -117,6 +120,8 @@ public class DiagnosticsHelper {
 
     @Inject Instance<HeapDumpsMetadataService> heapDumpsMetadataService;
     @Inject Instance<ThreadDumpsMetadataService> threadDumpsMetadataService;
+
+    final ExecutorService partUploader = Executors.newVirtualThreadPerTaskExecutor();
 
     @Inject S3Client storage;
     @Inject S3TransferManager transferManager;
@@ -465,18 +470,25 @@ public class DiagnosticsHelper {
                 throw new IllegalStateException();
         }
 
-        Uni.createFrom()
-                .completionStage(
-                        transferManager
-                                .uploadFile(
-                                        UploadFileRequest.builder()
-                                                .putObjectRequest(req.build())
-                                                .source(heapDump.filePath())
-                                                .build())
-                                .completionFuture())
-                .runSubscriptionOn(Infrastructure.getDefaultExecutor())
-                .await()
-                .atMost(uploadFailedTimeout);
+        try (InputStream stream =
+                new BufferedInputStream(Files.newInputStream(heapDump.filePath()))) {
+            Uni.createFrom()
+                    .completionStage(
+                            transferManager
+                                    .upload(
+                                            UploadRequest.builder()
+                                                    .putObjectRequest(req.build())
+                                                    .requestBody(
+                                                            AsyncRequestBody.fromInputStream(
+                                                                    stream, null, partUploader))
+                                                    .build())
+                                    .completionFuture())
+                    .runSubscriptionOn(Infrastructure.getDefaultExecutor())
+                    .await()
+                    .atMost(uploadFailedTimeout);
+        } catch (IOException ioe) {
+            throw new InternalServerErrorException(ioe);
+        }
         var dump =
                 new HeapDump(
                         jvmId,

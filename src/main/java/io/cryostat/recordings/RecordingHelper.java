@@ -143,7 +143,6 @@ import software.amazon.awssdk.services.s3.model.Tagging;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
 import software.amazon.awssdk.transfer.s3.S3TransferManager;
-import software.amazon.awssdk.transfer.s3.model.UploadFileRequest;
 import software.amazon.awssdk.transfer.s3.model.UploadRequest;
 
 /**
@@ -1348,14 +1347,19 @@ public class RecordingHelper {
             default:
                 throw new IllegalStateException();
         }
-        transferManager
-                .uploadFile(
-                        UploadFileRequest.builder()
-                                .putObjectRequest(requestBuilder.build())
-                                .source(recording.filePath())
-                                .build())
-                .completionFuture()
-                .join();
+        try (InputStream stream =
+                new BufferedInputStream(Files.newInputStream(recording.filePath()))) {
+            transferManager
+                    .upload(
+                            UploadRequest.builder()
+                                    .putObjectRequest(requestBuilder.build())
+                                    .requestBody(
+                                            AsyncRequestBody.fromInputStream(
+                                                    stream, null, partUploader))
+                                    .build())
+                    .completionFuture()
+                    .join();
+        }
 
         String finalFilename = filename;
         QuarkusTransaction.joiningExisting()
