@@ -39,6 +39,8 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.projectnessie.cel.tools.ScriptHost;
 import org.projectnessie.cel.types.jackson.JacksonRegistry;
 import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.s3.S3AsyncClient;
+import software.amazon.awssdk.services.s3.S3AsyncClientBuilder;
 import software.amazon.awssdk.services.s3.S3Configuration;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.utils.StringUtils;
@@ -104,6 +106,14 @@ public class Producers {
     @DefaultBean
     public WebClient produceWebClient(Vertx vertx) {
         return WebClient.create(vertx);
+    }
+
+    @Produces
+    @ApplicationScoped
+    public static S3AsyncClient produceS3AsyncClient(S3AsyncClientBuilder builder) {
+        // quarkus-s3 extension config does not provide any way to enable multipart support on the
+        // async client, so we work around it by injecting the Builder and enabling support here
+        return builder.multipartEnabled(true).build();
     }
 
     @Produces
