@@ -15,16 +15,20 @@
  */
 package io.cryostat.recordings;
 
+import java.time.Duration;
+
+import io.cryostat.ConfigProperties;
 import io.cryostat.recordings.ActiveRecordings.LinkedRecordingDescriptor;
 import io.cryostat.recordings.RecordingHelper.SnapshotCreationException;
 import io.cryostat.targets.Target;
 
-import io.smallrye.mutiny.Uni;
+import io.smallrye.common.annotation.Blocking;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestPath;
@@ -37,11 +41,15 @@ public class Snapshots {
     @Inject RecordingHelper recordingHelper;
     @Inject Logger logger;
 
+    @ConfigProperty(name = ConfigProperties.CONNECTIONS_FAILED_TIMEOUT)
+    Duration connectionFailedTimeout;
+
     @POST
+    @Blocking
     @Transactional
     @RolesAllowed("write")
     @Operation(summary = "Create a JFR Snapshot on the specified target")
-    public Uni<RestResponse<LinkedRecordingDescriptor>> createSnapshotUsingTargetId(
+    public RestResponse<LinkedRecordingDescriptor> createSnapshotUsingTargetId(
             @RestPath long targetId) throws Exception {
         return recordingHelper
                 .createSnapshot(Target.find("id", targetId).singleResult())
@@ -51,6 +59,8 @@ public class Snapshots {
                                 ResponseBuilder.ok(recordingHelper.toExternalForm(recording))
                                         .build())
                 .onFailure(SnapshotCreationException.class)
-                .recoverWithItem(ResponseBuilder.<LinkedRecordingDescriptor>accepted().build());
+                .recoverWithItem(ResponseBuilder.<LinkedRecordingDescriptor>accepted().build())
+                .await()
+                .atMost(connectionFailedTimeout);
     }
 }
