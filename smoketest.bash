@@ -394,14 +394,12 @@ createVolumes() {
     if [ "${s3}" = "localstack" ]; then
         createLocalstackCfgVolume
     fi
-    if [ "${USE_TLS}" = "true" ] && [ "${s3}" = "seaweed" ]; then
+    if [ "${s3}" = "seaweed" ]; then
         sh "${DIR}/compose/s3_certs/generate.sh"
         createS3CertsVolume
     fi
-    if [ "${USE_TLS}" = "true" ]; then
-        sh "${DIR}/compose/db_certs/generate.sh"
-        createDbCertsVolume
-    fi
+    sh "${DIR}/compose/db_certs/generate.sh"
+    createDbCertsVolume
     createJmxTlsCertVolume
     createEventTemplateVolume
     createProbeTemplateVolume
@@ -473,16 +471,14 @@ cleanup() {
         rm "${DIR}/compose/auth_certs/certificate.pem" || true
         rm "${DIR}/compose/auth_certs/private.key" || true
     fi
-    if [ "${USE_TLS}" = "true" ] && [ "${s3}" = "seaweed" ]; then
+    if [ "${s3}" = "seaweed" ]; then
         rm "${DIR}/compose/s3_certs/certificate.pem" || true
         rm "${DIR}/compose/s3_certs/private.key" || true
         rm "${DIR}/truststore/s3_storage.cer" || true
     fi
-    if [ "${USE_TLS}" = "true" ]; then
-        rm "${DIR}/compose/db_certs/certificate.pem" || true
-        rm "${DIR}/compose/db_certs/private.key" || true
-        rm "${DIR}/truststore/database.cer" || true
-    fi
+    rm "${DIR}/compose/db_certs/certificate.pem" || true
+    rm "${DIR}/compose/db_certs/private.key" || true
+    rm "${DIR}/truststore/database.cer" || true
     cleanupVolumes
     truncate -s 0 "${HOSTSFILE}"
     for i in "${PIDS[@]}"; do
