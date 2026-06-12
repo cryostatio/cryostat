@@ -4,7 +4,7 @@ services:
       s3:
         condition: service_healthy
     environment:
-      QUARKUS_S3_ENDPOINT_OVERRIDE: http://s3:8333
+      QUARKUS_S3_ENDPOINT_OVERRIDE: https://s3:8333
       STORAGE_EXT_URL: /storage/
       STORAGE_PRESIGNED_TRANSFERS_ENABLED: "true"
       STORAGE_PRESIGNED_DOWNLOADS_ENABLED: "true"
@@ -12,19 +12,31 @@ services:
       QUARKUS_S3_AWS_REGION: us-east-1
       AWS_ACCESS_KEY_ID: access_key
       AWS_SECRET_ACCESS_KEY: secret_key
+      # Configure S3 clients to use system truststore for TLS (matches operator)
+      # The entrypoint will build the truststore and append SSL FLAGS to JAVA_OPTS_APPEND
+      QUARKUS_S3_SYNC_CLIENT_TLS_KEY_MANAGERS_PROVIDER_TYPE: none
+      QUARKUS_S3_SYNC_CLIENT_TLS_TRUST_MANAGERS_PROVIDER_TYPE: system-property
+      QUARKUS_S3_ASYNC_CLIENT_TLS_KEY_MANAGERS_PROVIDER_TYPE: none
+      QUARKUS_S3_ASYNC_CLIENT_TLS_TRUST_MANAGERS_PROVIDER_TYPE: system-property
   s3:
     image: ${STORAGE_IMAGE:-quay.io/cryostat/cryostat-storage:${CRYOSTAT_VERSION:-latest}}
     hostname: s3
+    command:
+      - -s3.port=0
+      - -s3.port.https=8333
+      - -s3.cert.file=/certs/certificate.pem
+      - -s3.key.file=/certs/private.key
     environment:
       CRYOSTAT_BUCKETS: ${PRECREATE_BUCKETS}
       CRYOSTAT_ACCESS_KEY: access_key
       CRYOSTAT_SECRET_KEY: secret_key
       DATA_DIR: /data
       IP_BIND: 0.0.0.0
-      WEED_V: "4" # glog logging level
+      WEED_V: "1" # glog logging level
       REST_ENCRYPTION_ENABLE: "1"
     volumes:
       - seaweed_data:/data
+      - s3_certs:/certs:ro
     ports:
       - "8888:8888"
     expose:
@@ -46,3 +58,5 @@ services:
 volumes:
   seaweed_data:
     driver: local
+  s3_certs:
+    external: true
