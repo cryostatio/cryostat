@@ -367,6 +367,22 @@ createS3CertsVolume() {
     fi
 }
 
+createDbCertsVolume() {
+    "${container_engine}" volume create db_certs
+    "${container_engine}" container create --name db_certs_helper -v db_certs:/certs registry.access.redhat.com/ubi9/ubi-micro
+    if [ -f "${DIR}/compose/db_certs/certificate.pem" ] && [ -f "${DIR}/compose/db_certs/private.key" ]; then
+        "${container_engine}" cp "${DIR}/compose/db_certs/certificate.pem" db_certs_helper:/certs/certificate.pem
+        "${container_engine}" cp "${DIR}/compose/db_certs/private.key" db_certs_helper:/certs/private.key
+        # Set ownership to postgres user (UID 26) and permissions for PostgreSQL's requirements
+        "${container_engine}" run --rm -v db_certs:/certs registry.access.redhat.com/ubi9/ubi-micro chown -R 26:26 /certs
+        "${container_engine}" run --rm -v db_certs:/certs registry.access.redhat.com/ubi9/ubi-micro chmod 600 /certs/private.key
+        "${container_engine}" run --rm -v db_certs:/certs registry.access.redhat.com/ubi9/ubi-micro chmod 644 /certs/certificate.pem
+    fi
+    if [ "${DRY_RUN}" = "true" ]; then
+        "${container_engine}" volume export db_certs > db_certs.tar
+    fi
+}
+
 createVolumes() {
     if [ "${USE_PROXY}" = "true" ]; then
         createProxyCfgVolume
@@ -381,6 +397,10 @@ createVolumes() {
     if [ "${USE_TLS}" = "true" ] && [ "${s3}" = "seaweed" ]; then
         sh "${DIR}/compose/s3_certs/generate.sh"
         createS3CertsVolume
+    fi
+    if [ "${USE_TLS}" = "true" ]; then
+        sh "${DIR}/compose/db_certs/generate.sh"
+        createDbCertsVolume
     fi
     createJmxTlsCertVolume
     createEventTemplateVolume
@@ -406,6 +426,8 @@ cleanupVolumes() {
         ${container_engine} rm s3_certs_helper || true
         ${container_engine} volume rm s3_certs || true
     fi
+    ${container_engine} rm db_certs_helper || true
+    ${container_engine} volume rm db_certs || true
     ${container_engine} rm jmxtls_cfg_helper || true
     ${container_engine} volume rm jmxtls_cfg || true
     ${container_engine} rm templates_helper || true
@@ -455,6 +477,11 @@ cleanup() {
         rm "${DIR}/compose/s3_certs/certificate.pem" || true
         rm "${DIR}/compose/s3_certs/private.key" || true
         rm "${DIR}/truststore/s3_storage.cer" || true
+    fi
+    if [ "${USE_TLS}" = "true" ]; then
+        rm "${DIR}/compose/db_certs/certificate.pem" || true
+        rm "${DIR}/compose/db_certs/private.key" || true
+        rm "${DIR}/truststore/database.cer" || true
     fi
     cleanupVolumes
     truncate -s 0 "${HOSTSFILE}"
