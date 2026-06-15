@@ -298,7 +298,7 @@
     </dependency>
     <dependency>
       <groupId>software.amazon.awssdk</groupId>
-      <artifactId>aws-crt-client</artifactId>
+      <artifactId>netty-nio-client</artifactId>
     </dependency>
     <dependency>
       <groupId>org.apache.commons</groupId>
