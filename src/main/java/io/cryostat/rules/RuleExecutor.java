@@ -121,7 +121,10 @@ public class RuleExecutor {
                     recordingHelper.getActiveRecording(
                             target, r -> Objects.equals(r.name, rule.getRecordingName()));
             if (priorRecording.isPresent()) {
-                recordingHelper.stopRecording(priorRecording.get()).await().indefinitely();
+                recordingHelper
+                        .stopRecording(priorRecording.get())
+                        .await()
+                        .atMost(connectionFailedTimeout);
             }
             var labels = new HashMap<>(rule.metadata.labels());
             labels.put(RULE_LABEL_KEY, rule.name);
@@ -136,7 +139,7 @@ public class RuleExecutor {
                                         createRecordingOptions(rule),
                                         labels)
                                 .await()
-                                .indefinitely();
+                                .atMost(connectionFailedTimeout);
             } catch (EntityExistsException eee) {
                 // ignore - the recording already existed and was running, so we don't want to
                 // replace it - but we should continue on to reschedule the periodic archival job
@@ -207,75 +210,6 @@ public class RuleExecutor {
         logger.debugv("Cancelled scheduled tasks for rule \"{0}\"", rule.name);
     }
 
-<<<<<<< HEAD
-=======
-    public Uni<Void> activate(Target target, Rule rule) {
-        try {
-            Pair<String, TemplateType> pair =
-                    recordingHelper.parseEventSpecifier(rule.eventSpecifier);
-            Template template =
-                    recordingHelper.getPreferredTemplate(target, pair.getKey(), pair.getValue());
-
-            var priorRecording =
-                    recordingHelper.getActiveRecording(
-                            target, r -> Objects.equals(r.name, rule.getRecordingName()));
-            if (priorRecording.isPresent()) {
-                recordingHelper
-                        .stopRecording(priorRecording.get())
-                        .await()
-                        .atMost(connectionFailedTimeout);
-            }
-            var labels = new HashMap<>(rule.metadata.labels());
-            labels.put(RULE_LABEL_KEY, rule.name);
-            ActiveRecording recording = null;
-            try {
-                recording =
-                        recordingHelper
-                                .startRecording(
-                                        target,
-                                        RecordingReplace.STOPPED,
-                                        template,
-                                        createRecordingOptions(rule),
-                                        labels)
-                                .await()
-                                .atMost(connectionFailedTimeout);
-            } catch (EntityExistsException eee) {
-                logger.debugv(
-                        "Recording \"{0}\" already exists on target {1}, fetching existing"
-                                + " recording",
-                        rule.getRecordingName(), target.id);
-                var existingRecording =
-                        recordingHelper.getActiveRecording(
-                                target, r -> Objects.equals(r.name, rule.getRecordingName()));
-                if (existingRecording.isPresent()) {
-                    recording = existingRecording.get();
-                } else {
-                    logger.warnv(
-                            "Recording \"{0}\" should exist on target {1} but was not found",
-                            rule.getRecordingName(), target.id);
-                }
-            }
-            if (recording != null && rule.isArchiver()) {
-                scheduleArchival(rule, target, recording);
-            } else if (recording == null) {
-                logger.errorv(
-                        "Failed to activate rule \"{0}\" on target {1}: recording is null",
-                        rule.name, target.connectUrl);
-                throw new IllegalStateException(
-                        "Recording activation failed but no exception was thrown");
-            }
-            return Uni.createFrom().nullItem();
-        } catch (Exception e) {
-            logger.errorv(
-                    e,
-                    "Rule \"{0}\" activation failed on target {1}",
-                    rule.name,
-                    target.connectUrl);
-            return Uni.createFrom().failure(e);
-        }
-    }
-
->>>>>>> 4c02658 (fix(async): do not use await().indefinitely(), always cap at connection timeout (#1560))
     private void cancelTasksForRule(Rule rule) {
         if (rule.isArchiver()) {
             List<String> targets =

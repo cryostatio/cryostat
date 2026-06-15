@@ -468,8 +468,7 @@ public class RecordingHelper {
             throw new EntityExistsException("Recording", recordingName);
         }
         getActiveRecording(lockedTarget, r -> r.name.equals(recordingName))
-<<<<<<< HEAD
-                .ifPresent(r -> this.deleteRecording(r).await().indefinitely());
+                .ifPresent(r -> this.deleteRecording(r).await().atMost(connectionFailedTimeout));
         var desc =
                 connectionManager.executeConnectedTask(
                         lockedTarget,
@@ -494,9 +493,6 @@ public class RecordingHelper {
                                 optionsBuilder = optionsBuilder.maxSize(options.maxSize().get());
                             }
                             IConstrainedMap<String> recordingOptions = optionsBuilder.build();
-=======
-                .ifPresent(r -> this.deleteRecording(r).await().atMost(connectionFailedTimeout));
->>>>>>> 4c02658 (fix(async): do not use await().indefinitely(), always cap at connection timeout (#1560))
 
                             switch (template.getType()) {
                                 case PRESET:
