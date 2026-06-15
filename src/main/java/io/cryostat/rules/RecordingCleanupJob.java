@@ -15,7 +15,12 @@
  */
 package io.cryostat.rules;
 
+import java.time.Duration;
+
+import io.cryostat.ConfigProperties;
+
 import jakarta.inject.Inject;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 import org.quartz.DisallowConcurrentExecution;
 import org.quartz.Job;
@@ -37,6 +42,9 @@ public class RecordingCleanupJob implements Job {
     @Inject Logger logger;
     @Inject RuleService ruleService;
 
+    @ConfigProperty(name = ConfigProperties.CONNECTIONS_FAILED_TIMEOUT)
+    Duration connectionFailedTimeout;
+
     @Override
     public void execute(JobExecutionContext ctx) throws JobExecutionException {
         String ruleName = ctx.getMergedJobDataMap().getString("ruleName");
@@ -48,7 +56,10 @@ public class RecordingCleanupJob implements Job {
                 ruleName, jvmId, recordingName);
 
         try {
-            ruleService.cleanupRecording(ruleName, jvmId, recordingName).await().indefinitely();
+            ruleService
+                    .cleanupRecording(ruleName, jvmId, recordingName)
+                    .await()
+                    .atMost(connectionFailedTimeout);
             logger.debugv("Recording cleanup completed: rule={0} jvmId={1}", ruleName, jvmId);
             ctx.getScheduler().unscheduleJob(ctx.getTrigger().getKey());
         } catch (Exception e) {
