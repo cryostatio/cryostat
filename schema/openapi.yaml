@@ -1,6 +1,34 @@
 ---
 components:
   schemas:
+    AgentCredentialRequest:
+      properties:
+        matchExpression:
+          type: string
+        password:
+          type: string
+        username:
+          type: string
+      type: object
+    AgentRegistration:
+      properties:
+        callback:
+          type: string
+        context:
+          additionalProperties:
+            type: string
+          type: object
+        credential:
+          $ref: '#/components/schemas/AgentCredentialRequest'
+        fillStrategy:
+          $ref: '#/components/schemas/DiscoveryFillStrategy'
+        nodes:
+          items:
+            $ref: '#/components/schemas/DiscoveryNode'
+          type: array
+        realm:
+          type: string
+      type: object
     AggregateLockInfoResult:
       properties:
         count:
@@ -376,6 +404,12 @@ components:
             - "null"
         fillStrategy:
           $ref: '#/components/schemas/DiscoveryFillStrategy'
+          enum:
+            - NONE
+            - KUBERNETES
+          type:
+            - string
+            - "null"
         nodes:
           items:
             $ref: '#/components/schemas/DiscoveryNode'
@@ -2069,6 +2103,31 @@ paths:
         "400":
           description: Bad Request
       summary: Publish updated target discovery information
+      tags:
+        - Discovery
+  /api/v4.3/discovery/agents:
+    post:
+      description: |
+        Register a Cryostat Agent as a discovery plugin, create its associated Stored Credential, and
+        publish its target nodes in one request. This endpoint is intentionally Agent-specific; the
+        general Discovery Plugin registration and publication endpoints remain available for other
+        Discovery Plugin implementations.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AgentRegistration'
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PluginRegistration'
+          description: OK
+        "400":
+          description: Bad Request
+      summary: Register and publish a Cryostat Agent
       tags:
         - Discovery
   /api/v4/activedownload/{id}:
