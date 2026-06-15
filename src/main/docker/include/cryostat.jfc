@@ -35,6 +35,22 @@
    0 ms
   </setting>
  </event>
+ <event name="io.cryostat.rules.RuleService.RuleActivationEvent">
+  <setting name="enabled">
+   true
+  </setting>
+  <setting name="threshold">
+   0 ms
+  </setting>
+ </event>
+ <event name="io.cryostat.rules.RuleService.RecordingCleanupEvent">
+  <setting name="enabled">
+   true
+  </setting>
+  <setting name="threshold">
+   0 ms
+  </setting>
+ </event>
  <event name="jdk.ThreadAllocationStatistics">
   <setting name="enabled">
    true
