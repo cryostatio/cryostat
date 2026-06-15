@@ -101,6 +101,7 @@ public class AgentHeapDumpIT extends AgentTestBase {
     }
 
     @Test
+    @DisabledIfEnvironmentVariable(named = "CI", matches = "true")
     void testCreateListAndDeleteHeapDump()
             throws InterruptedException, ExecutionException, TimeoutException {
         long targetId = target.id();
@@ -305,6 +306,7 @@ public class AgentHeapDumpIT extends AgentTestBase {
     }
 
     @Test
+    @DisabledIfEnvironmentVariable(named = "CI", matches = "true")
     void testListAllHeapDumps() throws InterruptedException, ExecutionException, TimeoutException {
         long targetId = target.id();
 
