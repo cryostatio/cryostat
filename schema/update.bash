@@ -21,7 +21,7 @@ fi
 
 pid="$!"
 function cleanup() {
-    kill $pid
+    kill $pid || true
 }
 trap cleanup EXIT
 set +e
