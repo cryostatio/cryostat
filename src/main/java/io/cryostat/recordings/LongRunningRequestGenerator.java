@@ -161,13 +161,14 @@ public class LongRunningRequestGenerator {
     public void onMessage(HeapDumpAnalysisRequest request) {
         logger.tracev("Job ID: {0} submitted.", request.id());
         try {
-            var target = Target.getTargetById(request.targetId);
+            var target = Target.getTargetByJvmId(request.jvmId).get();
+            logger.tracev("Generating Heap Dump Report");
             heapDumpReportsService
-                    .reportFor(target.jvmId, request.heapDumpId)
+                    .reportFor(request.jvmId, request.heapDumpId)
                     .onItem()
                     .invoke(
                             (report) -> {
-                                logger.trace("Report generation complete, firing notification");
+                                logger.tracev("Report generation complete, firing notification");
                                 bus.publish(
                                         MessagingServer.class.getName(),
                                         new Notification(
@@ -508,10 +509,10 @@ public class LongRunningRequestGenerator {
         }
     }
 
-    public record HeapDumpAnalysisRequest(String id, long targetId, String heapDumpId) {
+    public record HeapDumpAnalysisRequest(String id, String jvmId, String heapDumpId) {
         public HeapDumpAnalysisRequest {
             Objects.requireNonNull(id);
-            Objects.requireNonNull(targetId);
+            Objects.requireNonNull(jvmId);
             Objects.requireNonNull(heapDumpId);
         }
     }

@@ -27,8 +27,10 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.ExecutionException;
 
 import io.cryostat.ConfigProperties;
+import io.cryostat.core.diagnostic.HeapDumpAnalysis;
 import io.cryostat.recordings.ActiveRecordings.Metadata;
 import io.cryostat.recordings.LongRunningRequestGenerator;
 import io.cryostat.recordings.LongRunningRequestGenerator.HeapDumpAnalysisRequest;
@@ -84,6 +86,7 @@ public class Diagnostics {
     @Inject S3Presigner presigner;
     @Inject Logger log;
     @Inject LongRunningRequestGenerator generator;
+    @Inject HeapDumpReportsService reportService;
 
     @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_THREAD_DUMPS)
     String threadDumpsBucket;
@@ -164,21 +167,36 @@ public class Diagnostics {
         return helper.getThreadDumps(Target.getTargetById(targetId));
     }
 
-    @Path("targets/{targetId}/heapdump/analyze")
+    @Path("targets/{jvmId}/heapdump/{heapDumpId}/analyze")
     @RolesAllowed("read")
     @Blocking
     @Transactional
     @POST
     public String analyzeHeapDump(
-            HttpServerResponse response, @RestPath long targetId, @RestPath String heapDumpId) {
+            HttpServerResponse response, @RestPath String jvmId, @RestPath String heapDumpId) {
         var jobId = UUID.randomUUID().toString();
-        HeapDumpAnalysisRequest request = new HeapDumpAnalysisRequest(jobId, targetId, heapDumpId);
+        HeapDumpAnalysisRequest request = new HeapDumpAnalysisRequest(jobId, jvmId, heapDumpId);
         response.endHandler(
                 (e) ->
                         bus.publish(
                                 LongRunningRequestGenerator.HEAP_DUMP_ANALYSIS_REQUEST_ADDRESS,
                                 request));
         return jobId;
+    }
+
+    @Path("tarets/{jvmId}/heapdump/{heapDumpId}/analyze")
+    @RolesAllowed("read")
+    @Blocking
+    @Transactional
+    @GET
+    public HeapDumpAnalysis getHeapDumpReport(HttpServerResponse response, @RestPath String jvmId, @RestPath String heapDumpId)
+            throws InterruptedException, ExecutionException {
+        // Cached Heap Dump report is available
+        if (reportService.keyExists(jvmId, heapDumpId)) {
+            return reportService.reportFor(jvmId, heapDumpId).await().indefinitely();
+        } else {
+            return null;
+        }
     }
 
     @DELETE

@@ -85,6 +85,7 @@ class HeapDumpReportsServiceImpl implements HeapDumpReportsService {
     @Override
     public Uni<HeapDumpAnalysis> reportFor(String jvmId, String heapDumpId) {
         try {
+            logger.tracev("Attempting heap dump report with args {0}, {1}", jvmId, heapDumpId);
             if (!useSidecar()) {
                 InputStream stream = helper.getHeapDumpStream(jvmId, heapDumpId);
                 logger.tracev("inprocess reportFor heap dump {0} {1}", jvmId, heapDumpId);

@@ -81,8 +81,9 @@ class StorageCachingHeapDumpReportsService implements HeapDumpReportsService {
 
     @Override
     public Uni<HeapDumpAnalysis> reportFor(String jvmId, String heapDumpId) {
+        logger.tracev("reportFor invoked in storage caching service");
         if (!enabled) {
-            logger.trace("cache disabled, delegating...");
+            logger.tracev("cache disabled, delegating...");
             return delegate.reportFor(jvmId, heapDumpId);
         }
         var key = DiagnosticsHelper.storageKey(jvmId, heapDumpId);
