@@ -40,11 +40,10 @@ public final class NotificationPayloads {
         }
     }
 
-    public record HeapDumpAnalysisSuccessPayload(
-            String jobId, String targetAlias, String heapDumpId) {
+    public record HeapDumpAnalysisSuccessPayload(String jobId, String jvmId, String heapDumpId) {
         public HeapDumpAnalysisSuccessPayload {
             Objects.requireNonNull(jobId);
-            Objects.requireNonNull(targetAlias);
+            Objects.requireNonNull(jvmId);
             Objects.requireNonNull(heapDumpId);
         }
     }

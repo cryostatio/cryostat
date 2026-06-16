@@ -175,7 +175,7 @@ public class LongRunningRequestGenerator {
                                                 HEAP_DUMP_ANALYSIS_SUCCESS,
                                                 new HeapDumpAnalysisSuccessPayload(
                                                         request.id(),
-                                                        target.alias,
+                                                        target.jvmId,
                                                         request.heapDumpId())));
                                 new Notification(
                                         HEAP_DUMP_REPORT_COMPLETE,

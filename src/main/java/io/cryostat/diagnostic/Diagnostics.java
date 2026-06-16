@@ -184,19 +184,15 @@ public class Diagnostics {
         return jobId;
     }
 
-    @Path("tarets/{jvmId}/heapdump/{heapDumpId}/analyze")
+    @Path("targets/{jvmId}/heapdump/{heapDumpId}/analyze")
     @RolesAllowed("read")
     @Blocking
     @Transactional
     @GET
-    public HeapDumpAnalysis getHeapDumpReport(HttpServerResponse response, @RestPath String jvmId, @RestPath String heapDumpId)
+    public HeapDumpAnalysis getHeapDumpReport(
+            HttpServerResponse response, @RestPath String jvmId, @RestPath String heapDumpId)
             throws InterruptedException, ExecutionException {
-        // Cached Heap Dump report is available
-        if (reportService.keyExists(jvmId, heapDumpId)) {
-            return reportService.reportFor(jvmId, heapDumpId).await().indefinitely();
-        } else {
-            return null;
-        }
+        return reportService.reportFor(jvmId, heapDumpId).await().indefinitely();
     }
 
     @DELETE
