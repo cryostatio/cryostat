@@ -313,7 +313,6 @@ public class Discovery {
         return new PluginRegistration(plugin.id.toString(), token, getEnvMap());
     }
 
-    @Transactional
     @Bulkhead
     @Timeout
     @Retry(retryOn = {OptimisticLockException.class})
@@ -349,13 +348,30 @@ public class Discovery {
                         Optional.ofNullable(body.fillStrategy()),
                         Optional.ofNullable(body.context()));
 
+        // Registration includes opening a network connection to the registering Agent and waiting
+        // for its ping response. Ping the Agent first, before opening any database transaction, so
+        // that we do not hold a transaction (and its row locks) open across that network
+        // round-trip.
+        // See cryostatio/cryostat#1604.
+        boolean reachable = pingAgentCallback(callback.unauthCallback(), credential);
+
+        // Persist the plugin and its credential in a short, targeted transaction. The ping above
+        // already tested reachability, so findOrCreatePlugin records it and the prePersist hook
+        // skips its own (in-transaction) ping.
         DiscoveryPlugin plugin =
-                findOrCreatePlugin(
-                        callback.callbackUri(),
-                        callback.unauthCallback(),
-                        body.realm(),
-                        credential);
-        replaceCredential(plugin, credential);
+                QuarkusTransaction.joiningExisting()
+                        .call(
+                                () -> {
+                                    DiscoveryPlugin p =
+                                            findOrCreatePlugin(
+                                                    callback.callbackUri(),
+                                                    callback.unauthCallback(),
+                                                    body.realm(),
+                                                    credential,
+                                                    reachable);
+                                    replaceCredential(p, credential);
+                                    return p;
+                                });
 
         List<URI> locations;
         try {
@@ -377,7 +393,16 @@ public class Discovery {
             throw new InternalServerErrorException(e);
         }
 
-        publishPluginTree(plugin, publication);
+        // Publish the target tree in its own transaction, re-loading the plugin so that it is
+        // managed within this transaction's persistence context.
+        UUID pluginId = plugin.id;
+        QuarkusTransaction.joiningExisting()
+                .run(
+                        () ->
+                                publishPluginTree(
+                                        DiscoveryPlugin.<DiscoveryPlugin>find("id", pluginId)
+                                                .singleResult(),
+                                        publication));
 
         return new PluginRegistration(plugin.id.toString(), token, getEnvMap());
     }
@@ -453,169 +478,194 @@ public class Discovery {
     }
 
     private void publishPluginTree(DiscoveryPlugin plugin, DiscoveryPublication body) {
-        DiscoveryNode realm =
-                entityManager.find(
-                        DiscoveryNode.class, plugin.realm.id, LockModeType.PESSIMISTIC_WRITE);
-
         for (var n : body.nodes) {
             validatePublishedNode(n);
         }
 
-        // Remove anything this plugin previously published so that re-publication, ex. on Agent
-        // re-registration, replaces the previous nodes rather than colliding with its own earlier
-        // Target records. The removals are flushed before the replacement nodes are inserted,
-        // since Hibernate otherwise orders insertions before deletions within the transaction.
-        cleanupHelper.cleanupPluginNodes(plugin);
-        List<DiscoveryNode> previousChildren = new ArrayList<>(realm.children);
-        realm.children.clear();
-        for (DiscoveryNode child : previousChildren) {
-            deleteSubtree(child);
-        }
-        entityManager.flush();
-
-        List<DiscoveryNode> replacementChildren = new ArrayList<>();
-
         for (var n : body.nodes) {
             n.target.discoveryNode = n;
         }
-        body.fillStrategy.ifPresentOrElse(
-                algo -> {
-                    Map<String, String> pubCtx = body.context.orElse(Map.of());
-                    switch (algo) {
-                        case KUBERNETES:
-                            String namespace = pubCtx.get("namespace");
-                            String nodeType = pubCtx.get("nodetype");
-                            String name = pubCtx.get("name");
-                            if (StringUtils.isBlank(namespace)
-                                    || StringUtils.isBlank(nodeType)
-                                    || StringUtils.isBlank(name)) {
-                                String key;
-                                if (StringUtils.isBlank(namespace)) {
-                                    key = "namespace";
-                                } else if (StringUtils.isBlank(nodeType)) {
-                                    key = "nodeType";
-                                } else {
-                                    key = "name";
-                                }
-                                throw new BadRequestException(
-                                        new IllegalArgumentException(
-                                                String.format("%s cannot be blank", key)));
-                            }
 
-                            DiscoveryNode k8sRealm =
-                                    DiscoveryNode.getRealm(KubeEndpointSlicesDiscovery.REALM)
-                                            .orElseThrow(
-                                                    () ->
-                                                            new IllegalStateException(
-                                                                    "KubernetesApi realm not"
-                                                                            + " found"));
-
-                            DiscoveryNode nsNode =
-                                    DiscoveryNode.<DiscoveryNode>find(
-                                                    "#DiscoveryNode.byTypeWithName",
-                                                    Parameters.with(
-                                                                    "nodeType",
-                                                                    KubeDiscoveryNodeType.NAMESPACE
-                                                                            .getKind())
-                                                            .and("name", namespace))
-                                            .firstResultOptional()
-                                            .orElseGet(
-                                                    () -> {
-                                                        DiscoveryNode newNs = new DiscoveryNode();
-                                                        newNs.name = namespace;
-                                                        newNs.nodeType =
-                                                                KubeDiscoveryNodeType.NAMESPACE
-                                                                        .getKind();
-                                                        newNs.labels = new HashMap<>();
-                                                        newNs.children = new ArrayList<>();
-                                                        newNs.target = null;
-                                                        newNs.parent = k8sRealm;
-                                                        newNs.persist();
-                                                        return newNs;
-                                                    });
-
-                            if (nsNode.parent == null || !nsNode.parent.equals(k8sRealm)) {
-                                nsNode.parent = k8sRealm;
-                            }
-
-                            DiscoveryNode lineage =
-                                    k8sDiscovery.getOwnershipLineage(namespace, name, nodeType);
-
-                            KubeEndpointSlicesDiscovery.KubernetesMetadata k8sMetadata =
-                                    k8sDiscovery.getKubernetesMetadata(namespace, name, nodeType);
-
-                            DiscoveryNode innermost = mergeLineageIntoTree(nsNode, lineage);
-
-                            innermost.children.addAll(body.nodes);
-                            body.nodes.forEach(
-                                    n -> {
-                                        n.parent = innermost;
-                                        n.labels.put(
-                                                DISCOVERY_PLUGIN_ID_LABEL_KEY,
-                                                plugin.id.toString());
-
-                                        if (n.target != null) {
-                                            if (!k8sMetadata.labels().isEmpty()) {
-                                                if (n.target.labels == null) {
-                                                    n.target.labels = new HashMap<>();
-                                                }
-                                                k8sMetadata
-                                                        .labels()
-                                                        .forEach(
-                                                                (k, v) ->
-                                                                        n.target.labels.putIfAbsent(
-                                                                                k, v));
-                                            }
-
-                                            if (!k8sMetadata.annotations().isEmpty()) {
-                                                if (n.target.annotations == null) {
-                                                    n.target.annotations = new Annotations();
-                                                }
-                                                Map<String, String> platformAnnotations =
-                                                        new HashMap<>(
-                                                                n.target.annotations.platform());
-                                                k8sMetadata
-                                                        .annotations()
-                                                        .forEach(
-                                                                (k, v) ->
-                                                                        platformAnnotations
-                                                                                .putIfAbsent(k, v));
-                                                n.target.annotations =
-                                                        new Annotations(
-                                                                platformAnnotations,
-                                                                n.target.annotations.cryostat());
-                                            }
-                                        }
-
-                                        n.persist();
-                                    });
-
-                            DiscoveryNode current = innermost;
-                            while (current != null && current != nsNode) {
-                                current.persist();
-                                current = current.parent;
-                            }
-                            nsNode.persist();
-                            break;
-                        default:
-                            replacementChildren.addAll(body.nodes);
-                            for (var n : body.nodes) {
-                                n.parent = realm;
-                                n.persist();
-                            }
-                            break;
-                    }
-                },
-                () -> {
-                    replacementChildren.addAll(body.nodes);
-                    for (var n : body.nodes) {
-                        n.parent = realm;
-                        n.persist();
-                    }
-                });
-
-        replaceChildren(realm, replacementChildren);
+        // Reconcile the published nodes against this plugin's existing nodes by connectUrl so that
+        // targets which are still present keep their identity across re-publication - ex. an Agent
+        // registration refresh or a response to a Cryostat ping - rather than being deleted and
+        // immediately recreated, which would fire spurious LOST then FOUND discovery events.
+        // See cryostatio/cryostat#1604.
+        boolean kubernetes =
+                body.fillStrategy
+                        .map(algo -> algo == DiscoveryFillStrategy.KUBERNETES)
+                        .orElse(false);
+        if (kubernetes) {
+            reconcileKubernetesPublication(plugin, body);
+        } else {
+            DiscoveryNode realm =
+                    entityManager.find(
+                            DiscoveryNode.class, plugin.realm.id, LockModeType.PESSIMISTIC_WRITE);
+            reconcileFlatChildren(realm, body.nodes);
+        }
         plugin.persist();
+    }
+
+    @SuppressFBWarnings(
+            value = "UC_USELESS_OBJECT",
+            justification =
+                    "existingByUrl is read via remove() to match survivors and iterated via"
+                        + " values() to delete stale nodes; SpotBugs cannot see the side effects of"
+                        + " the Panache delete()/persist() consumers.")
+    private void reconcileKubernetesPublication(DiscoveryPlugin plugin, DiscoveryPublication body) {
+        Map<String, String> pubCtx = body.context.orElse(Map.of());
+        String namespace = pubCtx.get("namespace");
+        String nodeType = pubCtx.get("nodetype");
+        String name = pubCtx.get("name");
+        if (StringUtils.isBlank(namespace)
+                || StringUtils.isBlank(nodeType)
+                || StringUtils.isBlank(name)) {
+            String key;
+            if (StringUtils.isBlank(namespace)) {
+                key = "namespace";
+            } else if (StringUtils.isBlank(nodeType)) {
+                key = "nodeType";
+            } else {
+                key = "name";
+            }
+            throw new BadRequestException(
+                    new IllegalArgumentException(String.format("%s cannot be blank", key)));
+        }
+
+        DiscoveryNode k8sRealm =
+                DiscoveryNode.getRealm(KubeEndpointSlicesDiscovery.REALM)
+                        .orElseThrow(
+                                () -> new IllegalStateException("KubernetesApi realm not found"));
+
+        // Index the target nodes this plugin previously published (tagged with its plugin ID) by
+        // connectUrl, so unchanged targets can be updated in place rather than deleted and
+        // recreated.
+        Map<URI, DiscoveryNode> existingByUrl = new HashMap<>();
+        for (DiscoveryNode node : DiscoveryNode.getByPluginId(plugin.id)) {
+            if (node.target != null && node.target.connectUrl != null) {
+                existingByUrl.put(node.target.connectUrl, node);
+            }
+        }
+
+        DiscoveryNode nsNode =
+                DiscoveryNode.<DiscoveryNode>find(
+                                "#DiscoveryNode.byTypeWithName",
+                                Parameters.with(
+                                                "nodeType",
+                                                KubeDiscoveryNodeType.NAMESPACE.getKind())
+                                        .and("name", namespace))
+                        .firstResultOptional()
+                        .orElseGet(
+                                () -> {
+                                    DiscoveryNode newNs = new DiscoveryNode();
+                                    newNs.name = namespace;
+                                    newNs.nodeType = KubeDiscoveryNodeType.NAMESPACE.getKind();
+                                    newNs.labels = new HashMap<>();
+                                    newNs.children = new ArrayList<>();
+                                    newNs.target = null;
+                                    newNs.parent = k8sRealm;
+                                    newNs.persist();
+                                    return newNs;
+                                });
+        if (nsNode.parent == null || !nsNode.parent.equals(k8sRealm)) {
+            nsNode.parent = k8sRealm;
+        }
+
+        DiscoveryNode lineage = k8sDiscovery.getOwnershipLineage(namespace, name, nodeType);
+        KubeEndpointSlicesDiscovery.KubernetesMetadata k8sMetadata =
+                k8sDiscovery.getKubernetesMetadata(namespace, name, nodeType);
+        DiscoveryNode innermost = mergeLineageIntoTree(nsNode, lineage);
+
+        // Persist any newly-created lineage nodes (namespace -> ... -> innermost) top-down, so the
+        // target nodes attached below always reference a persisted parent.
+        List<DiscoveryNode> lineageChain = new ArrayList<>();
+        for (DiscoveryNode c = innermost; c != null && c != nsNode; c = c.parent) {
+            lineageChain.add(c);
+        }
+        nsNode.persist();
+        for (int i = lineageChain.size() - 1; i >= 0; i--) {
+            lineageChain.get(i).persist();
+        }
+
+        for (var n : body.nodes) {
+            enrichWithKubernetesMetadata(n, k8sMetadata);
+            if (n.labels == null) {
+                n.labels = new HashMap<>();
+            }
+            n.labels.put(DISCOVERY_PLUGIN_ID_LABEL_KEY, plugin.id.toString());
+
+            // Remove matched survivors from the index as we go; whatever remains afterwards is no
+            // longer published and gets deleted below.
+            DiscoveryNode existing = existingByUrl.remove(n.target.connectUrl);
+            if (existing == null) {
+                n.parent = innermost;
+                innermost.children.add(n);
+                n.persist();
+                continue;
+            }
+
+            // Update the surviving node/target in place rather than recreating it, so its Target
+            // keeps the same identity (jvmId, active recordings, etc.) and no LOST/FOUND discovery
+            // events are fired. connectUrl is the match key and is immutable.
+            DiscoveryNode oldParent = existing.parent;
+            existing.name = n.name;
+            existing.nodeType = n.nodeType;
+            existing.labels = n.labels;
+            existing.target.alias = n.target.alias;
+            if (n.target.labels != null) {
+                existing.target.labels = n.target.labels;
+            }
+            if (n.target.annotations != null) {
+                existing.target.annotations = n.target.annotations;
+            }
+            if (oldParent == null || !oldParent.equals(innermost)) {
+                if (oldParent != null) {
+                    oldParent.children.remove(existing);
+                }
+                existing.parent = innermost;
+                innermost.children.add(existing);
+            }
+            existing.persist();
+            if (oldParent != null && !oldParent.equals(innermost)) {
+                cleanupHelper.pruneEmptyAncestors(oldParent);
+            }
+        }
+
+        // Remove target nodes this plugin previously published that are no longer present, pruning
+        // any now-empty ancestor lineage left behind.
+        for (DiscoveryNode gone : existingByUrl.values()) {
+            DiscoveryNode parent = gone.parent;
+            if (parent != null) {
+                parent.children.remove(gone);
+            }
+            gone.parent = null;
+            gone.delete();
+            cleanupHelper.pruneEmptyAncestors(parent);
+        }
+        entityManager.flush();
+    }
+
+    private void enrichWithKubernetesMetadata(
+            DiscoveryNode n, KubeEndpointSlicesDiscovery.KubernetesMetadata k8sMetadata) {
+        if (n.target == null) {
+            return;
+        }
+        if (!k8sMetadata.labels().isEmpty()) {
+            if (n.target.labels == null) {
+                n.target.labels = new HashMap<>();
+            }
+            k8sMetadata.labels().forEach((k, v) -> n.target.labels.putIfAbsent(k, v));
+        }
+        if (!k8sMetadata.annotations().isEmpty()) {
+            if (n.target.annotations == null) {
+                n.target.annotations = new Annotations();
+            }
+            Map<String, String> platformAnnotations =
+                    new HashMap<>(n.target.annotations.platform());
+            k8sMetadata.annotations().forEach((k, v) -> platformAnnotations.putIfAbsent(k, v));
+            n.target.annotations =
+                    new Annotations(platformAnnotations, n.target.annotations.cryostat());
+        }
     }
 
     @Transactional
@@ -744,18 +794,59 @@ public class Discovery {
         node.delete();
     }
 
-    private void replaceChildren(DiscoveryNode parent, List<DiscoveryNode> replacementChildren) {
-        List<DiscoveryNode> existingChildren = new ArrayList<>(parent.children);
-        parent.children.clear();
-        existingChildren.forEach(child -> child.parent = null);
-        replacementChildren.forEach(child -> child.parent = parent);
-        parent.children.addAll(replacementChildren);
-        try {
-            parent.persist();
-            entityManager.flush();
-        } catch (OptimisticLockException e) {
-            throw new BadRequestException("Discovery tree update conflict", e);
+    private void reconcileFlatChildren(DiscoveryNode realm, List<DiscoveryNode> incoming) {
+        Map<URI, DiscoveryNode> existingByUrl = new HashMap<>();
+        for (DiscoveryNode child : new ArrayList<>(realm.children)) {
+            if (child.target != null && child.target.connectUrl != null) {
+                existingByUrl.put(child.target.connectUrl, child);
+            }
         }
+
+        Set<URI> incomingUrls = new HashSet<>();
+        for (DiscoveryNode n : incoming) {
+            incomingUrls.add(n.target.connectUrl);
+        }
+
+        // Delete only the previously-published targets that are no longer present, preserving the
+        // database identity - and therefore the discovery state, active recordings, etc. - of those
+        // that remain.
+        for (DiscoveryNode child : new ArrayList<>(realm.children)) {
+            URI url = child.target != null ? child.target.connectUrl : null;
+            if (url == null || !incomingUrls.contains(url)) {
+                realm.children.remove(child);
+                deleteSubtree(child);
+            }
+        }
+        // Flush removals before inserting replacements so Hibernate does not order the insert of a
+        // re-published connectUrl ahead of the delete of the node that previously held it.
+        entityManager.flush();
+
+        for (DiscoveryNode n : incoming) {
+            DiscoveryNode existing = existingByUrl.get(n.target.connectUrl);
+            if (existing == null) {
+                n.parent = realm;
+                realm.children.add(n);
+                n.persist();
+                continue;
+            }
+            // Update the surviving node in place rather than recreating it, so its Target keeps the
+            // same identity and no LOST/FOUND discovery events are fired. connectUrl is the match
+            // key and is immutable, so it is intentionally left untouched.
+            existing.name = n.name;
+            existing.nodeType = n.nodeType;
+            if (n.labels != null) {
+                existing.labels = n.labels;
+            }
+            existing.target.alias = n.target.alias;
+            if (n.target.labels != null) {
+                existing.target.labels = n.target.labels;
+            }
+            if (n.target.annotations != null) {
+                existing.target.annotations = n.target.annotations;
+            }
+            existing.persist();
+        }
+        realm.persist();
     }
 
     private CallbackValidation validateCallback(
@@ -814,6 +905,17 @@ public class Discovery {
 
     private DiscoveryPlugin findOrCreatePlugin(
             URI callbackUri, URI unauthCallback, String realmName, Credential credential) {
+        // No pre-registration ping has occurred, so let the prePersist lifecycle hook test the
+        // callback's reachability the way it always has.
+        return findOrCreatePlugin(callbackUri, unauthCallback, realmName, credential, null);
+    }
+
+    private DiscoveryPlugin findOrCreatePlugin(
+            URI callbackUri,
+            URI unauthCallback,
+            String realmName,
+            Credential credential,
+            Boolean prePinged) {
         Optional<DiscoveryPlugin> existing =
                 DiscoveryPlugin.findByCallbackAndRealmName(unauthCallback, realmName);
 
@@ -865,6 +967,14 @@ public class Discovery {
             }
         }
 
+        // New registration. If the caller already pinged the Agent and found it unreachable, reject
+        // the registration here rather than persisting an unreachable plugin; this preserves the
+        // reachability check the prePersist hook would otherwise perform.
+        if (Boolean.FALSE.equals(prePinged)) {
+            throw new BadRequestException(
+                    String.format("Agent callback is not reachable: %s", unauthCallback));
+        }
+
         DiscoveryPlugin plugin = new DiscoveryPlugin();
         plugin.callback = callbackUri;
         plugin.realm =
@@ -875,6 +985,13 @@ public class Discovery {
             plugin.credential = credential;
             credential.discoveryPlugin = plugin;
         }
+        if (Boolean.TRUE.equals(prePinged)) {
+            // The caller already confirmed reachability above, so record the successful ping and
+            // let
+            // the prePersist hook skip its own ping (which would otherwise run in this
+            // transaction).
+            plugin.lastSuccessfulPing = Instant.now();
+        }
 
         var universe = DiscoveryNode.getUniverse();
         plugin.realm.parent = universe;
@@ -884,6 +1001,24 @@ public class Discovery {
 
         logger.debugv("Created new plugin: {0}", plugin.id);
         return plugin;
+    }
+
+    private boolean pingAgentCallback(URI unauthCallback, Credential credential) {
+        // Build a transient (unpersisted) plugin purely to exercise the callback client. No
+        // database
+        // state is touched here - this only opens the network connection to the Agent and waits for
+        // its response, deliberately outside of any transaction.
+        DiscoveryPlugin probe = new DiscoveryPlugin();
+        probe.callback = unauthCallback;
+        probe.credential = credential;
+        try {
+            callbackFactory.create(probe).ping();
+            logger.debugv("Agent callback reachable: {0}", unauthCallback);
+            return true;
+        } catch (Exception e) {
+            logger.debugv(e, "Agent callback ping failed during registration: {0}", unauthCallback);
+            return false;
+        }
     }
 
     private void replaceCredential(DiscoveryPlugin plugin, Credential credential) {

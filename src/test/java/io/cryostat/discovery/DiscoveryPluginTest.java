@@ -805,6 +805,105 @@ public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
                 .statusCode(204);
     }
 
+    @Test
+    void testAgentReregistrationPreservesTargetIdentity() {
+        // Reproduces cryostatio/cryostat#1604: when an Agent refreshes its registration (or
+        // responds to a Cryostat ping) by re-POSTing to the combined registration endpoint with an
+        // unchanged set of target nodes, the published Target should be preserved in place. If the
+        // server instead deletes and recreates the Target row, the target is momentarily LOST and
+        // then re-FOUND/rediscovered, dropping any active connections and recordings.
+        var realmName = "agent_identity_test_realm";
+        var callback = "http://localhost:8081/health/liveness";
+        var connectUrl = URI.create("http://localhost:8081");
+        var target = new Target(connectUrl, "agent-node");
+        var node = new Node("agent-node", NodeType.BaseNodeType.AGENT.getKind(), target);
+        var requestBody =
+                Map.of(
+                        "realm",
+                        realmName,
+                        "callback",
+                        callback,
+                        "credential",
+                        Map.of(
+                                "matchExpression", "true",
+                                "username", "user",
+                                "password", "pass"),
+                        "nodes",
+                        List.of(node),
+                        "fillStrategy",
+                        "NONE",
+                        "context",
+                        Map.of());
+
+        var firstRegistration =
+                given().log()
+                        .all()
+                        .when()
+                        .body(requestBody)
+                        .contentType(ContentType.JSON)
+                        .post("/api/v4.3/discovery/agents")
+                        .then()
+                        .log()
+                        .all()
+                        .and()
+                        .assertThat()
+                        .statusCode(200)
+                        .contentType(ContentType.JSON)
+                        .extract()
+                        .jsonPath();
+        var pluginId = firstRegistration.getString("id");
+
+        Long firstTargetId =
+                QuarkusTransaction.requiringNew()
+                        .call(
+                                () ->
+                                        io.cryostat.targets.Target.getTargetByConnectUrl(connectUrl)
+                                                .id);
+
+        // Re-register as the same Agent with an identical set of nodes, ex. a registration refresh
+        // or a response to a Cryostat ping.
+        var secondRegistration =
+                given().log()
+                        .all()
+                        .when()
+                        .body(requestBody)
+                        .contentType(ContentType.JSON)
+                        .post("/api/v4.3/discovery/agents")
+                        .then()
+                        .log()
+                        .all()
+                        .and()
+                        .assertThat()
+                        .statusCode(200)
+                        .contentType(ContentType.JSON)
+                        .extract()
+                        .jsonPath();
+        MatcherAssert.assertThat(secondRegistration.getString("id"), Matchers.equalTo(pluginId));
+
+        Long secondTargetId =
+                QuarkusTransaction.requiringNew()
+                        .call(
+                                () ->
+                                        io.cryostat.targets.Target.getTargetByConnectUrl(connectUrl)
+                                                .id);
+
+        // The unchanged target must keep its identity across the refresh - if the id changed, the
+        // Target was deleted and recreated, which fires LOST then FOUND discovery events.
+        MatcherAssert.assertThat(secondTargetId, Matchers.equalTo(firstTargetId));
+
+        given().log()
+                .all()
+                .when()
+                .header(DISCOVERY_HEADER, secondRegistration.getString("token"))
+                .delete(String.format("/api/v4/discovery/%s", pluginId))
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(204);
+    }
+
     record Node(String name, String nodeType, Target target, List<?> children) {
         Node(String name, String nodeType, Target target) {
             this(name, nodeType, target, null);
