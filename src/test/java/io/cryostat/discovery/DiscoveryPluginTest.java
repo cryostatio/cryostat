@@ -807,11 +807,8 @@ public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
 
     @Test
     void testAgentReregistrationPreservesTargetIdentity() {
-        // Reproduces cryostatio/cryostat#1604: when an Agent refreshes its registration (or
-        // responds to a Cryostat ping) by re-POSTing to the combined registration endpoint with an
-        // unchanged set of target nodes, the published Target should be preserved in place. If the
-        // server instead deletes and recreates the Target row, the target is momentarily LOST and
-        // then re-FOUND/rediscovered, dropping any active connections and recordings.
+        // cryostatio/cryostat#1604: re-registration with an unchanged node set must preserve the
+        // Target, not delete and recreate it (which fires LOST then FOUND).
         var realmName = "agent_identity_test_realm";
         var callback = "http://localhost:8081/health/liveness";
         var connectUrl = URI.create("http://localhost:8081");
@@ -860,8 +857,7 @@ public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
                                         io.cryostat.targets.Target.getTargetByConnectUrl(connectUrl)
                                                 .id);
 
-        // Re-register as the same Agent with an identical set of nodes, ex. a registration refresh
-        // or a response to a Cryostat ping.
+        // Re-register the same Agent with an identical node set (ex. a registration refresh).
         var secondRegistration =
                 given().log()
                         .all()
@@ -887,8 +883,6 @@ public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
                                         io.cryostat.targets.Target.getTargetByConnectUrl(connectUrl)
                                                 .id);
 
-        // The unchanged target must keep its identity across the refresh - if the id changed, the
-        // Target was deleted and recreated, which fires LOST then FOUND discovery events.
         MatcherAssert.assertThat(secondTargetId, Matchers.equalTo(firstTargetId));
 
         given().log()

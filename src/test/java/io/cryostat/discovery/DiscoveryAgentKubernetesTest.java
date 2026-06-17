@@ -43,9 +43,8 @@ public class DiscoveryAgentKubernetesTest extends AbstractTransactionalTestBase 
 
     @BeforeEach
     void setupK8sMocks() {
-        // The KUBERNETES fill strategy asks the discovery service to resolve the agent pod's
-        // ownership lineage and metadata from the Kubernetes API; there is no API to talk to in a
-        // unit test, so return a fixed single-Pod lineage and empty metadata.
+        // No Kubernetes API in a unit test, so return a fixed single-Pod lineage and empty
+        // metadata.
         Mockito.when(k8sDiscovery.getOwnershipLineage(anyString(), anyString(), anyString()))
                 .thenAnswer(
                         inv -> {
@@ -63,10 +62,8 @@ public class DiscoveryAgentKubernetesTest extends AbstractTransactionalTestBase 
 
     @Test
     void testKubernetesAgentReregistrationPreservesTargetIdentity() {
-        // Reproduces cryostatio/cryostat#1604 for operator-injected Agents, which publish with the
-        // KUBERNETES fill strategy. A registration refresh with an unchanged target set must keep
-        // the published Target in place rather than deleting and recreating it (which momentarily
-        // LOSES and re-FINDS the target, dropping active connections/recordings).
+        // cryostatio/cryostat#1604, KUBERNETES strategy (operator-injected Agents): re-registration
+        // with an unchanged node set must preserve the Target, not recreate it.
         var realmName = "agent_k8s_identity_realm";
         var callback = "http://localhost:8081/health/liveness";
         var connectUrl = URI.create("http://localhost:8081");
@@ -116,8 +113,7 @@ public class DiscoveryAgentKubernetesTest extends AbstractTransactionalTestBase 
                                         io.cryostat.targets.Target.getTargetByConnectUrl(connectUrl)
                                                 .id);
 
-        // Re-register the same Agent with an identical node set, ex. a registration refresh or a
-        // response to a Cryostat ping.
+        // Re-register the same Agent with an identical node set (ex. a registration refresh).
         given().log()
                 .all()
                 .when()
@@ -138,8 +134,6 @@ public class DiscoveryAgentKubernetesTest extends AbstractTransactionalTestBase 
                                         io.cryostat.targets.Target.getTargetByConnectUrl(connectUrl)
                                                 .id);
 
-        // The unchanged target must keep its identity across the refresh - if the id changed, the
-        // Target was deleted and recreated, which fires LOST then FOUND discovery events.
         MatcherAssert.assertThat(secondTargetId, Matchers.equalTo(firstTargetId));
     }
 

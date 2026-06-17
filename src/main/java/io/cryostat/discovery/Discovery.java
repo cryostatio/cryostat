@@ -348,16 +348,10 @@ public class Discovery {
                         Optional.ofNullable(body.fillStrategy()),
                         Optional.ofNullable(body.context()));
 
-        // Registration includes opening a network connection to the registering Agent and waiting
-        // for its ping response. Ping the Agent first, before opening any database transaction, so
-        // that we do not hold a transaction (and its row locks) open across that network
-        // round-trip.
-        // See cryostatio/cryostat#1604.
+        // Ping the Agent before opening any transaction, so we do not hold one open across the
+        // network round-trip. See cryostatio/cryostat#1604.
         boolean reachable = pingAgentCallback(callback.unauthCallback(), credential);
 
-        // Persist the plugin and its credential in a short, targeted transaction. The ping above
-        // already tested reachability, so findOrCreatePlugin records it and the prePersist hook
-        // skips its own (in-transaction) ping.
         DiscoveryPlugin plugin =
                 QuarkusTransaction.joiningExisting()
                         .call(
@@ -393,8 +387,6 @@ public class Discovery {
             throw new InternalServerErrorException(e);
         }
 
-        // Publish the target tree in its own transaction, re-loading the plugin so that it is
-        // managed within this transaction's persistence context.
         UUID pluginId = plugin.id;
         QuarkusTransaction.joiningExisting()
                 .run(
@@ -486,11 +478,8 @@ public class Discovery {
             n.target.discoveryNode = n;
         }
 
-        // Reconcile the published nodes against this plugin's existing nodes by connectUrl so that
-        // targets which are still present keep their identity across re-publication - ex. an Agent
-        // registration refresh or a response to a Cryostat ping - rather than being deleted and
-        // immediately recreated, which would fire spurious LOST then FOUND discovery events.
-        // See cryostatio/cryostat#1604.
+        // Reconcile published nodes against existing ones by connectUrl so surviving targets keep
+        // their identity rather than being deleted and recreated (spurious LOST/FOUND). See #1604.
         boolean kubernetes =
                 body.fillStrategy
                         .map(algo -> algo == DiscoveryFillStrategy.KUBERNETES)
@@ -537,9 +526,6 @@ public class Discovery {
                         .orElseThrow(
                                 () -> new IllegalStateException("KubernetesApi realm not found"));
 
-        // Index the target nodes this plugin previously published (tagged with its plugin ID) by
-        // connectUrl, so unchanged targets can be updated in place rather than deleted and
-        // recreated.
         Map<URI, DiscoveryNode> existingByUrl = new HashMap<>();
         for (DiscoveryNode node : DiscoveryNode.getByPluginId(plugin.id)) {
             if (node.target != null && node.target.connectUrl != null) {
@@ -576,8 +562,7 @@ public class Discovery {
                 k8sDiscovery.getKubernetesMetadata(namespace, name, nodeType);
         DiscoveryNode innermost = mergeLineageIntoTree(nsNode, lineage);
 
-        // Persist any newly-created lineage nodes (namespace -> ... -> innermost) top-down, so the
-        // target nodes attached below always reference a persisted parent.
+        // Persist new lineage nodes top-down so target nodes below reference a persisted parent.
         List<DiscoveryNode> lineageChain = new ArrayList<>();
         for (DiscoveryNode c = innermost; c != null && c != nsNode; c = c.parent) {
             lineageChain.add(c);
@@ -594,8 +579,6 @@ public class Discovery {
             }
             n.labels.put(DISCOVERY_PLUGIN_ID_LABEL_KEY, plugin.id.toString());
 
-            // Remove matched survivors from the index as we go; whatever remains afterwards is no
-            // longer published and gets deleted below.
             DiscoveryNode existing = existingByUrl.remove(n.target.connectUrl);
             if (existing == null) {
                 n.parent = innermost;
@@ -604,9 +587,6 @@ public class Discovery {
                 continue;
             }
 
-            // Update the surviving node/target in place rather than recreating it, so its Target
-            // keeps the same identity (jvmId, active recordings, etc.) and no LOST/FOUND discovery
-            // events are fired. connectUrl is the match key and is immutable.
             DiscoveryNode oldParent = existing.parent;
             existing.name = n.name;
             existing.nodeType = n.nodeType;
@@ -631,8 +611,6 @@ public class Discovery {
             }
         }
 
-        // Remove target nodes this plugin previously published that are no longer present, pruning
-        // any now-empty ancestor lineage left behind.
         for (DiscoveryNode gone : existingByUrl.values()) {
             DiscoveryNode parent = gone.parent;
             if (parent != null) {
@@ -807,9 +785,6 @@ public class Discovery {
             incomingUrls.add(n.target.connectUrl);
         }
 
-        // Delete only the previously-published targets that are no longer present, preserving the
-        // database identity - and therefore the discovery state, active recordings, etc. - of those
-        // that remain.
         for (DiscoveryNode child : new ArrayList<>(realm.children)) {
             URI url = child.target != null ? child.target.connectUrl : null;
             if (url == null || !incomingUrls.contains(url)) {
@@ -817,8 +792,8 @@ public class Discovery {
                 deleteSubtree(child);
             }
         }
-        // Flush removals before inserting replacements so Hibernate does not order the insert of a
-        // re-published connectUrl ahead of the delete of the node that previously held it.
+        // Flush removals before inserts so Hibernate does not insert a re-published connectUrl
+        // before deleting the node that held it (connectUrl is unique).
         entityManager.flush();
 
         for (DiscoveryNode n : incoming) {
@@ -829,9 +804,6 @@ public class Discovery {
                 n.persist();
                 continue;
             }
-            // Update the surviving node in place rather than recreating it, so its Target keeps the
-            // same identity and no LOST/FOUND discovery events are fired. connectUrl is the match
-            // key and is immutable, so it is intentionally left untouched.
             existing.name = n.name;
             existing.nodeType = n.nodeType;
             if (n.labels != null) {
@@ -905,8 +877,6 @@ public class Discovery {
 
     private DiscoveryPlugin findOrCreatePlugin(
             URI callbackUri, URI unauthCallback, String realmName, Credential credential) {
-        // No pre-registration ping has occurred, so let the prePersist lifecycle hook test the
-        // callback's reachability the way it always has.
         return findOrCreatePlugin(callbackUri, unauthCallback, realmName, credential, null);
     }
 
@@ -967,9 +937,6 @@ public class Discovery {
             }
         }
 
-        // New registration. If the caller already pinged the Agent and found it unreachable, reject
-        // the registration here rather than persisting an unreachable plugin; this preserves the
-        // reachability check the prePersist hook would otherwise perform.
         if (Boolean.FALSE.equals(prePinged)) {
             throw new BadRequestException(
                     String.format("Agent callback is not reachable: %s", unauthCallback));
@@ -986,10 +953,7 @@ public class Discovery {
             credential.discoveryPlugin = plugin;
         }
         if (Boolean.TRUE.equals(prePinged)) {
-            // The caller already confirmed reachability above, so record the successful ping and
-            // let
-            // the prePersist hook skip its own ping (which would otherwise run in this
-            // transaction).
+            // Record the ping we already did so prePersist skips its own (in-transaction) ping.
             plugin.lastSuccessfulPing = Instant.now();
         }
 
@@ -1004,10 +968,6 @@ public class Discovery {
     }
 
     private boolean pingAgentCallback(URI unauthCallback, Credential credential) {
-        // Build a transient (unpersisted) plugin purely to exercise the callback client. No
-        // database
-        // state is touched here - this only opens the network connection to the Agent and waits for
-        // its response, deliberately outside of any transaction.
         DiscoveryPlugin probe = new DiscoveryPlugin();
         probe.callback = unauthCallback;
         probe.credential = credential;
