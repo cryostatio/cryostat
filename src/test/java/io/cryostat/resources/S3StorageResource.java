@@ -22,6 +22,7 @@ import java.util.Optional;
 
 import io.quarkus.test.common.DevServicesContext;
 import io.quarkus.test.common.QuarkusTestResourceLifecycleManager;
+import org.apache.commons.lang3.StringUtils;
 import org.jboss.logging.Logger;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.wait.strategy.Wait;
@@ -31,7 +32,7 @@ public class S3StorageResource
         implements QuarkusTestResourceLifecycleManager, DevServicesContext.ContextAware {
 
     protected static int S3_PORT = 8333;
-    protected static final String IMAGE_NAME = "quay.io/cryostat/cryostat-storage:STORAGE_VERSION";
+    protected static final String DEFAULT_IMAGE = "quay.io/cryostat/cryostat-storage:latest";
     protected static final Map<String, String> envMap =
             Map.of(
                     "DATA_DIR",
@@ -89,16 +90,12 @@ public class S3StorageResource
     @SuppressWarnings("resource")
     @Override
     public Map<String, String> start() {
-        String storageVersion =
-                Optional.ofNullable(
-                                System.getProperty(
-                                        "cryostat-storage.version",
-                                        System.getenv("CRYOSTAT_STORAGE_VERSION")))
-                        .orElse("latest");
+        String img =
+                Optional.ofNullable(System.getenv("CRYOSTAT_STORAGE_IMAGE"))
+                        .filter(StringUtils::isNotBlank)
+                        .orElse(DEFAULT_IMAGE);
         this.container =
-                new GenericContainer<>(
-                                DockerImageName.parse(
-                                        IMAGE_NAME.replace("STORAGE_VERSION", storageVersion)))
+                new GenericContainer<>(DockerImageName.parse(img))
                         .withExposedPorts(S3_PORT)
                         .withEnv(envMap)
                         .withTmpFs(Map.of("/data", "rw"))
