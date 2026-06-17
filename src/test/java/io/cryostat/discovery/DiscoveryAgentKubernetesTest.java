@@ -23,6 +23,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 import io.cryostat.AbstractTransactionalTestBase;
 
@@ -112,6 +113,14 @@ public class DiscoveryAgentKubernetesTest extends AbstractTransactionalTestBase 
                                 () ->
                                         io.cryostat.targets.Target.getTargetByConnectUrl(connectUrl)
                                                 .id);
+        Long firstCredentialId =
+                QuarkusTransaction.requiringNew()
+                        .call(
+                                () ->
+                                        DiscoveryPlugin.<DiscoveryPlugin>findById(
+                                                        UUID.fromString(pluginId))
+                                                .credential
+                                                .id);
 
         // Re-register the same Agent with an identical node set (ex. a registration refresh).
         given().log()
@@ -133,8 +142,17 @@ public class DiscoveryAgentKubernetesTest extends AbstractTransactionalTestBase 
                                 () ->
                                         io.cryostat.targets.Target.getTargetByConnectUrl(connectUrl)
                                                 .id);
+        Long secondCredentialId =
+                QuarkusTransaction.requiringNew()
+                        .call(
+                                () ->
+                                        DiscoveryPlugin.<DiscoveryPlugin>findById(
+                                                        UUID.fromString(pluginId))
+                                                .credential
+                                                .id);
 
         MatcherAssert.assertThat(secondTargetId, Matchers.equalTo(firstTargetId));
+        MatcherAssert.assertThat(secondCredentialId, Matchers.equalTo(firstCredentialId));
     }
 
     record Node(String name, String nodeType, Target target, List<?> children) {

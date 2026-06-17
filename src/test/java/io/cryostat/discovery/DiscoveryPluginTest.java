@@ -744,14 +744,33 @@ public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
                                                 .credential
                                                 .id);
 
-        // Re-register as the same Agent, ex. after the Agent's token has expired. The same
-        // plugin record should be reused, the stored credential should be replaced, and the
-        // published nodes should be replaced rather than duplicated.
+        var updatedRequestBody =
+                Map.of(
+                        "realm",
+                        realmName,
+                        "callback",
+                        callback,
+                        "credential",
+                        Map.of(
+                                "matchExpression", "true",
+                                "username", "user",
+                                "password", "updated-pass"),
+                        "nodes",
+                        List.of(node),
+                        "fillStrategy",
+                        "NONE",
+                        "context",
+                        Map.of());
+
+        // Re-register as the same Agent with changed credentials, ex. after the Agent's token has
+        // expired and its local credential configuration has changed. The same plugin record should
+        // be reused, the stored credential should be replaced, and the published nodes should be
+        // replaced rather than duplicated.
         var secondRegistration =
                 given().log()
                         .all()
                         .when()
-                        .body(requestBody)
+                        .body(updatedRequestBody)
                         .contentType(ContentType.JSON)
                         .post("/api/v4.3/discovery/agents")
                         .then()
@@ -856,6 +875,14 @@ public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
                                 () ->
                                         io.cryostat.targets.Target.getTargetByConnectUrl(connectUrl)
                                                 .id);
+        Long firstCredentialId =
+                QuarkusTransaction.requiringNew()
+                        .call(
+                                () ->
+                                        DiscoveryPlugin.<DiscoveryPlugin>findById(
+                                                        UUID.fromString(pluginId))
+                                                .credential
+                                                .id);
 
         // Re-register the same Agent with an identical node set (ex. a registration refresh).
         var secondRegistration =
@@ -882,8 +909,17 @@ public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
                                 () ->
                                         io.cryostat.targets.Target.getTargetByConnectUrl(connectUrl)
                                                 .id);
+        Long secondCredentialId =
+                QuarkusTransaction.requiringNew()
+                        .call(
+                                () ->
+                                        DiscoveryPlugin.<DiscoveryPlugin>findById(
+                                                        UUID.fromString(pluginId))
+                                                .credential
+                                                .id);
 
         MatcherAssert.assertThat(secondTargetId, Matchers.equalTo(firstTargetId));
+        MatcherAssert.assertThat(secondCredentialId, Matchers.equalTo(firstCredentialId));
 
         given().log()
                 .all()

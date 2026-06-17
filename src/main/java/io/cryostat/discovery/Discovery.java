@@ -988,6 +988,9 @@ public class Discovery {
         if (plugin.credential == credential) {
             return;
         }
+        if (credentialsEquivalent(plugin.credential, credential)) {
+            return;
+        }
         if (plugin.credential != null) {
             plugin.credential.discoveryPlugin = null;
         }
@@ -997,6 +1000,22 @@ public class Discovery {
             credential.persist();
         }
         plugin.persist();
+    }
+
+    private boolean credentialsEquivalent(Credential existing, Credential incoming) {
+        if (existing == incoming) {
+            return true;
+        }
+        if (existing == null || incoming == null) {
+            return false;
+        }
+        return Objects.equals(existing.username, incoming.username)
+                && Objects.equals(existing.password, incoming.password)
+                && Objects.equals(matchExpressionScript(existing), matchExpressionScript(incoming));
+    }
+
+    private String matchExpressionScript(Credential credential) {
+        return credential.matchExpression == null ? null : credential.matchExpression.script;
     }
 
     private Credential credentialFrom(AgentCredentialRequest body) {
