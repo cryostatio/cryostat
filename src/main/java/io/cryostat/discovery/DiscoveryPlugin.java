@@ -330,11 +330,15 @@ public class DiscoveryPlugin extends PanacheEntityBase {
         public void refresh();
 
         public static PluginCallback create(DiscoveryPlugin plugin) throws URISyntaxException {
+            return create(plugin.callback, plugin.credential);
+        }
+
+        public static PluginCallback create(URI callback, Credential credential) {
             PluginCallback client =
                     QuarkusRestClientBuilder.newBuilder()
-                            .baseUri(plugin.callback)
+                            .baseUri(callback)
                             .clientHeadersFactory(
-                                    new DiscoveryPluginAuthorizationHeaderFactory(plugin))
+                                    new DiscoveryPluginAuthorizationHeaderFactory(credential))
                             .build(PluginCallback.class);
             return client;
         }
@@ -345,10 +349,14 @@ public class DiscoveryPlugin extends PanacheEntityBase {
             private final Supplier<UsernamePasswordCredentials> credentialSupplier;
 
             public DiscoveryPluginAuthorizationHeaderFactory(DiscoveryPlugin plugin) {
+                this(plugin.credential);
+            }
+
+            public DiscoveryPluginAuthorizationHeaderFactory(Credential credential) {
                 this(
                         () ->
                                 new UsernamePasswordCredentials(
-                                        plugin.credential.username, plugin.credential.password));
+                                        credential.username, credential.password));
             }
 
             public DiscoveryPluginAuthorizationHeaderFactory(

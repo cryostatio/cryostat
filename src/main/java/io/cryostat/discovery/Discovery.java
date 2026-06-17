@@ -350,7 +350,10 @@ public class Discovery {
 
         // Ping the Agent before opening any transaction, so we do not hold one open across the
         // network round-trip. See cryostatio/cryostat#1604.
-        boolean reachable = pingAgentCallback(callback.unauthCallback(), credential);
+        PrePingResult prePingResult =
+                pingAgentCallback(callback.unauthCallback(), credential)
+                        ? PrePingResult.REACHABLE
+                        : PrePingResult.UNREACHABLE;
 
         DiscoveryPlugin plugin =
                 QuarkusTransaction.joiningExisting()
@@ -362,7 +365,7 @@ public class Discovery {
                                                     callback.unauthCallback(),
                                                     body.realm(),
                                                     credential,
-                                                    reachable);
+                                                    prePingResult);
                                     replaceCredential(p, credential);
                                     return p;
                                 });
@@ -877,7 +880,8 @@ public class Discovery {
 
     private DiscoveryPlugin findOrCreatePlugin(
             URI callbackUri, URI unauthCallback, String realmName, Credential credential) {
-        return findOrCreatePlugin(callbackUri, unauthCallback, realmName, credential, null);
+        return findOrCreatePlugin(
+                callbackUri, unauthCallback, realmName, credential, PrePingResult.NOT_ATTEMPTED);
     }
 
     private DiscoveryPlugin findOrCreatePlugin(
@@ -885,7 +889,7 @@ public class Discovery {
             URI unauthCallback,
             String realmName,
             Credential credential,
-            Boolean prePinged) {
+            PrePingResult prePingResult) {
         Optional<DiscoveryPlugin> existing =
                 DiscoveryPlugin.findByCallbackAndRealmName(unauthCallback, realmName);
 
@@ -937,7 +941,7 @@ public class Discovery {
             }
         }
 
-        if (Boolean.FALSE.equals(prePinged)) {
+        if (prePingResult == PrePingResult.UNREACHABLE) {
             throw new BadRequestException(
                     String.format("Agent callback is not reachable: %s", unauthCallback));
         }
@@ -952,7 +956,7 @@ public class Discovery {
             plugin.credential = credential;
             credential.discoveryPlugin = plugin;
         }
-        if (Boolean.TRUE.equals(prePinged)) {
+        if (prePingResult == PrePingResult.REACHABLE) {
             // Record the ping we already did so prePersist skips its own (in-transaction) ping.
             plugin.lastSuccessfulPing = Instant.now();
         }
@@ -968,11 +972,8 @@ public class Discovery {
     }
 
     private boolean pingAgentCallback(URI unauthCallback, Credential credential) {
-        DiscoveryPlugin probe = new DiscoveryPlugin();
-        probe.callback = unauthCallback;
-        probe.credential = credential;
         try {
-            callbackFactory.create(probe).ping();
+            callbackFactory.create(unauthCallback, credential).ping();
             logger.debugv("Agent callback reachable: {0}", unauthCallback);
             return true;
         } catch (Exception e) {
@@ -985,10 +986,14 @@ public class Discovery {
         if (credential == null) {
             return;
         }
-        if (plugin.credential == credential) {
+        if (credentialsEquivalent(plugin.credential, credential)) {
             return;
         }
-        if (credentialsEquivalent(plugin.credential, credential)) {
+        if (hasSameMatchExpression(plugin.credential, credential)) {
+            plugin.credential.username = credential.username;
+            plugin.credential.password = credential.password;
+            plugin.credential.persist();
+            plugin.persist();
             return;
         }
         if (plugin.credential != null) {
@@ -1012,6 +1017,13 @@ public class Discovery {
         return Objects.equals(existing.username, incoming.username)
                 && Objects.equals(existing.password, incoming.password)
                 && Objects.equals(matchExpressionScript(existing), matchExpressionScript(incoming));
+    }
+
+    private boolean hasSameMatchExpression(Credential existing, Credential incoming) {
+        if (existing == null || incoming == null) {
+            return false;
+        }
+        return Objects.equals(matchExpressionScript(existing), matchExpressionScript(incoming));
     }
 
     private String matchExpressionScript(Credential credential) {
@@ -1224,6 +1236,12 @@ public class Discovery {
 
     private static record NodeContext(
             DiscoveryNode node, DiscoveryNode parent, boolean fromBuiltin) {}
+
+    private enum PrePingResult {
+        NOT_ATTEMPTED,
+        REACHABLE,
+        UNREACHABLE
+    }
 
     /**
      * Check that discovery plugins are still alive/reachable and prompt them to regenerate expiring

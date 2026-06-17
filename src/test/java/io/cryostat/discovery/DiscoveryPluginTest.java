@@ -694,7 +694,7 @@ public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
     }
 
     @Test
-    void testAgentReregistrationReplacesCredentialAndRepublishes() {
+    void testAgentReregistrationUpdatesCredentialAndRepublishes() {
         var realmName = "agent_reregistration_test_realm";
         var callback = "http://localhost:8081/health/liveness";
         var target = new Target(URI.create("http://localhost:8081"), "agent-node");
@@ -762,9 +762,9 @@ public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
                         "context",
                         Map.of());
 
-        // Re-register as the same Agent with changed credentials, ex. after the Agent's token has
-        // expired and its local credential configuration has changed. The same plugin record should
-        // be reused, the stored credential should be replaced, and the published nodes should be
+        // Re-register as the same Agent with changed credentials, ex. after the Agent has rotated
+        // its local credential configuration. The same plugin and credential records should be
+        // reused, the stored credential secret should be updated, and the published nodes should be
         // replaced rather than duplicated.
         var secondRegistration =
                 given().log()
@@ -792,9 +792,11 @@ public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
                                             UUID.fromString(pluginId));
                             MatcherAssert.assertThat(plugin.credential, Matchers.notNullValue());
                             MatcherAssert.assertThat(
-                                    plugin.credential.id, Matchers.not(firstCredentialId));
+                                    plugin.credential.id, Matchers.equalTo(firstCredentialId));
                             MatcherAssert.assertThat(
-                                    Credential.findById(firstCredentialId), Matchers.nullValue());
+                                    plugin.credential.username, Matchers.equalTo("user"));
+                            MatcherAssert.assertThat(
+                                    plugin.credential.password, Matchers.equalTo("updated-pass"));
                         });
 
         given().log()

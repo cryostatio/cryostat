@@ -15,8 +15,10 @@
  */
 package io.cryostat.discovery;
 
+import java.net.URI;
 import java.net.URISyntaxException;
 
+import io.cryostat.credentials.Credential;
 import io.cryostat.discovery.DiscoveryPlugin.PluginCallback;
 
 import jakarta.enterprise.context.ApplicationScoped;
@@ -30,5 +32,9 @@ public class PluginCallbackFactory {
 
     public PluginCallback create(DiscoveryPlugin plugin) throws URISyntaxException {
         return PluginCallback.create(plugin);
+    }
+
+    public PluginCallback create(URI callback, Credential credential) {
+        return PluginCallback.create(callback, credential);
     }
 }
