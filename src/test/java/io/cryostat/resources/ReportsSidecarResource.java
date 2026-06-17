@@ -20,6 +20,7 @@ import java.util.Optional;
 
 import io.quarkus.test.common.DevServicesContext;
 import io.quarkus.test.common.QuarkusTestResourceLifecycleManager;
+import org.apache.commons.lang3.StringUtils;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.utility.DockerImageName;
@@ -28,7 +29,7 @@ public class ReportsSidecarResource
         implements QuarkusTestResourceLifecycleManager, DevServicesContext.ContextAware {
 
     private static final int REPORTS_PORT = 10001;
-    private static final String IMAGE_NAME = "quay.io/cryostat/cryostat-reports:latest";
+    private static final String DEFAULT_IMAGE = "quay.io/cryostat/cryostat-reports:latest";
     private static final Map<String, String> envMap =
             Map.of("QUARKUS_HTTP_PORT", String.valueOf(REPORTS_PORT));
 
@@ -38,8 +39,12 @@ public class ReportsSidecarResource
     @SuppressWarnings("resource")
     @Override
     public Map<String, String> start() {
+        String img =
+                Optional.ofNullable(System.getenv("CRYOSTAT_REPORTS_IMAGE"))
+                        .filter(StringUtils::isNotBlank)
+                        .orElse(DEFAULT_IMAGE);
         this.container =
-                new GenericContainer<>(DockerImageName.parse(IMAGE_NAME))
+                new GenericContainer<>(DockerImageName.parse(img))
                         .withExposedPorts(REPORTS_PORT)
                         .withEnv(envMap)
                         .waitingFor(Wait.forLogMessage(".*Listening on.*", 1))
