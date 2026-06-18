@@ -16,9 +16,9 @@
 package io.cryostat.recordings;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.nio.file.Files;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -45,12 +45,15 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
+import jakarta.ws.rs.BadRequestException;
+import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.core.HttpHeaders;
+import jakarta.ws.rs.core.MediaType;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
@@ -62,7 +65,8 @@ import org.jboss.resteasy.reactive.RestPath;
 import org.jboss.resteasy.reactive.RestQuery;
 import org.jboss.resteasy.reactive.RestResponse;
 import org.jboss.resteasy.reactive.RestResponse.ResponseBuilder;
-import org.jboss.resteasy.reactive.multipart.FileUpload;
+import org.jboss.resteasy.reactive.server.multipart.FormValue;
+import org.jboss.resteasy.reactive.server.multipart.MultipartFormDataInput;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.S3Object;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
@@ -115,9 +119,11 @@ public class ArchivedRecordings {
                     Cryostat version upgrades. This can also be used to upload JFR files which were not collected by
                     Cryostat, so that Cryostat can be used to perform online analysis of the file.
                     """)
+    @Consumes(MediaType.MULTIPART_FORM_DATA)
     public Map<String, Object> upload(
-            @Parameter(required = true) @RestForm("recording") FileUpload recording,
-            @Parameter(required = false) @RestForm("labels") JsonObject rawLabels)
+            @RestForm("recording") String recording,
+            @Parameter(required = false) @RestForm("labels") JsonObject rawLabels,
+            MultipartFormDataInput input)
             throws Exception {
         Map<String, String> labels = new HashMap<>();
         if (rawLabels != null) {
@@ -126,7 +132,7 @@ public class ArchivedRecordings {
         labels.put("jvmId", "uploads");
         labels.put("connectUrl", "uploads");
         Metadata metadata = new Metadata(labels);
-        return doUpload(recording, metadata, "uploads");
+        return doUpload(recording, metadata, "uploads", input);
     }
 
     @POST
@@ -140,9 +146,10 @@ public class ArchivedRecordings {
                     Upload a JFR binary file into the archives, associating the archived recording with a particular
                     target JVM. This is primarily used by the Cryostat Agent for pushing harvested recording files.
                     """)
+    @Consumes(MediaType.MULTIPART_FORM_DATA)
     public void agentPush(
             @Parameter(required = true) @RestPath String jvmId,
-            @Parameter(required = true) @RestForm("recording") FileUpload recording,
+            @RestForm("recording") String recording,
             @Parameter(required = false) @RestForm("labels") JsonObject rawLabels,
             @Parameter(
                             required = false,
@@ -153,7 +160,8 @@ public class ArchivedRecordings {
                                     'last modified' date and only the most recent 'maxFiles' will be retained.
                                     """)
                     @RestForm("maxFiles")
-                    int maxFiles)
+                    int maxFiles,
+            MultipartFormDataInput input)
             throws Exception {
         jvmId = jvmId.strip();
         int max = Integer.MAX_VALUE;
@@ -166,9 +174,8 @@ public class ArchivedRecordings {
         }
         labels.put("jvmId", jvmId);
         Metadata metadata = new Metadata(labels);
-        logger.tracev(
-                "recording:{0}, labels:{1}, maxFiles:{2}", recording.fileName(), labels, maxFiles);
-        doUpload(recording, metadata, jvmId);
+        logger.tracev("labels:{0}, maxFiles:{1}", labels, maxFiles);
+        doUpload(recording, metadata, jvmId, input);
         var objs = new ArrayList<S3Object>(recordingHelper.listArchivedRecordingObjects(jvmId));
         var toRemove =
                 objs.stream()
@@ -249,25 +256,28 @@ public class ArchivedRecordings {
     }
 
     @Blocking
-    Map<String, Object> doUpload(FileUpload recording, Metadata metadata, String jvmId)
+    Map<String, Object> doUpload(
+            String recordingName, Metadata metadata, String jvmId, MultipartFormDataInput input)
             throws IOException {
-        logger.tracev(
-                "Upload: {0} {1} {2} {3}",
-                recording.name(), recording.fileName(), recording.filePath(), metadata.labels());
-        var archivedRecording = recordingHelper.uploadArchivedRecording(jvmId, recording, metadata);
-        logger.trace("Upload complete");
-
-        // Clean up the recording file after uploading
-        try {
-            Files.delete(recording.filePath());
-        } catch (IOException ioe) {
-            logger.warn(ioe);
+        FormValue recordingPart =
+                input.getValues().getOrDefault("recording", List.of()).stream()
+                        .findFirst()
+                        .orElse(null);
+        if (recordingPart == null || !recordingPart.isFileItem()) {
+            throw new BadRequestException();
         }
-        return Map.of(
-                "name",
-                archivedRecording.name(),
-                "metadata",
-                archivedRecording.metadata().labels());
+        String filename = recordingPart.getFileName().strip();
+        logger.tracev("Upload: {0} {1}", filename, metadata.labels());
+        try (InputStream recording = recordingPart.getFileItem().getInputStream()) {
+            var archivedRecording =
+                    recordingHelper.uploadArchivedRecording(jvmId, recording, filename, metadata);
+            logger.trace("Upload complete");
+            return Map.of(
+                    "name",
+                    archivedRecording.name(),
+                    "metadata",
+                    archivedRecording.metadata().labels());
+        }
     }
 
     @DELETE

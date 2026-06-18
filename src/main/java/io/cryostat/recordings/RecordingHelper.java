@@ -24,7 +24,6 @@ import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -42,6 +41,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.regex.Matcher;
@@ -54,6 +54,7 @@ import org.openjdk.jmc.flightrecorder.configuration.recording.RecordingOptionsBu
 
 import io.cryostat.ConfigProperties;
 import io.cryostat.Producers;
+import io.cryostat.ProgressInputStream;
 import io.cryostat.StorageBuckets;
 import io.cryostat.core.EventOptionsBuilder;
 import io.cryostat.core.FlightRecorderException;
@@ -112,7 +113,6 @@ import org.jboss.resteasy.reactive.PartFilename;
 import org.jboss.resteasy.reactive.PartType;
 import org.jboss.resteasy.reactive.RestForm;
 import org.jboss.resteasy.reactive.RestQuery;
-import org.jboss.resteasy.reactive.multipart.FileUpload;
 import org.quartz.DisallowConcurrentExecution;
 import org.quartz.Job;
 import org.quartz.JobBuilder;
@@ -144,7 +144,6 @@ import software.amazon.awssdk.services.s3.model.Tagging;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
 import software.amazon.awssdk.transfer.s3.S3TransferManager;
-import software.amazon.awssdk.transfer.s3.model.UploadFileRequest;
 
 /**
  * Utility class for all things relating to Flight Recording operations. This class is used to
@@ -1357,8 +1356,9 @@ public class RecordingHelper {
     }
 
     public ArchivedRecording uploadArchivedRecording(
-            String jvmId, FileUpload recording, Metadata metadata) throws IOException {
-        String filename = recording.fileName().strip();
+            String jvmId, InputStream recording, String filename, Metadata metadata)
+            throws IOException {
+        filename = filename.strip();
         if (StringUtils.isBlank(filename)) {
             throw new BadRequestException();
         }
@@ -1388,14 +1388,23 @@ public class RecordingHelper {
             default:
                 throw new IllegalStateException();
         }
-        transferManager
-                .uploadFile(
-                        UploadFileRequest.builder()
-                                .putObjectRequest(requestBuilder.build())
-                                .source(recording.filePath())
-                                .build())
-                .completionFuture()
-                .join();
+
+        AtomicLong bytesUploaded = new AtomicLong(0);
+        ProgressInputStream progressStream =
+                new ProgressInputStream(recording, bytesUploaded::addAndGet);
+        try {
+            storageAsync
+                    .putObject(
+                            requestBuilder.build(),
+                            AsyncRequestBody.fromInputStream(progressStream, null, partUploader))
+                    .join();
+        } finally {
+            try {
+                progressStream.close();
+            } catch (IOException ioe) {
+                logger.warn("Failed to close progress stream", ioe);
+            }
+        }
 
         String finalFilename = filename;
         QuarkusTransaction.joiningExisting()
@@ -1409,7 +1418,7 @@ public class RecordingHelper {
                         downloadUrl(jvmId, filename),
                         reportUrl(jvmId, filename),
                         metadata,
-                        recording.size(),
+                        bytesUploaded.get(),
                         clock.now().getEpochSecond());
         var event =
                 new ArchivedRecordingNotification(
@@ -1420,12 +1429,6 @@ public class RecordingHelper {
         bus.publish(
                 MessagingServer.class.getName(),
                 new Notification(event.category().category(), event.payload()));
-        // Clean up the recording file after uploading
-        try {
-            Files.delete(recording.filePath());
-        } catch (IOException ioe) {
-            logger.warn(ioe);
-        }
         return archivedRecording;
     }
 
