@@ -18,6 +18,7 @@ package io.cryostat.credentials;
 import java.net.URI;
 import java.util.Optional;
 
+import io.cryostat.expressions.MatchExpression;
 import io.cryostat.expressions.MatchExpressionEvaluator;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.Target.TargetDiscovery;
@@ -74,16 +75,7 @@ public class CredentialsFinder {
                                 t ->
                                         QuarkusTransaction.joiningExisting()
                                                 .call(() -> Credential.<Credential>streamAll())
-                                                .filter(
-                                                        c -> {
-                                                            try {
-                                                                return expressionEvaluator.applies(
-                                                                        c.matchExpression, t);
-                                                            } catch (ScriptException e) {
-                                                                logger.warn(e);
-                                                                return false;
-                                                            }
-                                                        })
+                                                .filter(c -> applies(t, c.matchExpression))
                                                 .map(c -> c.id)
                                                 .findFirst()
                                                 .orElse(null)))
@@ -95,5 +87,14 @@ public class CredentialsFinder {
                 .call(() -> Target.find("connectUrl", connectUrl))
                 .<Target>singleResultOptional()
                 .flatMap(this::getCredentialsForTarget);
+    }
+
+    private boolean applies(Target t, MatchExpression m) {
+        try {
+            return expressionEvaluator.applies(m, t);
+        } catch (ScriptException e) {
+            logger.warn(e);
+            return false;
+        }
     }
 }
