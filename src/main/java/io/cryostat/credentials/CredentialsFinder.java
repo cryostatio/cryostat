@@ -45,12 +45,12 @@ public class CredentialsFinder {
 
     @ConsumeEvent(Credential.CREDENTIALS_UPDATED)
     void onCredentialsUpdated(Credential credential) {
-        cache.removeValue(credential);
+        cache.removeValue(credential.id);
     }
 
     @ConsumeEvent(Credential.CREDENTIALS_DELETED)
     void onCredentialsDeleted(Credential credential) {
-        cache.removeValue(credential);
+        cache.removeValue(credential.id);
     }
 
     @ConsumeEvent(Target.TARGET_JVM_DISCOVERY)
