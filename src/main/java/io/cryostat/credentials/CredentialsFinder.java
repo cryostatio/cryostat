@@ -20,7 +20,6 @@ import java.util.Optional;
 
 import io.cryostat.expressions.MatchExpressionEvaluator;
 import io.cryostat.targets.Target;
-import io.cryostat.targets.Target.EventKind;
 import io.cryostat.targets.Target.TargetDiscovery;
 
 import io.quarkus.narayana.jta.QuarkusTransaction;
@@ -42,7 +41,12 @@ public class CredentialsFinder {
     @Inject MatchExpressionEvaluator expressionEvaluator;
     @Inject Logger logger;
 
-    private final BidiMap<Target, Credential> cache = new DualHashBidiMap<>();
+    private final BidiMap<Target, Long> cache = new DualHashBidiMap<>();
+
+    @ConsumeEvent(Credential.CREDENTIALS_UPDATED)
+    void onCredentialsUpdated(Credential credential) {
+        cache.removeValue(credential);
+    }
 
     @ConsumeEvent(Credential.CREDENTIALS_DELETED)
     void onCredentialsDeleted(Credential credential) {
@@ -51,33 +55,41 @@ public class CredentialsFinder {
 
     @ConsumeEvent(Target.TARGET_JVM_DISCOVERY)
     void onMessage(TargetDiscovery event) {
-        if (EventKind.LOST.equals(event.kind())) {
-            cache.remove(event.serviceRef());
+        switch (event.kind()) {
+            case MODIFIED:
+            // fall-through
+            case LOST:
+                cache.remove(event.serviceRef());
+                break;
+            default:
+                // no-op
         }
     }
 
     public Optional<Credential> getCredentialsForTarget(Target target) {
         return Optional.ofNullable(
-                cache.computeIfAbsent(
-                        target,
-                        t ->
-                                QuarkusTransaction.joiningExisting()
-                                        .call(
-                                                () ->
-                                                        Credential.<Credential>listAll()
-                                                                .parallelStream())
-                                        .filter(
-                                                c -> {
-                                                    try {
-                                                        return expressionEvaluator.applies(
-                                                                c.matchExpression, t);
-                                                    } catch (ScriptException e) {
-                                                        logger.warn(e);
-                                                        return false;
-                                                    }
-                                                })
-                                        .findFirst()
-                                        .orElse(null)));
+                        cache.computeIfAbsent(
+                                target,
+                                t ->
+                                        QuarkusTransaction.joiningExisting()
+                                                .call(
+                                                        () ->
+                                                                Credential.<Credential>listAll()
+                                                                        .parallelStream())
+                                                .filter(
+                                                        c -> {
+                                                            try {
+                                                                return expressionEvaluator.applies(
+                                                                        c.matchExpression, t);
+                                                            } catch (ScriptException e) {
+                                                                logger.warn(e);
+                                                                return false;
+                                                            }
+                                                        })
+                                                .map(c -> c.id)
+                                                .findFirst()
+                                                .orElse(null)))
+                .flatMap(i -> Optional.ofNullable(Credential.findById(i)));
     }
 
     public Optional<Credential> getCredentialsForConnectUrl(URI connectUrl) {
