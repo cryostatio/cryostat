@@ -63,6 +63,7 @@ public class CredentialsFinder {
                 break;
             default:
                 // no-op
+                break;
         }
     }
 
