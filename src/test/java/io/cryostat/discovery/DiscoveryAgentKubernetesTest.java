@@ -122,7 +122,7 @@ public class DiscoveryAgentKubernetesTest extends AbstractTransactionalTestBase 
                                                 .credential
                                                 .id);
 
-        // Re-register the same Agent with an identical node set (ex. a registration refresh).
+        // Re-register the same Agent with an identical node set (ex. a registration refresh)
         given().log()
                 .all()
                 .when()
