@@ -292,6 +292,11 @@ public class TargetConnectionManager {
         }
     }
 
+    public void clearConnections() {
+        connections.synchronous().invalidateAll();
+        connections.synchronous().cleanUp();
+    }
+
     private void closeConnection(URI connectUrl, JFRConnection connection, RemovalCause cause) {
         if (connectUrl == null) {
             logger.warn("Connection eviction triggered with null connectUrl");

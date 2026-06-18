@@ -694,7 +694,7 @@ public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
     }
 
     @Test
-    void testAgentReregistrationReplacesCredentialAndRepublishes() {
+    void testAgentReregistrationUpdatesCredentialAndRepublishes() {
         var realmName = "agent_reregistration_test_realm";
         var callback = "http://localhost:8081/health/liveness";
         var target = new Target(URI.create("http://localhost:8081"), "agent-node");
@@ -744,14 +744,33 @@ public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
                                                 .credential
                                                 .id);
 
-        // Re-register as the same Agent, ex. after the Agent's token has expired. The same
-        // plugin record should be reused, the stored credential should be replaced, and the
-        // published nodes should be replaced rather than duplicated.
+        var updatedRequestBody =
+                Map.of(
+                        "realm",
+                        realmName,
+                        "callback",
+                        callback,
+                        "credential",
+                        Map.of(
+                                "matchExpression", "true",
+                                "username", "user",
+                                "password", "updated-pass"),
+                        "nodes",
+                        List.of(node),
+                        "fillStrategy",
+                        "NONE",
+                        "context",
+                        Map.of());
+
+        // Re-register as the same Agent with changed credentials, ex. after the Agent has rotated
+        // its local credential configuration. The same plugin and credential records should be
+        // reused, the stored credential secret should be updated, and the published nodes should be
+        // replaced rather than duplicated.
         var secondRegistration =
                 given().log()
                         .all()
                         .when()
-                        .body(requestBody)
+                        .body(updatedRequestBody)
                         .contentType(ContentType.JSON)
                         .post("/api/v4.3/discovery/agents")
                         .then()
@@ -773,9 +792,11 @@ public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
                                             UUID.fromString(pluginId));
                             MatcherAssert.assertThat(plugin.credential, Matchers.notNullValue());
                             MatcherAssert.assertThat(
-                                    plugin.credential.id, Matchers.not(firstCredentialId));
+                                    plugin.credential.id, Matchers.equalTo(firstCredentialId));
                             MatcherAssert.assertThat(
-                                    Credential.findById(firstCredentialId), Matchers.nullValue());
+                                    plugin.credential.username, Matchers.equalTo("user"));
+                            MatcherAssert.assertThat(
+                                    plugin.credential.password, Matchers.equalTo("updated-pass"));
                         });
 
         given().log()
@@ -791,6 +812,116 @@ public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
                 .contentType(ContentType.JSON)
                 .body("realm.children", Matchers.hasSize(1))
                 .body("realm.children[0].name", Matchers.equalTo("agent-node"));
+
+        given().log()
+                .all()
+                .when()
+                .header(DISCOVERY_HEADER, secondRegistration.getString("token"))
+                .delete(String.format("/api/v4/discovery/%s", pluginId))
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(204);
+    }
+
+    @Test
+    void testAgentReregistrationPreservesTargetIdentity() {
+        // cryostatio/cryostat#1604: re-registration with an unchanged node set must preserve the
+        // Target, not delete and recreate it (which fires LOST then FOUND).
+        var realmName = "agent_identity_test_realm";
+        var callback = "http://localhost:8081/health/liveness";
+        var connectUrl = URI.create("http://localhost:8081");
+        var target = new Target(connectUrl, "agent-node");
+        var node = new Node("agent-node", NodeType.BaseNodeType.AGENT.getKind(), target);
+        var requestBody =
+                Map.of(
+                        "realm",
+                        realmName,
+                        "callback",
+                        callback,
+                        "credential",
+                        Map.of(
+                                "matchExpression", "true",
+                                "username", "user",
+                                "password", "pass"),
+                        "nodes",
+                        List.of(node),
+                        "fillStrategy",
+                        "NONE",
+                        "context",
+                        Map.of());
+
+        var firstRegistration =
+                given().log()
+                        .all()
+                        .when()
+                        .body(requestBody)
+                        .contentType(ContentType.JSON)
+                        .post("/api/v4.3/discovery/agents")
+                        .then()
+                        .log()
+                        .all()
+                        .and()
+                        .assertThat()
+                        .statusCode(200)
+                        .contentType(ContentType.JSON)
+                        .extract()
+                        .jsonPath();
+        var pluginId = firstRegistration.getString("id");
+
+        Long firstTargetId =
+                QuarkusTransaction.requiringNew()
+                        .call(
+                                () ->
+                                        io.cryostat.targets.Target.getTargetByConnectUrl(connectUrl)
+                                                .id);
+        Long firstCredentialId =
+                QuarkusTransaction.requiringNew()
+                        .call(
+                                () ->
+                                        DiscoveryPlugin.<DiscoveryPlugin>findById(
+                                                        UUID.fromString(pluginId))
+                                                .credential
+                                                .id);
+
+        // Re-register the same Agent with an identical node set (ex. a registration refresh).
+        var secondRegistration =
+                given().log()
+                        .all()
+                        .when()
+                        .body(requestBody)
+                        .contentType(ContentType.JSON)
+                        .post("/api/v4.3/discovery/agents")
+                        .then()
+                        .log()
+                        .all()
+                        .and()
+                        .assertThat()
+                        .statusCode(200)
+                        .contentType(ContentType.JSON)
+                        .extract()
+                        .jsonPath();
+        MatcherAssert.assertThat(secondRegistration.getString("id"), Matchers.equalTo(pluginId));
+
+        Long secondTargetId =
+                QuarkusTransaction.requiringNew()
+                        .call(
+                                () ->
+                                        io.cryostat.targets.Target.getTargetByConnectUrl(connectUrl)
+                                                .id);
+        Long secondCredentialId =
+                QuarkusTransaction.requiringNew()
+                        .call(
+                                () ->
+                                        DiscoveryPlugin.<DiscoveryPlugin>findById(
+                                                        UUID.fromString(pluginId))
+                                                .credential
+                                                .id);
+
+        MatcherAssert.assertThat(secondTargetId, Matchers.equalTo(firstTargetId));
+        MatcherAssert.assertThat(secondCredentialId, Matchers.equalTo(firstCredentialId));
 
         given().log()
                 .all()
