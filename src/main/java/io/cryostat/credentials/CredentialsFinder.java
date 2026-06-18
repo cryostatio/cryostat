@@ -73,10 +73,7 @@ public class CredentialsFinder {
                                 target,
                                 t ->
                                         QuarkusTransaction.joiningExisting()
-                                                .call(
-                                                        () ->
-                                                                Credential.<Credential>listAll()
-                                                                        .parallelStream())
+                                                .call(() -> Credential.<Credential>streamAll())
                                                 .filter(
                                                         c -> {
                                                             try {
