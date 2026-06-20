@@ -43,6 +43,7 @@ import io.cryostat.recordings.ActiveRecording;
 import io.cryostat.recordings.ArchivedRecordings.ArchivedRecording;
 import io.cryostat.recordings.RecordingHelper;
 import io.cryostat.reports.AnalysisReportAggregator;
+import io.cryostat.targets.AgentClient.AsyncProfile;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.TargetConnectionManager;
 
@@ -408,6 +409,34 @@ public class TargetNodes {
         public static HeapDumpAggregateInfo fromArchived(List<HeapDump> heapDumps) {
             return new HeapDumpAggregateInfo(
                     heapDumps.size(), heapDumps.stream().mapToLong(HeapDump::size).sum());
+        }
+    }
+
+    @SuppressFBWarnings(value = "URF_UNREAD_PUBLIC_OR_PROTECTED_FIELD")
+    public static class AsyncProfiles {
+        public @NonNull List<AsyncProfile> data = new ArrayList<>();
+        public @NonNull AsyncProfileAggregateInfo aggregate = AsyncProfileAggregateInfo.fromArchived(data);
+    }
+
+    @SuppressFBWarnings(value = "URF_UNREAD_PUBLIC_OR_PROTECTED_FIELD")
+    public static class AsyncProfileAggregateInfo {
+        public @NonNull @Description("The number of elements in this collection") long count;
+        public @NonNull @Description(
+                "The sum of sizes of elements in this collection, or 0 if not applicable") long
+                size;
+
+        public AsyncProfileAggregateInfo(long count, long size) {
+            this.count = count;
+            this.size = size;
+        }
+
+        public static AsyncProfileAggregateInfo empty() {
+            return new AsyncProfileAggregateInfo(0, 0);
+        }
+
+        public static AsyncProfileAggregateInfo fromArchived(List<AsyncProfile> asyncProfiles) {
+            return new AsyncProfileAggregateInfo(
+                    asyncProfiles.size(), asyncProfiles.stream().mapToLong(AsyncProfile::size).sum());
         }
     }
 
