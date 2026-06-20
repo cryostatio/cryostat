@@ -28,13 +28,13 @@ import io.cryostat.discovery.DiscoveryNode;
 import io.cryostat.graphql.RootNode.DiscoveryNodeFilter;
 import io.cryostat.graphql.TargetNodes.AsyncProfileAggregateInfo;
 import io.cryostat.graphql.TargetNodes.AsyncProfiles;
-import io.cryostat.targets.Target;
 import io.cryostat.targets.AgentClient.AsyncProfile;
 import io.cryostat.targets.AgentClient.StartProfileRequest;
+import io.cryostat.targets.Target;
+
 import io.smallrye.graphql.api.Nullable;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
-
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.graphql.Description;
 import org.eclipse.microprofile.graphql.GraphQLApi;
@@ -47,6 +47,7 @@ import org.eclipse.microprofile.graphql.Source;
 public class AsyncProfilerGraphQL {
 
     @Inject AsyncProfilerHelper helper;
+
     @ConfigProperty(name = ConfigProperties.CONNECTIONS_FAILED_TIMEOUT)
     Duration connectionFailedTimeout;
 
@@ -55,8 +56,13 @@ public class AsyncProfilerGraphQL {
     public AsyncProfiles listArchivedAsyncProfiles(AsyncProfilerFilter filter) {
         var r = new TargetNodes.AsyncProfiles();
         r.data =
-                helper.getProfiles(Target.getTargetByJvmId(filter == null ? null : filter.sourceTarget).get()).await()
-                .atMost(connectionFailedTimeout).stream()
+                helper
+                        .getProfiles(
+                                Target.getTargetByJvmId(filter == null ? null : filter.sourceTarget)
+                                        .get())
+                        .await()
+                        .atMost(connectionFailedTimeout)
+                        .stream()
                         .filter(v -> filter == null ? true : filter.test(v))
                         .toList();
         r.aggregate = AsyncProfileAggregateInfo.fromArchived(r.data);
@@ -65,9 +71,11 @@ public class AsyncProfilerGraphQL {
 
     @Transactional
     @Mutation
-    @Description("Trigger an async profiler request on all Targets under the subtrees of the discovery nodes"
-                    + " matching the given filter")
-    public List<String> createAsyncProfile(@NonNull DiscoveryNodeFilter nodes, @NonNull StartProfileRequest req) {
+    @Description(
+            "Trigger an async profiler request on all Targets under the subtrees of the discovery"
+                    + " nodes matching the given filter")
+    public List<String> createAsyncProfile(
+            @NonNull DiscoveryNodeFilter nodes, @NonNull StartProfileRequest req) {
         var list =
                 DiscoveryNode.<DiscoveryNode>listAll().stream()
                         .filter(n -> nodes == null ? true : nodes.test(n))
@@ -80,8 +88,8 @@ public class AsyncProfilerGraphQL {
         Duration duration = Duration.ofSeconds(req.duration());
         var profileIds = new ArrayList<String>();
         for (var t : list) {
-                var p = helper.createAsyncProfile(t, req.events(), duration);
-                profileIds.add(p.await().atMost(connectionFailedTimeout));
+            var p = helper.createAsyncProfile(t, req.events(), duration);
+            profileIds.add(p.await().atMost(connectionFailedTimeout));
         }
         return profileIds;
     }
@@ -91,7 +99,8 @@ public class AsyncProfilerGraphQL {
     @Description(
             "Delete an existing Async Profile matching the given filter, on all Targets under"
                     + " the subtrees of the discovery nodes matching the given filter")
-    public List<AsyncProfile> deleteAsyncProfiles(@NonNull DiscoveryNodeFilter nodes, @Nullable AsyncProfilerFilter filter) {
+    public List<AsyncProfile> deleteAsyncProfiles(
+            @NonNull DiscoveryNodeFilter nodes, @Nullable AsyncProfilerFilter filter) {
         var list =
                 DiscoveryNode.<DiscoveryNode>listAll().stream()
                         .filter(n -> nodes == null ? true : nodes.test(n))
@@ -102,12 +111,12 @@ public class AsyncProfilerGraphQL {
                                                 .map(n -> n.target))
                         .flatMap(
                                 t ->
-                                        helper.getProfiles(t).await()
-                                        .atMost(connectionFailedTimeout).stream()
-                                                .filter(
-                                                        h ->
-                                                                filter == null
-                                                                        || filter.test(h)))
+                                        helper
+                                                .getProfiles(t)
+                                                .await()
+                                                .atMost(connectionFailedTimeout)
+                                                .stream()
+                                                .filter(h -> filter == null || filter.test(h)))
                         .toList();
         for (var p : list) {
             helper.deleteProfile(Target.getTargetByJvmId(p.jvmId()).get(), p.id());
@@ -131,8 +140,7 @@ public class AsyncProfilerGraphQL {
 
         @Override
         public boolean test(AsyncProfile t) {
-            Predicate<AsyncProfile> matchesName =
-                    n -> name == null || Objects.equals(name, n.id());
+            Predicate<AsyncProfile> matchesName = n -> name == null || Objects.equals(name, n.id());
             Predicate<AsyncProfile> matchesNames = n -> names == null || names.contains(n.id());
 
             Predicate<AsyncProfile> matchesSourceTarget =
@@ -154,4 +162,3 @@ public class AsyncProfilerGraphQL {
         }
     }
 }
-

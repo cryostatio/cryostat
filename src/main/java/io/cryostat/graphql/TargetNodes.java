@@ -415,7 +415,8 @@ public class TargetNodes {
     @SuppressFBWarnings(value = "URF_UNREAD_PUBLIC_OR_PROTECTED_FIELD")
     public static class AsyncProfiles {
         public @NonNull List<AsyncProfile> data = new ArrayList<>();
-        public @NonNull AsyncProfileAggregateInfo aggregate = AsyncProfileAggregateInfo.fromArchived(data);
+        public @NonNull AsyncProfileAggregateInfo aggregate =
+                AsyncProfileAggregateInfo.fromArchived(data);
     }
 
     @SuppressFBWarnings(value = "URF_UNREAD_PUBLIC_OR_PROTECTED_FIELD")
@@ -436,7 +437,8 @@ public class TargetNodes {
 
         public static AsyncProfileAggregateInfo fromArchived(List<AsyncProfile> asyncProfiles) {
             return new AsyncProfileAggregateInfo(
-                    asyncProfiles.size(), asyncProfiles.stream().mapToLong(AsyncProfile::size).sum());
+                    asyncProfiles.size(),
+                    asyncProfiles.stream().mapToLong(AsyncProfile::size).sum());
         }
     }
 
