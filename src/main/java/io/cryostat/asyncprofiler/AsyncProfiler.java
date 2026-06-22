@@ -42,6 +42,8 @@ import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
+import jakarta.persistence.NoResultException;
+import jakarta.persistence.PersistenceException;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.DELETE;
@@ -51,6 +53,7 @@ import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.core.HttpHeaders;
 import org.eclipse.microprofile.openapi.annotations.Operation;
+import org.hibernate.ObjectDeletedException;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestPath;
 import org.jboss.resteasy.reactive.RestResponse;
@@ -297,15 +300,27 @@ public class AsyncProfiler {
 
         @Override
         public void execute(JobExecutionContext context) throws JobExecutionException {
-            Target target =
-                    QuarkusTransaction.joiningExisting()
-                            .call(
-                                    () ->
-                                            Target.find(
-                                                            "id",
-                                                            context.getMergedJobDataMap()
-                                                                    .getLong("targetId"))
-                                                    .singleResult());
+            Target target;
+            try {
+                target =
+                        QuarkusTransaction.requiringNew()
+                                .call(
+                                        () ->
+                                                Target.getTargetById(
+                                                        context.getMergedJobDataMap()
+                                                                .getLong("targetId")));
+            } catch (NoResultException | ObjectDeletedException e) {
+                // target disappeared in the meantime. No big deal.
+                logger.debug(e);
+                JobExecutionException ex = new JobExecutionException(e);
+                ex.setRefireImmediately(false);
+                ex.setUnscheduleFiringTrigger(true);
+                throw ex;
+            } catch (PersistenceException e) {
+                JobExecutionException ex = new JobExecutionException(e);
+                ex.setRefireImmediately(false);
+                throw ex;
+            }
             String id = context.getMergedJobDataMap().getString("id");
             long duration = context.getMergedJobDataMap().getLong("duration");
             tcm.executeConnectedTaskUni(
