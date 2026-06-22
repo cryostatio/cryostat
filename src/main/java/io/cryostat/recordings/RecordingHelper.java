@@ -468,7 +468,7 @@ public class RecordingHelper {
             throw new EntityExistsException("Recording", recordingName);
         }
         getActiveRecording(lockedTarget, r -> r.name.equals(recordingName))
-                .ifPresent(r -> this.deleteRecording(r).await().indefinitely());
+                .ifPresent(r -> this.deleteRecording(r).await().atMost(connectionFailedTimeout));
         var desc =
                 connectionManager.executeConnectedTask(
                         lockedTarget,
@@ -1567,6 +1567,9 @@ public class RecordingHelper {
         @Inject RecordingHelper recordingHelper;
         @Inject Logger logger;
 
+        @ConfigProperty(name = ConfigProperties.CONNECTIONS_FAILED_TIMEOUT)
+        Duration connectionFailedTimeout;
+
         @Override
         @Transactional
         public void execute(JobExecutionContext ctx) throws JobExecutionException {
@@ -1574,7 +1577,7 @@ public class RecordingHelper {
                 ActiveRecording recording =
                         ActiveRecording.find("id", ctx.getMergedJobDataMap().get("recordingId"))
                                 .singleResult();
-                recordingHelper.stopRecording(recording).await().indefinitely();
+                recordingHelper.stopRecording(recording).await().atMost(connectionFailedTimeout);
             } catch (Exception e) {
                 var jee = new JobExecutionException(e);
                 jee.setUnscheduleFiringTrigger(true);
