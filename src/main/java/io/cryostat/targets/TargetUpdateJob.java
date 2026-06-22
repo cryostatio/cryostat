@@ -28,6 +28,7 @@ import jakarta.persistence.PersistenceException;
 import jakarta.transaction.Transactional;
 import jdk.jfr.RecordingState;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.hibernate.ObjectDeletedException;
 import org.jboss.logging.Logger;
 import org.quartz.DisallowConcurrentExecution;
@@ -58,29 +59,33 @@ public class TargetUpdateJob implements Job {
         long targetId = (long) context.getMergedJobDataMap().get("targetId");
         try {
             target = Target.getTargetById(targetId);
-        } catch (NoResultException | ObjectDeletedException e) {
-            // target disappeared in the meantime. No big deal.
-            logger.debug(e);
-            JobExecutionException ex = new JobExecutionException(e);
-            ex.setRefireImmediately(false);
-            ex.setUnscheduleFiringTrigger(true);
-            throw ex;
-        } catch (PersistenceException e) {
-            JobExecutionException ex = new JobExecutionException(e);
-            ex.setRefireImmediately(false);
-            throw ex;
-        }
-
-        boolean b = true;
-        if (StringUtils.isBlank(target.jvmId)) {
-            b = updateTargetJvmId(target);
-        }
-        if (b) {
+            if (StringUtils.isBlank(target.jvmId)) {
+                updateTargetJvmId(target);
+            }
             updateTargetRecordings(target);
+        } catch (Exception e) {
+            boolean targetLost =
+                    ExceptionUtils.indexOfType(e, NoResultException.class) >= 0
+                            || ExceptionUtils.indexOfType(e, ObjectDeletedException.class) >= 0;
+            if (targetLost) {
+                // target disappeared in the meantime. No big deal.
+                logger.debug(e);
+                JobExecutionException ex = new JobExecutionException(e);
+                ex.setRefireImmediately(false);
+                ex.setUnscheduleFiringTrigger(true);
+                throw ex;
+            }
+            if (ExceptionUtils.indexOfType(e, PersistenceException.class) >= 0) {
+                JobExecutionException ex = new JobExecutionException(e);
+                ex.setRefireImmediately(false);
+                throw ex;
+            }
+            logger.warn(e);
+            throw e;
         }
     }
 
-    private boolean updateTargetJvmId(Target target) {
+    private void updateTargetJvmId(Target target) {
         final String jvmId =
                 connectionManager
                         .executeConnectedTask(
@@ -88,8 +93,8 @@ public class TargetUpdateJob implements Job {
                                         .call(() -> Target.getTargetById(target.id)),
                                 JFRConnection::getJvmIdentifier)
                         .getHash();
-        return QuarkusTransaction.joiningExisting()
-                .call(
+        QuarkusTransaction.joiningExisting()
+                .run(
                         () -> {
                             Target t = Target.getTargetById(target.id);
                             try {
@@ -97,10 +102,6 @@ public class TargetUpdateJob implements Job {
                                 logger.debugv(
                                         "Updated JVM ID for target {0} ({1}) = {2}",
                                         target.connectUrl, target.alias, t.jvmId);
-                                return true;
-                            } catch (PersistenceException e) {
-                                logger.warn(e);
-                                return false;
                             } catch (Exception e) {
                                 t.jvmId = null;
                                 t.persist();
