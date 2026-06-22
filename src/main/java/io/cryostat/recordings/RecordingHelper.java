@@ -920,15 +920,16 @@ public class RecordingHelper {
                         item -> {
                             String path = item.key().strip();
                             String[] parts = path.split("/");
+                            String effectiveJvmId = parts[0];
                             String filename = parts[1];
                             Metadata metadata =
-                                    getArchivedRecordingMetadata(jvmId, filename)
+                                    getArchivedRecordingMetadata(effectiveJvmId, filename)
                                             .orElseGet(Metadata::empty);
                             return new ArchivedRecording(
-                                    jvmId,
+                                    effectiveJvmId,
                                     filename,
-                                    downloadUrl(jvmId, filename),
-                                    reportUrl(jvmId, filename),
+                                    downloadUrl(effectiveJvmId, filename),
+                                    reportUrl(effectiveJvmId, filename),
                                     metadata,
                                     item.size(),
                                     item.lastModified().getEpochSecond());
