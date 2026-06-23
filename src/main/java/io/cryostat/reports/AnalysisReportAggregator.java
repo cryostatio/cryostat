@@ -50,7 +50,6 @@ import io.smallrye.mutiny.Uni;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
-import jakarta.transaction.Transactional;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.DefaultValue;
 import jakarta.ws.rs.GET;
@@ -211,7 +210,6 @@ public class AnalysisReportAggregator {
     @GET
     @Produces(MediaType.TEXT_PLAIN)
     @RolesAllowed("read")
-    @Transactional
     @Operation(
             summary = "Retrieve the latest aggregate report data",
             description =
@@ -245,7 +243,6 @@ public class AnalysisReportAggregator {
     @Path("/{jvmId}")
     @Produces(MediaType.TEXT_PLAIN)
     @RolesAllowed("read")
-    @Transactional
     @Operation(
             summary = "Retrieve the latest aggregate report data for the specified target",
             description =
