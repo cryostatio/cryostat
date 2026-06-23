@@ -112,7 +112,7 @@ jobs:
     - name: Dump test harness logs
       if: always()
       run: tail -500l test.log
-    - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+    - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
       if: always()
       with:
         name: cryostat-unittest-${{ matrix.arch }}.log
@@ -191,7 +191,7 @@ jobs:
     - name: Dump test harness logs
       if: always()
       run: tail -500l test.log
-    - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+    - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
       if: always()
       with:
         name: cryostat-itest-harness-${{ matrix.arch }}.log
@@ -199,7 +199,7 @@ jobs:
     - name: Dump server logs
       if: always()
       run: tail -500l target/quarkus.log
-    - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+    - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
       if: always()
       with:
         name: cryostat-itest-server-${{ matrix.arch }}.log
@@ -272,13 +272,13 @@ jobs:
           clean package
     - name: Save container image
       run: podman save -o cryostat-${{ matrix.arch }}.tar --format oci-archive ${{ env.CI_IMG }}:linux-${{ matrix.arch }}
-    - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+    - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
       with:
         name: cryostat-${{ matrix.arch }}-podman
         path: cryostat-${{ matrix.arch }}.tar
     - name: Save container image (docker)
       run: podman save -o cryostat-${{ matrix.arch }}-docker.tar --format docker-archive ${{ env.CI_IMG }}:linux-${{ matrix.arch }}
-    - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+    - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
       with:
         name: cryostat-${{ matrix.arch }}-docker
         path: cryostat-${{ matrix.arch }}-docker.tar

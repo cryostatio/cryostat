@@ -157,7 +157,7 @@ jobs:
           clean test > test.log 2>&1
     - run: tail -500l test.log
       if: always()
-    - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+    - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
       if: always()
       with:
         name: cryostat-unittest.log
@@ -273,14 +273,14 @@ jobs:
           clean verify > test.log 2>&1
     - run: tail -500l test.log
       if: always()
-    - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+    - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
       if: always()
       with:
         name: cryostat-itest-harness.log
         path: test.log
     - run: tail -500l target/quarkus.log
       if: always()
-    - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+    - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
       if: always()
       with:
         name: cryostat-itest-server.log
@@ -376,15 +376,15 @@ jobs:
           echo "graphql_diff_file=graphql.diff" >> "$GITHUB_OUTPUT"
           echo "notifications_status=${NOTIFICATIONS_STATUS}" >> "$GITHUB_OUTPUT"
           echo "notifications_diff_file=notifications.diff" >> "$GITHUB_OUTPUT"
-    - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+    - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
       with:
         name: openapi-diff
         path: /home/runner/work/openapi.diff
-    - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+    - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
       with:
         name: graphql-diff
         path: /home/runner/work/graphql.diff
-    - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+    - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
       with:
         name: notifications-diff
         path: /home/runner/work/notifications.diff
