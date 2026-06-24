@@ -236,7 +236,7 @@ jobs:
         status: pending
     - run: git submodule init && git submodule update
     - name: Cache yarn packages
-      uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+      uses: actions/cache@2c8a9bd7457de244a408f35966fab2fb45fda9c8 # v6.0.0
       with:
         path: "./src/main/webui/.yarn/cache"
         key: ${{ runner.os }}-build-${{ env.deps-cache-name }}-${{ hashFiles('**/yarn.lock') }}
@@ -245,7 +245,7 @@ jobs:
           ${{ runner.os }}-build-
           ${{ runner.os }}-
     - name: Cache frontend build
-      uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+      uses: actions/cache@2c8a9bd7457de244a408f35966fab2fb45fda9c8 # v6.0.0
       with:
         path: "./src/main/webui/.build_cache"
         key: ${{ runner.os }}-build-${{ env.build-cache-name }}-${{ hashFiles('**/yarn.lock') }}
