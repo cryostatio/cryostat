@@ -55,4 +55,4 @@ elif command -v wget; then
     wget http://localhost:8181/api/v4/graphql/schema.graphql -O "${DIR}/schema.graphql"
 fi
 
-"${DIR}"/generate-notifications.bash
+"${DIR}"/generate-notifications.bash || true
