@@ -325,7 +325,7 @@ jobs:
         done
     - name: Push to quay.io
       id: push-to-quay
-      uses: redhat-actions/push-to-registry@5ed88d269cf581ea9ef6dd6806d01562096bee9c # v2
+      uses: redhat-actions/push-to-registry@b5dbf66601070e17aa7816815a64b9f35cd860da # v2.1.2
       with:
         image: cryostat
         tags: ${{ steps.manifest-tags.outputs.tags }}
