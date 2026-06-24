@@ -28,7 +28,7 @@ set +e
 sleep "${1:-30}"
 counter=0
 while true; do
-    if [ "${counter}" -gt 10 ]; then
+    if [ "${counter}" -gt "${MAX_REPEATS:-60}" ]; then
         exit 1
     fi
     if command -v http; then
