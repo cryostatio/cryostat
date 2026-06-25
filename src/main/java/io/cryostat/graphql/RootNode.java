@@ -77,6 +77,8 @@ public class RootNode {
         public @Nullable List<String> jvmIds;
         public @Nullable String name;
         public @Nullable List<String> names;
+        public @Nullable String alias;
+        public @Nullable List<String> aliases;
         public @Nullable List<String> nodeTypes;
         public @Nullable List<String> labels;
         public @Nullable List<String> annotations;
@@ -95,6 +97,14 @@ public class RootNode {
                     n -> targetIds == null || (n.target != null && targetIds.contains(n.target.id));
             Predicate<DiscoveryNode> matchesName = n -> name == null || name.equals(n.name);
             Predicate<DiscoveryNode> matchesNames = n -> names == null || names.contains(n.name);
+            Predicate<DiscoveryNode> matchesAlias =
+                    n ->
+                            alias == null
+                                    || (n.target != null && alias.equals(n.target.alias));
+            Predicate<DiscoveryNode> matchesAliases =
+                    n ->
+                            aliases == null
+                                    || (n.target != null && aliases.contains(n.target.alias));
             Predicate<DiscoveryNode> matchesNodeTypes =
                     n -> nodeTypes == null || nodeTypes.contains(n.nodeType);
             Predicate<DiscoveryNode> matchesLabels =
@@ -128,6 +138,8 @@ public class RootNode {
                             matchesTargetIds,
                             matchesName,
                             matchesNames,
+                            matchesAlias,
+                            matchesAliases,
                             matchesNodeTypes,
                             matchesLabels,
                             matchesAnnotations)
