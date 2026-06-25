@@ -22,6 +22,9 @@
   "major": {
     "dependencyDashboardApproval": true
   },
+  "minor": {
+    "dependencyDashboardApproval": true
+  },
   "git-submodules": {
       "enabled": true
   },
