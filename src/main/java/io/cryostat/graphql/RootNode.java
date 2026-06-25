@@ -98,13 +98,9 @@ public class RootNode {
             Predicate<DiscoveryNode> matchesName = n -> name == null || name.equals(n.name);
             Predicate<DiscoveryNode> matchesNames = n -> names == null || names.contains(n.name);
             Predicate<DiscoveryNode> matchesAlias =
-                    n ->
-                            alias == null
-                                    || (n.target != null && alias.equals(n.target.alias));
+                    n -> alias == null || (n.target != null && alias.equals(n.target.alias));
             Predicate<DiscoveryNode> matchesAliases =
-                    n ->
-                            aliases == null
-                                    || (n.target != null && aliases.contains(n.target.alias));
+                    n -> aliases == null || (n.target != null && aliases.contains(n.target.alias));
             Predicate<DiscoveryNode> matchesNodeTypes =
                     n -> nodeTypes == null || nodeTypes.contains(n.nodeType);
             Predicate<DiscoveryNode> matchesLabels =
