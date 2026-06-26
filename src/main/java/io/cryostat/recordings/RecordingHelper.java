@@ -1294,6 +1294,9 @@ public class RecordingHelper {
         long duration = recording.duration;
         if (duration <= 0) {
             duration = clock.now().toEpochMilli() - recording.startTime;
+            if (recording.maxAge > 0) {
+                duration = Math.min(duration, recording.maxAge);
+            }
         }
         labels.put(DURATION_LABEL, String.valueOf(duration));
         labels.put(ACTIVE_RECORDING_ID_LABEL, String.valueOf(recording.id));

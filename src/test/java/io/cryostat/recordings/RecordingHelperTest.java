@@ -144,6 +144,29 @@ class RecordingHelperTest extends AbstractTransactionalTestBase {
     }
 
     @Test
+    void shouldUseMaxAgeAsDurationApproximationForContinuousRecording() throws Exception {
+        long recordingId = 44L;
+        long startTime = Instant.now().minusSeconds(3600).toEpochMilli();
+        long maxAge = 5 * 60 * 1000L;
+        ActiveRecording recording = new ActiveRecording();
+        recording.id = recordingId;
+        recording.startTime = startTime;
+        recording.duration = 0L;
+        recording.maxAge = maxAge;
+        recording.metadata = new ActiveRecordings.Metadata(Map.of("label", "value"));
+        Target target = new Target();
+        target.jvmId = selfJvmId;
+        target.connectUrl = URI.create(SELF_JMX_URL);
+        recording.target = target;
+
+        ActiveRecordings.Metadata metadata =
+                recordingHelper.createActiveRecordingMetadata(recording);
+
+        assertThat(
+                metadata.labels().get(RecordingHelper.DURATION_LABEL), is(String.valueOf(maxAge)));
+    }
+
+    @Test
     void shouldPersistActiveRecordingIdWhenUploadingArchivedRecording() throws Exception {
         defineSelfCustomTarget();
         long remoteId =
