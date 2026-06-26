@@ -46,8 +46,11 @@ public class AgentPushMaxFilesTest extends AbstractTransactionalTestBase {
 
     @Inject RecordingHelper recordingHelper;
 
+    Path tmpDir;
+
     @BeforeEach
-    void setup() {
+    void setup() throws Exception {
+        tmpDir = Files.createTempDirectory("agent-push-test");
         cleanupAgentRecordings();
     }
 
@@ -70,22 +73,24 @@ public class AgentPushMaxFilesTest extends AbstractTransactionalTestBase {
                         });
     }
 
+    private Path createRecordingFile(String name) throws Exception {
+        Path file = tmpDir.resolve(name);
+        Files.write(file, new byte[] {1, 2, 3, 4});
+        return file;
+    }
+
     @Test
     void testAgentPushWithMaxFilesOnlyPrunesScheduledPushes() throws Exception {
         // Seed one non-pushed recording (no pushType label) for the same target
-        Path nonPushedFile = Files.createTempFile("non-pushed", ".jfr");
-        Files.write(nonPushedFile, new byte[] {1, 2, 3, 4});
         recordingHelper.uploadArchivedRecording(
                 TEST_JVM_ID,
-                new TestFileUpload("non-pushed.jfr", nonPushedFile),
+                new TestFileUpload("non-pushed.jfr", createRecordingFile("non-pushed.jfr")),
                 new Metadata(Map.of("jvmId", TEST_JVM_ID)));
 
         // Seed one scheduled-push recording (with pushType=SCHEDULED label)
-        Path pushedFile1 = Files.createTempFile("pushed-1", ".jfr");
-        Files.write(pushedFile1, new byte[] {5, 6, 7, 8});
         recordingHelper.uploadArchivedRecording(
                 TEST_JVM_ID,
-                new TestFileUpload("pushed-1.jfr", pushedFile1),
+                new TestFileUpload("pushed-1.jfr", createRecordingFile("pushed-1.jfr")),
                 new Metadata(Map.of("jvmId", TEST_JVM_ID, "pushType", "SCHEDULED")));
 
         // Verify both are present
@@ -98,15 +103,15 @@ public class AgentPushMaxFilesTest extends AbstractTransactionalTestBase {
                 hasItem("pushed-1.jfr"));
 
         // Push a second scheduled recording with maxFiles=1; only pushed-1 should be pruned
-        Path pushedFile2 = Files.createTempFile("pushed-2", ".jfr");
-        Files.write(pushedFile2, new byte[] {9, 10, 11, 12});
-
         given().log()
                 .all()
                 .when()
                 .contentType(ContentType.MULTIPART)
                 .pathParam("jvmId", TEST_JVM_ID)
-                .multiPart("recording", pushedFile2.toFile(), "application/octet-stream")
+                .multiPart(
+                        "recording",
+                        createRecordingFile("pushed-2.jfr").toFile(),
+                        "application/octet-stream")
                 .multiPart("labels", "{\"pushType\":\"SCHEDULED\"}", "application/json")
                 .multiPart("maxFiles", "1")
                 .post("/api/beta/recordings/{jvmId}")
@@ -134,30 +139,26 @@ public class AgentPushMaxFilesTest extends AbstractTransactionalTestBase {
     @Test
     void testAgentPushWithoutMaxFilesDoesNotPrune() throws Exception {
         // Seed two scheduled-push recordings
-        Path pushedFile1 = Files.createTempFile("pushed-a", ".jfr");
-        Files.write(pushedFile1, new byte[] {1, 2, 3, 4});
         recordingHelper.uploadArchivedRecording(
                 TEST_JVM_ID,
-                new TestFileUpload("pushed-a.jfr", pushedFile1),
+                new TestFileUpload("pushed-a.jfr", createRecordingFile("pushed-a.jfr")),
                 new Metadata(Map.of("jvmId", TEST_JVM_ID, "pushType", "SCHEDULED")));
 
-        Path pushedFile2 = Files.createTempFile("pushed-b", ".jfr");
-        Files.write(pushedFile2, new byte[] {5, 6, 7, 8});
         recordingHelper.uploadArchivedRecording(
                 TEST_JVM_ID,
-                new TestFileUpload("pushed-b.jfr", pushedFile2),
+                new TestFileUpload("pushed-b.jfr", createRecordingFile("pushed-b.jfr")),
                 new Metadata(Map.of("jvmId", TEST_JVM_ID, "pushType", "SCHEDULED")));
 
         // Push a third recording without maxFiles; nothing should be pruned
-        Path pushedFile3 = Files.createTempFile("pushed-c", ".jfr");
-        Files.write(pushedFile3, new byte[] {9, 10, 11, 12});
-
         given().log()
                 .all()
                 .when()
                 .contentType(ContentType.MULTIPART)
                 .pathParam("jvmId", TEST_JVM_ID)
-                .multiPart("recording", pushedFile3.toFile(), "application/octet-stream")
+                .multiPart(
+                        "recording",
+                        createRecordingFile("pushed-c.jfr").toFile(),
+                        "application/octet-stream")
                 .multiPart("labels", "{\"pushType\":\"SCHEDULED\"}", "application/json")
                 .post("/api/beta/recordings/{jvmId}")
                 .then()
