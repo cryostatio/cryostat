@@ -39,6 +39,7 @@ import io.cryostat.targets.Target;
 import io.cryostat.util.HttpMimeType;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.smallrye.common.annotation.Blocking;
 import io.vertx.core.http.HttpServerResponse;
 import io.vertx.core.json.JsonObject;
@@ -230,13 +231,15 @@ public class ArchivedRecordings {
                     jvmId);
             return Optional.empty();
         }
-        Optional<Target> target = Target.getTargetByJvmId(jvmId);
+        Optional<Target> target =
+                QuarkusTransaction.joiningExisting().call(() -> Target.getTargetByJvmId(jvmId));
         if (target.isEmpty()) {
             logger.warnv("No target found for archived recording upload on target {0}", jvmId);
             return Optional.empty();
         }
         Optional<ActiveRecording> recording =
-                recordingHelper.getActiveRecording(target.get(), remoteId);
+                QuarkusTransaction.joiningExisting()
+                        .call(() -> recordingHelper.getActiveRecording(target.get(), remoteId));
         if (recording.isEmpty()) {
             logger.warnv(
                     "No active recording found for {0}={1} on target {2}",
