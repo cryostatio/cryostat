@@ -390,7 +390,6 @@ public class AgentHeapDumpIT extends AgentTestBase {
                         Matchers.greaterThanOrEqualTo(1));
     }
 
-
     @Test
     @DisabledIfEnvironmentVariable(named = "CI", matches = "true")
     void testGraphQLListHeapDumps() throws Exception {
@@ -478,9 +477,7 @@ public class AgentHeapDumpIT extends AgentTestBase {
                         .extract()
                         .response();
 
-        webSocketClient.expectNotification(
-                "HeapDumpSuccess",
-                Duration.ofMinutes(2));
+        webSocketClient.expectNotification("HeapDumpSuccess", Duration.ofMinutes(2));
 
         webSocketClient.expectNotification(
                 "HeapDumpUploaded",
@@ -490,7 +487,6 @@ public class AgentHeapDumpIT extends AgentTestBase {
         assertThat(response.getStatusCode(), equalTo(200));
         assertThat(response.getBody(), notNullValue());
     }
-
 
     @Test
     @DisabledIfEnvironmentVariable(named = "CI", matches = "true")
@@ -518,10 +514,11 @@ public class AgentHeapDumpIT extends AgentTestBase {
         JsonObject retrieved = new JsonObject(response.body().asString());
         assertThat(retrieved, notNullValue());
 
-        JsonObject uploadedNotification = webSocketClient.expectNotification(
-                "HeapDumpUploaded",
-                Duration.ofMinutes(5),
-                o -> target.jvmId().equals(o.getJsonObject("message").getString("jvmId")));
+        JsonObject uploadedNotification =
+                webSocketClient.expectNotification(
+                        "HeapDumpUploaded",
+                        Duration.ofMinutes(5),
+                        o -> target.jvmId().equals(o.getJsonObject("message").getString("jvmId")));
 
         JsonObject message = uploadedNotification.getJsonObject("message");
         String notificationHeapDumpId = message.getString("heapDumpId");
