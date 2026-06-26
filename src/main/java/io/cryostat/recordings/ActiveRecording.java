@@ -193,19 +193,23 @@ public class ActiveRecording extends PanacheEntity {
 
         @PostPersist
         public void postPersist(ActiveRecording activeRecording) {
-            if (activeRecording.external) {
-                // if the recording was started externally, ex. by -XX:StartFlightRecording flag,
-                // then we don't want to emit spurious notifications as if we have initiated this
-                // recording
-                return;
+            // if the recording was started externally, ex. by -XX:StartFlightRecording flag,
+            // then we don't want to emit spurious notifications as if we have initiated this
+            // recording
+            if (!activeRecording.external) {
+                createdEvent.fire(
+                        new ActiveRecordingEvents.ActiveRecordingCreated(
+                                activeRecording.id.longValue(),
+                                new ActiveRecordingEvents.ActiveRecordingSnapshot(
+                                        activeRecording.target.connectUrl.toString(),
+                                        recordingHelper.toExternalForm(activeRecording),
+                                        activeRecording.target.jvmId)));
             }
-            createdEvent.fire(
-                    new ActiveRecordingEvents.ActiveRecordingCreated(
-                            activeRecording.id.longValue(),
-                            new ActiveRecordingEvents.ActiveRecordingSnapshot(
-                                    activeRecording.target.connectUrl.toString(),
-                                    recordingHelper.toExternalForm(activeRecording),
-                                    activeRecording.target.jvmId)));
+            if (RecordingState.STOPPED.equals(activeRecording.state)
+                    && activeRecording.archiveOnStop
+                    && archiveExternal) {
+                doArchive(activeRecording);
+            }
         }
 
         @PostUpdate
@@ -221,27 +225,29 @@ public class ActiveRecording extends PanacheEntity {
                 if (activeRecording.archiveOnStop
                         && (!activeRecording.external
                                 || (activeRecording.external && archiveExternal))) {
-                    executor.submit(
-                            () ->
-                                    QuarkusTransaction.joiningExisting()
-                                            .run(
-                                                    () -> {
-                                                        try {
-                                                            ActiveRecording recording =
-                                                                    ActiveRecording.find(
-                                                                                    "id",
-                                                                                    activeRecording
-                                                                                            .id)
-                                                                            .singleResult();
-                                                            recordingHelper.archiveRecording(
-                                                                    recording);
-                                                        } catch (Exception e) {
-                                                            logger.error(e);
-                                                            throw new RuntimeException(e);
-                                                        }
-                                                    }));
+                    doArchive(activeRecording);
                 }
             }
+        }
+
+        private void doArchive(ActiveRecording activeRecording) {
+            executor.submit(
+                    () ->
+                            QuarkusTransaction.joiningExisting()
+                                    .run(
+                                            () -> {
+                                                try {
+                                                    ActiveRecording recording =
+                                                            ActiveRecording.find(
+                                                                            "id",
+                                                                            activeRecording.id)
+                                                                    .singleResult();
+                                                    recordingHelper.archiveRecording(recording);
+                                                } catch (Exception e) {
+                                                    logger.error(e);
+                                                    throw new RuntimeException(e);
+                                                }
+                                            }));
         }
 
         @PostRemove
