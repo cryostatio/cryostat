@@ -18,14 +18,18 @@ package io.cryostat.recordings;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.*;
 
+import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 
 import io.cryostat.AbstractTransactionalTestBase;
 import io.cryostat.resources.S3StorageResource;
+import io.cryostat.targets.Target;
 
+import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
@@ -79,6 +83,114 @@ class RecordingHelperTest extends AbstractTransactionalTestBase {
         } finally {
             Files.deleteIfExists(firstRecording);
             Files.deleteIfExists(secondRecording);
+        }
+    }
+
+    @Test
+    void shouldIncludeConfiguredDurationInActiveRecordingMetadata() throws Exception {
+        long recordingId = 42L;
+        long startTime = 123456789L;
+        long duration = 98765L;
+        ActiveRecording recording = new ActiveRecording();
+        recording.id = recordingId;
+        recording.startTime = startTime;
+        recording.duration = duration;
+        recording.metadata = new ActiveRecordings.Metadata(Map.of("label", "value"));
+        Target target = new Target();
+        target.jvmId = selfJvmId;
+        target.connectUrl = URI.create(SELF_JMX_URL);
+        recording.target = target;
+
+        ActiveRecordings.Metadata metadata =
+                recordingHelper.createActiveRecordingMetadata(recording);
+
+        assertThat(metadata.labels().get("label"), is("value"));
+        assertThat(metadata.labels().get("connectUrl"), is(SELF_JMX_URL));
+        assertThat(metadata.labels().get("jvmId"), is(selfJvmId));
+        assertThat(
+                metadata.labels().get(RecordingHelper.START_TIME_LABEL),
+                is(String.valueOf(startTime)));
+        assertThat(
+                metadata.labels().get(RecordingHelper.DURATION_LABEL),
+                is(String.valueOf(duration)));
+        assertThat(
+                metadata.labels().get(RecordingHelper.ACTIVE_RECORDING_ID_LABEL),
+                is(String.valueOf(recordingId)));
+    }
+
+    @Test
+    void shouldUseElapsedDurationInActiveRecordingMetadataForContinuousRecording()
+            throws Exception {
+        long recordingId = 43L;
+        long startTime = Instant.now().minusSeconds(5).toEpochMilli();
+        ActiveRecording recording = new ActiveRecording();
+        recording.id = recordingId;
+        recording.startTime = startTime;
+        recording.duration = 0L;
+        recording.metadata = new ActiveRecordings.Metadata(Map.of("label", "value"));
+        Target target = new Target();
+        target.jvmId = selfJvmId;
+        target.connectUrl = URI.create(SELF_JMX_URL);
+        recording.target = target;
+
+        long before = Instant.now().toEpochMilli();
+        ActiveRecordings.Metadata metadata =
+                recordingHelper.createActiveRecordingMetadata(recording);
+        long after = Instant.now().toEpochMilli();
+        long actualDuration = Long.parseLong(metadata.labels().get(RecordingHelper.DURATION_LABEL));
+
+        assertThat(actualDuration, greaterThanOrEqualTo(before - startTime));
+        assertThat(actualDuration, lessThanOrEqualTo(after - startTime));
+    }
+
+    @Test
+    void shouldPersistActiveRecordingIdWhenUploadingArchivedRecording() throws Exception {
+        defineSelfCustomTarget();
+        long remoteId =
+                startSelfRecording("recording-helper-active-id", Map.of("events", "template=ALL"))
+                        .getLong("remoteId");
+        ActiveRecording activeRecording =
+                QuarkusTransaction.requiringNew()
+                        .call(
+                                () ->
+                                        ActiveRecording.find("remoteId", remoteId)
+                                                .firstResultOptional()
+                                                .map(ActiveRecording.class::cast)
+                                                .orElseThrow());
+
+        Path recordingFile = Files.createTempFile("recording-helper-active-id", ".jfr");
+        Files.write(recordingFile, new byte[] {9, 8, 7, 6});
+
+        try {
+            ActiveRecordings.Metadata metadata =
+                    new ActiveRecordings.Metadata(
+                            Map.of(
+                                    "purpose",
+                                    "persist-active-id",
+                                    RecordingHelper.ACTIVE_RECORDING_ID_LABEL,
+                                    String.valueOf(activeRecording.id)));
+
+            recordingHelper.uploadArchivedRecording(
+                    selfJvmId,
+                    new TestFileUpload("persist-active-id.jfr", recordingFile),
+                    metadata);
+
+            ArchivedRecordingInfo info =
+                    QuarkusTransaction.requiringNew()
+                            .call(
+                                    () ->
+                                            ArchivedRecordingInfo.find(
+                                                            "jvmId = ?1 and filename = ?2",
+                                                            selfJvmId,
+                                                            "persist-active-id.jfr")
+                                                    .firstResultOptional()
+                                                    .map(ArchivedRecordingInfo.class::cast)
+                                                    .orElseThrow());
+
+            assertThat(info.activeRecordingId, is(activeRecording.id));
+        } finally {
+            cleanupSelfRecording();
+            Files.deleteIfExists(recordingFile);
         }
     }
 }
