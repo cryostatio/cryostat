@@ -8,10 +8,17 @@ services:
       QUARKUS_HIBERNATE_ORM_SQL_LOAD_SCRIPT: ${SQL_LOAD_SCRIPT:-no-file}
       QUARKUS_DATASOURCE_USERNAME: cryostat
       QUARKUS_DATASOURCE_PASSWORD: cryostat
-      QUARKUS_DATASOURCE_JDBC_URL: jdbc:postgresql://db:5432/cryostat
+      QUARKUS_DATASOURCE_JDBC_URL: jdbc:postgresql://db:5432/cryostat?ssl=true&sslmode=verify-full&sslcert=&sslrootcert=/truststore/truststore/database.cer
   db:
     image: ${CRYOSTAT_DB_IMAGE:-quay.io/cryostat/cryostat-db:${CRYOSTAT_VERSION:-latest}}
     hostname: db
+    command:
+      - -c
+      - ssl=on
+      - -c
+      - ssl_cert_file=/certs/certificate.pem
+      - -c
+      - ssl_key_file=/certs/private.key
     expose:
       - "5432"
     environment:
@@ -21,6 +28,7 @@ services:
       PG_ENCRYPT_KEY: REPLACEME
     volumes:
       - postgresql:/var/lib/pgsql/data
+      - db_certs:/certs:ro
     restart: always
     healthcheck:
       test: pg_isready -U cryostat -d cryostat || exit 1
@@ -32,3 +40,5 @@ services:
 volumes:
   postgresql:
     driver: local
+  db_certs:
+    external: true

@@ -21,15 +21,15 @@ import org.openjdk.jmc.common.unit.IOptionDescriptor;
 
 public record SerializableOptionDescriptor(String name, String description, String defaultValue) {
     public SerializableOptionDescriptor {
-        Objects.requireNonNull(name);
-        Objects.requireNonNull(description);
-        Objects.requireNonNull(defaultValue);
+        name = Objects.toString(name, "");
+        description = Objects.toString(description, "");
+        defaultValue = Objects.toString(defaultValue, "");
     }
 
     public static SerializableOptionDescriptor fromOptionDescriptor(IOptionDescriptor<?> desc) {
         var name = desc.getName();
         var description = desc.getDescription();
-        var defaultValue = desc.getDefault().toString();
+        var defaultValue = Objects.toString(desc.getDefault(), "");
         return new SerializableOptionDescriptor(name, description, defaultValue);
     }
 }

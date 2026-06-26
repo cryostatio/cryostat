@@ -1330,6 +1330,7 @@ public class Discovery {
                                 });
             } catch (Exception e) {
                 logger.warnv(e, "Plugin ping failed");
+                var ex = new JobExecutionException(e);
 
                 boolean noSuchPlugin = ExceptionUtils.indexOfType(e, NoResultException.class) >= 0;
                 boolean unknownHost =
@@ -1340,68 +1341,76 @@ public class Discovery {
                     logger.warnv(
                             "Unscheduled job for unknown discovery plugin: {0}",
                             context.getMergedJobDataMap().get(PLUGIN_ID_MAP_KEY));
-
-                    // Clean up any orphaned nodes before unscheduling
                     if (noSuchPlugin) {
                         QuarkusTransaction.joiningExisting()
                                 .run(() -> cleanupHelper.cleanupPluginNodes(pluginId));
                     }
-
-                    var ex = new JobExecutionException(e);
                     ex.setUnscheduleFiringTrigger(true);
-                    throw ex;
                 }
 
-                QuarkusTransaction.joiningExisting()
-                        .run(
-                                () -> {
-                                    var p = DiscoveryPlugin.<DiscoveryPlugin>findById(pluginId);
-                                    if (p != null) {
-                                        p.consecutiveFailures++;
-                                        p.lastFailedPing = Instant.now();
-                                        p.backoffMultiplier =
-                                                Math.min(
-                                                        p.backoffMultiplier * 2,
-                                                        maxBackoffMultiplier);
-                                        Duration backoffPeriod =
-                                                basePingPeriod.multipliedBy(p.backoffMultiplier);
-                                        p.nextPingAt = Instant.now().plus(backoffPeriod);
-                                        p.persist();
+                var f =
+                        QuarkusTransaction.joiningExisting()
+                                .call(
+                                        () -> {
+                                            var p =
+                                                    DiscoveryPlugin.<DiscoveryPlugin>findById(
+                                                            pluginId);
+                                            if (p == null) {
+                                                cleanupHelper.cleanupPluginNodes(pluginId);
+                                                ex.setUnscheduleFiringTrigger(true);
+                                                return true;
+                                            }
+                                            p.consecutiveFailures++;
+                                            p.lastFailedPing = Instant.now();
+                                            p.backoffMultiplier =
+                                                    Math.min(
+                                                            p.backoffMultiplier * 2,
+                                                            maxBackoffMultiplier);
+                                            Duration backoffPeriod =
+                                                    basePingPeriod.multipliedBy(
+                                                            p.backoffMultiplier);
+                                            p.nextPingAt = Instant.now().plus(backoffPeriod);
+                                            p.persist();
 
-                                        logger.debugv(
-                                                "Plugin ping failed - lastFailedPing: {0},"
-                                                        + " consecutiveFailures: {1}/{2},"
-                                                        + " backoffMultiplier: {3}, nextPingAt:"
-                                                        + " {4}: {5} @ {6}",
-                                                p.lastFailedPing,
-                                                p.consecutiveFailures,
-                                                maxConsecutiveFailures,
-                                                p.backoffMultiplier,
-                                                p.nextPingAt,
-                                                p.realm.name,
-                                                p.callback);
-
-                                        if (p.consecutiveFailures >= maxConsecutiveFailures) {
-                                            logger.warnv(
-                                                    "Pruning discovery plugin after {0}"
-                                                            + " consecutive failures: {1} @"
-                                                            + " {2}",
-                                                    p.consecutiveFailures,
-                                                    p.realm.name,
-                                                    p.callback);
-                                            p.delete();
-                                        } else {
-                                            logger.warnv(
-                                                    "Plugin ping failed ({0}/{1}), backing off"
-                                                            + " for {2}: {3} @ {4}",
+                                            logger.debugv(
+                                                    "Plugin ping failed - lastFailedPing: {0},"
+                                                            + " consecutiveFailures: {1}/{2},"
+                                                            + " backoffMultiplier: {3}, nextPingAt:"
+                                                            + " {4}: {5} @ {6}",
+                                                    p.lastFailedPing,
                                                     p.consecutiveFailures,
                                                     maxConsecutiveFailures,
-                                                    backoffPeriod,
+                                                    p.backoffMultiplier,
+                                                    p.nextPingAt,
                                                     p.realm.name,
                                                     p.callback);
-                                        }
-                                    }
-                                });
+
+                                            boolean failed =
+                                                    p.consecutiveFailures >= maxConsecutiveFailures;
+                                            if (failed) {
+                                                logger.warnv(
+                                                        "Pruning discovery plugin after {0}"
+                                                                + " consecutive failures: {1} @"
+                                                                + " {2}",
+                                                        p.consecutiveFailures,
+                                                        p.realm.name,
+                                                        p.callback);
+                                                p.delete();
+                                            } else {
+                                                logger.warnv(
+                                                        "Plugin ping failed ({0}/{1}), backing"
+                                                                + " off for {2}: {3} @ {4}",
+                                                        p.consecutiveFailures,
+                                                        maxConsecutiveFailures,
+                                                        backoffPeriod,
+                                                        p.realm.name,
+                                                        p.callback);
+                                            }
+                                            return failed;
+                                        });
+                if (f) {
+                    throw ex;
+                }
             }
         }
     }
