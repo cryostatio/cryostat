@@ -15,7 +15,6 @@
  */
 package io.cryostat.targets;
 
-import io.cryostat.recordings.ActiveRecording;
 import io.cryostat.recordings.RecordingHelper;
 
 import jakarta.inject.Inject;
@@ -40,17 +39,20 @@ import org.quartz.JobExecutionException;
 public class ActiveRecordingUpdateJob implements Job {
 
     @Inject Logger logger;
-    @Inject TargetConnectionManager connectionManager;
     @Inject RecordingHelper recordingHelper;
 
     @Override
     @Transactional
     public void execute(JobExecutionContext context) throws JobExecutionException {
-        long recordingId = (long) context.getMergedJobDataMap().get("recordingId");
-        ActiveRecording recording = ActiveRecording.findById(recordingId);
+        String jvmId = context.getMergedJobDataMap().getString("jvmId");
         Target target;
         try {
-            target = Target.getTargetById(recording.target.id);
+            target =
+                    Target.findPreferredByJvmId(jvmId)
+                            .orElseThrow(
+                                    () ->
+                                            new NoResultException(
+                                                    "No target found for jvmId: " + jvmId));
         } catch (NoResultException | ObjectDeletedException e) {
             // target disappeared in the meantime. No big deal.
             logger.debug(e);
