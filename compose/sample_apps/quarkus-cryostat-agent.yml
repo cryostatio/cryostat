@@ -10,7 +10,7 @@ services:
     environment:
       JAVA_OPTS_APPEND: >-
         -XX:StartFlightRecording=filename=/tmp/,name=startup,settings=profile,disk=true,duration=2m
-        -XX:StartFlightRecording=filename=/tmp/,name=toofast,settings=profile,disk=true,duration=30s
+        -XX:StartFlightRecording=filename=/tmp/,name=toofast,settings=profile,disk=true,duration=10s
         -Djava.util.logging.manager=org.jboss.logmanager.LogManager
         -Dio.cryostat.agent.shaded.org.slf4j.simpleLogger.defaultLogLevel=warn
         -javaagent:/deployments/app/cryostat-agent.jar
