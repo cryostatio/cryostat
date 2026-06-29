@@ -111,14 +111,14 @@ public class TargetUpdateJob implements Job {
 
     private void updateTargetRecordings(Target target) {
         QuarkusTransaction.joiningExisting()
-                .run(
+                .call(
                         () -> {
                             Target t = Target.getTargetById(target.id);
                             t.activeRecordings = recordingHelper.syncActiveRecordings(t);
                             t.persist();
-
-                            t.activeRecordings.stream()
-                                    .forEach(updateService::fireActiveRecordingUpdate);
-                        });
+                            return t.activeRecordings;
+                        })
+                .stream()
+                .forEach(updateService::fireActiveRecordingUpdate);
     }
 }

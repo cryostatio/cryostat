@@ -199,7 +199,9 @@ public class ActiveRecording extends PanacheEntity {
                                         activeRecording.target.connectUrl.toString(),
                                         recordingHelper.toExternalForm(activeRecording),
                                         activeRecording.target.jvmId)));
-            } else if (RecordingState.STOPPED.equals(activeRecording.state)) {
+            }
+
+            if (activeRecording.external && RecordingState.STOPPED.equals(activeRecording.state)) {
                 doArchive(activeRecording);
             }
         }

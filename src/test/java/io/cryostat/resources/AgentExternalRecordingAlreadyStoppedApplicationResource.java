@@ -28,7 +28,7 @@ public class AgentExternalRecordingAlreadyStoppedApplicationResource
         extends AgentApplicationResource {
 
     public static final String RECORDING_NAME = "already-stopped-recording";
-    public static final int RECORDING_DURATION_SECONDS = 5;
+    public static final int RECORDING_DURATION_SECONDS = 1;
 
     @Override
     protected Map<String, String> getEnvMap() {
