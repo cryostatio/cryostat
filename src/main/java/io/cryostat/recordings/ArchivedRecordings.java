@@ -155,7 +155,7 @@ public class ArchivedRecordings {
                     @RestForm("maxFiles")
                     int maxFiles)
             throws Exception {
-        jvmId = jvmId.strip();
+        final String id = jvmId.strip();
         int max = Integer.MAX_VALUE;
         if (maxFiles > 0) {
             max = maxFiles;
@@ -164,31 +164,44 @@ public class ArchivedRecordings {
         if (rawLabels != null) {
             rawLabels.getMap().forEach((k, v) -> labels.put(k, v.toString()));
         }
-        labels.put("jvmId", jvmId);
+        labels.put("jvmId", id);
         Metadata metadata = new Metadata(labels);
         logger.tracev(
                 "recording:{0}, labels:{1}, maxFiles:{2}", recording.fileName(), labels, maxFiles);
-        doUpload(recording, metadata, jvmId);
-        var objs = new ArrayList<S3Object>(recordingHelper.listArchivedRecordingObjects(jvmId));
-        var toRemove =
-                objs.stream()
-                        .sorted((a, b) -> b.lastModified().compareTo(a.lastModified()))
-                        .skip(max)
-                        .map(S3Object::key)
-                        .map(s -> s.split("/"))
-                        .map(a -> Pair.of(a[0], a[1]))
-                        .toList();
-        if (toRemove.isEmpty()) {
-            return;
+        if (max < Integer.MAX_VALUE) {
+            var objs = new ArrayList<S3Object>(recordingHelper.listArchivedRecordingObjects(id));
+            var toRemove =
+                    objs.stream()
+                            .filter(
+                                    obj -> {
+                                        String filename = obj.key().strip().split("/")[1];
+                                        return recordingHelper
+                                                .getArchivedRecordingMetadata(id, filename)
+                                                .map(
+                                                        m ->
+                                                                "SCHEDULED"
+                                                                        .equals(
+                                                                                m.labels()
+                                                                                        .get(
+                                                                                                "pushType")))
+                                                .orElse(false);
+                                    })
+                            .sorted((a, b) -> b.lastModified().compareTo(a.lastModified()))
+                            .skip(max - 1)
+                            .map(S3Object::key)
+                            .map(s -> s.split("/"))
+                            .map(a -> Pair.of(a[0], a[1]))
+                            .toList();
+            toRemove.forEach(
+                    p -> {
+                        try {
+                            recordingHelper.deleteArchivedRecording(p.getKey(), p.getValue());
+                        } catch (IOException ioe) {
+                            logger.error(ioe);
+                        }
+                    });
         }
-        toRemove.forEach(
-                p -> {
-                    try {
-                        recordingHelper.deleteArchivedRecording(p.getKey(), p.getValue());
-                    } catch (IOException ioe) {
-                        logger.error(ioe);
-                    }
-                });
+        doUpload(recording, metadata, id);
     }
 
     @GET
