@@ -27,6 +27,9 @@ services:
       CRYOSTAT_AGENT_HARVESTER_EXIT_MAX_SIZE_B: 153600 # "$(echo 1024*150 | bc)"
       MINECRAFT_ONLINE_MODE: "false"
       JAVA_OPTS: >-
+        -XX:StartFlightRecording=filename=/tmp/,name=toofast,settings=profile,disk=true,duration=10s
+        -XX:StartFlightRecording=filename=/tmp/,name=startup,settings=profile,disk=true,duration=30s
+        -XX:StartFlightRecording=filename=/tmp/,name=external,settings=profile,disk=true
         -Dio.cryostat.agent.shaded.org.slf4j.simpleLogger.defaultLogLevel=warn
         -javaagent:/opt/cryostat/agent.jar
     volumes:
