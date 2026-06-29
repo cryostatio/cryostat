@@ -26,7 +26,6 @@ import jakarta.inject.Inject;
 import jakarta.persistence.NoResultException;
 import jakarta.persistence.PersistenceException;
 import jakarta.transaction.Transactional;
-import jdk.jfr.RecordingState;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.hibernate.ObjectDeletedException;
@@ -35,7 +34,6 @@ import org.quartz.DisallowConcurrentExecution;
 import org.quartz.Job;
 import org.quartz.JobExecutionContext;
 import org.quartz.JobExecutionException;
-import org.quartz.SchedulerException;
 
 /**
  * Attempt to connect to a remote target JVM to retrieve {@link java.lang.management.RuntimeMXBean}
@@ -120,17 +118,7 @@ public class TargetUpdateJob implements Job {
                             t.persist();
 
                             t.activeRecordings.stream()
-                                    .filter(r -> !r.continuous)
-                                    .filter(r -> !RecordingState.CLOSED.equals(r.state))
-                                    .filter(r -> !RecordingState.STOPPED.equals(r.state))
-                                    .forEach(
-                                            r -> {
-                                                try {
-                                                    updateService.fireActiveRecordingUpdate(r);
-                                                } catch (SchedulerException e) {
-                                                    logger.error(e);
-                                                }
-                                            });
+                                    .forEach(updateService::fireActiveRecordingUpdate);
                         });
     }
 }
