@@ -87,7 +87,7 @@ public class DiagnosticsHelper {
     static final String THREAD_DUMP_REQUESTED = "ThreadDumpRequested";
     static final String THREAD_DUMP_SUCCESS = "ThreadDumpSuccess";
     static final String THREAD_DUMP_METADATA = "ThreadDumpMetadataUpdated";
-    static final String DUMP_THREADS = "threadPrint";
+    public static final String DUMP_THREADS = "threadPrint";
     static final String DUMP_THREADS_TO_FIlE = "threadDumpToFile";
     static final String DUMP_HEAP = "dumpHeap";
     static final String HEAP_DUMP_REQUESTED = "HeapDumpRequested";
