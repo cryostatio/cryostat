@@ -22,7 +22,6 @@ import java.util.concurrent.Executors;
 import org.openjdk.jmc.common.unit.UnitLookup;
 import org.openjdk.jmc.flightrecorder.configuration.IRecordingDescriptor;
 
-import io.cryostat.ConfigProperties;
 import io.cryostat.recordings.ActiveRecordings.Metadata;
 import io.cryostat.recordings.events.ActiveRecordingEvents;
 import io.cryostat.targets.Target;
@@ -47,7 +46,6 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.PositiveOrZero;
 import jdk.jfr.RecordingState;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.envers.Audited;
 import org.hibernate.type.SqlTypes;
@@ -188,9 +186,6 @@ public class ActiveRecording extends PanacheEntity {
         @Inject Event<ActiveRecordingEvents.ActiveRecordingDeleted> deletedEvent;
         ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
 
-        @ConfigProperty(name = ConfigProperties.EXTERNAL_RECORDINGS_ARCHIVE)
-        boolean archiveExternal;
-
         @PostPersist
         public void postPersist(ActiveRecording activeRecording) {
             // if the recording was started externally, ex. by -XX:StartFlightRecording flag,
@@ -204,9 +199,7 @@ public class ActiveRecording extends PanacheEntity {
                                         activeRecording.target.connectUrl.toString(),
                                         recordingHelper.toExternalForm(activeRecording),
                                         activeRecording.target.jvmId)));
-            } else if (RecordingState.STOPPED.equals(activeRecording.state)
-                    && activeRecording.archiveOnStop
-                    && archiveExternal) {
+            } else if (RecordingState.STOPPED.equals(activeRecording.state)) {
                 doArchive(activeRecording);
             }
         }
@@ -221,8 +214,7 @@ public class ActiveRecording extends PanacheEntity {
                                         activeRecording.target.connectUrl.toString(),
                                         recordingHelper.toExternalForm(activeRecording),
                                         activeRecording.target.jvmId)));
-                if (activeRecording.archiveOnStop
-                        && (!activeRecording.external || archiveExternal)) {
+                if (activeRecording.archiveOnStop) {
                     doArchive(activeRecording);
                 }
             }

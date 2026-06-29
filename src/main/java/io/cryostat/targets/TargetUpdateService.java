@@ -164,20 +164,24 @@ public class TargetUpdateService {
             }
         } catch (SchedulerException se) {
             logger.error(se);
+            return;
         }
         JobDetail jobDetail =
                 JobBuilder.newJob(ActiveRecordingUpdateJob.class)
                         .withIdentity(key)
                         .usingJobData("recordingId", recording.id)
                         .build();
-        Instant endTime = Instant.ofEpochMilli(recording.startTime).plusMillis(recording.duration);
-        Instant when = endTime.plus(externalRecordingDelay);
+
+        Instant when =
+                Instant.ofEpochMilli(recording.startTime)
+                        .plusMillis(recording.duration)
+                        .plus(externalRecordingDelay);
 
         TriggerBuilder<Trigger> triggerBuilder = TriggerBuilder.newTrigger();
-        if (when.isBefore(Instant.now())) {
+        if (RecordingState.STOPPED.equals(recording.state)) {
             triggerBuilder = triggerBuilder.startNow();
         } else {
-            triggerBuilder = triggerBuilder.startAt(Date.from(when));
+            triggerBuilder = triggerBuilder.startAt(when);
         }
         try {
             scheduler.scheduleJob(jobDetail, triggerBuilder.build());
