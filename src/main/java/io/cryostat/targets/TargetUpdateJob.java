@@ -25,7 +25,6 @@ import io.quarkus.narayana.jta.QuarkusTransaction;
 import jakarta.inject.Inject;
 import jakarta.persistence.NoResultException;
 import jakarta.persistence.PersistenceException;
-import jakarta.transaction.Transactional;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.hibernate.ObjectDeletedException;
@@ -51,15 +50,12 @@ public class TargetUpdateJob implements Job {
     ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
 
     @Override
-    @Transactional
     public void execute(JobExecutionContext context) throws JobExecutionException {
-        Target target;
         long targetId = (long) context.getMergedJobDataMap().get("targetId");
         try {
-            target = Target.getTargetById(targetId);
-            if (StringUtils.isBlank(target.jvmId)) {
-                updateTargetJvmId(target);
-            }
+            Target target =
+                    QuarkusTransaction.joiningExisting().call(() -> Target.getTargetById(targetId));
+            updateTargetJvmId(target);
             updateTargetRecordings(target);
         } catch (Exception e) {
             boolean targetLost =
@@ -84,6 +80,9 @@ public class TargetUpdateJob implements Job {
     }
 
     private void updateTargetJvmId(Target target) {
+        if (StringUtils.isNotBlank(target.jvmId)) {
+            return;
+        }
         final String jvmId =
                 connectionManager
                         .executeConnectedTask(
