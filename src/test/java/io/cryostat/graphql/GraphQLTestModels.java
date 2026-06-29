@@ -666,6 +666,7 @@ public class GraphQLTestModels {
     }
 
     public static class ArchivedRecording {
+        public String jvmId;
         public String name;
         public String reportUrl;
         public String downloadUrl;
@@ -675,6 +676,14 @@ public class GraphQLTestModels {
         public List<KeyValue> labels;
         private DoPutMetadata doPutMetadata;
         public DeletedRecording doDelete;
+
+        public String getJvmId() {
+            return jvmId;
+        }
+
+        public void setJvmId(String jvmId) {
+            this.jvmId = jvmId;
+        }
 
         public String getName() {
             return name;

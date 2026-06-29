@@ -126,7 +126,6 @@ import org.quartz.Trigger;
 import org.quartz.TriggerBuilder;
 import org.quartz.plugins.interrupt.JobInterruptMonitorPlugin;
 import software.amazon.awssdk.core.async.AsyncRequestBody;
-import software.amazon.awssdk.services.s3.S3AsyncClient;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
@@ -145,6 +144,7 @@ import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
 import software.amazon.awssdk.transfer.s3.S3TransferManager;
 import software.amazon.awssdk.transfer.s3.model.UploadFileRequest;
+import software.amazon.awssdk.transfer.s3.model.UploadRequest;
 
 /**
  * Utility class for all things relating to Flight Recording operations. This class is used to
@@ -167,7 +167,6 @@ public class RecordingHelper {
     public static final String DATASOURCE_FILENAME = "cryostat-analysis.jfr";
 
     @Inject S3Client storage;
-    @Inject S3AsyncClient storageAsync;
     @Inject S3TransferManager transferManager;
     final ExecutorService partUploader = Executors.newVirtualThreadPerTaskExecutor();
 
@@ -964,15 +963,16 @@ public class RecordingHelper {
                         item -> {
                             String path = item.key().strip();
                             String[] parts = path.split("/");
+                            String effectiveJvmId = parts[0];
                             String filename = parts[1];
                             Metadata metadata =
-                                    getArchivedRecordingMetadata(jvmId, filename)
+                                    getArchivedRecordingMetadata(effectiveJvmId, filename)
                                             .orElseGet(Metadata::empty);
                             return new ArchivedRecording(
-                                    jvmId,
+                                    effectiveJvmId,
                                     filename,
-                                    downloadUrl(jvmId, filename),
-                                    reportUrl(jvmId, filename),
+                                    downloadUrl(effectiveJvmId, filename),
+                                    reportUrl(effectiveJvmId, filename),
                                     metadata,
                                     item.size(),
                                     item.lastModified().getEpochSecond());
@@ -1021,10 +1021,15 @@ public class RecordingHelper {
                 default:
                     throw new IllegalStateException();
             }
-            storageAsync
-                    .putObject(
-                            builder.build(),
-                            AsyncRequestBody.fromInputStream(stream, null, partUploader))
+            transferManager
+                    .upload(
+                            UploadRequest.builder()
+                                    .putObjectRequest(builder.build())
+                                    .requestBody(
+                                            AsyncRequestBody.fromInputStream(
+                                                    stream, null, partUploader))
+                                    .build())
+                    .completionFuture()
                     .join();
         }
         ArchivedRecording archivedRecording =

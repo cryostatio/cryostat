@@ -160,12 +160,20 @@ type Metadata {
 type Mutation {
   "Archive an existing Flight Recording matching the given filter, on all Targets under the subtrees of the discovery nodes matching the given filter"
   archiveRecording(nodes: DiscoveryNodeFilterInput!, recordings: ActiveRecordingsFilterInput): [ArchivedRecording]
+  "Trigger a heap dump on all Targets under the subtrees of the discovery nodes matching the given filter"
+  createHeapDump(nodes: DiscoveryNodeFilterInput!): [String]
   "Start a new Flight Recording on all Targets under the subtrees of the discovery nodes matching the given filter"
   createRecording(nodes: DiscoveryNodeFilterInput!, recording: RecordingSettingsInput!): [ActiveRecording]
   "Create a Flight Recorder Snapshot on all Targets under the subtrees of the discovery nodes matching the given filter"
   createSnapshot(nodes: DiscoveryNodeFilterInput!): [ActiveRecording]
+  "Trigger a thread dump on all Targets under the subtrees of the discovery nodes matching the given filter"
+  createThreadDump(nodes: DiscoveryNodeFilterInput!): [String]
+  "Delete an existing Heap Dump matching the given filter, on all Targets under the subtrees of the discovery nodes matching the given filter"
+  deleteHeapDump(filter: HeapDumpsFilterInput, nodes: DiscoveryNodeFilterInput!): [HeapDump]
   "Delete an existing Flight Recording matching the given filter, on all Targets under the subtrees of the discovery nodes matching the given filter"
   deleteRecording(nodes: DiscoveryNodeFilterInput!, recordings: ActiveRecordingsFilterInput): [ActiveRecording]
+  "Delete an existing Thread Dump matching the given filter, on all Targets under the subtrees of the discovery nodes matching the given filter"
+  deleteThreadDump(filter: ThreadDumpsFilterInput, nodes: DiscoveryNodeFilterInput!): [ThreadDump]
   "Stop an existing Flight Recording matching the given filter, on all Targets under the subtrees of the discovery nodes matching the given filter"
   stopRecording(nodes: DiscoveryNodeFilterInput!, recordings: ActiveRecordingsFilterInput): [ActiveRecording]
 }
