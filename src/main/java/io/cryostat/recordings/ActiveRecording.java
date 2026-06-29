@@ -15,13 +15,16 @@
  */
 package io.cryostat.recordings;
 
+import java.time.Duration;
 import java.util.Objects;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 import org.openjdk.jmc.common.unit.UnitLookup;
 import org.openjdk.jmc.flightrecorder.configuration.IRecordingDescriptor;
 
+import io.cryostat.ConfigProperties;
 import io.cryostat.recordings.ActiveRecordings.Metadata;
 import io.cryostat.recordings.events.ActiveRecordingEvents;
 import io.cryostat.targets.Target;
@@ -46,6 +49,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.PositiveOrZero;
 import jdk.jfr.RecordingState;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.envers.Audited;
 import org.hibernate.type.SqlTypes;
@@ -184,7 +188,11 @@ public class ActiveRecording extends PanacheEntity {
         @Inject Event<ActiveRecordingEvents.ActiveRecordingCreated> createdEvent;
         @Inject Event<ActiveRecordingEvents.ActiveRecordingStopped> stoppedEvent;
         @Inject Event<ActiveRecordingEvents.ActiveRecordingDeleted> deletedEvent;
-        ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
+
+        @ConfigProperty(name = ConfigProperties.EXTERNAL_RECORDINGS_DELAY)
+        Duration externalRecordingDelay;
+
+        ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
 
         @PostPersist
         public void postPersist(ActiveRecording activeRecording) {
@@ -222,23 +230,32 @@ public class ActiveRecording extends PanacheEntity {
         }
 
         private void doArchive(ActiveRecording activeRecording) {
-            executor.submit(
-                    () ->
-                            QuarkusTransaction.joiningExisting()
-                                    .run(
-                                            () -> {
-                                                try {
-                                                    ActiveRecording recording =
-                                                            ActiveRecording.find(
-                                                                            "id",
-                                                                            activeRecording.id)
-                                                                    .singleResult();
-                                                    recordingHelper.archiveRecording(recording);
-                                                } catch (Exception e) {
-                                                    logger.error(e);
-                                                    throw new RuntimeException(e);
-                                                }
-                                            }));
+            scheduler.schedule(
+                    () -> {
+                        Thread.ofVirtual()
+                                .start(
+                                        () -> {
+                                            QuarkusTransaction.requiringNew()
+                                                    .run(
+                                                            () -> {
+                                                                try {
+                                                                    ActiveRecording recording =
+                                                                            ActiveRecording.find(
+                                                                                            "id",
+                                                                                            activeRecording
+                                                                                                    .id)
+                                                                                    .singleResult();
+                                                                    recordingHelper
+                                                                            .archiveRecording(
+                                                                                    recording);
+                                                                } catch (Exception e) {
+                                                                    logger.error(e);
+                                                                }
+                                                            });
+                                        });
+                    },
+                    externalRecordingDelay.toMillis(),
+                    TimeUnit.MILLISECONDS);
         }
 
         @PostRemove
