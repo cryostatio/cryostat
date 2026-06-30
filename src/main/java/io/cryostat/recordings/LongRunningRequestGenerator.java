@@ -109,6 +109,9 @@ public class LongRunningRequestGenerator {
     @ConfigProperty(name = ConfigProperties.CONNECTIONS_UPLOAD_TIMEOUT)
     Duration uploadFailedTimeout;
 
+    @ConfigProperty(name = ConfigProperties.CONNECTIONS_FAILED_TIMEOUT)
+    Duration connectionFailedTimeout;
+
     public LongRunningRequestGenerator() {}
 
     @ConsumeEvent(value = THREAD_DUMP_ADDRESS, blocking = true)
@@ -226,7 +229,7 @@ public class LongRunningRequestGenerator {
                             new ArchiveRecordingSuccessPayload(
                                     request.id(), rec.name(), rec.reportUrl(), rec.downloadUrl())));
             if (request.deleteOnCompletion) {
-                recordingHelper.deleteRecording(recording).await().indefinitely();
+                recordingHelper.deleteRecording(recording).await().atMost(connectionFailedTimeout);
             }
             return rec;
         } catch (Exception e) {

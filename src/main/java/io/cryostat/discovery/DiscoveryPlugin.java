@@ -18,11 +18,13 @@ package io.cryostat.discovery;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Supplier;
 
 import io.cryostat.credentials.Credential;
+import io.cryostat.discovery.KubeEndpointSlicesDiscovery.KubeDiscoveryNodeType;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -40,6 +42,7 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EntityListeners;
+import jakarta.persistence.EntityManager;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.Id;
@@ -47,6 +50,7 @@ import jakarta.persistence.NamedQueries;
 import jakarta.persistence.NamedQuery;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreRemove;
 import jakarta.transaction.Transactional;
 import jakarta.validation.constraints.NotNull;
 import jakarta.ws.rs.GET;
@@ -107,7 +111,8 @@ public class DiscoveryPlugin extends PanacheEntityBase {
     @OneToOne(
             optional = true, // only nullable for builtins
             fetch = FetchType.LAZY,
-            cascade = CascadeType.REMOVE)
+            cascade = {CascadeType.PERSIST, CascadeType.MERGE, CascadeType.REMOVE},
+            orphanRemoval = true)
     @JsonIgnore
     @Nullable
     @Cache(usage = CacheConcurrencyStrategy.READ_ONLY)
@@ -146,11 +151,90 @@ public class DiscoveryPlugin extends PanacheEntityBase {
                 .singleResultOptional();
     }
 
+    /**
+     * Helper class for plugin cleanup operations in cases where nodes are not under the plugin's
+     * Realm, such as Agent instances using the publication fill algorithm.
+     */
+    @ApplicationScoped
+    static class PluginCleanupHelper {
+
+        @Inject EntityManager entityManager;
+        @Inject Logger logger;
+
+        void cleanupPluginNodes(DiscoveryPlugin plugin) {
+            cleanupPluginNodes(plugin.id);
+        }
+
+        void cleanupPluginNodes(UUID pluginId) {
+            // Clean up target nodes that belong to this plugin
+            // For KUBERNETES fill strategy, these are under KubernetesApi Realm, tagged with
+            // plugin ID
+            // For NONE fill strategy, cascade deletion handles cleanup when Agent Realm is
+            // deleted
+            List<DiscoveryNode> pluginNodes = DiscoveryNode.getByPluginId(pluginId);
+            if (pluginNodes == null || pluginNodes.isEmpty()) {
+                return;
+            }
+            for (DiscoveryNode node : pluginNodes) {
+                try {
+                    DiscoveryNode parent = node.parent;
+                    if (parent != null) {
+                        parent.children.remove(node);
+                        node.parent = null;
+                    }
+                    node.delete();
+                    pruneEmptyAncestors(parent);
+                } catch (Exception e) {
+                    logger.warn(e);
+                }
+            }
+        }
+
+        void pruneEmptyAncestors(DiscoveryNode child) {
+            // Walk up the hierarchy, removing childless nodes from their parents
+            while (child != null) {
+                DiscoveryNode parent = child.parent;
+
+                if (parent == null) {
+                    logger.debugv(
+                            "Reached orphaned node {0} (id={1}), relying on orphan removal",
+                            child.name, child.id);
+                    break;
+                }
+
+                entityManager.refresh(parent);
+
+                // Remove child from parent's collection - orphan removal will delete it
+                parent.children.remove(child);
+                child.parent = null;
+
+                boolean hasChildren = parent.hasChildren();
+                boolean isNamespace =
+                        parent.nodeType.equals(KubeDiscoveryNodeType.NAMESPACE.getKind());
+                boolean isRealm = parent.nodeType.equals("Realm");
+
+                logger.debugv(
+                        "Parent node {0} (id={1}, type={2}): hasChildren={3}, isNamespace={4},"
+                                + " isRealm={5}",
+                        parent.name, parent.id, parent.nodeType, hasChildren, isNamespace, isRealm);
+
+                if (isRealm || hasChildren) {
+                    logger.debugv("Stopping pruning at parent node {0}", parent.name);
+                    break;
+                }
+
+                logger.debugv("Continuing to prune parent node {0}", parent.name);
+                child = parent;
+            }
+        }
+    }
+
     @ApplicationScoped
     static class Listener {
 
         @Inject Logger logger;
         @Inject PluginCallbackFactory callbackFactory;
+        @Inject PluginCleanupHelper cleanupHelper;
 
         @PrePersist
         @Transactional
@@ -165,8 +249,10 @@ public class DiscoveryPlugin extends PanacheEntityBase {
                 var credential = getCredential(plugin);
                 plugin.credential = credential;
                 credential.discoveryPlugin = plugin;
-                plugin.callback = UriBuilder.fromUri(plugin.callback).userInfo(null).build();
+            } else {
+                plugin.credential.discoveryPlugin = plugin;
             }
+            plugin.callback = UriBuilder.fromUri(plugin.callback).userInfo(null).build();
             if (plugin.nextPingAt != null
                     || plugin.lastFailedPing != null
                     || plugin.lastSuccessfulPing != null) {
@@ -188,6 +274,17 @@ public class DiscoveryPlugin extends PanacheEntityBase {
             } catch (Exception e) {
                 logger.error("Discovery Plugin ping failed", e);
                 throw e;
+            }
+        }
+
+        @PreRemove
+        @Transactional
+        public void preRemove(DiscoveryPlugin plugin) {
+            logger.debugv("PreRemove lifecycle hook triggered for plugin ID {0}", plugin.id);
+            try {
+                cleanupHelper.cleanupPluginNodes(plugin);
+            } catch (Exception e) {
+                logger.warn("Error during plugin cleanup", e);
             }
         }
 
@@ -233,11 +330,15 @@ public class DiscoveryPlugin extends PanacheEntityBase {
         public void refresh();
 
         public static PluginCallback create(DiscoveryPlugin plugin) throws URISyntaxException {
+            return create(plugin.callback, plugin.credential);
+        }
+
+        public static PluginCallback create(URI callback, Credential credential) {
             PluginCallback client =
                     QuarkusRestClientBuilder.newBuilder()
-                            .baseUri(plugin.callback)
+                            .baseUri(callback)
                             .clientHeadersFactory(
-                                    new DiscoveryPluginAuthorizationHeaderFactory(plugin))
+                                    new DiscoveryPluginAuthorizationHeaderFactory(credential))
                             .build(PluginCallback.class);
             return client;
         }
@@ -248,10 +349,14 @@ public class DiscoveryPlugin extends PanacheEntityBase {
             private final Supplier<UsernamePasswordCredentials> credentialSupplier;
 
             public DiscoveryPluginAuthorizationHeaderFactory(DiscoveryPlugin plugin) {
+                this(plugin.credential);
+            }
+
+            public DiscoveryPluginAuthorizationHeaderFactory(Credential credential) {
                 this(
                         () ->
                                 new UsernamePasswordCredentials(
-                                        plugin.credential.username, plugin.credential.password));
+                                        credential.username, credential.password));
             }
 
             public DiscoveryPluginAuthorizationHeaderFactory(

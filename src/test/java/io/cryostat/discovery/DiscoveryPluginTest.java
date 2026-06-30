@@ -21,9 +21,12 @@ import java.net.URI;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 import io.cryostat.AbstractTransactionalTestBase;
+import io.cryostat.credentials.Credential;
 
+import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
 import org.hamcrest.MatcherAssert;
@@ -583,6 +586,348 @@ public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
                 .when()
                 .header(DISCOVERY_HEADER, pluginToken2)
                 .delete(String.format("/api/v4/discovery/%s", pluginId1))
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(204);
+    }
+
+    @Test
+    void testAgentRegistrationPublishesAndStoresCredential() {
+        var realmName = "agent_registration_test_realm";
+        var callback = "http://localhost:8081/health/liveness";
+        var target = new Target(URI.create("http://localhost:8081"), "agent-node");
+        var node = new Node("agent-node", NodeType.BaseNodeType.AGENT.getKind(), target);
+
+        var registration =
+                given().log()
+                        .all()
+                        .when()
+                        .body(
+                                Map.of(
+                                        "realm",
+                                        realmName,
+                                        "callback",
+                                        callback,
+                                        "credential",
+                                        Map.of(
+                                                "matchExpression",
+                                                "true",
+                                                "username",
+                                                "user",
+                                                "password",
+                                                "pass"),
+                                        "nodes",
+                                        List.of(node),
+                                        "fillStrategy",
+                                        "NONE",
+                                        "context",
+                                        Map.of()))
+                        .contentType(ContentType.JSON)
+                        .post("/api/v4.3/discovery/agents")
+                        .then()
+                        .log()
+                        .all()
+                        .and()
+                        .assertThat()
+                        .statusCode(200)
+                        .contentType(ContentType.JSON)
+                        .extract()
+                        .jsonPath();
+
+        var pluginId = registration.getString("id");
+        var pluginToken = registration.getString("token");
+        MatcherAssert.assertThat(pluginId, Matchers.is(Matchers.not(Matchers.emptyOrNullString())));
+        MatcherAssert.assertThat(
+                pluginToken, Matchers.is(Matchers.not(Matchers.emptyOrNullString())));
+
+        Long credentialId =
+                QuarkusTransaction.requiringNew()
+                        .call(
+                                () -> {
+                                    var plugin =
+                                            DiscoveryPlugin.<DiscoveryPlugin>findById(
+                                                    UUID.fromString(pluginId));
+                                    MatcherAssert.assertThat(
+                                            plugin.credential, Matchers.notNullValue());
+                                    MatcherAssert.assertThat(
+                                            plugin.credential.matchExpression.script,
+                                            Matchers.equalTo("true"));
+                                    return plugin.credential.id;
+                                });
+
+        given().log()
+                .all()
+                .when()
+                .get(String.format("/api/v4/discovery_plugins/%s", pluginId))
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(200)
+                .contentType(ContentType.JSON)
+                .body("realm.children", Matchers.hasSize(1))
+                .body("realm.children[0].name", Matchers.equalTo("agent-node"))
+                .body("realm.children[0].nodeType", Matchers.equalTo("CryostatAgent"))
+                .body("realm.children[0].target.alias", Matchers.equalTo("agent-node"));
+
+        given().log()
+                .all()
+                .when()
+                .header(DISCOVERY_HEADER, pluginToken)
+                .delete(String.format("/api/v4/discovery/%s", pluginId))
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(204);
+
+        QuarkusTransaction.requiringNew()
+                .run(
+                        () ->
+                                MatcherAssert.assertThat(
+                                        Credential.findById(credentialId), Matchers.nullValue()));
+    }
+
+    @Test
+    void testAgentReregistrationUpdatesCredentialAndRepublishes() {
+        var realmName = "agent_reregistration_test_realm";
+        var callback = "http://localhost:8081/health/liveness";
+        var target = new Target(URI.create("http://localhost:8081"), "agent-node");
+        var node = new Node("agent-node", NodeType.BaseNodeType.AGENT.getKind(), target);
+        var requestBody =
+                Map.of(
+                        "realm",
+                        realmName,
+                        "callback",
+                        callback,
+                        "credential",
+                        Map.of(
+                                "matchExpression", "true",
+                                "username", "user",
+                                "password", "pass"),
+                        "nodes",
+                        List.of(node),
+                        "fillStrategy",
+                        "NONE",
+                        "context",
+                        Map.of());
+
+        var firstRegistration =
+                given().log()
+                        .all()
+                        .when()
+                        .body(requestBody)
+                        .contentType(ContentType.JSON)
+                        .post("/api/v4.3/discovery/agents")
+                        .then()
+                        .log()
+                        .all()
+                        .and()
+                        .assertThat()
+                        .statusCode(200)
+                        .contentType(ContentType.JSON)
+                        .extract()
+                        .jsonPath();
+        var pluginId = firstRegistration.getString("id");
+
+        Long firstCredentialId =
+                QuarkusTransaction.requiringNew()
+                        .call(
+                                () ->
+                                        DiscoveryPlugin.<DiscoveryPlugin>findById(
+                                                        UUID.fromString(pluginId))
+                                                .credential
+                                                .id);
+
+        var updatedRequestBody =
+                Map.of(
+                        "realm",
+                        realmName,
+                        "callback",
+                        callback,
+                        "credential",
+                        Map.of(
+                                "matchExpression", "true",
+                                "username", "user",
+                                "password", "updated-pass"),
+                        "nodes",
+                        List.of(node),
+                        "fillStrategy",
+                        "NONE",
+                        "context",
+                        Map.of());
+
+        // Re-register as the same Agent with changed credentials, ex. after the Agent has rotated
+        // its local credential configuration. The same plugin and credential records should be
+        // reused, the stored credential secret should be updated, and the published nodes should be
+        // replaced rather than duplicated.
+        var secondRegistration =
+                given().log()
+                        .all()
+                        .when()
+                        .body(updatedRequestBody)
+                        .contentType(ContentType.JSON)
+                        .post("/api/v4.3/discovery/agents")
+                        .then()
+                        .log()
+                        .all()
+                        .and()
+                        .assertThat()
+                        .statusCode(200)
+                        .contentType(ContentType.JSON)
+                        .extract()
+                        .jsonPath();
+        MatcherAssert.assertThat(secondRegistration.getString("id"), Matchers.equalTo(pluginId));
+
+        QuarkusTransaction.requiringNew()
+                .run(
+                        () -> {
+                            var plugin =
+                                    DiscoveryPlugin.<DiscoveryPlugin>findById(
+                                            UUID.fromString(pluginId));
+                            MatcherAssert.assertThat(plugin.credential, Matchers.notNullValue());
+                            MatcherAssert.assertThat(
+                                    plugin.credential.id, Matchers.equalTo(firstCredentialId));
+                            MatcherAssert.assertThat(
+                                    plugin.credential.username, Matchers.equalTo("user"));
+                            MatcherAssert.assertThat(
+                                    plugin.credential.password, Matchers.equalTo("updated-pass"));
+                        });
+
+        given().log()
+                .all()
+                .when()
+                .get(String.format("/api/v4/discovery_plugins/%s", pluginId))
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(200)
+                .contentType(ContentType.JSON)
+                .body("realm.children", Matchers.hasSize(1))
+                .body("realm.children[0].name", Matchers.equalTo("agent-node"));
+
+        given().log()
+                .all()
+                .when()
+                .header(DISCOVERY_HEADER, secondRegistration.getString("token"))
+                .delete(String.format("/api/v4/discovery/%s", pluginId))
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(204);
+    }
+
+    @Test
+    void testAgentReregistrationPreservesTargetIdentity() {
+        // cryostatio/cryostat#1604: re-registration with an unchanged node set must preserve the
+        // Target, not delete and recreate it (which fires LOST then FOUND).
+        var realmName = "agent_identity_test_realm";
+        var callback = "http://localhost:8081/health/liveness";
+        var connectUrl = URI.create("http://localhost:8081");
+        var target = new Target(connectUrl, "agent-node");
+        var node = new Node("agent-node", NodeType.BaseNodeType.AGENT.getKind(), target);
+        var requestBody =
+                Map.of(
+                        "realm",
+                        realmName,
+                        "callback",
+                        callback,
+                        "credential",
+                        Map.of(
+                                "matchExpression", "true",
+                                "username", "user",
+                                "password", "pass"),
+                        "nodes",
+                        List.of(node),
+                        "fillStrategy",
+                        "NONE",
+                        "context",
+                        Map.of());
+
+        var firstRegistration =
+                given().log()
+                        .all()
+                        .when()
+                        .body(requestBody)
+                        .contentType(ContentType.JSON)
+                        .post("/api/v4.3/discovery/agents")
+                        .then()
+                        .log()
+                        .all()
+                        .and()
+                        .assertThat()
+                        .statusCode(200)
+                        .contentType(ContentType.JSON)
+                        .extract()
+                        .jsonPath();
+        var pluginId = firstRegistration.getString("id");
+
+        Long firstTargetId =
+                QuarkusTransaction.requiringNew()
+                        .call(
+                                () ->
+                                        io.cryostat.targets.Target.getTargetByConnectUrl(connectUrl)
+                                                .id);
+        Long firstCredentialId =
+                QuarkusTransaction.requiringNew()
+                        .call(
+                                () ->
+                                        DiscoveryPlugin.<DiscoveryPlugin>findById(
+                                                        UUID.fromString(pluginId))
+                                                .credential
+                                                .id);
+
+        // Re-register the same Agent with an identical node set (ex. a registration refresh).
+        var secondRegistration =
+                given().log()
+                        .all()
+                        .when()
+                        .body(requestBody)
+                        .contentType(ContentType.JSON)
+                        .post("/api/v4.3/discovery/agents")
+                        .then()
+                        .log()
+                        .all()
+                        .and()
+                        .assertThat()
+                        .statusCode(200)
+                        .contentType(ContentType.JSON)
+                        .extract()
+                        .jsonPath();
+        MatcherAssert.assertThat(secondRegistration.getString("id"), Matchers.equalTo(pluginId));
+
+        Long secondTargetId =
+                QuarkusTransaction.requiringNew()
+                        .call(
+                                () ->
+                                        io.cryostat.targets.Target.getTargetByConnectUrl(connectUrl)
+                                                .id);
+        Long secondCredentialId =
+                QuarkusTransaction.requiringNew()
+                        .call(
+                                () ->
+                                        DiscoveryPlugin.<DiscoveryPlugin>findById(
+                                                        UUID.fromString(pluginId))
+                                                .credential
+                                                .id);
+
+        MatcherAssert.assertThat(secondTargetId, Matchers.equalTo(firstTargetId));
+        MatcherAssert.assertThat(secondCredentialId, Matchers.equalTo(firstCredentialId));
+
+        given().log()
+                .all()
+                .when()
+                .header(DISCOVERY_HEADER, secondRegistration.getString("token"))
+                .delete(String.format("/api/v4/discovery/%s", pluginId))
                 .then()
                 .log()
                 .all()

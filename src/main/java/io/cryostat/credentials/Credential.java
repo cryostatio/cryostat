@@ -92,7 +92,7 @@ public class Credential extends PanacheEntity {
                             'default_key')
                         )
                     """)
-    @Column(updatable = false, columnDefinition = "bytea")
+    @Column(columnDefinition = "bytea")
     @NotBlank
     @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     public String username;
@@ -114,16 +114,12 @@ public class Credential extends PanacheEntity {
                             'default_key')
                         )
                     """)
-    @Column(updatable = false, columnDefinition = "bytea")
+    @Column(columnDefinition = "bytea")
     @NotBlank
     @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     public String password;
 
-    @OneToOne(
-            optional = true,
-            fetch = FetchType.LAZY,
-            mappedBy = "credential",
-            cascade = CascadeType.REMOVE)
+    @OneToOne(optional = true, fetch = FetchType.LAZY, mappedBy = "credential")
     @JoinColumn(name = "discoveryPlugin_id")
     @JsonIgnore
     @Nullable

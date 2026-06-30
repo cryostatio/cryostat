@@ -27,7 +27,7 @@ jobs:
       if: |
         !(github.event.comment.author_association == 'MEMBER' || github.event.comment.author_association == 'OWNER')
         && (!contains(github.event.issue.labels.*.name, 'safe-to-test') || github.event.issue.user.login != github.event.comment.user.login)
-      uses: thollander/actions-comment-pull-request@v3
+      uses: thollander/actions-comment-pull-request@24bffb9b452ba05a4f3f77933840a6a841d1b32b # v3.0.1
       with:
         message: |-
           You do not have permission to run the /build_test command. Please ask @cryostatio/reviewers
@@ -38,7 +38,7 @@ jobs:
         && (!contains(github.event.issue.labels.*.name, 'safe-to-test') || github.event.issue.user.login != github.event.comment.user.login)
       run: exit 1
     - name: React to comment
-      uses: actions/github-script@v9
+      uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
       with:
         script: |
             const {owner, repo} = context.issue
@@ -60,7 +60,7 @@ jobs:
     permissions:
       pull-requests: read
     steps:
-    - uses: actions/github-script@v9
+    - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
       id: comment-branch
       with:
         script: |
@@ -78,7 +78,7 @@ jobs:
       pull-requests: write
     steps:
     - name: Leave Actions Run Comment
-      uses: actions/github-script@v9
+      uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
       with:
         script: |
           const runURL = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${{ github.run_id }}`;
@@ -105,18 +105,18 @@ jobs:
       pull-requests: write
       statuses: write
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       with:
         repository: ${{ needs.checkout-branch.outputs.PR_repo }}
         ref: ${{ needs.checkout-branch.outputs.PR_head_ref }}
         submodules: false
         fetch-depth: 0
-    - uses: actions/setup-java@v5
+    - uses: actions/setup-java@1bcf9fb12cf4aa7d266a90ae39939e61372fe520 # v5.4.0
       with:
-        java-version: '21'
+        java-version: '25'
         distribution: 'temurin'
         cache: 'maven'
-    - uses: DamianReeves/write-file-action@v1.3
+    - uses: DamianReeves/write-file-action@6929a9a6d1807689191dcc8bbe62b54d70a32b42 # v1.3
       with:
         path: /home/runner/.config/containers/registries.conf.d/999-block-docker-io.conf
         write-mode: overwrite
@@ -124,12 +124,19 @@ jobs:
           [[registry]]
           location = "docker.io"
           blocked = true
+    - uses: DamianReeves/write-file-action@6929a9a6d1807689191dcc8bbe62b54d70a32b42 # v1.3
+      with:
+        path: /home/runner/.config/containers/containers.conf.d/999-service-timeout.conf
+        write-mode: overwrite
+        contents: |
+          [engine]
+          service_timeout=0
     - name: Install ansi2txt utility
       run: |
         sudo apt-get update
         sudo apt-get install -y colorized-logs
     - name: Set pending commit status
-      uses: myrotvorets/set-commit-status-action@v2.0.1
+      uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
       if: always()
       with:
         context: unit-test
@@ -150,7 +157,7 @@ jobs:
           clean test > test.log 2>&1
     - run: tail -500l test.log
       if: always()
-    - uses: actions/upload-artifact@v7
+    - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
       if: always()
       with:
         name: cryostat-unittest.log
@@ -167,7 +174,7 @@ jobs:
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     - name: Set latest commit status
-      uses: myrotvorets/set-commit-status-action@v2.0.1
+      uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
       if: always()
       with:
         context: unit-test
@@ -189,18 +196,18 @@ jobs:
       pull-requests: write
       statuses: write
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       with:
         repository: ${{ needs.checkout-branch.outputs.PR_repo }}
         ref: ${{ needs.checkout-branch.outputs.PR_head_ref }}
         submodules: true
         fetch-depth: 0
-    - uses: actions/setup-java@v5
+    - uses: actions/setup-java@1bcf9fb12cf4aa7d266a90ae39939e61372fe520 # v5.4.0
       with:
-        java-version: '21'
+        java-version: '25'
         distribution: 'temurin'
         cache: 'maven'
-    - uses: DamianReeves/write-file-action@v1.3
+    - uses: DamianReeves/write-file-action@6929a9a6d1807689191dcc8bbe62b54d70a32b42 # v1.3
       with:
         path: /home/runner/.config/containers/registries.conf.d/999-block-docker-io.conf
         write-mode: overwrite
@@ -208,12 +215,19 @@ jobs:
           [[registry]]
           location = "docker.io"
           blocked = true
+    - uses: DamianReeves/write-file-action@6929a9a6d1807689191dcc8bbe62b54d70a32b42 # v1.3
+      with:
+        path: /home/runner/.config/containers/containers.conf.d/999-service-timeout.conf
+        write-mode: overwrite
+        contents: |
+          [engine]
+          service_timeout=0
     - name: Install ansi2txt utility
       run: |
         sudo apt-get update
         sudo apt-get install -y colorized-logs
     - name: Set pending commit status
-      uses: myrotvorets/set-commit-status-action@v2.0.1
+      uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
       if: always()
       with:
         context: integration-test
@@ -222,7 +236,7 @@ jobs:
         status: pending
     - run: git submodule init && git submodule update
     - name: Cache yarn packages
-      uses: actions/cache@v5
+      uses: actions/cache@2c8a9bd7457de244a408f35966fab2fb45fda9c8 # v6.0.0
       with:
         path: "./src/main/webui/.yarn/cache"
         key: ${{ runner.os }}-build-${{ env.deps-cache-name }}-${{ hashFiles('**/yarn.lock') }}
@@ -231,7 +245,7 @@ jobs:
           ${{ runner.os }}-build-
           ${{ runner.os }}-
     - name: Cache frontend build
-      uses: actions/cache@v5
+      uses: actions/cache@2c8a9bd7457de244a408f35966fab2fb45fda9c8 # v6.0.0
       with:
         path: "./src/main/webui/.build_cache"
         key: ${{ runner.os }}-build-${{ env.build-cache-name }}-${{ hashFiles('**/yarn.lock') }}
@@ -259,14 +273,14 @@ jobs:
           clean verify > test.log 2>&1
     - run: tail -500l test.log
       if: always()
-    - uses: actions/upload-artifact@v7
+    - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
       if: always()
       with:
         name: cryostat-itest-harness.log
         path: test.log
     - run: tail -500l target/quarkus.log
       if: always()
-    - uses: actions/upload-artifact@v7
+    - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
       if: always()
       with:
         name: cryostat-itest-server.log
@@ -283,7 +297,7 @@ jobs:
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     - name: Set latest commit status
-      uses: myrotvorets/set-commit-status-action@v2.0.1
+      uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
       if: always()
       with:
         context: integration-test
@@ -306,33 +320,33 @@ jobs:
       NOTIFICATIONS_STATUS: ${{ fromJSON(steps.schema-update.outputs.outputs).notifications_status }}
       NOTIFICATIONS_DIFF_FILE: ${{ fromJSON(steps.schema-update.outputs.outputs).notifications_diff_file }}
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       with:
         repository: ${{ needs.checkout-branch.outputs.PR_repo }}
         ref: ${{ needs.checkout-branch.outputs.PR_head_ref }}
         submodules: true
         fetch-depth: 0
-    - uses: actions/setup-java@v5
+    - uses: actions/setup-java@1bcf9fb12cf4aa7d266a90ae39939e61372fe520 # v5.4.0
       with:
-        java-version: '21'
+        java-version: '25'
         distribution: 'temurin'
         cache: 'maven'
     - name: Set pending commit status for OpenAPI schema
-      uses: myrotvorets/set-commit-status-action@v2.0.1
+      uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
       with:
         context: openapi-schema-check
         sha: ${{ needs.checkout-branch.outputs.PR_head_sha }}
         token: ${{ secrets.GITHUB_TOKEN }}
         status: pending
     - name: Set pending commit status for GraphQL schema
-      uses: myrotvorets/set-commit-status-action@v2.0.1
+      uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
       with:
         context: graphql-schema-check
         sha: ${{ needs.checkout-branch.outputs.PR_head_sha }}
         token: ${{ secrets.GITHUB_TOKEN }}
         status: pending
     - name: Set pending commit status for Notifications schema
-      uses: myrotvorets/set-commit-status-action@v2.0.1
+      uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
       with:
         context: notifications-schema-check
         sha: ${{ needs.checkout-branch.outputs.PR_head_sha }}
@@ -341,7 +355,7 @@ jobs:
     - run: git submodule init && git submodule update
     - id: schema-update
       name: Update schemas
-      uses: Wandalen/wretry.action@v3.8.0
+      uses: Wandalen/wretry.action@e68c23e6309f2871ca8ae4763e7629b9c258e1ea # v3.8.0
       with:
         attempt_limit: 3
         command: |
@@ -362,15 +376,15 @@ jobs:
           echo "graphql_diff_file=graphql.diff" >> "$GITHUB_OUTPUT"
           echo "notifications_status=${NOTIFICATIONS_STATUS}" >> "$GITHUB_OUTPUT"
           echo "notifications_diff_file=notifications.diff" >> "$GITHUB_OUTPUT"
-    - uses: actions/upload-artifact@v7
+    - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
       with:
         name: openapi-diff
         path: /home/runner/work/openapi.diff
-    - uses: actions/upload-artifact@v7
+    - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
       with:
         name: graphql-diff
         path: /home/runner/work/graphql.diff
-    - uses: actions/upload-artifact@v7
+    - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
       with:
         name: notifications-diff
         path: /home/runner/work/notifications.diff
@@ -382,11 +396,11 @@ jobs:
       pull-requests: write
       statuses: write
     steps:
-    - uses: actions/download-artifact@v8
+    - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
       with:
         name: openapi-diff
     - name: Comment schema check result
-      uses: actions/github-script@v9
+      uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
       with:
         script: |
           const diffFmt = s => {
@@ -402,7 +416,7 @@ jobs:
             body: commentBody
           });
     - name: Set commit status
-      uses: myrotvorets/set-commit-status-action@v2.0.1
+      uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
       if: always()
       with:
         context: openapi-schema-check
@@ -418,11 +432,11 @@ jobs:
       pull-requests: write
       statuses: write
     steps:
-    - uses: actions/download-artifact@v8
+    - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
       with:
         name: graphql-diff
     - name: Comment schema check result
-      uses: actions/github-script@v9
+      uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
       with:
         script: |
           const diffFmt = s => {
@@ -438,7 +452,7 @@ jobs:
             body: commentBody
           });
     - name: Set commit status
-      uses: myrotvorets/set-commit-status-action@v2.0.1
+      uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
       if: always()
       with:
         context: graphql-schema-check
@@ -454,11 +468,11 @@ jobs:
       pull-requests: write
       statuses: write
     steps:
-    - uses: actions/download-artifact@v8
+    - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
       with:
         name: notifications-diff
     - name: Comment schema check result
-      uses: actions/github-script@v9
+      uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
       with:
         script: |
           const diffFmt = s => {
@@ -474,7 +488,7 @@ jobs:
             body: commentBody
           });
     - name: Set commit status
-      uses: myrotvorets/set-commit-status-action@v2.0.1
+      uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
       if: always()
       with:
         context: notifications-schema-check

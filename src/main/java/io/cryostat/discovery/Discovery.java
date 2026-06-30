@@ -40,8 +40,11 @@ import java.util.UUID;
 import io.cryostat.ConfigProperties;
 import io.cryostat.credentials.Credential;
 import io.cryostat.discovery.DiscoveryPlugin.PluginCallback;
+import io.cryostat.discovery.DiscoveryPlugin.PluginCleanupHelper;
 import io.cryostat.discovery.KubeEndpointSlicesDiscovery.KubeDiscoveryNodeType;
 import io.cryostat.discovery.NodeType.BaseNodeType;
+import io.cryostat.expressions.MatchExpression;
+import io.cryostat.targets.Target.Annotations;
 import io.cryostat.targets.TargetConnectionManager;
 import io.cryostat.util.URIUtil;
 
@@ -51,6 +54,7 @@ import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jwt.proc.BadJWTException;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.quarkus.narayana.jta.QuarkusTransaction;
+import io.quarkus.panache.common.Parameters;
 import io.quarkus.runtime.ShutdownEvent;
 import io.smallrye.common.annotation.Blocking;
 import io.smallrye.faulttolerance.api.RateLimit;
@@ -73,6 +77,7 @@ import jakarta.ws.rs.DefaultValue;
 import jakarta.ws.rs.ForbiddenException;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.InternalServerErrorException;
+import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
@@ -120,6 +125,10 @@ public class Discovery {
     private static final String PLUGIN_ID_MAP_KEY = "pluginId";
     private static final String REFRESH_MAP_KEY = "refresh";
 
+    public static final String DISCOVERY_PLUGIN_LABEL_PREFIX = "discovery.cryostat.io/";
+    public static final String DISCOVERY_PLUGIN_ID_LABEL_KEY =
+            DISCOVERY_PLUGIN_LABEL_PREFIX + "plugin-id";
+
     @ConfigProperty(name = ConfigProperties.DISCOVERY_PLUGINS_PING_PERIOD)
     Duration discoveryPingPeriod;
 
@@ -139,6 +148,7 @@ public class Discovery {
     @Inject URIUtil uriUtil;
     @Inject KubeEndpointSlicesDiscovery k8sDiscovery;
     @Inject PluginCallbackFactory callbackFactory;
+    @Inject PluginCleanupHelper cleanupHelper;
     @Inject EntityManager entityManager;
 
     void onStop(@Observes ShutdownEvent evt) throws SchedulerException {
@@ -235,56 +245,8 @@ public class Discovery {
         String pluginId = body.getString("id");
         String priorToken = body.getString("token");
         String realmName = body.getString("realm");
-        URI callbackUri;
-        try {
-            String callback = body.getString("callback");
-            if (StringUtils.isBlank(callback)) {
-                throw new BadRequestException("callback cannot be blank");
-            }
-            callbackUri = new URI(callback);
-        } catch (URISyntaxException e) {
-            throw new BadRequestException(e);
-        }
-        URI unauthCallback = UriBuilder.fromUri(callbackUri).userInfo(null).build();
-
-        InetAddress remoteAddress = getRemoteAddress(ctx);
-        URI remoteURI;
-        try {
-            remoteURI = new URI(remoteAddress.getHostAddress());
-        } catch (URISyntaxException e) {
-            throw new BadRequestException(e);
-        }
-
-        try {
-            if (!uriUtil.validateUri(callbackUri)) {
-                throw new BadRequestException(
-                        String.format(
-                                "cryostat.target.callback of \"%s\" is unacceptable with the"
-                                        + " current URI range settings",
-                                callbackUri));
-            }
-            if (!uriUtil.validateUri(remoteURI)) {
-                throw new BadRequestException(
-                        String.format(
-                                "Remote Address of \"%s\" is unacceptable with the"
-                                        + " current URI range settings",
-                                remoteURI));
-            }
-        } catch (MalformedURLException e) {
-            throw new BadRequestException(e);
-        }
-
-        for (var e : new String[] {callbackUri.getScheme(), callbackUri.getHost()}) {
-            if (StringUtils.isBlank(e)) {
-                throw new BadRequestException("callback must contain scheme and host");
-            }
-        }
-        if (agentTlsRequired && !callbackUri.getScheme().equals("https")) {
-            throw new BadRequestException(
-                    String.format(
-                            "TLS for agent connections is required by (%s)",
-                            ConfigProperties.AGENT_TLS_REQUIRED));
-        }
+        CallbackValidation callback =
+                validateCallback(ctx, body.getString("callback"), "cryostat.target.callback");
 
         List<URI> locations;
         DiscoveryPlugin plugin;
@@ -296,13 +258,13 @@ public class Discovery {
             if (!Objects.equals(plugin.realm.name, realmName)) {
                 throw new ForbiddenException();
             }
-            if (!Objects.equals(plugin.callback, unauthCallback)) {
+            if (!Objects.equals(plugin.callback, callback.unauthCallback())) {
                 throw new BadRequestException("plugin callback mismatch");
             }
             try {
                 locations = jwtFactory.getPluginLocations(plugin);
                 jwtFactory.parseDiscoveryPluginJwt(
-                        plugin, priorToken, locations, remoteAddress, false);
+                        plugin, priorToken, locations, callback.remoteAddress(), false);
             } catch (URISyntaxException
                     | UnknownHostException
                     | SocketException
@@ -318,95 +280,15 @@ public class Discovery {
             // does, ping it:
             // - if it's still there reject this request as a duplicate
             // - otherwise delete the previous record and accept this new one as a replacement
-            boolean isNewPlugin = false;
             plugin =
                     QuarkusTransaction.joiningExisting()
                             .call(
-                                    () -> {
-                                        Optional<DiscoveryPlugin> existing =
-                                                DiscoveryPlugin.findByCallbackAndRealmName(
-                                                        unauthCallback, realmName);
-
-                                        if (existing.isPresent()) {
-                                            logger.debugv(
-                                                    "Reusing existing plugin: {0}",
-                                                    existing.get().id);
-                                            return existing.get();
-                                        }
-
-                                        // Check for plugin with same callback, different realm
-                                        Optional<DiscoveryPlugin> byCallback =
-                                                DiscoveryPlugin.<DiscoveryPlugin>find(
-                                                                "callback", unauthCallback)
-                                                        .singleResultOptional();
-
-                                        if (byCallback.isPresent()) {
-                                            DiscoveryPlugin p = byCallback.get();
-                                            try {
-                                                var cb = callbackFactory.create(p);
-                                                cb.ping();
-                                                // Plugin is reachable but has different realm
-                                                throw new DuplicatePluginException(
-                                                        String.format(
-                                                                "Plugin with callback %s already"
-                                                                        + " exists and is still"
-                                                                        + " reachable",
-                                                                unauthCallback));
-                                            } catch (Exception e) {
-                                                if (!(e instanceof DuplicatePluginException)) {
-                                                    // Plugin unreachable, delete and create new
-                                                    logger.debug(e);
-                                                    UUID oldPluginId = p.id;
-                                                    try {
-                                                        var toDelete =
-                                                                DiscoveryPlugin
-                                                                        .<DiscoveryPlugin>findById(
-                                                                                oldPluginId);
-                                                        if (toDelete != null) {
-                                                            toDelete.delete();
-                                                            logger.debugv(
-                                                                    "Deleted unreachable plugin:"
-                                                                            + " {0}",
-                                                                    oldPluginId);
-                                                        } else {
-                                                            logger.debugv(
-                                                                    "Plugin already deleted"
-                                                                        + " (concurrent cleanup):"
-                                                                        + " {0}",
-                                                                    oldPluginId);
-                                                        }
-                                                    } catch (Exception deleteEx) {
-                                                        logger.debugv(
-                                                                deleteEx,
-                                                                "Failed to delete unreachable"
-                                                                        + " plugin (may already be"
-                                                                        + " deleted): {0}",
-                                                                oldPluginId);
-                                                    }
-                                                } else {
-                                                    throw e;
-                                                }
-                                            }
-                                        }
-
-                                        // Create new plugin
-                                        DiscoveryPlugin p = new DiscoveryPlugin();
-                                        p.callback = callbackUri;
-                                        p.realm =
-                                                DiscoveryNode.environment(
-                                                        requireNonBlank(realmName, "realm"),
-                                                        NodeType.BaseNodeType.REALM);
-                                        p.builtin = false;
-
-                                        var universe = DiscoveryNode.getUniverse();
-                                        p.realm.parent = universe;
-                                        p.persist();
-                                        universe.children.add(p.realm);
-                                        universe.persist();
-
-                                        logger.debugv("Created new plugin: {0}", p.id);
-                                        return p;
-                                    });
+                                    () ->
+                                            findOrCreatePlugin(
+                                                    callback.callbackUri(),
+                                                    callback.unauthCallback(),
+                                                    realmName,
+                                                    null));
 
             try {
                 locations = jwtFactory.getPluginLocations(plugin);
@@ -414,48 +296,110 @@ public class Discovery {
                 throw new BadRequestException(e);
             }
 
-            isNewPlugin = !scheduler.checkExists(getPeriodicJobKey(plugin));
-            if (isNewPlugin) {
-                var dataMap = new JobDataMap();
-                dataMap.put(PLUGIN_ID_MAP_KEY, plugin.id);
-                dataMap.put(REFRESH_MAP_KEY, true);
-                JobDetail jobDetail =
-                        JobBuilder.newJob(RefreshPluginJob.class)
-                                .withIdentity(plugin.id.toString(), JOB_PERIODIC)
-                                .usingJobData(dataMap)
-                                .build();
-                var trigger =
-                        TriggerBuilder.newTrigger()
-                                .withIdentity(
-                                        jobDetail.getKey().getName(), jobDetail.getKey().getGroup())
-                                .startAt(Date.from(Instant.now().plus(discoveryPingPeriod)))
-                                .withSchedule(
-                                        SimpleScheduleBuilder.simpleSchedule()
-                                                .repeatForever()
-                                                .withIntervalInSeconds(
-                                                        (int) discoveryPingPeriod.toSeconds()))
-                                .build();
-                scheduler.scheduleJob(jobDetail, trigger);
-            }
+            schedulePluginJob(plugin, true);
         }
 
         String token;
         try {
-            token = jwtFactory.createDiscoveryPluginJwt(plugin, remoteAddress, locations);
+            token =
+                    jwtFactory.createDiscoveryPluginJwt(
+                            plugin, callback.remoteAddress(), locations);
         } catch (URISyntaxException | JOSEException | UnknownHostException | SocketException e) {
             throw new BadRequestException(e);
         } catch (NoSuchAlgorithmException e) {
             throw new InternalServerErrorException(e);
         }
 
-        // TODO implement more generic env map passing by some platform detection
-        // strategy or generalized config properties
-        var envMap = new HashMap<String, String>();
-        String insightsProxy = System.getenv("INSIGHTS_PROXY");
-        if (StringUtils.isNotBlank(insightsProxy)) {
-            envMap.put("INSIGHTS_SVC", insightsProxy);
+        return new PluginRegistration(plugin.id.toString(), token, getEnvMap());
+    }
+
+    @Bulkhead
+    @Timeout
+    @Retry(retryOn = {OptimisticLockException.class})
+    @RateLimit
+    @Blocking
+    @POST
+    @Path("/api/v4.3/discovery/agents")
+    @Produces(MediaType.APPLICATION_JSON)
+    @Consumes(MediaType.APPLICATION_JSON)
+    @RolesAllowed("write")
+    @Tag(ref = "Discovery")
+    @Operation(
+            summary = "Register and publish a Cryostat Agent",
+            description =
+                    """
+                    Register a Cryostat Agent as a discovery plugin, create its associated Stored Credential, and
+                    publish its target nodes in one request. This endpoint is intentionally Agent-specific; the
+                    general Discovery Plugin registration and publication endpoints remain available for other
+                    Discovery Plugin implementations.
+                    """)
+    public PluginRegistration registerAgent(@Context RoutingContext ctx, AgentRegistration body)
+            throws SchedulerException {
+        if (body == null) {
+            throw new BadRequestException("body is required");
         }
-        return new PluginRegistration(plugin.id.toString(), token, envMap);
+
+        CallbackValidation callback =
+                validateCallback(ctx, body.callback(), "cryostat.agent.callback");
+        Credential credential = credentialFrom(body.credential());
+        DiscoveryPublication publication =
+                new DiscoveryPublication(
+                        Optional.ofNullable(body.nodes()).orElseGet(List::of),
+                        Optional.ofNullable(body.fillStrategy()),
+                        Optional.ofNullable(body.context()));
+
+        // Ping the Agent before opening any transaction, so we do not hold one open across the
+        // network round-trip. See cryostatio/cryostat#1604.
+        PrePingResult prePingResult =
+                pingAgentCallback(callback.unauthCallback(), credential)
+                        ? PrePingResult.REACHABLE
+                        : PrePingResult.UNREACHABLE;
+
+        DiscoveryPlugin plugin =
+                QuarkusTransaction.joiningExisting()
+                        .call(
+                                () -> {
+                                    DiscoveryPlugin p =
+                                            findOrCreatePlugin(
+                                                    callback.callbackUri(),
+                                                    callback.unauthCallback(),
+                                                    body.realm(),
+                                                    credential,
+                                                    prePingResult);
+                                    replaceCredential(p, credential);
+                                    return p;
+                                });
+
+        List<URI> locations;
+        try {
+            locations = jwtFactory.getPluginLocations(plugin);
+        } catch (URISyntaxException e) {
+            throw new BadRequestException(e);
+        }
+
+        schedulePluginJob(plugin, false);
+
+        String token;
+        try {
+            token =
+                    jwtFactory.createDiscoveryPluginJwt(
+                            plugin, callback.remoteAddress(), locations);
+        } catch (URISyntaxException | JOSEException | UnknownHostException | SocketException e) {
+            throw new BadRequestException(e);
+        } catch (NoSuchAlgorithmException e) {
+            throw new InternalServerErrorException(e);
+        }
+
+        UUID pluginId = plugin.id;
+        QuarkusTransaction.joiningExisting()
+                .run(
+                        () ->
+                                publishPluginTree(
+                                        DiscoveryPlugin.<DiscoveryPlugin>find("id", pluginId)
+                                                .singleResult(),
+                                        publication));
+
+        return new PluginRegistration(plugin.id.toString(), token, getEnvMap());
     }
 
     @Transactional
@@ -515,9 +459,6 @@ public class Discovery {
             @RestHeader("Cryostat-Discovery-Authentication") String token,
             DiscoveryPublication body) {
         DiscoveryPlugin plugin = DiscoveryPlugin.find("id", id).singleResult();
-        DiscoveryNode realm =
-                entityManager.find(
-                        DiscoveryNode.class, plugin.realm.id, LockModeType.PESSIMISTIC_WRITE);
         try {
             jwtValidator.validateJwt(ctx, plugin, token, true);
         } catch (MalformedURLException
@@ -528,90 +469,184 @@ public class Discovery {
                 | ParseException e) {
             throw new BadRequestException(e);
         }
+        publishPluginTree(plugin, body);
+    }
 
+    private void publishPluginTree(DiscoveryPlugin plugin, DiscoveryPublication body) {
         for (var n : body.nodes) {
             validatePublishedNode(n);
         }
 
-        List<DiscoveryNode> replacementChildren = new ArrayList<>();
-
         for (var n : body.nodes) {
             n.target.discoveryNode = n;
         }
-        body.fillStrategy.ifPresentOrElse(
-                algo -> {
-                    Map<String, String> pubCtx = body.context.orElse(Map.of());
-                    switch (algo) {
-                        case KUBERNETES:
-                            String namespace = pubCtx.get("namespace");
-                            String nodeType = pubCtx.get("nodetype");
-                            String name = pubCtx.get("name");
-                            if (StringUtils.isBlank(namespace)
-                                    || StringUtils.isBlank(nodeType)
-                                    || StringUtils.isBlank(name)) {
-                                String key;
-                                if (StringUtils.isBlank(namespace)) {
-                                    key = "namespace";
-                                } else if (StringUtils.isBlank(nodeType)) {
-                                    key = "nodeType";
-                                } else {
-                                    key = "name";
-                                }
-                                throw new BadRequestException(
-                                        new IllegalArgumentException(
-                                                String.format("%s cannot be blank", key)));
-                            }
-                            DiscoveryNode lineage =
-                                    k8sDiscovery.getOwnershipLineage(namespace, name, nodeType);
-                            DiscoveryNode innermost = innermostNode(lineage);
-                            innermost.children.addAll(body.nodes);
-                            body.nodes.forEach(
-                                    n -> {
-                                        n.parent = innermost;
-                                        n.persist();
-                                    });
 
-                            DiscoveryNode nsNode = new DiscoveryNode();
-                            nsNode.name = namespace;
-                            nsNode.nodeType = KubeDiscoveryNodeType.NAMESPACE.getKind();
-                            nsNode.labels = new HashMap<>();
-                            nsNode.children = new ArrayList<>();
-                            nsNode.target = null;
-
-                            nsNode.children.add(lineage);
-                            lineage.parent = nsNode;
-
-                            DiscoveryNode current = innermost;
-                            while (true) {
-                                current.persist();
-                                current = current.parent;
-                                if (current == null) {
-                                    break;
-                                }
-                            }
-
-                            nsNode.persist();
-                            replacementChildren.add(nsNode);
-                            break;
-                        default:
-                            replacementChildren.addAll(body.nodes);
-                            for (var n : body.nodes) {
-                                n.parent = realm;
-                                n.persist();
-                            }
-                            break;
-                    }
-                },
-                () -> {
-                    replacementChildren.addAll(body.nodes);
-                    for (var n : body.nodes) {
-                        n.parent = realm;
-                        n.persist();
-                    }
-                });
-
-        replaceChildren(realm, replacementChildren);
+        // Reconcile published nodes against existing ones by connectUrl so surviving targets keep
+        // their identity rather than being deleted and recreated (spurious LOST/FOUND). See #1604.
+        boolean kubernetes =
+                body.fillStrategy
+                        .map(algo -> algo == DiscoveryFillStrategy.KUBERNETES)
+                        .orElse(false);
+        if (kubernetes) {
+            reconcileKubernetesPublication(plugin, body);
+        } else {
+            DiscoveryNode realm =
+                    entityManager.find(
+                            DiscoveryNode.class, plugin.realm.id, LockModeType.PESSIMISTIC_WRITE);
+            reconcileFlatChildren(realm, body.nodes);
+        }
         plugin.persist();
+    }
+
+    @SuppressFBWarnings(
+            value = "UC_USELESS_OBJECT",
+            justification =
+                    "existingByUrl is read via remove() to match survivors and iterated via"
+                        + " values() to delete stale nodes; SpotBugs cannot see the side effects of"
+                        + " the Panache delete()/persist() consumers.")
+    private void reconcileKubernetesPublication(DiscoveryPlugin plugin, DiscoveryPublication body) {
+        Map<String, String> pubCtx = body.context.orElse(Map.of());
+        String namespace = pubCtx.get("namespace");
+        String nodeType = pubCtx.get("nodetype");
+        String name = pubCtx.get("name");
+        if (StringUtils.isBlank(namespace)
+                || StringUtils.isBlank(nodeType)
+                || StringUtils.isBlank(name)) {
+            String key;
+            if (StringUtils.isBlank(namespace)) {
+                key = "namespace";
+            } else if (StringUtils.isBlank(nodeType)) {
+                key = "nodeType";
+            } else {
+                key = "name";
+            }
+            throw new BadRequestException(
+                    new IllegalArgumentException(String.format("%s cannot be blank", key)));
+        }
+
+        DiscoveryNode k8sRealm =
+                DiscoveryNode.getRealm(KubeEndpointSlicesDiscovery.REALM)
+                        .orElseThrow(
+                                () -> new IllegalStateException("KubernetesApi realm not found"));
+
+        Map<URI, DiscoveryNode> existingByUrl = new HashMap<>();
+        for (DiscoveryNode node : DiscoveryNode.getByPluginId(plugin.id)) {
+            if (node.target != null && node.target.connectUrl != null) {
+                existingByUrl.put(node.target.connectUrl, node);
+            }
+        }
+
+        DiscoveryNode nsNode =
+                DiscoveryNode.<DiscoveryNode>find(
+                                "#DiscoveryNode.byTypeWithName",
+                                Parameters.with(
+                                                "nodeType",
+                                                KubeDiscoveryNodeType.NAMESPACE.getKind())
+                                        .and("name", namespace))
+                        .firstResultOptional()
+                        .orElseGet(
+                                () -> {
+                                    DiscoveryNode newNs = new DiscoveryNode();
+                                    newNs.name = namespace;
+                                    newNs.nodeType = KubeDiscoveryNodeType.NAMESPACE.getKind();
+                                    newNs.labels = new HashMap<>();
+                                    newNs.children = new ArrayList<>();
+                                    newNs.target = null;
+                                    newNs.parent = k8sRealm;
+                                    newNs.persist();
+                                    return newNs;
+                                });
+        if (nsNode.parent == null || !nsNode.parent.equals(k8sRealm)) {
+            nsNode.parent = k8sRealm;
+        }
+
+        DiscoveryNode lineage = k8sDiscovery.getOwnershipLineage(namespace, name, nodeType);
+        KubeEndpointSlicesDiscovery.KubernetesMetadata k8sMetadata =
+                k8sDiscovery.getKubernetesMetadata(namespace, name, nodeType);
+        DiscoveryNode innermost = mergeLineageIntoTree(nsNode, lineage);
+
+        // Persist new lineage nodes top-down so target nodes below reference a persisted parent.
+        List<DiscoveryNode> lineageChain = new ArrayList<>();
+        for (DiscoveryNode c = innermost; c != null && c != nsNode; c = c.parent) {
+            lineageChain.add(c);
+        }
+        nsNode.persist();
+        for (int i = lineageChain.size() - 1; i >= 0; i--) {
+            lineageChain.get(i).persist();
+        }
+
+        for (var n : body.nodes) {
+            enrichWithKubernetesMetadata(n, k8sMetadata);
+            if (n.labels == null) {
+                n.labels = new HashMap<>();
+            }
+            n.labels.put(DISCOVERY_PLUGIN_ID_LABEL_KEY, plugin.id.toString());
+
+            DiscoveryNode existing = existingByUrl.remove(n.target.connectUrl);
+            if (existing == null) {
+                n.parent = innermost;
+                innermost.children.add(n);
+                n.persist();
+                continue;
+            }
+
+            DiscoveryNode oldParent = existing.parent;
+            existing.name = n.name;
+            existing.nodeType = n.nodeType;
+            existing.labels = n.labels;
+            existing.target.alias = n.target.alias;
+            if (n.target.labels != null) {
+                existing.target.labels = n.target.labels;
+            }
+            if (n.target.annotations != null) {
+                existing.target.annotations = n.target.annotations;
+            }
+            if (oldParent == null || !oldParent.equals(innermost)) {
+                if (oldParent != null) {
+                    oldParent.children.remove(existing);
+                }
+                existing.parent = innermost;
+                innermost.children.add(existing);
+            }
+            existing.persist();
+            if (oldParent != null && !oldParent.equals(innermost)) {
+                cleanupHelper.pruneEmptyAncestors(oldParent);
+            }
+        }
+
+        for (DiscoveryNode gone : existingByUrl.values()) {
+            DiscoveryNode parent = gone.parent;
+            if (parent != null) {
+                parent.children.remove(gone);
+            }
+            gone.parent = null;
+            gone.delete();
+            cleanupHelper.pruneEmptyAncestors(parent);
+        }
+        entityManager.flush();
+    }
+
+    private void enrichWithKubernetesMetadata(
+            DiscoveryNode n, KubeEndpointSlicesDiscovery.KubernetesMetadata k8sMetadata) {
+        if (n.target == null) {
+            return;
+        }
+        if (!k8sMetadata.labels().isEmpty()) {
+            if (n.target.labels == null) {
+                n.target.labels = new HashMap<>();
+            }
+            k8sMetadata.labels().forEach((k, v) -> n.target.labels.putIfAbsent(k, v));
+        }
+        if (!k8sMetadata.annotations().isEmpty()) {
+            if (n.target.annotations == null) {
+                n.target.annotations = new Annotations();
+            }
+            Map<String, String> platformAnnotations =
+                    new HashMap<>(n.target.annotations.platform());
+            k8sMetadata.annotations().forEach((k, v) -> platformAnnotations.putIfAbsent(k, v));
+            n.target.annotations =
+                    new Annotations(platformAnnotations, n.target.annotations.cryostat());
+        }
     }
 
     @Transactional
@@ -631,8 +666,15 @@ public class Discovery {
             @RestPath UUID id,
             @RestHeader("Cryostat-Discovery-Authentication") String token)
             throws SchedulerException {
-        DiscoveryPlugin plugin = DiscoveryPlugin.find("id", id).singleResult();
+        DiscoveryPlugin plugin = DiscoveryPlugin.findById(id);
+        if (plugin == null) {
+            logger.debugv("Could not find registered plugin with ID {0}", id);
+            throw new NotFoundException();
+        }
+
         if (plugin.builtin) {
+            logger.debugv(
+                    "Refusing to delete built-in plugin with ID {0} ({1})", id, plugin.realm.name);
             throw new ForbiddenException();
         }
         try {
@@ -643,6 +685,7 @@ public class Discovery {
                 | SocketException
                 | JOSEException
                 | ParseException e) {
+            logger.debugv("Refusing to delete plugin ID {0} due to invalid JWT", id);
             throw new BadRequestException(e);
         }
 
@@ -654,6 +697,7 @@ public class Discovery {
             }
             scheduler.deleteJob(key);
         }
+
         plugin.delete();
     }
 
@@ -722,18 +766,322 @@ public class Discovery {
         }
     }
 
-    private void replaceChildren(DiscoveryNode parent, List<DiscoveryNode> replacementChildren) {
-        List<DiscoveryNode> existingChildren = new ArrayList<>(parent.children);
-        parent.children.clear();
-        existingChildren.forEach(child -> child.parent = null);
-        replacementChildren.forEach(child -> child.parent = parent);
-        parent.children.addAll(replacementChildren);
-        try {
-            parent.persist();
-            entityManager.flush();
-        } catch (OptimisticLockException e) {
-            throw new BadRequestException("Discovery tree update conflict", e);
+    private void deleteSubtree(DiscoveryNode node) {
+        for (DiscoveryNode child : new ArrayList<>(node.children)) {
+            deleteSubtree(child);
         }
+        node.children.clear();
+        node.parent = null;
+        node.delete();
+    }
+
+    private void reconcileFlatChildren(DiscoveryNode realm, List<DiscoveryNode> incoming) {
+        Map<URI, DiscoveryNode> existingByUrl = new HashMap<>();
+        for (DiscoveryNode child : new ArrayList<>(realm.children)) {
+            if (child.target != null && child.target.connectUrl != null) {
+                existingByUrl.put(child.target.connectUrl, child);
+            }
+        }
+
+        Set<URI> incomingUrls = new HashSet<>();
+        for (DiscoveryNode n : incoming) {
+            incomingUrls.add(n.target.connectUrl);
+        }
+
+        for (DiscoveryNode child : new ArrayList<>(realm.children)) {
+            URI url = child.target != null ? child.target.connectUrl : null;
+            if (url == null || !incomingUrls.contains(url)) {
+                realm.children.remove(child);
+                deleteSubtree(child);
+            }
+        }
+        // Flush removals before inserts so Hibernate does not insert a re-published connectUrl
+        // before deleting the node that held it (connectUrl is unique).
+        entityManager.flush();
+
+        for (DiscoveryNode n : incoming) {
+            DiscoveryNode existing = existingByUrl.get(n.target.connectUrl);
+            if (existing == null) {
+                n.parent = realm;
+                realm.children.add(n);
+                n.persist();
+                continue;
+            }
+            existing.name = n.name;
+            existing.nodeType = n.nodeType;
+            if (n.labels != null) {
+                existing.labels = n.labels;
+            }
+            existing.target.alias = n.target.alias;
+            if (n.target.labels != null) {
+                existing.target.labels = n.target.labels;
+            }
+            if (n.target.annotations != null) {
+                existing.target.annotations = n.target.annotations;
+            }
+            existing.persist();
+        }
+        realm.persist();
+    }
+
+    private CallbackValidation validateCallback(
+            RoutingContext ctx, String callback, String parameterName) {
+        URI callbackUri;
+        try {
+            if (StringUtils.isBlank(callback)) {
+                throw new BadRequestException("callback cannot be blank");
+            }
+            callbackUri = new URI(callback);
+        } catch (URISyntaxException e) {
+            throw new BadRequestException(e);
+        }
+        URI unauthCallback = UriBuilder.fromUri(callbackUri).userInfo(null).build();
+
+        InetAddress remoteAddress = getRemoteAddress(ctx);
+        URI remoteURI;
+        try {
+            remoteURI = new URI(remoteAddress.getHostAddress());
+        } catch (URISyntaxException e) {
+            throw new BadRequestException(e);
+        }
+
+        try {
+            if (!uriUtil.validateUri(callbackUri)) {
+                throw new BadRequestException(
+                        String.format(
+                                "%s of \"%s\" is unacceptable with the current URI range settings",
+                                parameterName, callbackUri));
+            }
+            if (!uriUtil.validateUri(remoteURI)) {
+                throw new BadRequestException(
+                        String.format(
+                                "Remote Address of \"%s\" is unacceptable with the"
+                                        + " current URI range settings",
+                                remoteURI));
+            }
+        } catch (MalformedURLException e) {
+            throw new BadRequestException(e);
+        }
+
+        for (var e : new String[] {callbackUri.getScheme(), callbackUri.getHost()}) {
+            if (StringUtils.isBlank(e)) {
+                throw new BadRequestException("callback must contain scheme and host");
+            }
+        }
+        if (agentTlsRequired && !callbackUri.getScheme().equals("https")) {
+            throw new BadRequestException(
+                    String.format(
+                            "TLS for agent connections is required by (%s)",
+                            ConfigProperties.AGENT_TLS_REQUIRED));
+        }
+
+        return new CallbackValidation(callbackUri, unauthCallback, remoteAddress);
+    }
+
+    private DiscoveryPlugin findOrCreatePlugin(
+            URI callbackUri, URI unauthCallback, String realmName, Credential credential) {
+        return findOrCreatePlugin(
+                callbackUri, unauthCallback, realmName, credential, PrePingResult.NOT_ATTEMPTED);
+    }
+
+    private DiscoveryPlugin findOrCreatePlugin(
+            URI callbackUri,
+            URI unauthCallback,
+            String realmName,
+            Credential credential,
+            PrePingResult prePingResult) {
+        Optional<DiscoveryPlugin> existing =
+                DiscoveryPlugin.findByCallbackAndRealmName(unauthCallback, realmName);
+
+        if (existing.isPresent()) {
+            DiscoveryPlugin plugin = existing.get();
+            logger.debugv("Reusing existing plugin: {0}", plugin.id);
+            if (credential != null) {
+                replaceCredential(plugin, credential);
+            }
+            return plugin;
+        }
+
+        // Check for plugin with same callback, different realm
+        Optional<DiscoveryPlugin> byCallback =
+                DiscoveryPlugin.<DiscoveryPlugin>find("callback", unauthCallback)
+                        .singleResultOptional();
+
+        if (byCallback.isPresent()) {
+            DiscoveryPlugin p = byCallback.get();
+            try {
+                var cb = callbackFactory.create(p);
+                cb.ping();
+                // Plugin is reachable but has different realm
+                throw new DuplicatePluginException(
+                        String.format(
+                                "Plugin with callback %s already exists and is still reachable",
+                                unauthCallback));
+            } catch (DuplicatePluginException e) {
+                throw e;
+            } catch (Exception e) {
+                // Plugin unreachable, delete and create new
+                logger.debug(e);
+                UUID oldPluginId = p.id;
+                try {
+                    var toDelete = DiscoveryPlugin.<DiscoveryPlugin>findById(oldPluginId);
+                    if (toDelete != null) {
+                        toDelete.delete();
+                        logger.debugv("Deleted unreachable plugin: {0}", oldPluginId);
+                    } else {
+                        logger.debugv(
+                                "Plugin already deleted (concurrent cleanup): {0}", oldPluginId);
+                    }
+                } catch (Exception deleteEx) {
+                    logger.debugv(
+                            deleteEx,
+                            "Failed to delete unreachable plugin (may already be deleted): {0}",
+                            oldPluginId);
+                }
+            }
+        }
+
+        if (prePingResult == PrePingResult.UNREACHABLE) {
+            throw new BadRequestException(
+                    String.format("Agent callback is not reachable: %s", unauthCallback));
+        }
+
+        DiscoveryPlugin plugin = new DiscoveryPlugin();
+        plugin.callback = callbackUri;
+        plugin.realm =
+                DiscoveryNode.environment(
+                        requireNonBlank(realmName, "realm"), NodeType.BaseNodeType.REALM);
+        plugin.builtin = false;
+        if (credential != null) {
+            plugin.credential = credential;
+            credential.discoveryPlugin = plugin;
+        }
+        if (prePingResult == PrePingResult.REACHABLE) {
+            // Record the ping we already did so prePersist skips its own (in-transaction) ping.
+            plugin.lastSuccessfulPing = Instant.now();
+        }
+
+        var universe = DiscoveryNode.getUniverse();
+        plugin.realm.parent = universe;
+        plugin.persist();
+        universe.children.add(plugin.realm);
+        universe.persist();
+
+        logger.debugv("Created new plugin: {0}", plugin.id);
+        return plugin;
+    }
+
+    private boolean pingAgentCallback(URI unauthCallback, Credential credential) {
+        try {
+            callbackFactory.create(unauthCallback, credential).ping();
+            logger.debugv("Agent callback reachable: {0}", unauthCallback);
+            return true;
+        } catch (Exception e) {
+            logger.debugv(e, "Agent callback ping failed during registration: {0}", unauthCallback);
+            return false;
+        }
+    }
+
+    private void replaceCredential(DiscoveryPlugin plugin, Credential credential) {
+        if (credential == null) {
+            return;
+        }
+        if (credentialsEquivalent(plugin.credential, credential)) {
+            return;
+        }
+        if (hasSameMatchExpression(plugin.credential, credential)) {
+            plugin.credential.username = credential.username;
+            plugin.credential.password = credential.password;
+            plugin.credential.persist();
+            plugin.persist();
+            return;
+        }
+        if (plugin.credential != null) {
+            plugin.credential.discoveryPlugin = null;
+        }
+        credential.discoveryPlugin = plugin;
+        plugin.credential = credential;
+        if (!credential.isPersistent()) {
+            credential.persist();
+        }
+        plugin.persist();
+    }
+
+    private boolean credentialsEquivalent(Credential existing, Credential incoming) {
+        if (existing == incoming) {
+            return true;
+        }
+        if (existing == null || incoming == null) {
+            return false;
+        }
+        return Objects.equals(existing.username, incoming.username)
+                && Objects.equals(existing.password, incoming.password)
+                && Objects.equals(matchExpressionScript(existing), matchExpressionScript(incoming));
+    }
+
+    private boolean hasSameMatchExpression(Credential existing, Credential incoming) {
+        if (existing == null || incoming == null) {
+            return false;
+        }
+        return Objects.equals(matchExpressionScript(existing), matchExpressionScript(incoming));
+    }
+
+    private String matchExpressionScript(Credential credential) {
+        return credential.matchExpression == null ? null : credential.matchExpression.script;
+    }
+
+    private Credential credentialFrom(AgentCredentialRequest body) {
+        if (body == null) {
+            throw new BadRequestException("credential is required");
+        }
+        Credential credential = new Credential();
+        credential.matchExpression =
+                new MatchExpression(requireNonBlank(body.matchExpression(), "matchExpression"));
+        credential.username = requireNonBlank(body.username(), "username");
+        credential.password = requireNonBlank(body.password(), "password");
+        return credential;
+    }
+
+    private void schedulePluginJob(DiscoveryPlugin plugin, boolean refresh)
+            throws SchedulerException {
+        JobKey jobKey = getPeriodicJobKey(plugin);
+        if (scheduler.checkExists(jobKey)) {
+            JobDetail jobDetail = scheduler.getJobDetail(jobKey);
+            jobDetail.getJobDataMap().put(REFRESH_MAP_KEY, refresh);
+            scheduler.addJob(jobDetail, true, true);
+            return;
+        }
+
+        var dataMap = new JobDataMap();
+        dataMap.put(PLUGIN_ID_MAP_KEY, plugin.id);
+        dataMap.put(REFRESH_MAP_KEY, refresh);
+        JobDetail jobDetail =
+                JobBuilder.newJob(RefreshPluginJob.class)
+                        .withIdentity(plugin.id.toString(), JOB_PERIODIC)
+                        .usingJobData(dataMap)
+                        .build();
+        var trigger =
+                TriggerBuilder.newTrigger()
+                        .withIdentity(jobDetail.getKey().getName(), jobDetail.getKey().getGroup())
+                        .startAt(Date.from(Instant.now().plus(discoveryPingPeriod)))
+                        .withSchedule(
+                                SimpleScheduleBuilder.simpleSchedule()
+                                        .repeatForever()
+                                        .withIntervalInSeconds(
+                                                (int) discoveryPingPeriod.toSeconds()))
+                        .build();
+        scheduler.scheduleJob(jobDetail, trigger);
+    }
+
+    private Map<String, String> getEnvMap() {
+        // TODO implement more generic env map passing by some platform detection
+        // strategy or generalized config properties
+        var envMap = new HashMap<String, String>();
+        String insightsProxy = System.getenv("INSIGHTS_PROXY");
+        if (StringUtils.isNotBlank(insightsProxy)) {
+            envMap.put("INSIGHTS_SVC", insightsProxy);
+        }
+        return envMap;
     }
 
     @SuppressFBWarnings("DLS_DEAD_LOCAL_STORE")
@@ -815,18 +1163,6 @@ public class Discovery {
         return mergedRoot;
     }
 
-    /**
-     * Get the innermost node of a hierarchical lineage. This assumes that the ancestor node passed
-     * in is the root of a tree where each node has either 0 or 1 children.
-     */
-    private DiscoveryNode innermostNode(DiscoveryNode ancestor) {
-        DiscoveryNode node = ancestor;
-        while (node.hasChildren()) {
-            node = node.children.get(0);
-        }
-        return node;
-    }
-
     private DiscoveryNode copyNode(DiscoveryNode source) {
         var copy = new DiscoveryNode();
         copy.id = source.id;
@@ -850,8 +1186,62 @@ public class Discovery {
         }
     }
 
+    /**
+     * Merges a lineage chain into an existing tree, reusing nodes where possible. This walks down
+     * the lineage chain and at each level checks if a node with the same name and type already
+     * exists as a child of the parent. If it does, reuses that node; if not, adds the new node.
+     *
+     * @param parent The parent node to merge the lineage into (typically a Namespace node)
+     * @param lineage The root of the lineage chain to merge (typically a Deployment node)
+     * @return The innermost (leaf) node of the merged lineage
+     */
+    private DiscoveryNode mergeLineageIntoTree(DiscoveryNode parent, DiscoveryNode lineage) {
+        DiscoveryNode currentParent = parent;
+        DiscoveryNode currentLineage = lineage;
+
+        while (currentLineage != null) {
+            // Check if a node with the same name and type already exists as a child
+            final DiscoveryNode lineageNode = currentLineage;
+            DiscoveryNode existingNode =
+                    currentParent.children.stream()
+                            .filter(
+                                    child ->
+                                            child.name.equals(lineageNode.name)
+                                                    && child.nodeType.equals(lineageNode.nodeType))
+                            .findFirst()
+                            .orElse(null);
+
+            if (existingNode != null) {
+                // Reuse the existing node
+                if (lineageNode.labels != null) {
+                    existingNode.labels.putAll(lineageNode.labels);
+                }
+                currentParent = existingNode;
+            } else {
+                // Add the new node to the parent
+                lineageNode.parent = currentParent;
+                currentParent.children.add(lineageNode);
+                currentParent = lineageNode;
+            }
+
+            if (lineageNode.children == null || lineageNode.children.isEmpty()) {
+                // Reached the leaf node
+                return currentParent;
+            }
+            currentLineage = lineageNode.children.get(0);
+        }
+
+        return currentParent;
+    }
+
     private static record NodeContext(
             DiscoveryNode node, DiscoveryNode parent, boolean fromBuiltin) {}
+
+    private enum PrePingResult {
+        NOT_ATTEMPTED,
+        REACHABLE,
+        UNREACHABLE
+    }
 
     /**
      * Check that discovery plugins are still alive/reachable and prompt them to regenerate expiring
@@ -874,7 +1264,7 @@ public class Discovery {
 
         @Inject PluginCallbackFactory callbackFactory;
 
-        @Inject EntityManager entityManager;
+        @Inject PluginCleanupHelper cleanupHelper;
 
         @Override
         public void execute(JobExecutionContext context) throws JobExecutionException {
@@ -940,6 +1330,7 @@ public class Discovery {
                                 });
             } catch (Exception e) {
                 logger.warnv(e, "Plugin ping failed");
+                var ex = new JobExecutionException(e);
 
                 boolean noSuchPlugin = ExceptionUtils.indexOfType(e, NoResultException.class) >= 0;
                 boolean unknownHost =
@@ -950,61 +1341,76 @@ public class Discovery {
                     logger.warnv(
                             "Unscheduled job for unknown discovery plugin: {0}",
                             context.getMergedJobDataMap().get(PLUGIN_ID_MAP_KEY));
-                    var ex = new JobExecutionException(e);
+                    if (noSuchPlugin) {
+                        QuarkusTransaction.joiningExisting()
+                                .run(() -> cleanupHelper.cleanupPluginNodes(pluginId));
+                    }
                     ex.setUnscheduleFiringTrigger(true);
-                    throw ex;
                 }
 
-                QuarkusTransaction.joiningExisting()
-                        .run(
-                                () -> {
-                                    var p = DiscoveryPlugin.<DiscoveryPlugin>findById(pluginId);
-                                    if (p != null) {
-                                        p.consecutiveFailures++;
-                                        p.lastFailedPing = Instant.now();
-                                        p.backoffMultiplier =
-                                                Math.min(
-                                                        p.backoffMultiplier * 2,
-                                                        maxBackoffMultiplier);
-                                        Duration backoffPeriod =
-                                                basePingPeriod.multipliedBy(p.backoffMultiplier);
-                                        p.nextPingAt = Instant.now().plus(backoffPeriod);
-                                        p.persist();
+                var f =
+                        QuarkusTransaction.joiningExisting()
+                                .call(
+                                        () -> {
+                                            var p =
+                                                    DiscoveryPlugin.<DiscoveryPlugin>findById(
+                                                            pluginId);
+                                            if (p == null) {
+                                                cleanupHelper.cleanupPluginNodes(pluginId);
+                                                ex.setUnscheduleFiringTrigger(true);
+                                                return true;
+                                            }
+                                            p.consecutiveFailures++;
+                                            p.lastFailedPing = Instant.now();
+                                            p.backoffMultiplier =
+                                                    Math.min(
+                                                            p.backoffMultiplier * 2,
+                                                            maxBackoffMultiplier);
+                                            Duration backoffPeriod =
+                                                    basePingPeriod.multipliedBy(
+                                                            p.backoffMultiplier);
+                                            p.nextPingAt = Instant.now().plus(backoffPeriod);
+                                            p.persist();
 
-                                        logger.debugv(
-                                                "Plugin ping failed - lastFailedPing: {0},"
-                                                        + " consecutiveFailures: {1}/{2},"
-                                                        + " backoffMultiplier: {3}, nextPingAt:"
-                                                        + " {4}: {5} @ {6}",
-                                                p.lastFailedPing,
-                                                p.consecutiveFailures,
-                                                maxConsecutiveFailures,
-                                                p.backoffMultiplier,
-                                                p.nextPingAt,
-                                                p.realm.name,
-                                                p.callback);
-
-                                        if (p.consecutiveFailures >= maxConsecutiveFailures) {
-                                            logger.warnv(
-                                                    "Pruning discovery plugin after {0}"
-                                                            + " consecutive failures: {1} @"
-                                                            + " {2}",
-                                                    p.consecutiveFailures,
-                                                    p.realm.name,
-                                                    p.callback);
-                                            p.delete();
-                                        } else {
-                                            logger.warnv(
-                                                    "Plugin ping failed ({0}/{1}), backing off"
-                                                            + " for {2}: {3} @ {4}",
+                                            logger.debugv(
+                                                    "Plugin ping failed - lastFailedPing: {0},"
+                                                            + " consecutiveFailures: {1}/{2},"
+                                                            + " backoffMultiplier: {3}, nextPingAt:"
+                                                            + " {4}: {5} @ {6}",
+                                                    p.lastFailedPing,
                                                     p.consecutiveFailures,
                                                     maxConsecutiveFailures,
-                                                    backoffPeriod,
+                                                    p.backoffMultiplier,
+                                                    p.nextPingAt,
                                                     p.realm.name,
                                                     p.callback);
-                                        }
-                                    }
-                                });
+
+                                            boolean failed =
+                                                    p.consecutiveFailures >= maxConsecutiveFailures;
+                                            if (failed) {
+                                                logger.warnv(
+                                                        "Pruning discovery plugin after {0}"
+                                                                + " consecutive failures: {1} @"
+                                                                + " {2}",
+                                                        p.consecutiveFailures,
+                                                        p.realm.name,
+                                                        p.callback);
+                                                p.delete();
+                                            } else {
+                                                logger.warnv(
+                                                        "Plugin ping failed ({0}/{1}), backing"
+                                                                + " off for {2}: {3} @ {4}",
+                                                        p.consecutiveFailures,
+                                                        maxConsecutiveFailures,
+                                                        backoffPeriod,
+                                                        p.realm.name,
+                                                        p.callback);
+                                            }
+                                            return failed;
+                                        });
+                if (f) {
+                    throw ex;
+                }
             }
         }
     }
@@ -1052,10 +1458,24 @@ public class Discovery {
 
     static record PluginRegistration(String id, String token, Map<String, String> env) {}
 
+    static record AgentRegistration(
+            String realm,
+            String callback,
+            AgentCredentialRequest credential,
+            List<DiscoveryNode> nodes,
+            DiscoveryFillStrategy fillStrategy,
+            Map<String, String> context) {}
+
+    static record AgentCredentialRequest(
+            String matchExpression, String username, String password) {}
+
     static record DiscoveryPublication(
             List<DiscoveryNode> nodes,
             Optional<DiscoveryFillStrategy> fillStrategy,
             Optional<Map<String, String>> context) {}
+
+    private static record CallbackValidation(
+            URI callbackUri, URI unauthCallback, InetAddress remoteAddress) {}
 
     enum DiscoveryFillStrategy {
         NONE,

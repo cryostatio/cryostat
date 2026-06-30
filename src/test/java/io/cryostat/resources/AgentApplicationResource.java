@@ -22,8 +22,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import io.quarkus.test.common.DevServicesContext;
 import io.quarkus.test.common.QuarkusTestResourceLifecycleManager;
-import org.junit.runner.Description;
-import org.junit.runners.model.Statement;
+import org.apache.commons.lang3.StringUtils;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
 import org.testcontainers.containers.wait.strategy.HostPortWaitStrategy;
@@ -32,7 +31,7 @@ import org.testcontainers.utility.DockerImageName;
 public class AgentApplicationResource
         implements QuarkusTestResourceLifecycleManager, DevServicesContext.ContextAware {
 
-    private static final String IMAGE_NAME =
+    private static final String DEFAULT_IMAGE =
             "quay.io/redhat-java-monitoring/quarkus-cryostat-agent:latest";
     public static final int PORT = 9977;
     public static final String ALIAS = "quarkus-cryostat-agent";
@@ -91,18 +90,15 @@ public class AgentApplicationResource
 
                                     @Override
                                     public void close() {}
-
-                                    @Override
-                                    public Statement apply(
-                                            Statement base, Description description) {
-                                        throw new UnsupportedOperationException(
-                                                "Unimplemented method 'apply'");
-                                    }
                                 });
         authProxy = new AuthProxyContainer(network, cryostatPort.get());
 
+        String img =
+                Optional.ofNullable(System.getenv("QUARKUS_TEST_IMAGE"))
+                        .filter(StringUtils::isNotBlank)
+                        .orElse(DEFAULT_IMAGE);
         this.container =
-                new GenericContainer<>(DockerImageName.parse(IMAGE_NAME))
+                new GenericContainer<>(DockerImageName.parse(img))
                         .dependsOn(authProxy)
                         .withExposedPorts(PORT)
                         .withEnv(getEnvMap())

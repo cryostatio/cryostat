@@ -9,7 +9,7 @@
 [![Quay Repository](https://img.shields.io/badge/Container_Image-cryostat/cryostat-teal.svg "Quay Repository")](https://quay.io/repository/cryostat/cryostat)
 [![Google Group : Cryostat Development](https://img.shields.io/badge/Google_Group-Cryostat_Development-blue.svg "Mailing List")](https://groups.google.com/g/cryostat-development)
 
-A container-native JVM application which acts as a bridge to other containerized JVMs and exposes a secure API for producing, analyzing, and retrieving JDK Flight Recorder data from your cloud workloads.
+A container-native JVM application which acts as a bridge to other containerized JVMs and exposes a secure API for manging, storage, retrieving, and analyzing JDK Flight Recorder data, thread dumps, heap dumps, `async-profiler` sessions, and more from your cloud workloads.
 
 ## SEE ALSO
 
@@ -18,9 +18,14 @@ A container-native JVM application which acts as a bridge to other containerized
   what you've read so far sounds interesting and you want to know more as a
   **user**, rather than as a _developer_. Here you will find instructions on
   how to install Cryostat using the
-  [Cryostat Operator](https://github.com/cryostatio/cryostat-operator), how to
-  configure your applications to enable connectivity, and how to use the
+  [Cryostat Operator](https://github.com/cryostatio/cryostat-operator) or
+  [Cryostat Helm Chart](https://github.com/cryostatio/cryostat-helm),
+  how to configure your applications to enable connectivity, and how to use the
   Cryostat application.
+
+* [cryostat-agent](https://github.com/cryostatio/cryostat-agent): a JVM Agent
+  that implements Cryostat target application discoverability as well as additional
+  capabilities not supported by JMX connections.
 
 * [cryostat-core](https://github.com/cryostatio/cryostat-core) : the core library
   providing a convenience wrapper and headless stubs for use of JFR using
@@ -60,9 +65,9 @@ We welcome and appreciate any contributions from our community. Please visit our
 
 Build requirements:
 - git
-- JDK 21+
+- JDK 25+
 - Maven v3+
-- [Quarkus CLI](https://quarkus.io/guides/cli-tooling) v3.4.1+ (Recommended)
+- [Quarkus CLI](https://quarkus.io/guides/cli-tooling) v3.33.1+ (Recommended)
 - [Podman](https://podman.io/docs/installation) 4.7+
 
 Smoketest run requirements:
@@ -87,6 +92,9 @@ For ease and convenience, it is suggested to use `podman` with the following con
 
 ```bash
 $ systemctl --user enable --now podman.socket
+$ # hack to work around testcontainers/podman "Broken pipe" issue
+$ mkdir -p $HOME/.config/containers/containers.conf.d
+$ echo -e "[engine]\nservice_timeout=0" > $HOME/.config/containers/containers.conf.d/999-service-timeout.conf
 ```
 
 `$HOME/.bashrc` (or equivalent shell configuration)
@@ -94,14 +102,7 @@ $ systemctl --user enable --now podman.socket
 export DOCKER_HOST=unix:///run/user/$(id -u)/podman/podman.sock
 ```
 
-`$HOME/.testcontainers.properties`
-```properties
-docker.client.strategy=org.testcontainers.dockerclient.UnixSocketClientProviderStrategy
-ryuk.container.image=quay.io/infinispan-test/ryuk\:0.8.1
-tinyimage.container.image=registry.access.redhat.com/ubi9/ubi-micro
-ryuk.container.privileged=true
-testcontainers.reuse.enable=false
-```
+If developing using `docker` then the above should be unnecessary.
 
 Initialize submodules before building:
 

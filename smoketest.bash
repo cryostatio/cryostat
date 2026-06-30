@@ -238,19 +238,7 @@ function bucketname() {
 
 if [ ! "${DRY_RUN}" = "true" ]; then
     set -xe
-    CRYOSTAT_JAVA_OPTS=$( cat <<-END
--XX:StartFlightRecording=filename=/tmp/,name=onstart,settings=default,disk=true,maxage=5m
--XX:StartFlightRecording=filename=/tmp/,name=startup,settings=profile,disk=true,duration=30s
--Dcom.sun.management.jmxremote.autodiscovery=true
--Dcom.sun.management.jmxremote
--Dcom.sun.management.jmxremote.port=9091
--Dcom.sun.management.jmxremote.rmi.port=9091
--Djava.rmi.server.hostname=127.0.0.1
--Dcom.sun.management.jmxremote.authenticate=false
--Dcom.sun.management.jmxremote.ssl=false
--Dcom.sun.management.jmxremote.local.only=false
-END
-)
+    CRYOSTAT_JAVA_OPTS="-XX:StartFlightRecording=filename=/tmp/,name=onstart,settings=default,disk=true,maxage=5m -XX:StartFlightRecording=filename=/tmp/,name=startup,settings=profile,disk=true,duration=30s -Dcom.sun.management.jmxremote.autodiscovery=true -Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.port=9091 -Dcom.sun.management.jmxremote.rmi.port=9091 -Djava.rmi.server.hostname=127.0.0.1 -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.local.only=false"
     export CRYOSTAT_JAVA_OPTS
 else
     CRYOSTAT_STORAGE_BUCKETS_ARCHIVES_NAME="$(bucketname 'archives')"
@@ -366,6 +354,35 @@ createPrometheusCfgVolume() {
     fi
 }
 
+createS3CertsVolume() {
+    "${container_engine}" volume create s3_certs
+    "${container_engine}" container create --name s3_certs_helper -v s3_certs:/certs registry.access.redhat.com/ubi9/ubi-micro
+    if [ -f "${DIR}/compose/s3_certs/certificate.pem" ] && [ -f "${DIR}/compose/s3_certs/private.key" ]; then
+        chmod 644 "${DIR}/compose/s3_certs/private.key"
+        "${container_engine}" cp "${DIR}/compose/s3_certs/certificate.pem" s3_certs_helper:/certs/certificate.pem
+        "${container_engine}" cp "${DIR}/compose/s3_certs/private.key" s3_certs_helper:/certs/private.key
+    fi
+    if [ "${DRY_RUN}" = "true" ]; then
+        "${container_engine}" volume export s3_certs > s3_certs.tar
+    fi
+}
+
+createDbCertsVolume() {
+    "${container_engine}" volume create db_certs
+    "${container_engine}" container create --name db_certs_helper -v db_certs:/certs registry.access.redhat.com/ubi9/ubi-micro
+    if [ -f "${DIR}/compose/db_certs/certificate.pem" ] && [ -f "${DIR}/compose/db_certs/private.key" ]; then
+        "${container_engine}" cp "${DIR}/compose/db_certs/certificate.pem" db_certs_helper:/certs/certificate.pem
+        "${container_engine}" cp "${DIR}/compose/db_certs/private.key" db_certs_helper:/certs/private.key
+        # Set ownership to postgres user (UID 26) and permissions for PostgreSQL's requirements
+        "${container_engine}" run --rm -v db_certs:/certs registry.access.redhat.com/ubi9/ubi-micro chown -R 26:26 /certs
+        "${container_engine}" run --rm -v db_certs:/certs registry.access.redhat.com/ubi9/ubi-micro chmod 600 /certs/private.key
+        "${container_engine}" run --rm -v db_certs:/certs registry.access.redhat.com/ubi9/ubi-micro chmod 644 /certs/certificate.pem
+    fi
+    if [ "${DRY_RUN}" = "true" ]; then
+        "${container_engine}" volume export db_certs > db_certs.tar
+    fi
+}
+
 createVolumes() {
     if [ "${USE_PROXY}" = "true" ]; then
         createProxyCfgVolume
@@ -377,6 +394,12 @@ createVolumes() {
     if [ "${s3}" = "localstack" ]; then
         createLocalstackCfgVolume
     fi
+    if [ "${s3}" = "seaweed" ]; then
+        sh "${DIR}/compose/s3_certs/generate.sh"
+        createS3CertsVolume
+    fi
+    sh "${DIR}/compose/db_certs/generate.sh"
+    createDbCertsVolume
     createJmxTlsCertVolume
     createEventTemplateVolume
     createProbeTemplateVolume
@@ -397,6 +420,12 @@ cleanupVolumes() {
         ${container_engine} rm localstack_cfg_helper || true
         ${container_engine} volume rm localstack_cfg || true
     fi
+    if [ "${s3}" = "seaweed" ]; then
+        ${container_engine} rm s3_certs_helper || true
+        ${container_engine} volume rm s3_certs || true
+    fi
+    ${container_engine} rm db_certs_helper || true
+    ${container_engine} volume rm db_certs || true
     ${container_engine} rm jmxtls_cfg_helper || true
     ${container_engine} volume rm jmxtls_cfg || true
     ${container_engine} rm templates_helper || true
@@ -442,6 +471,14 @@ cleanup() {
         rm "${DIR}/compose/auth_certs/certificate.pem" || true
         rm "${DIR}/compose/auth_certs/private.key" || true
     fi
+    if [ "${s3}" = "seaweed" ]; then
+        rm "${DIR}/compose/s3_certs/certificate.pem" || true
+        rm "${DIR}/compose/s3_certs/private.key" || true
+        rm "${DIR}/truststore/s3_storage.cer" || true
+    fi
+    rm "${DIR}/compose/db_certs/certificate.pem" || true
+    rm "${DIR}/compose/db_certs/private.key" || true
+    rm "${DIR}/truststore/database.cer" || true
     cleanupVolumes
     truncate -s 0 "${HOSTSFILE}"
     for i in "${PIDS[@]}"; do

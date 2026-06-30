@@ -126,7 +126,6 @@ import org.quartz.Trigger;
 import org.quartz.TriggerBuilder;
 import org.quartz.plugins.interrupt.JobInterruptMonitorPlugin;
 import software.amazon.awssdk.core.async.AsyncRequestBody;
-import software.amazon.awssdk.services.s3.S3AsyncClient;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
@@ -145,6 +144,7 @@ import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
 import software.amazon.awssdk.transfer.s3.S3TransferManager;
 import software.amazon.awssdk.transfer.s3.model.UploadFileRequest;
+import software.amazon.awssdk.transfer.s3.model.UploadRequest;
 
 /**
  * Utility class for all things relating to Flight Recording operations. This class is used to
@@ -167,7 +167,6 @@ public class RecordingHelper {
     public static final String DATASOURCE_FILENAME = "cryostat-analysis.jfr";
 
     @Inject S3Client storage;
-    @Inject S3AsyncClient storageAsync;
     @Inject S3TransferManager transferManager;
     final ExecutorService partUploader = Executors.newVirtualThreadPerTaskExecutor();
 
@@ -293,11 +292,19 @@ public class RecordingHelper {
             List<IRecordingDescriptor> descriptors =
                     connectionManager.executeConnectedTask(
                             target, conn -> conn.getService().getAvailableRecordings());
+
+            var remoteIds =
+                    new HashSet<>(descriptors.stream().map(IRecordingDescriptor::getId).toList());
+
             boolean updated = false;
             var it = target.activeRecordings.iterator();
             while (it.hasNext()) {
                 var r = it.next();
-                if (!previousIds.contains(r.remoteId)) {
+                if (!remoteIds.contains(r.remoteId)) {
+                    logger.warnv(
+                            "Orphaned recording detected: id={0} remoteId={1} name={2} on target"
+                                    + " {3}, removing from database",
+                            r.id, r.remoteId, r.name, target.connectUrl);
                     r.delete();
                     it.remove();
                     updated |= true;
@@ -468,102 +475,138 @@ public class RecordingHelper {
             throw new EntityExistsException("Recording", recordingName);
         }
         getActiveRecording(lockedTarget, r -> r.name.equals(recordingName))
-                .ifPresent(r -> this.deleteRecording(r).await().indefinitely());
-        var desc =
-                connectionManager.executeConnectedTask(
-                        lockedTarget,
-                        conn -> {
-                            RecordingOptionsBuilder optionsBuilder =
-                                    recordingOptionsBuilderFactory
-                                            .create(lockedTarget)
-                                            .name(recordingName);
-                            if (options.duration().isPresent()) {
-                                optionsBuilder =
-                                        optionsBuilder.duration(
-                                                TimeUnit.SECONDS.toMillis(
-                                                        options.duration().get()));
-                            }
-                            if (options.toDisk().isPresent()) {
-                                optionsBuilder = optionsBuilder.toDisk(options.toDisk().get());
-                            }
-                            if (options.maxAge().isPresent()) {
-                                optionsBuilder = optionsBuilder.maxAge(options.maxAge().get());
-                            }
-                            if (options.maxSize().isPresent()) {
-                                optionsBuilder = optionsBuilder.maxSize(options.maxSize().get());
-                            }
-                            IConstrainedMap<String> recordingOptions = optionsBuilder.build();
+                .ifPresent(r -> this.deleteRecording(r).await().atMost(connectionFailedTimeout));
 
-                            switch (template.getType()) {
-                                case PRESET:
-                                    return conn.getService()
-                                            .start(
-                                                    recordingOptions,
-                                                    presetTemplateService
-                                                            .getXml(
-                                                                    template.getName(),
-                                                                    TemplateType.CUSTOM)
-                                                            .orElseThrow());
-                                case CUSTOM:
-                                    return conn.getService()
-                                            .start(
-                                                    recordingOptions,
-                                                    customTemplateService
-                                                            .getXml(
-                                                                    template.getName(),
-                                                                    TemplateType.CUSTOM)
-                                                            .orElseThrow());
-                                case TARGET:
-                                    return conn.getService().start(recordingOptions, template);
-                                default:
-                                    throw new IllegalStateException(
-                                            "Unknown template type: " + template.getType());
-                            }
-                        });
+        IRecordingDescriptor desc;
+        try {
+            desc =
+                    connectionManager.executeConnectedTask(
+                            lockedTarget,
+                            conn -> {
+                                RecordingOptionsBuilder optionsBuilder =
+                                        recordingOptionsBuilderFactory
+                                                .create(lockedTarget)
+                                                .name(recordingName);
+                                if (options.duration().isPresent()) {
+                                    optionsBuilder =
+                                            optionsBuilder.duration(
+                                                    TimeUnit.SECONDS.toMillis(
+                                                            options.duration().get()));
+                                }
+                                if (options.toDisk().isPresent()) {
+                                    optionsBuilder = optionsBuilder.toDisk(options.toDisk().get());
+                                }
+                                if (options.maxAge().isPresent()) {
+                                    optionsBuilder = optionsBuilder.maxAge(options.maxAge().get());
+                                }
+                                if (options.maxSize().isPresent()) {
+                                    optionsBuilder =
+                                            optionsBuilder.maxSize(options.maxSize().get());
+                                }
+                                IConstrainedMap<String> recordingOptions = optionsBuilder.build();
+
+                                switch (template.getType()) {
+                                    case PRESET:
+                                        return conn.getService()
+                                                .start(
+                                                        recordingOptions,
+                                                        presetTemplateService
+                                                                .getXml(
+                                                                        template.getName(),
+                                                                        TemplateType.CUSTOM)
+                                                                .orElseThrow());
+                                    case CUSTOM:
+                                        return conn.getService()
+                                                .start(
+                                                        recordingOptions,
+                                                        customTemplateService
+                                                                .getXml(
+                                                                        template.getName(),
+                                                                        TemplateType.CUSTOM)
+                                                                .orElseThrow());
+                                    case TARGET:
+                                        return conn.getService().start(recordingOptions, template);
+                                    default:
+                                        throw new IllegalStateException(
+                                                "Unknown template type: " + template.getType());
+                                }
+                            });
+        } catch (Exception e) {
+            logger.errorv(
+                    e,
+                    "Failed to start remote recording \"{0}\" on target {1}",
+                    recordingName,
+                    lockedTarget.connectUrl);
+            throw e;
+        }
 
         Map<String, String> labels = new HashMap<>(rawLabels);
         labels.put("template.name", template.getName());
         labels.put("template.type", template.getType().toString());
         Metadata meta = new Metadata(labels);
 
-        ActiveRecording recording = ActiveRecording.from(lockedTarget, desc, meta, options);
+        ActiveRecording recording;
+        try {
+            recording = ActiveRecording.from(lockedTarget, desc, meta, options);
 
-        Optional<ActiveRecording> existingOpt =
-                ActiveRecording.<ActiveRecording>find(
-                                "target.id = ?1 and remoteId = ?2",
-                                lockedTarget.id,
-                                recording.remoteId)
-                        .firstResultOptional();
+            Optional<ActiveRecording> existingOpt =
+                    ActiveRecording.<ActiveRecording>find(
+                                    "target.id = ?1 and remoteId = ?2",
+                                    lockedTarget.id,
+                                    recording.remoteId)
+                            .firstResultOptional();
 
-        if (existingOpt.isPresent()) {
-            ActiveRecording existingRecording = existingOpt.get();
-            logger.infov(
-                    "Found existing recording id={0} remoteId={1} name={2},"
-                            + " merging state from startRecording",
-                    existingRecording.id, existingRecording.remoteId, existingRecording.name);
+            if (existingOpt.isPresent()) {
+                ActiveRecording existingRecording = existingOpt.get();
+                logger.infov(
+                        "Found existing recording id={0} remoteId={1} name={2},"
+                                + " merging state from startRecording",
+                        existingRecording.id, existingRecording.remoteId, existingRecording.name);
 
-            existingRecording.name = recording.name;
-            existingRecording.state = recording.state;
-            existingRecording.duration = recording.duration;
-            existingRecording.startTime = recording.startTime;
-            existingRecording.archiveOnStop = recording.archiveOnStop;
-            existingRecording.continuous = recording.continuous;
-            existingRecording.toDisk = recording.toDisk;
-            existingRecording.maxSize = recording.maxSize;
-            existingRecording.maxAge = recording.maxAge;
-            existingRecording.external = recording.external;
+                existingRecording.name = recording.name;
+                existingRecording.state = recording.state;
+                existingRecording.duration = recording.duration;
+                existingRecording.startTime = recording.startTime;
+                existingRecording.archiveOnStop = recording.archiveOnStop;
+                existingRecording.continuous = recording.continuous;
+                existingRecording.toDisk = recording.toDisk;
+                existingRecording.maxSize = recording.maxSize;
+                existingRecording.maxAge = recording.maxAge;
+                existingRecording.external = recording.external;
 
-            var mergedLabels = new HashMap<>(existingRecording.metadata.labels());
-            mergedLabels.putAll(recording.metadata.labels());
-            existingRecording.metadata = new Metadata(mergedLabels);
+                var mergedLabels = new HashMap<>(existingRecording.metadata.labels());
+                mergedLabels.putAll(recording.metadata.labels());
+                existingRecording.metadata = new Metadata(mergedLabels);
 
-            existingRecording.persist();
-            recording = existingRecording;
-        } else {
-            recording.persist();
+                existingRecording.persist();
+                recording = existingRecording;
+            } else {
+                recording.persist();
+            }
+
+            lockedTarget.activeRecordings.add(recording);
+        } catch (Exception e) {
+            logger.errorv(
+                    e,
+                    "Failed to persist recording \"{0}\" to database, attempting to stop remote"
+                            + " recording",
+                    recordingName);
+            try {
+                connectionManager.executeConnectedTask(
+                        lockedTarget,
+                        conn -> {
+                            conn.getService().close(desc);
+                            return null;
+                        });
+            } catch (Exception cleanupEx) {
+                logger.warnv(
+                        cleanupEx,
+                        "Failed to cleanup remote recording \"{0}\" after database persist"
+                                + " failure",
+                        recordingName);
+            }
+            throw e;
         }
-
-        lockedTarget.activeRecordings.add(recording);
 
         if (!recording.continuous) {
             JobKey key =
@@ -920,15 +963,16 @@ public class RecordingHelper {
                         item -> {
                             String path = item.key().strip();
                             String[] parts = path.split("/");
+                            String effectiveJvmId = parts[0];
                             String filename = parts[1];
                             Metadata metadata =
-                                    getArchivedRecordingMetadata(jvmId, filename)
+                                    getArchivedRecordingMetadata(effectiveJvmId, filename)
                                             .orElseGet(Metadata::empty);
                             return new ArchivedRecording(
-                                    jvmId,
+                                    effectiveJvmId,
                                     filename,
-                                    downloadUrl(jvmId, filename),
-                                    reportUrl(jvmId, filename),
+                                    downloadUrl(effectiveJvmId, filename),
+                                    reportUrl(effectiveJvmId, filename),
                                     metadata,
                                     item.size(),
                                     item.lastModified().getEpochSecond());
@@ -977,10 +1021,15 @@ public class RecordingHelper {
                 default:
                     throw new IllegalStateException();
             }
-            storageAsync
-                    .putObject(
-                            builder.build(),
-                            AsyncRequestBody.fromInputStream(stream, null, partUploader))
+            transferManager
+                    .upload(
+                            UploadRequest.builder()
+                                    .putObjectRequest(builder.build())
+                                    .requestBody(
+                                            AsyncRequestBody.fromInputStream(
+                                                    stream, null, partUploader))
+                                    .build())
+                    .completionFuture()
                     .join();
         }
         ArchivedRecording archivedRecording =
@@ -1566,6 +1615,9 @@ public class RecordingHelper {
         @Inject RecordingHelper recordingHelper;
         @Inject Logger logger;
 
+        @ConfigProperty(name = ConfigProperties.CONNECTIONS_FAILED_TIMEOUT)
+        Duration connectionFailedTimeout;
+
         @Override
         @Transactional
         public void execute(JobExecutionContext ctx) throws JobExecutionException {
@@ -1573,7 +1625,7 @@ public class RecordingHelper {
                 ActiveRecording recording =
                         ActiveRecording.find("id", ctx.getMergedJobDataMap().get("recordingId"))
                                 .singleResult();
-                recordingHelper.stopRecording(recording).await().indefinitely();
+                recordingHelper.stopRecording(recording).await().atMost(connectionFailedTimeout);
             } catch (Exception e) {
                 var jee = new JobExecutionException(e);
                 jee.setUnscheduleFiringTrigger(true);

@@ -26,6 +26,7 @@ import java.util.function.Predicate;
 
 import org.openjdk.jmc.common.unit.QuantityConversionException;
 
+import io.cryostat.ConfigProperties;
 import io.cryostat.discovery.DiscoveryNode;
 import io.cryostat.graphql.RootNode.DiscoveryNodeFilter;
 import io.cryostat.graphql.TargetNodes.RecordingAggregateInfo;
@@ -44,6 +45,7 @@ import io.smallrye.graphql.api.Nullable;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import jdk.jfr.RecordingState;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.graphql.Description;
 import org.eclipse.microprofile.graphql.GraphQLApi;
 import org.eclipse.microprofile.graphql.Mutation;
@@ -57,6 +59,9 @@ public class ActiveRecordings {
     @Inject RecordingHelper recordingHelper;
     @Inject Logger logger;
 
+    @ConfigProperty(name = ConfigProperties.CONNECTIONS_FAILED_TIMEOUT)
+    Duration connectionFailedTimeout;
+
     @Transactional
     @Mutation
     @Description(
@@ -67,7 +72,7 @@ public class ActiveRecordings {
             throws QuantityConversionException {
         var list =
                 DiscoveryNode.<DiscoveryNode>listAll().stream()
-                        .filter(nodes)
+                        .filter(n -> nodes == null ? true : nodes.test(n))
                         .flatMap(
                                 node ->
                                         RootNode.recurseChildren(node, n -> n.target != null)
@@ -108,7 +113,7 @@ public class ActiveRecordings {
             throws Exception {
         var list =
                 DiscoveryNode.<DiscoveryNode>listAll().stream()
-                        .filter(nodes)
+                        .filter(n -> nodes == null ? true : nodes.test(n))
                         .flatMap(
                                 node ->
                                         RootNode.recurseChildren(node, n -> n.target != null)
@@ -139,7 +144,7 @@ public class ActiveRecordings {
             throws Exception {
         var list =
                 DiscoveryNode.<DiscoveryNode>listAll().stream()
-                        .filter(nodes)
+                        .filter(n -> nodes == null ? true : nodes.test(n))
                         .flatMap(
                                 node ->
                                         RootNode.recurseChildren(node, n -> n.target != null)
@@ -168,7 +173,7 @@ public class ActiveRecordings {
             @NonNull DiscoveryNodeFilter nodes, @Nullable ActiveRecordingsFilter recordings) {
         var list =
                 DiscoveryNode.<DiscoveryNode>listAll().stream()
-                        .filter(nodes)
+                        .filter(n -> nodes == null ? true : nodes.test(n))
                         .flatMap(
                                 node ->
                                         RootNode.recurseChildren(node, n -> n.target != null)
@@ -196,7 +201,7 @@ public class ActiveRecordings {
     public List<ActiveRecording> createSnapshot(@NonNull DiscoveryNodeFilter nodes) {
         var targets =
                 DiscoveryNode.<DiscoveryNode>listAll().stream()
-                        .filter(nodes)
+                        .filter(n -> nodes == null ? true : nodes.test(n))
                         .flatMap(
                                 node ->
                                         RootNode.recurseChildren(node, n -> n.target != null)
@@ -205,7 +210,8 @@ public class ActiveRecordings {
                         .toList();
         var snapshots = new ArrayList<ActiveRecording>();
         for (var t : targets) {
-            snapshots.add(recordingHelper.createSnapshot(t).await().indefinitely());
+            snapshots.add(
+                    recordingHelper.createSnapshot(t).await().atMost(connectionFailedTimeout));
         }
         return snapshots;
     }
@@ -229,28 +235,28 @@ public class ActiveRecordings {
                         recording.asOptions(),
                         Optional.ofNullable(recording.metadata).map(s -> s.labels).orElse(Map.of()))
                 .await()
-                .indefinitely();
+                .atMost(connectionFailedTimeout);
     }
 
     @Transactional
     @Description("Create a new Flight Recorder Snapshot on the specified Target")
     public ActiveRecording doSnapshot(@Source Target target) {
         var fTarget = Target.getTargetById(target.id);
-        return recordingHelper.createSnapshot(fTarget).await().indefinitely();
+        return recordingHelper.createSnapshot(fTarget).await().atMost(connectionFailedTimeout);
     }
 
     @Transactional
     @Description("Stop the specified Flight Recording")
     public ActiveRecording doStop(@Source ActiveRecording recording) throws Exception {
         var ar = ActiveRecording.<ActiveRecording>find("id", recording.id).singleResult();
-        return recordingHelper.stopRecording(ar).await().indefinitely();
+        return recordingHelper.stopRecording(ar).await().atMost(connectionFailedTimeout);
     }
 
     @Transactional
     @Description("Delete the specified Flight Recording")
     public ActiveRecording doDelete(@Source ActiveRecording recording) {
         var ar = ActiveRecording.<ActiveRecording>find("id", recording.id).singleResult();
-        return recordingHelper.deleteRecording(ar).await().indefinitely();
+        return recordingHelper.deleteRecording(ar).await().atMost(connectionFailedTimeout);
     }
 
     @Description("Archive the specified Flight Recording")
