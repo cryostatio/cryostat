@@ -80,7 +80,6 @@ public class AsyncProfilerGraphQL {
                     + " the subtrees of the discovery nodes matching the given filter")
     public List<AsyncProfile> deleteAsyncProfiles(
             @NonNull DiscoveryNodeFilter nodes, @Nullable AsyncProfilerFilter filter) {
-        List<AsyncProfile> deleted = new ArrayList<AsyncProfile>();
         var list =
                 DiscoveryNode.<DiscoveryNode>listAll().stream()
                         .filter(n -> nodes == null ? true : nodes.test(n))
@@ -90,6 +89,7 @@ public class AsyncProfilerGraphQL {
                                                 .stream()
                                                 .map(n -> n.target))
                         .toList();
+        var deleted = new ArrayList<AsyncProfile>();
         for (var t : list) {
             deleted.addAll(
                     helper.getProfiles(t).await().indefinitely().stream()
