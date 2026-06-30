@@ -63,7 +63,8 @@ public class WebSocketTestClient {
             retryOn = {
                 InterruptedIOException.class,
                 ExecutionException.class,
-                ConnectException.class
+                ConnectException.class,
+                TimeoutException.class
             })
     public void connect()
             throws IOException, DeploymentException, TimeoutException, InterruptedException {
