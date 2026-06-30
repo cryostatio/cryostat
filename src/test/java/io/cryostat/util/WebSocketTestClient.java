@@ -75,10 +75,14 @@ public class WebSocketTestClient {
             logger.warn("WebSocket already connected");
             return;
         }
-        URI wsUri = wsUriSupplier.get();
-        session = ContainerProvider.getWebSocketContainer().connectToServer(client, wsUri);
-        awaitFullyConnected(Duration.ofSeconds(5));
-        logger.infov("WebSocket connected to {0}", wsUri);
+        try {
+            URI wsUri = wsUriSupplier.get();
+            session = ContainerProvider.getWebSocketContainer().connectToServer(client, wsUri);
+            awaitFullyConnected(Duration.ofSeconds(5));
+            logger.infov("WebSocket connected to {0}", wsUri);
+        } finally {
+            disconnect();
+        }
     }
 
     public void clearMessages() {
