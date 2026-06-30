@@ -845,8 +845,7 @@ public class AgentClient {
         }
     }
 
-    public static record AsyncProfile(
-            String id, String jvmId, long startTime, long duration, long size) {}
+    public static record AsyncProfile(String id, long startTime, long duration, long size) {}
 
     @SuppressFBWarnings("EI_EXPOSE_REP")
     public static record AsyncProfilerStatus(

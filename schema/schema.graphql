@@ -68,6 +68,25 @@ type ArchivedRecordings {
   data: [ArchivedRecording]!
 }
 
+type AsyncProfile {
+  duration: BigInteger!
+  id: String
+  size: BigInteger!
+  startTime: BigInteger!
+}
+
+type AsyncProfileAggregateInfo {
+  "The number of elements in this collection"
+  count: BigInteger!
+  "The sum of sizes of elements in this collection, or 0 if not applicable"
+  size: BigInteger!
+}
+
+type AsyncProfiles {
+  aggregate: AsyncProfileAggregateInfo!
+  data: [AsyncProfile]!
+}
+
 type DiscoveryNode {
   children: [DiscoveryNode]
   "Get target nodes that are descendants of this node. That is, get the set of leaf nodes from anywhere below this node's subtree."
@@ -160,6 +179,8 @@ type Metadata {
 type Mutation {
   "Archive an existing Flight Recording matching the given filter, on all Targets under the subtrees of the discovery nodes matching the given filter"
   archiveRecording(nodes: DiscoveryNodeFilterInput!, recordings: ActiveRecordingsFilterInput): [ArchivedRecording]
+  "Trigger an async profiler request on all Targets under the subtrees of the discovery nodes matching the given filter"
+  createAsyncProfile(nodes: DiscoveryNodeFilterInput!, req: StartProfileRequestInput!): [String]
   "Trigger a heap dump on all Targets under the subtrees of the discovery nodes matching the given filter"
   createHeapDump(nodes: DiscoveryNodeFilterInput!): [String]
   "Start a new Flight Recording on all Targets under the subtrees of the discovery nodes matching the given filter"
@@ -168,6 +189,8 @@ type Mutation {
   createSnapshot(nodes: DiscoveryNodeFilterInput!): [ActiveRecording]
   "Trigger a thread dump on all Targets under the subtrees of the discovery nodes matching the given filter"
   createThreadDump(nodes: DiscoveryNodeFilterInput!): [String]
+  "Delete an existing Async Profile matching the given filter, on all Targets under the subtrees of the discovery nodes matching the given filter"
+  deleteAsyncProfiles(filter: AsyncProfilerFilterInput, nodes: DiscoveryNodeFilterInput!): [AsyncProfile]
   "Delete an existing Heap Dump matching the given filter, on all Targets under the subtrees of the discovery nodes matching the given filter"
   deleteHeapDump(filter: HeapDumpsFilterInput, nodes: DiscoveryNodeFilterInput!): [HeapDump]
   "Delete an existing Flight Recording matching the given filter, on all Targets under the subtrees of the discovery nodes matching the given filter"
@@ -198,6 +221,8 @@ type OperatingSystemMetrics {
 type Query {
   "List archived recordings"
   archivedRecordings(filter: ArchivedRecordingsFilterInput): ArchivedRecordings
+  "List async profiles on all Targets under the subtrees of the discovery nodes matching the given filter"
+  asyncProfiler(filter: AsyncProfilerFilterInput, nodes: DiscoveryNodeFilterInput!): AsyncProfiles
   "Get all environment nodes in the discovery tree with optional filtering"
   environmentNodes(filter: DiscoveryNodeFilterInput): [DiscoveryNode]
   "List archived heap dumps"
@@ -280,6 +305,8 @@ type Target {
   annotations: Annotations!
   "Retrieve a list of archived recordings belonging to the target"
   archivedRecordings(filter: ArchivedRecordingsFilterInput): ArchivedRecordings
+  "Retrieve a list of async profiles belonging to the target"
+  asyncProfiles(filter: AsyncProfilerFilterInput): AsyncProfiles
   connectUrl: String!
   "Create a new Flight Recorder Snapshot on the specified Target"
   doSnapshot: ActiveRecording
@@ -388,6 +415,14 @@ input ArchivedRecordingsFilterInput {
   sourceTarget: String
 }
 
+input AsyncProfilerFilterInput {
+  name: String
+  names: [String]
+  sizeBytesGreaterThanEqual: BigInteger
+  sizeBytesLessThanEqual: BigInteger
+  sourceTarget: String
+}
+
 input DiscoveryNodeFilterInput {
   annotations: [String]
   id: BigInteger
@@ -449,6 +484,13 @@ input ReportFilterInput {
   notTopics: [String]
   topic: String
   topics: [String]
+}
+
+input StartProfileRequestInput {
+  duration: BigInteger!
+  events: [String]
+  id: String
+  startTime: BigInteger!
 }
 
 input ThreadDumpsFilterInput {
