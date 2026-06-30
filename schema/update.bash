@@ -28,7 +28,7 @@ set +e
 sleep "${1:-30}"
 counter=0
 while true; do
-    if [ "${counter}" -gt 10 ]; then
+    if [ "${counter}" -gt "${MAX_REPEATS:-60}" ]; then
         exit 1
     fi
     if command -v http; then
@@ -55,4 +55,4 @@ elif command -v wget; then
     wget http://localhost:8181/api/v4/graphql/schema.graphql -O "${DIR}/schema.graphql"
 fi
 
-"${DIR}"/generate-notifications.bash
+"${DIR}"/generate-notifications.bash || true
