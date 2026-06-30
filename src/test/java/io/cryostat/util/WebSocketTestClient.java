@@ -64,7 +64,8 @@ public class WebSocketTestClient {
                 InterruptedIOException.class,
                 ExecutionException.class,
                 ConnectException.class,
-                TimeoutException.class
+                TimeoutException.class,
+                IllegalStateException.class,
             })
     public void connect()
             throws IOException, DeploymentException, TimeoutException, InterruptedException {
