@@ -64,7 +64,10 @@ public abstract class WebSocketTestBase {
                                 URI.create(
                                         String.format(
                                                 "ws://localhost:%d/api/notifications", port)));
-        webSocketClient.connect();
+        if (!webSocketClient.isConnected()) {
+            webSocketClient.connect();
+            webSocketClient.awaitFullyConnected(Duration.ofSeconds(5));
+        }
         webSocketClient.clearMessages();
     }
 
