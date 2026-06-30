@@ -86,10 +86,7 @@ public abstract class AbstractTestBase {
         if (webSocketClient == null) {
             webSocketClient = new WebSocketTestClient(wsUri);
         }
-        if (!webSocketClient.isConnected()) {
-            webSocketClient.connect();
-            webSocketClient.awaitFullyConnected(Duration.ofSeconds(5));
-        }
+        webSocketClient.connect();
         webSocketClient.clearMessages();
 
         cleanupSelfActiveAndArchivedRecordings();

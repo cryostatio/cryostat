@@ -16,10 +16,13 @@
 package io.cryostat.util;
 
 import java.io.IOException;
+import java.io.InterruptedIOException;
+import java.net.ConnectException;
 import java.net.URI;
 import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.locks.Condition;
@@ -34,6 +37,7 @@ import jakarta.websocket.ContainerProvider;
 import jakarta.websocket.DeploymentException;
 import jakarta.websocket.OnMessage;
 import jakarta.websocket.Session;
+import org.eclipse.microprofile.faulttolerance.Retry;
 import org.jboss.logging.Logger;
 
 public class WebSocketTestClient {
@@ -53,13 +57,23 @@ public class WebSocketTestClient {
         this(() -> wsUri);
     }
 
-    public void connect() throws IOException, DeploymentException {
+    @Retry(
+            delay = 5000,
+            maxRetries = 6,
+            retryOn = {
+                InterruptedIOException.class,
+                ExecutionException.class,
+                ConnectException.class
+            })
+    public void connect()
+            throws IOException, DeploymentException, TimeoutException, InterruptedException {
         if (session != null && session.isOpen()) {
             logger.warn("WebSocket already connected");
             return;
         }
         URI wsUri = wsUriSupplier.get();
         session = ContainerProvider.getWebSocketContainer().connectToServer(client, wsUri);
+        awaitFullyConnected(Duration.ofSeconds(3));
         logger.infov("WebSocket connected to {0}", wsUri);
     }
 
