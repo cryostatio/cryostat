@@ -19,6 +19,7 @@ import java.io.IOException;
 import java.net.URI;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeoutException;
 
 import io.cryostat.util.WebSocketTestClient;
 
@@ -50,7 +51,8 @@ public abstract class WebSocketTestBase {
     protected static WebSocketTestClient webSocketClient;
 
     @BeforeAll
-    static void setupTestBase() throws IOException, DeploymentException {
+    static void setupTestBase()
+            throws IOException, DeploymentException, TimeoutException, InterruptedException {
         // Integration tests don't have Quarkus injection, so construct URI from environment
         int port = Integer.parseInt(System.getenv().getOrDefault("QUARKUS_HTTP_PORT", "8081"));
         RestAssured.baseURI = "http://localhost";
@@ -63,6 +65,7 @@ public abstract class WebSocketTestBase {
                                         String.format(
                                                 "ws://localhost:%d/api/notifications", port)));
         webSocketClient.connect();
+        webSocketClient.clearMessages();
     }
 
     @BeforeEach
