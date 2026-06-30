@@ -9,7 +9,7 @@ services:
       - "9977"
     environment:
       JAVA_OPTS_APPEND: >-
-        -XX:StartFlightRecording=filename=/tmp/,name=startup,settings=profile,disk=true,duration=30s
+        -XX:StartFlightRecording=filename=/tmp/,name=startup,settings=profile,disk=true,duration=2m
         -Djava.util.logging.manager=org.jboss.logmanager.LogManager
         -Dio.cryostat.agent.shaded.org.slf4j.simpleLogger.defaultLogLevel=warn
         -javaagent:/deployments/app/cryostat-agent.jar
