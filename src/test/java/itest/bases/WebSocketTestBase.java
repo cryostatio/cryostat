@@ -17,7 +17,6 @@ package itest.bases;
 
 import java.io.IOException;
 import java.net.URI;
-import java.time.Duration;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeoutException;
@@ -67,7 +66,6 @@ public abstract class WebSocketTestBase {
                                                 "ws://localhost:%d/api/notifications", port)));
         if (!webSocketClient.isConnected()) {
             webSocketClient.connect();
-            webSocketClient.awaitFullyConnected(Duration.ofSeconds(5));
         }
         webSocketClient.clearMessages();
     }
