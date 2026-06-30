@@ -389,9 +389,7 @@ public class RecordingHelper {
                     // TODO is there any other metadata to attach here?
                     var recording = ActiveRecording.from(target, descriptor, new Metadata(labels));
                     recording.external = true;
-                    if (externalRecordingArchive && recording.external) {
-                        recording.archiveOnStop = true;
-                    }
+                    recording.archiveOnStop = externalRecordingArchive;
                     // FIXME this is a hack. Older Cryostat versions enforced that recordings' names
                     // were unique within the target JVM, but this could only be enforced when
                     // Cryostat was originating the recording creation. Recordings already have
