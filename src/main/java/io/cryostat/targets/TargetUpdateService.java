@@ -33,6 +33,7 @@ import jakarta.enterprise.event.Observes;
 import jakarta.enterprise.event.TransactionPhase;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
+import jdk.jfr.RecordingState;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 import org.quartz.JobBuilder;
@@ -149,12 +150,20 @@ public class TargetUpdateService {
         scheduler.scheduleJob(job, trigger);
     }
 
-    void fireActiveRecordingUpdate(ActiveRecording recording) throws SchedulerException {
+    void fireActiveRecordingUpdate(ActiveRecording recording) {
+        if (RecordingState.CLOSED.equals(recording.state) || recording.continuous) {
+            return;
+        }
         JobKey key =
                 JobKey.jobKey(
                         String.format("%s.%d", recording.target.jvmId, recording.remoteId),
                         "recording-update");
-        if (scheduler.checkExists(key)) {
+        try {
+            if (scheduler.checkExists(key)) {
+                return;
+            }
+        } catch (SchedulerException se) {
+            logger.error(se);
             return;
         }
         JobDetail jobDetail =
@@ -162,11 +171,22 @@ public class TargetUpdateService {
                         .withIdentity(key)
                         .usingJobData("recordingId", recording.id)
                         .build();
-        var when =
+
+        Instant when =
                 Instant.ofEpochMilli(recording.startTime)
                         .plusMillis(recording.duration)
                         .plus(externalRecordingDelay);
-        Trigger trigger = TriggerBuilder.newTrigger().startAt(Date.from(when)).build();
-        scheduler.scheduleJob(jobDetail, trigger);
+
+        TriggerBuilder<Trigger> triggerBuilder = TriggerBuilder.newTrigger();
+        if (RecordingState.STOPPED.equals(recording.state)) {
+            triggerBuilder = triggerBuilder.startNow();
+        } else {
+            triggerBuilder = triggerBuilder.startAt(when);
+        }
+        try {
+            scheduler.scheduleJob(jobDetail, triggerBuilder.build());
+        } catch (SchedulerException se) {
+            logger.error(se);
+        }
     }
 }
