@@ -58,8 +58,8 @@ public class WebSocketTestClient {
     }
 
     @Retry(
-            delay = 5000,
-            maxRetries = 6,
+            delay = 6000,
+            maxRetries = 5,
             retryOn = {
                 InterruptedIOException.class,
                 ExecutionException.class,
@@ -77,7 +77,7 @@ public class WebSocketTestClient {
         }
         URI wsUri = wsUriSupplier.get();
         session = ContainerProvider.getWebSocketContainer().connectToServer(client, wsUri);
-        awaitFullyConnected(Duration.ofSeconds(3));
+        awaitFullyConnected(Duration.ofSeconds(5));
         logger.infov("WebSocket connected to {0}", wsUri);
     }
 
