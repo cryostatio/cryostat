@@ -80,8 +80,13 @@ public class WebSocketTestClient {
             session = ContainerProvider.getWebSocketContainer().connectToServer(client, wsUri);
             awaitFullyConnected(Duration.ofSeconds(5));
             logger.infov("WebSocket connected to {0}", wsUri);
-        } finally {
+        } catch (IOException
+                | DeploymentException
+                | TimeoutException
+                | InterruptedException
+                | IllegalStateException e) {
             disconnect();
+            throw e;
         }
     }
 
