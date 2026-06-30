@@ -181,7 +181,7 @@ public class TargetUpdateService {
         if (RecordingState.STOPPED.equals(recording.state)) {
             triggerBuilder = triggerBuilder.startNow();
         } else {
-            triggerBuilder = triggerBuilder.startAt(when);
+            triggerBuilder = triggerBuilder.startAt(Date.from(when));
         }
         try {
             scheduler.scheduleJob(jobDetail, triggerBuilder.build());
