@@ -21,6 +21,7 @@ import java.util.Objects;
 import java.util.concurrent.CompletionException;
 
 import io.cryostat.ConfigProperties;
+import io.cryostat.core.diagnostic.HeapDumpAnalysis;
 import io.cryostat.core.reports.InterruptibleReportGenerator.AnalysisResult;
 import io.cryostat.diagnostic.DiagnosticsHelper;
 import io.cryostat.diagnostic.DiagnosticsHelper.EventCategory;
@@ -161,12 +162,12 @@ public class LongRunningRequestGenerator {
 
     @ConsumeEvent(value = HEAP_DUMP_ANALYSIS_REQUEST_ADDRESS, blocking = true)
     @Transactional
-    public void onMessage(HeapDumpAnalysisRequest request) {
+    public Uni<HeapDumpAnalysis> onMessage(HeapDumpAnalysisRequest request) {
         logger.tracev("Job ID: {0} submitted.", request.id());
         try {
             var target = Target.getTargetByJvmId(request.jvmId).get();
             logger.tracev("Generating Heap Dump Report");
-            heapDumpReportsService
+            return heapDumpReportsService
                     .reportFor(request.jvmId, request.heapDumpId)
                     .onItem()
                     .invoke(
@@ -197,10 +198,8 @@ public class LongRunningRequestGenerator {
                                 logger.warn("Exception thrown while servicing request: ", e);
                                 bus.publish(
                                         MessagingServer.class.getName(),
-                                        new Notification(
-                                                HEAP_DUMP_ANALYSIS_FAILURE,
-                                                new HeapDumpAnalysisFailurePayload(
-                                                        request.id(), request.heapDumpId)));
+                                        new HeapDumpAnalysisFailurePayload(
+                                                request.id(), request.heapDumpId));
                             });
         } catch (Exception e) {
             logger.warn("Failed to analyze heap dump");
