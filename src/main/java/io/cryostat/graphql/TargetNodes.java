@@ -146,7 +146,6 @@ public class TargetNodes {
     @Description("Retrieve a list of async profiles belonging to the target")
     public AsyncProfiles asyncProfiles(
             @Source Target target, @Nullable AsyncProfilerFilter filter) {
-        logger.warn("Querying async profiles for target " + target.id);
         var fTarget = Target.getTargetById(target.id);
         var asyncProfiles = new AsyncProfiles();
         asyncProfiles.data =
@@ -154,7 +153,6 @@ public class TargetNodes {
                         .filter(t -> filter == null || filter.test(t))
                         .toList();
         asyncProfiles.aggregate = AsyncProfileAggregateInfo.fromArchived(asyncProfiles.data);
-        logger.warn("Found data: " + asyncProfiles.data.toString());
         return asyncProfiles;
     }
 
