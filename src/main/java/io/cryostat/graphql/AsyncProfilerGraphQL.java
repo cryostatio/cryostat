@@ -91,11 +91,12 @@ public class AsyncProfilerGraphQL {
                         .toList();
         var deleted = new ArrayList<AsyncProfile>();
         for (var t : list) {
-            deleted.addAll(
+            var toDelete =
                     helper.getProfiles(t).await().indefinitely().stream()
                             .filter(v -> filter == null ? true : filter.test(v))
-                            .toList());
-            for (var p : deleted) {
+                            .toList();
+            deleted.addAll(toDelete);
+            for (var p : toDelete) {
                 helper.deleteProfile(t, p.id());
             }
         }

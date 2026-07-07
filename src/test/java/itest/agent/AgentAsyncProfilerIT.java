@@ -832,7 +832,7 @@ public class AgentAsyncProfilerIT extends AgentTestBase {
     }
 
     @Test
-    void testDeleteMutation() {
+    void testDeleteMutation() throws Exception {
         long targetId = target.id();
 
         // Create a Profile
@@ -859,13 +859,25 @@ public class AgentAsyncProfilerIT extends AgentTestBase {
                         .body()
                         .asString();
 
+        webSocketClient.expectNotification("AsyncProfilerCreated", Duration.ofSeconds(10));
+        // Wait for the profile to stop
+        JsonObject stoppedNotification =
+                webSocketClient.expectNotification(
+                        "AsyncProfilerStopped",
+                        Duration.ofMinutes(2),
+                        o -> profileId.equals(o.getJsonObject("message").getString("id")));
+
+        MatcherAssert.assertThat(
+                stoppedNotification.getJsonObject("message").getString("id"),
+                Matchers.equalTo(profileId));
+
         JsonObject deleteQuery = new JsonObject();
         deleteQuery.put(
                 "query",
                 String.format(
                         "mutation { deleteAsyncProfiles (nodes: { id:"
                                 + targetId
-                                + "}, filter: { name: \"%s\"}) { id size } }",
+                                + "}) { id size duration startTime }}",
                         profileId));
 
         Response deleteResponse =
@@ -874,10 +886,27 @@ public class AgentAsyncProfilerIT extends AgentTestBase {
                         .when()
                         .post("/api/v4/graphql")
                         .then()
+                        .log()
+                        .all()
                         .statusCode(allOf(greaterThanOrEqualTo(200), lessThan(300)))
                         .extract()
                         .response();
 
         assertThat(deleteResponse.getStatusCode(), equalTo(200));
+
+        // Verify the profile was deleted
+        given().log()
+                .all()
+                .pathParams("targetId", targetId)
+                .when()
+                .get("/api/beta/targets/{targetId}/async-profiler")
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .contentType(ContentType.JSON)
+                .statusCode(200)
+                .body("$.size()", Matchers.equalTo(0));
     }
 }
