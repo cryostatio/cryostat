@@ -29,9 +29,6 @@ import io.cryostat.resources.S3StorageResource;
 import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
-import jakarta.ws.rs.core.MultivaluedHashMap;
-import jakarta.ws.rs.core.MultivaluedMap;
-import org.jboss.resteasy.reactive.multipart.FileUpload;
 import org.junit.jupiter.api.Test;
 
 @QuarkusTest
@@ -82,55 +79,6 @@ class RecordingHelperTest extends AbstractTransactionalTestBase {
         } finally {
             Files.deleteIfExists(firstRecording);
             Files.deleteIfExists(secondRecording);
-        }
-    }
-
-    static class TestFileUpload implements FileUpload {
-        private final String fileName;
-        private final Path path;
-
-        TestFileUpload(String fileName, Path path) {
-            this.fileName = fileName;
-            this.path = path;
-        }
-
-        @Override
-        public String name() {
-            return "recording";
-        }
-
-        @Override
-        public Path filePath() {
-            return path;
-        }
-
-        @Override
-        public String fileName() {
-            return fileName;
-        }
-
-        @Override
-        public long size() {
-            try {
-                return Files.size(path);
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
-        }
-
-        @Override
-        public String contentType() {
-            return "application/octet-stream";
-        }
-
-        @Override
-        public String charSet() {
-            return "";
-        }
-
-        @Override
-        public MultivaluedMap<String, String> getHeaders() {
-            return new MultivaluedHashMap<>();
         }
     }
 }
