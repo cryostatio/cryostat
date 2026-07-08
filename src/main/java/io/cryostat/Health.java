@@ -125,6 +125,26 @@ class Health {
     }
 
     @GET
+    // This does not actually block, but we force it to execute on the worker pool so that the
+    // status check reports not only that the event loop dispatch thread is alive and responsive,
+    // but that the worker pool is also actively servicing requests. If we don't force this then
+    // this handler only checks if the event loop is alive, but the worker pool may be blocked or
+    // otherwise unresponsive and the application as a whole will not be usable.
+    @Blocking
+    @Path("/health/liveness")
+    @PermitAll
+    @Operation(
+            summary = "Check if the application is able to accept and respond to requests.",
+            description =
+                    """
+                    Performs a no-op on a worker thread. This is a simply check to determine if
+                    the application has available threads to service requests. HTTP 204 No Content
+                    is the only expected response. If the application is not live and no worker
+                    threads are available, then the client will never receive a response.
+                    """)
+    public void liveness() {}
+
+    @GET
     @Path("/api/v4/grafana_dashboard_url")
     @PermitAll
     @Produces({MediaType.APPLICATION_JSON})
