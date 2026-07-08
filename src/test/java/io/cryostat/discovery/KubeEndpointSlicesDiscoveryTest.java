@@ -50,6 +50,7 @@ import io.fabric8.kubernetes.client.dsl.MixedOperation;
 import io.fabric8.kubernetes.client.dsl.NonNamespaceOperation;
 import io.fabric8.kubernetes.client.dsl.PodResource;
 import io.fabric8.kubernetes.client.dsl.RollableScalableResource;
+import io.quarkus.arc.ClientProxy;
 import io.quarkus.panache.common.Parameters;
 import io.quarkus.test.InjectMock;
 import io.quarkus.test.junit.QuarkusTest;
@@ -61,6 +62,7 @@ import jakarta.persistence.EntityManager;
 import jakarta.transaction.Transactional;
 import org.apache.commons.lang3.tuple.Pair;
 import org.junit.jupiter.api.Test;
+import org.quartz.Scheduler;
 
 @QuarkusTest
 @TestProfile(KubeEndpointSlicesDiscoveryTest.TestProfile.class)
@@ -1094,5 +1096,23 @@ class KubeEndpointSlicesDiscoveryTest extends AbstractTransactionalTestBase {
             fail(shutdownFailure.get());
         }
         discovery.setShuttingDown(false);
+    }
+
+    @Test
+    void testDeleteResyncJobSkippedWhenSchedulerShutdown() throws Exception {
+        KubeEndpointSlicesDiscovery unwrappedDiscovery = ClientProxy.unwrap(discovery);
+        Scheduler originalScheduler = unwrappedDiscovery.scheduler;
+        Scheduler scheduler = mock(Scheduler.class);
+        unwrappedDiscovery.scheduler = scheduler;
+        when(scheduler.isShutdown()).thenReturn(true);
+
+        try {
+            unwrappedDiscovery.deleteResyncJobIfSchedulerRunning();
+
+            verify(scheduler).isShutdown();
+            verify(scheduler, never()).deleteJob(any());
+        } finally {
+            unwrappedDiscovery.scheduler = originalScheduler;
+        }
     }
 }

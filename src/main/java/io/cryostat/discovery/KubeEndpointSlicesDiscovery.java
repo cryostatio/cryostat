@@ -308,11 +308,7 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
             }
             logger.debugv("Shutting down {0} client", REALM);
 
-            try {
-                scheduler.deleteJob(RESYNC_JOB_KEY);
-            } catch (SchedulerException se) {
-                logger.warn(se);
-            }
+            deleteResyncJobIfSchedulerRunning();
             safeGetInformers()
                     .forEach(
                             (ns, informer) -> {
@@ -323,6 +319,16 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
                             });
         } finally {
             writeLock.unlock();
+        }
+    }
+
+    void deleteResyncJobIfSchedulerRunning() {
+        try {
+            if (!scheduler.isShutdown()) {
+                scheduler.deleteJob(RESYNC_JOB_KEY);
+            }
+        } catch (SchedulerException se) {
+            logger.warn(se);
         }
     }
 
