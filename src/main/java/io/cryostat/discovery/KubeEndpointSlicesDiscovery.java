@@ -350,28 +350,13 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
         this.shuttingDown = shuttingDown;
     }
 
-<<<<<<< Updated upstream
-    boolean enterDiscoveryEventHandler() {
-=======
     boolean withDiscoveryEventHandler(Runnable handler) {
->>>>>>> Stashed changes
         if (shuttingDown) {
             return false;
         }
 
         var readLock = shutdownLock.readLock();
         readLock.lock();
-<<<<<<< Updated upstream
-        if (shuttingDown) {
-            readLock.unlock();
-            return false;
-        }
-        return true;
-    }
-
-    void exitDiscoveryEventHandler() {
-        shutdownLock.readLock().unlock();
-=======
         try {
             if (shuttingDown) {
                 return false;
@@ -381,7 +366,6 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
         } finally {
             readLock.unlock();
         }
->>>>>>> Stashed changes
     }
 
     @Override
@@ -439,16 +423,6 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
     @ConsumeEvent(value = NAMESPACE_QUERY_ADDR, blocking = true, ordered = true)
     @Transactional(TxType.REQUIRES_NEW)
     public void handleQueryEvent(NamespaceQueryEvent evt) {
-<<<<<<< Updated upstream
-        if (!enterDiscoveryEventHandler()) {
-            logger.tracev("Ignoring EndpointSlice namespace query event during shutdown: {0}", evt);
-            return;
-        }
-        try {
-            for (var namespace : evt.namespaces) {
-                try {
-                    Set<Target> persistedTargets = queryPersistedTargets(namespace);
-=======
         if (!withDiscoveryEventHandler(() -> syncNamespaceTargets(evt))) {
             logger.tracev("Ignoring EndpointSlice namespace query event during shutdown: {0}", evt);
         }
@@ -458,109 +432,75 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
         for (var namespace : evt.namespaces) {
             try {
                 Set<Target> persistedTargets = queryPersistedTargets(namespace);
->>>>>>> Stashed changes
 
-                    Map<TargetDTO, DiscoveryNodeDTO> observedTargetsWithHierarchy =
-                            buildInMemoryTreeForNamespaceDTO(namespace);
+                Map<TargetDTO, DiscoveryNodeDTO> observedTargetsWithHierarchy =
+                        buildInMemoryTreeForNamespaceDTO(namespace);
 
-                    Set<TargetDTO> observedTargetDtos = observedTargetsWithHierarchy.keySet();
+                Set<TargetDTO> observedTargetDtos = observedTargetsWithHierarchy.keySet();
 
-                    Set<String> observedConnectUrls =
-                            observedTargetDtos.stream()
-                                    .map(TargetDTO::connectUrl)
-                                    .collect(Collectors.toSet());
+                Set<String> observedConnectUrls =
+                        observedTargetDtos.stream()
+                                .map(TargetDTO::connectUrl)
+                                .collect(Collectors.toSet());
 
-                    Set<String> persistedConnectUrls =
-                            persistedTargets.stream()
-                                    .map(t -> t.connectUrl.toString())
-                                    .collect(Collectors.toSet());
+                Set<String> persistedConnectUrls =
+                        persistedTargets.stream()
+                                .map(t -> t.connectUrl.toString())
+                                .collect(Collectors.toSet());
 
-                    // Find removed targets (in persisted but not in observed)
-                    Set<Target> removedTargets =
-                            persistedTargets.stream()
-                                    .filter(
-                                            t ->
-                                                    !observedConnectUrls.contains(
-                                                            t.connectUrl.toString()))
-                                    .collect(Collectors.toSet());
+                // Find removed targets (in persisted but not in observed)
+                Set<Target> removedTargets =
+                        persistedTargets.stream()
+                                .filter(t -> !observedConnectUrls.contains(t.connectUrl.toString()))
+                                .collect(Collectors.toSet());
 
-                    // Find added targets (in observed but not in persisted)
-                    Set<TargetDTO> addedTargetDtos =
-                            observedTargetDtos.stream()
-                                    .filter(dto -> !persistedConnectUrls.contains(dto.connectUrl()))
-                                    .collect(Collectors.toSet());
+                // Find added targets (in observed but not in persisted)
+                Set<TargetDTO> addedTargetDtos =
+                        observedTargetDtos.stream()
+                                .filter(dto -> !persistedConnectUrls.contains(dto.connectUrl()))
+                                .collect(Collectors.toSet());
 
-                    logger.debugv(
-                            "Namespace {0}: Found {1} persisted targets, {2} observed targets, {3}"
-                                    + " removed targets, {4} added targets",
-                            namespace,
-                            persistedTargets.size(),
-                            observedTargetDtos.size(),
-                            removedTargets.size(),
-                            addedTargetDtos.size());
+                logger.debugv(
+                        "Namespace {0}: Found {1} persisted targets, {2} observed targets, {3}"
+                                + " removed targets, {4} added targets",
+                        namespace,
+                        persistedTargets.size(),
+                        observedTargetDtos.size(),
+                        removedTargets.size(),
+                        addedTargetDtos.size());
 
-                    removedTargets.forEach(
-                            (t) -> {
-                                logger.debugv(
-                                        "Publishing LOST event for target: {0}", t.connectUrl);
-                                notify(
-                                        EndpointDiscoveryEvent.from(
-                                                namespace, t, null, EventKind.LOST));
-                            });
+                removedTargets.forEach(
+                        (t) -> {
+                            logger.debugv("Publishing LOST event for target: {0}", t.connectUrl);
+                            notify(EndpointDiscoveryEvent.from(namespace, t, null, EventKind.LOST));
+                        });
 
-                    addedTargetDtos.forEach(
-                            (targetDto) -> {
-                                DiscoveryNodeDTO hierarchy =
-                                        observedTargetsWithHierarchy.get(targetDto);
-                                logger.debugv(
-                                        "Publishing FOUND event for target: {0}",
-                                        targetDto.connectUrl());
-                                notify(
-                                        EndpointDiscoveryEvent.from(
-                                                namespace,
-                                                null,
-                                                null,
-                                                EventKind.FOUND,
-                                                targetDto,
-                                                hierarchy));
-                            });
-                } catch (Exception e) {
-                    logger.errorv(
-                            e, "Failed to synchronize EndpointSlices in namespace {0}", namespace);
-                }
+                addedTargetDtos.forEach(
+                        (targetDto) -> {
+                            DiscoveryNodeDTO hierarchy =
+                                    observedTargetsWithHierarchy.get(targetDto);
+                            logger.debugv(
+                                    "Publishing FOUND event for target: {0}",
+                                    targetDto.connectUrl());
+                            notify(
+                                    EndpointDiscoveryEvent.from(
+                                            namespace,
+                                            null,
+                                            null,
+                                            EventKind.FOUND,
+                                            targetDto,
+                                            hierarchy));
+                        });
+            } catch (Exception e) {
+                logger.errorv(
+                        e, "Failed to synchronize EndpointSlices in namespace {0}", namespace);
             }
-        } finally {
-            exitDiscoveryEventHandler();
         }
     }
 
     @ConsumeEvent(value = ENDPOINT_SLICE_DISCOVERY_ADDR, blocking = true, ordered = true)
     @Transactional(TxType.REQUIRED)
     public void handleEndpointEvent(EndpointDiscoveryEvent evt) {
-<<<<<<< Updated upstream
-        if (!enterDiscoveryEventHandler()) {
-            logger.tracev("Ignoring EndpointSlice discovery event during shutdown: {0}", evt);
-            return;
-        }
-        try {
-            String namespace = evt.namespace;
-            DiscoveryNode realm = DiscoveryNode.getRealm(REALM).orElseThrow();
-            realm =
-                    entityManager.find(
-                            DiscoveryNode.class, realm.id, LockModeType.PESSIMISTIC_WRITE);
-            DiscoveryNode lockedRealm = realm;
-            DiscoveryNode nsNode =
-                    DiscoveryNode.getChild(lockedRealm, n -> n.name.equals(namespace))
-                            .orElseGet(
-                                    () -> {
-                                        DiscoveryNode created =
-                                                DiscoveryNode.environment(
-                                                        namespace, KubeDiscoveryNodeType.NAMESPACE);
-                                        created.parent = lockedRealm;
-                                        created.persist();
-                                        return created;
-                                    });
-=======
         if (!withDiscoveryEventHandler(() -> applyEndpointDiscoveryEvent(evt))) {
             logger.tracev("Ignoring EndpointSlice discovery event during shutdown: {0}", evt);
         }
@@ -582,32 +522,28 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
                                     created.persist();
                                     return created;
                                 });
->>>>>>> Stashed changes
 
-            if (evt.eventKind == EventKind.FOUND) {
-                if (evt.targetDto != null && evt.hierarchyRoot != null) {
-                    logger.debugv("Persisting target from DTO: {0}", evt.targetDto.connectUrl());
-                    persistOwnerChainFromDTO(nsNode, evt.targetDto, evt.hierarchyRoot);
-                } else {
-                    logger.warnv(
-                            "FOUND event missing DTOs for target: {0}",
-                            evt.target != null ? evt.target.connectUrl : "null");
-                }
+        if (evt.eventKind == EventKind.FOUND) {
+            if (evt.targetDto != null && evt.hierarchyRoot != null) {
+                logger.debugv("Persisting target from DTO: {0}", evt.targetDto.connectUrl());
+                persistOwnerChainFromDTO(nsNode, evt.targetDto, evt.hierarchyRoot);
             } else {
-                pruneOwnerChain(nsNode, evt.target);
+                logger.warnv(
+                        "FOUND event missing DTOs for target: {0}",
+                        evt.target != null ? evt.target.connectUrl : "null");
             }
-
-            if (!nsNode.hasChildren()) {
-                realm.children.remove(nsNode);
-                nsNode.parent = null;
-            } else if (!realm.children.contains(nsNode)) {
-                realm.children.add(nsNode);
-                nsNode.parent = realm;
-            }
-            realm.persist();
-        } finally {
-            exitDiscoveryEventHandler();
+        } else {
+            pruneOwnerChain(nsNode, evt.target);
         }
+
+        if (!nsNode.hasChildren()) {
+            realm.children.remove(nsNode);
+            nsNode.parent = null;
+        } else if (!realm.children.contains(nsNode)) {
+            realm.children.add(nsNode);
+            nsNode.parent = realm;
+        }
+        realm.persist();
     }
 
     private void notify(NamespaceQueryEvent evt) {
