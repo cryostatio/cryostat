@@ -1062,11 +1062,44 @@ class KubeEndpointSlicesDiscoveryTest extends AbstractTransactionalTestBase {
 
     @Test
     void testShutdownWaitsForActiveDiscoveryEventHandler() throws Exception {
+<<<<<<< Updated upstream
         assertTrue(discovery.enterDiscoveryEventHandler());
 
         CountDownLatch shutdownStarted = new CountDownLatch(1);
         CountDownLatch shutdownFinished = new CountDownLatch(1);
         AtomicReference<Throwable> shutdownFailure = new AtomicReference<>();
+=======
+        CountDownLatch handlerStarted = new CountDownLatch(1);
+        CountDownLatch releaseHandler = new CountDownLatch(1);
+        CountDownLatch handlerFinished = new CountDownLatch(1);
+        CountDownLatch shutdownStarted = new CountDownLatch(1);
+        CountDownLatch shutdownFinished = new CountDownLatch(1);
+        AtomicReference<Throwable> handlerFailure = new AtomicReference<>();
+        AtomicReference<Throwable> shutdownFailure = new AtomicReference<>();
+        Thread handlerThread =
+                new Thread(
+                        () -> {
+                            try {
+                                assertTrue(
+                                        discovery.withDiscoveryEventHandler(
+                                                () -> {
+                                                    handlerStarted.countDown();
+                                                    try {
+                                                        assertTrue(
+                                                                releaseHandler.await(
+                                                                        5, TimeUnit.SECONDS));
+                                                    } catch (InterruptedException e) {
+                                                        Thread.currentThread().interrupt();
+                                                        fail(e);
+                                                    }
+                                                }));
+                            } catch (Throwable t) {
+                                handlerFailure.set(t);
+                            } finally {
+                                handlerFinished.countDown();
+                            }
+                        });
+>>>>>>> Stashed changes
         Thread shutdownThread =
                 new Thread(
                         () -> {
@@ -1081,6 +1114,12 @@ class KubeEndpointSlicesDiscoveryTest extends AbstractTransactionalTestBase {
                         });
 
         try {
+<<<<<<< Updated upstream
+=======
+            handlerThread.start();
+            assertTrue(handlerStarted.await(5, TimeUnit.SECONDS));
+
+>>>>>>> Stashed changes
             shutdownThread.start();
 
             assertTrue(shutdownStarted.await(5, TimeUnit.SECONDS));
@@ -1088,10 +1127,21 @@ class KubeEndpointSlicesDiscoveryTest extends AbstractTransactionalTestBase {
                     shutdownFinished.await(250, TimeUnit.MILLISECONDS),
                     "Shutdown should wait for an active discovery event handler");
         } finally {
+<<<<<<< Updated upstream
             discovery.exitDiscoveryEventHandler();
         }
 
         assertTrue(shutdownFinished.await(5, TimeUnit.SECONDS));
+=======
+            releaseHandler.countDown();
+        }
+
+        assertTrue(handlerFinished.await(5, TimeUnit.SECONDS));
+        assertTrue(shutdownFinished.await(5, TimeUnit.SECONDS));
+        if (handlerFailure.get() != null) {
+            fail(handlerFailure.get());
+        }
+>>>>>>> Stashed changes
         if (shutdownFailure.get() != null) {
             fail(shutdownFailure.get());
         }

@@ -350,13 +350,18 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
         this.shuttingDown = shuttingDown;
     }
 
+<<<<<<< Updated upstream
     boolean enterDiscoveryEventHandler() {
+=======
+    boolean withDiscoveryEventHandler(Runnable handler) {
+>>>>>>> Stashed changes
         if (shuttingDown) {
             return false;
         }
 
         var readLock = shutdownLock.readLock();
         readLock.lock();
+<<<<<<< Updated upstream
         if (shuttingDown) {
             readLock.unlock();
             return false;
@@ -366,6 +371,17 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
 
     void exitDiscoveryEventHandler() {
         shutdownLock.readLock().unlock();
+=======
+        try {
+            if (shuttingDown) {
+                return false;
+            }
+            handler.run();
+            return true;
+        } finally {
+            readLock.unlock();
+        }
+>>>>>>> Stashed changes
     }
 
     @Override
@@ -423,6 +439,7 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
     @ConsumeEvent(value = NAMESPACE_QUERY_ADDR, blocking = true, ordered = true)
     @Transactional(TxType.REQUIRES_NEW)
     public void handleQueryEvent(NamespaceQueryEvent evt) {
+<<<<<<< Updated upstream
         if (!enterDiscoveryEventHandler()) {
             logger.tracev("Ignoring EndpointSlice namespace query event during shutdown: {0}", evt);
             return;
@@ -431,6 +448,17 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
             for (var namespace : evt.namespaces) {
                 try {
                     Set<Target> persistedTargets = queryPersistedTargets(namespace);
+=======
+        if (!withDiscoveryEventHandler(() -> syncNamespaceTargets(evt))) {
+            logger.tracev("Ignoring EndpointSlice namespace query event during shutdown: {0}", evt);
+        }
+    }
+
+    private void syncNamespaceTargets(NamespaceQueryEvent evt) {
+        for (var namespace : evt.namespaces) {
+            try {
+                Set<Target> persistedTargets = queryPersistedTargets(namespace);
+>>>>>>> Stashed changes
 
                     Map<TargetDTO, DiscoveryNodeDTO> observedTargetsWithHierarchy =
                             buildInMemoryTreeForNamespaceDTO(namespace);
@@ -509,6 +537,7 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
     @ConsumeEvent(value = ENDPOINT_SLICE_DISCOVERY_ADDR, blocking = true, ordered = true)
     @Transactional(TxType.REQUIRED)
     public void handleEndpointEvent(EndpointDiscoveryEvent evt) {
+<<<<<<< Updated upstream
         if (!enterDiscoveryEventHandler()) {
             logger.tracev("Ignoring EndpointSlice discovery event during shutdown: {0}", evt);
             return;
@@ -531,6 +560,29 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
                                         created.persist();
                                         return created;
                                     });
+=======
+        if (!withDiscoveryEventHandler(() -> applyEndpointDiscoveryEvent(evt))) {
+            logger.tracev("Ignoring EndpointSlice discovery event during shutdown: {0}", evt);
+        }
+    }
+
+    private void applyEndpointDiscoveryEvent(EndpointDiscoveryEvent evt) {
+        String namespace = evt.namespace;
+        DiscoveryNode realm = DiscoveryNode.getRealm(REALM).orElseThrow();
+        realm = entityManager.find(DiscoveryNode.class, realm.id, LockModeType.PESSIMISTIC_WRITE);
+        DiscoveryNode lockedRealm = realm;
+        DiscoveryNode nsNode =
+                DiscoveryNode.getChild(lockedRealm, n -> n.name.equals(namespace))
+                        .orElseGet(
+                                () -> {
+                                    DiscoveryNode created =
+                                            DiscoveryNode.environment(
+                                                    namespace, KubeDiscoveryNodeType.NAMESPACE);
+                                    created.parent = lockedRealm;
+                                    created.persist();
+                                    return created;
+                                });
+>>>>>>> Stashed changes
 
             if (evt.eventKind == EventKind.FOUND) {
                 if (evt.targetDto != null && evt.hierarchyRoot != null) {
