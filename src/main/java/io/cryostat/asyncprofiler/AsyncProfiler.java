@@ -17,8 +17,6 @@ package io.cryostat.asyncprofiler;
 
 import java.io.InputStream;
 import java.time.Duration;
-import java.time.Instant;
-import java.util.Date;
 import java.util.List;
 import java.util.Objects;
 
@@ -45,10 +43,8 @@ import jakarta.inject.Inject;
 import jakarta.persistence.NoResultException;
 import jakarta.persistence.PersistenceException;
 import jakarta.transaction.Transactional;
-import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
-import jakarta.ws.rs.InternalServerErrorException;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.core.HttpHeaders;
@@ -60,16 +56,10 @@ import org.jboss.resteasy.reactive.RestResponse;
 import org.jboss.resteasy.reactive.RestResponse.ResponseBuilder;
 import org.quartz.DisallowConcurrentExecution;
 import org.quartz.Job;
-import org.quartz.JobBuilder;
-import org.quartz.JobDetail;
 import org.quartz.JobExecutionContext;
 import org.quartz.JobExecutionException;
-import org.quartz.JobKey;
 import org.quartz.Scheduler;
 import org.quartz.SchedulerException;
-import org.quartz.SimpleScheduleBuilder;
-import org.quartz.Trigger;
-import org.quartz.TriggerBuilder;
 
 @Path("/api/beta/targets/{targetId}/async-profiler")
 public class AsyncProfiler {
@@ -96,6 +86,7 @@ public class AsyncProfiler {
     }
 
     @Inject TargetConnectionManager tcm;
+    @Inject AsyncProfilerHelper helper;
     @Inject Scheduler scheduler;
     @Inject EventBus bus;
     @Inject Logger logger;
@@ -113,52 +104,7 @@ public class AsyncProfiler {
         Target target = Target.find("id", targetId).singleResult();
         Duration duration = Duration.ofSeconds(req.duration());
 
-        return executeUni(target, conn -> conn.dumpAsyncProfile(req.events(), duration))
-                .invoke(
-                        (id) -> {
-                            AsyncProfilerRecording.started(target, id, req.events(), req.duration())
-                                    .persist();
-
-                            JobKey key =
-                                    new JobKey(Long.toString(target.id), "async-profiler-update");
-                            JobDetail job =
-                                    JobBuilder.newJob(AsyncProfilerUpdateJob.class)
-                                            .withIdentity(key)
-                                            .usingJobData("id", id)
-                                            .usingJobData("targetId", target.id)
-                                            .usingJobData("duration", req.duration())
-                                            .build();
-                            Trigger trigger =
-                                    TriggerBuilder.newTrigger()
-                                            .withIdentity(
-                                                    job.getKey().getName(), job.getKey().getGroup())
-                                            // TODO make configurable
-                                            .startAt(
-                                                    Date.from(
-                                                            Instant.now()
-                                                                    .plus(duration)
-                                                                    .plusSeconds(1)))
-                                            // TODO make configurable
-                                            .withSchedule(
-                                                    SimpleScheduleBuilder.simpleSchedule()
-                                                            .withIntervalInSeconds(2)
-                                                            .withMisfireHandlingInstructionNextWithExistingCount()
-                                                            .withRepeatCount(5))
-                                            .build();
-                            try {
-                                if (!scheduler.checkExists(trigger.getKey())) {
-                                    scheduler.scheduleJob(job, trigger);
-                                }
-                            } catch (SchedulerException se) {
-                                logger.error(se);
-                            }
-
-                            var payload = AsyncProfilerEvent.Payload.of(target, id, duration);
-                            notify(
-                                    new AsyncProfilerEvent(
-                                            AsyncProfiler.AsyncProfilerEventCategory.CREATED,
-                                            payload));
-                        });
+        return helper.createAsyncProfile(target, req.events(), duration);
     }
 
     @GET
@@ -176,7 +122,7 @@ public class AsyncProfiler {
                                 "attachment; filename=\"%s_%s.asprof.jfr\"",
                                 target.alias, profileId))
                 .header(HttpHeaders.CONTENT_TYPE, HttpMimeType.OCTET_STREAM.mime())
-                .entity(execute(target, conn -> conn.streamAsyncProfile(profileId)))
+                .entity(helper.getAsyncProfile(target, profileId))
                 .build();
     }
 
@@ -187,7 +133,7 @@ public class AsyncProfiler {
     @Operation(summary = "Get specified target's async-profiler status")
     public Uni<AsyncProfilerStatus> getStatus(@RestPath long targetId) throws Exception {
         Target target = Target.find("id", targetId).singleResult();
-        return executeUni(target, AgentConnection::asyncProfilerStatus);
+        return helper.getStatus(target);
     }
 
     @GET
@@ -197,7 +143,7 @@ public class AsyncProfiler {
     @Operation(summary = "List existing async-profiler profiles on the specified target")
     public Uni<List<AsyncProfile>> list(@RestPath long targetId) throws Exception {
         Target target = Target.find("id", targetId).singleResult();
-        return executeUni(target, AgentConnection::listAsyncProfiles);
+        return helper.getProfiles(target);
     }
 
     @DELETE
@@ -208,57 +154,7 @@ public class AsyncProfiler {
     @Operation(summary = "Delete an async-profiler profile from the specified target")
     public Uni<Void> delete(@RestPath long targetId, @RestPath String profileId) throws Exception {
         Target target = Target.find("id", targetId).singleResult();
-        return executeUni(target, conn -> conn.deleteAsyncProfile(profileId))
-                .invoke(
-                        () -> {
-                            AsyncProfilerRecording.<AsyncProfilerRecording>find(
-                                            "target.id = ?1 and profileId = ?2",
-                                            targetId,
-                                            profileId)
-                                    .firstResultOptional()
-                                    .ifPresent(AsyncProfilerRecording::delete);
-
-                            var payload = AsyncProfilerEvent.Payload.of(target, profileId, 0);
-                            notify(
-                                    new AsyncProfilerEvent(
-                                            AsyncProfiler.AsyncProfilerEventCategory.DELETED,
-                                            payload));
-                        })
-                .map(v -> null);
-    }
-
-    private <T> Uni<T> executeUni(Target target, AgentConnectedTask<T> task) {
-        if (!target.isAgent()) {
-            throw new BadRequestException();
-        }
-        return tcm.executeConnectedTaskUni(
-                target,
-                conn -> {
-                    if (!(conn instanceof AgentConnection)) {
-                        throw new InternalServerErrorException();
-                    }
-                    return task.execute((AgentConnection) conn);
-                });
-    }
-
-    private <T> T execute(Target target, AgentConnectedTask<T> task) {
-        if (!target.isAgent()) {
-            throw new BadRequestException();
-        }
-        return tcm.executeConnectedTask(
-                target,
-                conn -> {
-                    if (!(conn instanceof AgentConnection)) {
-                        throw new InternalServerErrorException();
-                    }
-                    return task.execute((AgentConnection) conn);
-                });
-    }
-
-    private void notify(AsyncProfilerEvent event) {
-        bus.publish(
-                MessagingServer.class.getName(),
-                new Notification(event.category().category(), event.payload()));
+        return helper.deleteProfile(target, profileId);
     }
 
     interface AgentConnectedTask<T> {
