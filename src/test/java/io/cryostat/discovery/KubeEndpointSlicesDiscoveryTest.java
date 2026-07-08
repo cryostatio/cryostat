@@ -23,6 +23,9 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 import io.cryostat.AbstractTransactionalTestBase;
 import io.cryostat.targets.Target;
@@ -47,6 +50,7 @@ import io.fabric8.kubernetes.client.dsl.MixedOperation;
 import io.fabric8.kubernetes.client.dsl.NonNamespaceOperation;
 import io.fabric8.kubernetes.client.dsl.PodResource;
 import io.fabric8.kubernetes.client.dsl.RollableScalableResource;
+import io.quarkus.arc.ClientProxy;
 import io.quarkus.panache.common.Parameters;
 import io.quarkus.test.InjectMock;
 import io.quarkus.test.junit.QuarkusTest;
@@ -58,6 +62,7 @@ import jakarta.persistence.EntityManager;
 import jakarta.transaction.Transactional;
 import org.apache.commons.lang3.tuple.Pair;
 import org.junit.jupiter.api.Test;
+import org.quartz.Scheduler;
 
 @QuarkusTest
 @TestProfile(KubeEndpointSlicesDiscoveryTest.TestProfile.class)
@@ -966,5 +971,180 @@ class KubeEndpointSlicesDiscoveryTest extends AbstractTransactionalTestBase {
                                 Parameters.with("nodeType", "Pod").and("name", "non-jmx-pod"))
                         .count();
         assertEquals(0, podNodeCount, "No Pod node should exist for non-JMX pod");
+    }
+
+    @Test
+    void testEndpointSliceInformerEventsIgnoredDuringShutdown() {
+        clearInvocations(bus);
+        discovery.setShuttingDown(true);
+
+        try {
+            EndpointSlice slice = mock(EndpointSlice.class);
+
+            discovery.onAdd(slice);
+            discovery.onUpdate(slice, slice);
+            discovery.onDelete(slice, false);
+
+            verifyNoInteractions(bus);
+            verifyNoInteractions(slice);
+        } finally {
+            discovery.setShuttingDown(false);
+        }
+    }
+
+    @Test
+    @Transactional
+    void testHandleQueryEventIgnoredDuringShutdown() {
+        clearInvocations(bus);
+        discovery.setShuttingDown(true);
+
+        try {
+            long nodeCountBefore = DiscoveryNode.count();
+            long targetCountBefore = Target.count();
+
+            discovery.handleQueryEvent(
+                    KubeEndpointSlicesDiscovery.NamespaceQueryEvent.from("test-namespace"));
+
+            entityManager.flush();
+            entityManager.clear();
+
+            assertEquals(
+                    nodeCountBefore,
+                    DiscoveryNode.count(),
+                    "Should not create DiscoveryNodes while shutting down");
+            assertEquals(
+                    targetCountBefore,
+                    Target.count(),
+                    "Should not create Targets while shutting down");
+            verifyNoInteractions(bus);
+        } finally {
+            discovery.setShuttingDown(false);
+        }
+    }
+
+    @Test
+    @Transactional
+    void testHandleEndpointEventIgnoredDuringShutdown() {
+        discovery.setShuttingDown(true);
+
+        try {
+            long nodeCountBefore = DiscoveryNode.count();
+            long targetCountBefore = Target.count();
+
+            Target target = new Target();
+            target.connectUrl =
+                    URI.create("service:jmx:rmi:///jndi/rmi://192.168.1.100:9091/jmxrmi");
+            target.alias = "ignored-target";
+            target.labels = new HashMap<>();
+            target.annotations = new Target.Annotations();
+
+            KubeEndpointSlicesDiscovery.EndpointDiscoveryEvent event =
+                    KubeEndpointSlicesDiscovery.EndpointDiscoveryEvent.from(
+                            "test-namespace", target, null, Target.EventKind.LOST);
+
+            discovery.handleEndpointEvent(event);
+
+            entityManager.flush();
+            entityManager.clear();
+
+            assertEquals(
+                    nodeCountBefore,
+                    DiscoveryNode.count(),
+                    "Should not create DiscoveryNodes while shutting down");
+            assertEquals(
+                    targetCountBefore,
+                    Target.count(),
+                    "Should not create Targets while shutting down");
+        } finally {
+            discovery.setShuttingDown(false);
+        }
+    }
+
+    @Test
+    void testShutdownWaitsForActiveDiscoveryEventHandler() throws Exception {
+        CountDownLatch handlerStarted = new CountDownLatch(1);
+        CountDownLatch releaseHandler = new CountDownLatch(1);
+        CountDownLatch handlerFinished = new CountDownLatch(1);
+        CountDownLatch shutdownStarted = new CountDownLatch(1);
+        CountDownLatch shutdownFinished = new CountDownLatch(1);
+        AtomicReference<Throwable> handlerFailure = new AtomicReference<>();
+        AtomicReference<Throwable> shutdownFailure = new AtomicReference<>();
+        Thread handlerThread =
+                new Thread(
+                        () -> {
+                            try {
+                                assertTrue(
+                                        discovery.withDiscoveryEventHandler(
+                                                () -> {
+                                                    handlerStarted.countDown();
+                                                    try {
+                                                        assertTrue(
+                                                                releaseHandler.await(
+                                                                        5, TimeUnit.SECONDS));
+                                                    } catch (InterruptedException e) {
+                                                        Thread.currentThread().interrupt();
+                                                        fail(e);
+                                                    }
+                                                }));
+                            } catch (Throwable t) {
+                                handlerFailure.set(t);
+                            } finally {
+                                handlerFinished.countDown();
+                            }
+                        });
+        Thread shutdownThread =
+                new Thread(
+                        () -> {
+                            try {
+                                shutdownStarted.countDown();
+                                discovery.onStop(null);
+                            } catch (Throwable t) {
+                                shutdownFailure.set(t);
+                            } finally {
+                                shutdownFinished.countDown();
+                            }
+                        });
+
+        try {
+            handlerThread.start();
+            assertTrue(handlerStarted.await(5, TimeUnit.SECONDS));
+
+            shutdownThread.start();
+
+            assertTrue(shutdownStarted.await(5, TimeUnit.SECONDS));
+            assertFalse(
+                    shutdownFinished.await(250, TimeUnit.MILLISECONDS),
+                    "Shutdown should wait for an active discovery event handler");
+        } finally {
+            releaseHandler.countDown();
+        }
+
+        assertTrue(handlerFinished.await(5, TimeUnit.SECONDS));
+        assertTrue(shutdownFinished.await(5, TimeUnit.SECONDS));
+        if (handlerFailure.get() != null) {
+            fail(handlerFailure.get());
+        }
+        if (shutdownFailure.get() != null) {
+            fail(shutdownFailure.get());
+        }
+        discovery.setShuttingDown(false);
+    }
+
+    @Test
+    void testDeleteResyncJobSkippedWhenSchedulerShutdown() throws Exception {
+        KubeEndpointSlicesDiscovery unwrappedDiscovery = ClientProxy.unwrap(discovery);
+        Scheduler originalScheduler = unwrappedDiscovery.scheduler;
+        Scheduler scheduler = mock(Scheduler.class);
+        unwrappedDiscovery.scheduler = scheduler;
+        when(scheduler.isShutdown()).thenReturn(true);
+
+        try {
+            unwrappedDiscovery.deleteResyncJobIfSchedulerRunning();
+
+            verify(scheduler).isShutdown();
+            verify(scheduler, never()).deleteJob(any());
+        } finally {
+            unwrappedDiscovery.scheduler = originalScheduler;
+        }
     }
 }
