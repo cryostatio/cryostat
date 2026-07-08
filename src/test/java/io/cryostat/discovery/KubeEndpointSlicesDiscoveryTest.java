@@ -23,6 +23,9 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 import io.cryostat.AbstractTransactionalTestBase;
 import io.cryostat.targets.Target;
@@ -966,5 +969,130 @@ class KubeEndpointSlicesDiscoveryTest extends AbstractTransactionalTestBase {
                                 Parameters.with("nodeType", "Pod").and("name", "non-jmx-pod"))
                         .count();
         assertEquals(0, podNodeCount, "No Pod node should exist for non-JMX pod");
+    }
+
+    @Test
+    void testEndpointSliceInformerEventsIgnoredDuringShutdown() {
+        clearInvocations(bus);
+        discovery.setShuttingDown(true);
+
+        try {
+            EndpointSlice slice = mock(EndpointSlice.class);
+
+            discovery.onAdd(slice);
+            discovery.onUpdate(slice, slice);
+            discovery.onDelete(slice, false);
+
+            verifyNoInteractions(bus);
+            verifyNoInteractions(slice);
+        } finally {
+            discovery.setShuttingDown(false);
+        }
+    }
+
+    @Test
+    @Transactional
+    void testHandleQueryEventIgnoredDuringShutdown() {
+        clearInvocations(bus);
+        discovery.setShuttingDown(true);
+
+        try {
+            long nodeCountBefore = DiscoveryNode.count();
+            long targetCountBefore = Target.count();
+
+            discovery.handleQueryEvent(
+                    KubeEndpointSlicesDiscovery.NamespaceQueryEvent.from("test-namespace"));
+
+            entityManager.flush();
+            entityManager.clear();
+
+            assertEquals(
+                    nodeCountBefore,
+                    DiscoveryNode.count(),
+                    "Should not create DiscoveryNodes while shutting down");
+            assertEquals(
+                    targetCountBefore,
+                    Target.count(),
+                    "Should not create Targets while shutting down");
+            verifyNoInteractions(bus);
+        } finally {
+            discovery.setShuttingDown(false);
+        }
+    }
+
+    @Test
+    @Transactional
+    void testHandleEndpointEventIgnoredDuringShutdown() {
+        discovery.setShuttingDown(true);
+
+        try {
+            long nodeCountBefore = DiscoveryNode.count();
+            long targetCountBefore = Target.count();
+
+            Target target = new Target();
+            target.connectUrl =
+                    URI.create("service:jmx:rmi:///jndi/rmi://192.168.1.100:9091/jmxrmi");
+            target.alias = "ignored-target";
+            target.labels = new HashMap<>();
+            target.annotations = new Target.Annotations();
+
+            KubeEndpointSlicesDiscovery.EndpointDiscoveryEvent event =
+                    KubeEndpointSlicesDiscovery.EndpointDiscoveryEvent.from(
+                            "test-namespace", target, null, Target.EventKind.LOST);
+
+            discovery.handleEndpointEvent(event);
+
+            entityManager.flush();
+            entityManager.clear();
+
+            assertEquals(
+                    nodeCountBefore,
+                    DiscoveryNode.count(),
+                    "Should not create DiscoveryNodes while shutting down");
+            assertEquals(
+                    targetCountBefore,
+                    Target.count(),
+                    "Should not create Targets while shutting down");
+        } finally {
+            discovery.setShuttingDown(false);
+        }
+    }
+
+    @Test
+    void testShutdownWaitsForActiveDiscoveryEventHandler() throws Exception {
+        assertTrue(discovery.enterDiscoveryEventHandler());
+
+        CountDownLatch shutdownStarted = new CountDownLatch(1);
+        CountDownLatch shutdownFinished = new CountDownLatch(1);
+        AtomicReference<Throwable> shutdownFailure = new AtomicReference<>();
+        Thread shutdownThread =
+                new Thread(
+                        () -> {
+                            try {
+                                shutdownStarted.countDown();
+                                discovery.onStop(null);
+                            } catch (Throwable t) {
+                                shutdownFailure.set(t);
+                            } finally {
+                                shutdownFinished.countDown();
+                            }
+                        });
+
+        try {
+            shutdownThread.start();
+
+            assertTrue(shutdownStarted.await(5, TimeUnit.SECONDS));
+            assertFalse(
+                    shutdownFinished.await(250, TimeUnit.MILLISECONDS),
+                    "Shutdown should wait for an active discovery event handler");
+        } finally {
+            discovery.exitDiscoveryEventHandler();
+        }
+
+        assertTrue(shutdownFinished.await(5, TimeUnit.SECONDS));
+        if (shutdownFailure.get() != null) {
+            fail(shutdownFailure.get());
+        }
+        discovery.setShuttingDown(false);
     }
 }
