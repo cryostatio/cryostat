@@ -21,6 +21,7 @@ import static org.hamcrest.Matchers.nullValue;
 
 import java.io.IOException;
 import java.net.URI;
+import java.net.URL;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -57,6 +58,9 @@ public abstract class AbstractTestBase {
 
     @TestHTTPResource("/api/notifications")
     URI wsUri;
+
+    @TestHTTPResource("/")
+    protected URL baseUrl;
 
     @ConfigProperty(name = "storage.buckets.archives.name")
     String archivesBucket;

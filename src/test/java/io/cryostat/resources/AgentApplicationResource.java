@@ -140,6 +140,10 @@ public class AgentApplicationResource
         containerNetworkId = context.containerNetworkId();
         cryostatPort.set(
                 Integer.parseInt(
-                        context.devServicesProperties().getOrDefault("quarkus.http.port", "8081")));
+                        context.devServicesProperties()
+                                .getOrDefault(
+                                        "quarkus.http.test-port",
+                                        context.devServicesProperties()
+                                                .getOrDefault("quarkus.http.port", "8081"))));
     }
 }
