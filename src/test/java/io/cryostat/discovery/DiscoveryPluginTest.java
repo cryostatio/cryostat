@@ -113,7 +113,9 @@ public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
                                         "pass",
                                         "matchExpression",
                                         "target.connectUrl =="
-                                                + " 'http://localhost:8081/health/liveness'"))
+                                                + " '"
+                                                + baseUrl
+                                                + "health/liveness'"))
                         .contentType(ContentType.URLENC)
                         .post("/api/v4/credentials")
                         .then()
@@ -131,7 +133,8 @@ public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
         var realmName = "test_realm";
         var callback =
                 String.format(
-                        "http://storedcredentials:%d@localhost:8081/health/liveness", credentialId);
+                        "http://storedcredentials:%d@localhost:%d/health/liveness",
+                        credentialId, baseUrl.getPort());
         var registration =
                 given().log()
                         .all()
@@ -187,7 +190,7 @@ public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
                 .statusCode(400);
 
         // test what happens if we publish an acceptable singleton list
-        var target = new Target(URI.create("http://localhost:8081"), "test-node");
+        var target = new Target(URI.create(baseUrl.toString()), "test-node");
         node = new Node("test-node", NodeType.BaseNodeType.JVM.name(), target);
         given().log()
                 .all()
@@ -291,7 +294,9 @@ public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
                                         "pass",
                                         "matchExpression",
                                         "target.connectUrl =="
-                                                + " 'http://localhost:8081/health/liveness'"))
+                                                + " '"
+                                                + baseUrl
+                                                + "health/liveness'"))
                         .contentType(ContentType.URLENC)
                         .post("/api/v4/credentials")
                         .then()
@@ -309,7 +314,8 @@ public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
         var realmName = "flat_test_realm";
         var callback =
                 String.format(
-                        "http://storedcredentials:%d@localhost:8081/health/liveness", credentialId);
+                        "http://storedcredentials:%d@localhost:%d/health/liveness",
+                        credentialId, baseUrl.getPort());
         var registration =
                 given().log()
                         .all()
@@ -329,7 +335,7 @@ public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
         var pluginId = registration.getString("id");
         var pluginToken = registration.getString("token");
 
-        var target1 = new Target(URI.create("http://localhost:8081"), "flat-node-1");
+        var target1 = new Target(URI.create(baseUrl.toString()), "flat-node-1");
         var target2 = new Target(URI.create("http://localhost:8082"), "flat-node-2");
         var target3 = new Target(URI.create("http://localhost:8083"), "flat-node-3");
         var node1 = new Node("flat-node-1", NodeType.BaseNodeType.AGENT.name(), target1);
@@ -398,7 +404,9 @@ public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
                                         "pass",
                                         "matchExpression",
                                         "target.connectUrl =="
-                                                + " 'http://localhost:8081/health/liveness'"))
+                                                + " '"
+                                                + baseUrl
+                                                + "health/liveness'"))
                         .contentType(ContentType.URLENC)
                         .post("/api/v4/credentials")
                         .then()
@@ -416,7 +424,8 @@ public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
         var realmName = "hierarchical_test_realm";
         var callback =
                 String.format(
-                        "http://storedcredentials:%d@localhost:8081/health/liveness", credentialId);
+                        "http://storedcredentials:%d@localhost:%d/health/liveness",
+                        credentialId, baseUrl.getPort());
         var registration =
                 given().log()
                         .all()
@@ -439,7 +448,7 @@ public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
         // publish a hierarchical Kubernetes structure:
         // Namespace -> Deployment -> ReplicaSet -> Pod -> Agent
         // (using AGENT type for HTTP URLs)
-        var agent1 = new Target(URI.create("http://localhost:8081"), "agent-1");
+        var agent1 = new Target(URI.create(baseUrl.toString()), "agent-1");
         var agent2 = new Target(URI.create("http://localhost:8082"), "agent-2");
 
         var agentNode1 = new Node("agent-1", NodeType.BaseNodeType.AGENT.name(), agent1);
@@ -492,7 +501,9 @@ public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
                                         "pass",
                                         "matchExpression",
                                         "target.connectUrl =="
-                                                + " 'http://localhost:8081/health/liveness'"))
+                                                + " '"
+                                                + baseUrl
+                                                + "health/liveness'"))
                         .contentType(ContentType.URLENC)
                         .post("/api/v4/credentials")
                         .then()
@@ -510,7 +521,8 @@ public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
         var realmName = "idempotent_test_realm";
         var callback =
                 String.format(
-                        "http://storedcredentials:%d@localhost:8081/health/liveness", credentialId);
+                        "http://storedcredentials:%d@localhost:%d/health/liveness",
+                        credentialId, baseUrl.getPort());
         var registration1 =
                 given().log()
                         .all()
@@ -597,8 +609,8 @@ public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
     @Test
     void testAgentRegistrationPublishesAndStoresCredential() {
         var realmName = "agent_registration_test_realm";
-        var callback = "http://localhost:8081/health/liveness";
-        var target = new Target(URI.create("http://localhost:8081"), "agent-node");
+        var callback = baseUrl + "health/liveness";
+        var target = new Target(URI.create(baseUrl.toString()), "agent-node");
         var node = new Node("agent-node", NodeType.BaseNodeType.AGENT.getKind(), target);
 
         var registration =
@@ -696,8 +708,8 @@ public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
     @Test
     void testAgentReregistrationUpdatesCredentialAndRepublishes() {
         var realmName = "agent_reregistration_test_realm";
-        var callback = "http://localhost:8081/health/liveness";
-        var target = new Target(URI.create("http://localhost:8081"), "agent-node");
+        var callback = baseUrl + "health/liveness";
+        var target = new Target(URI.create(baseUrl.toString()), "agent-node");
         var node = new Node("agent-node", NodeType.BaseNodeType.AGENT.getKind(), target);
         var requestBody =
                 Map.of(
@@ -831,8 +843,8 @@ public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
         // cryostatio/cryostat#1604: re-registration with an unchanged node set must preserve the
         // Target, not delete and recreate it (which fires LOST then FOUND).
         var realmName = "agent_identity_test_realm";
-        var callback = "http://localhost:8081/health/liveness";
-        var connectUrl = URI.create("http://localhost:8081");
+        var callback = baseUrl + "health/liveness";
+        URI connectUrl = URI.create(baseUrl.toString());
         var target = new Target(connectUrl, "agent-node");
         var node = new Node("agent-node", NodeType.BaseNodeType.AGENT.getKind(), target);
         var requestBody =

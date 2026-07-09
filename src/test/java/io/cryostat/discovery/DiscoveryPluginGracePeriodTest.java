@@ -246,7 +246,9 @@ public class DiscoveryPluginGracePeriodTest extends AbstractTransactionalTestBas
                                         "pass",
                                         "matchExpression",
                                         "target.connectUrl =="
-                                                + " 'http://localhost:8081/health/liveness'"))
+                                                + " '"
+                                                + baseUrl
+                                                + "health/liveness'"))
                         .contentType(ContentType.URLENC)
                         .post("/api/v4/credentials")
                         .then()
@@ -262,7 +264,8 @@ public class DiscoveryPluginGracePeriodTest extends AbstractTransactionalTestBas
 
         var callback =
                 String.format(
-                        "http://storedcredentials:%d@localhost:8081/health/liveness", credentialId);
+                        "http://storedcredentials:%d@localhost:%d/health/liveness",
+                        credentialId, baseUrl.getPort());
 
         var registration =
                 given().log()
@@ -625,7 +628,9 @@ public class DiscoveryPluginGracePeriodTest extends AbstractTransactionalTestBas
                                         "pass",
                                         "matchExpression",
                                         "target.connectUrl =="
-                                                + " 'http://localhost:8081/health/liveness'"))
+                                                + " '"
+                                                + baseUrl
+                                                + "health/liveness'"))
                         .contentType(ContentType.URLENC)
                         .post("/api/v4/credentials")
                         .then()
@@ -641,7 +646,8 @@ public class DiscoveryPluginGracePeriodTest extends AbstractTransactionalTestBas
 
         var callback =
                 String.format(
-                        "http://storedcredentials:%d@localhost:8081/health/liveness", credentialId);
+                        "http://storedcredentials:%d@localhost:%d/health/liveness",
+                        credentialId, baseUrl.getPort());
 
         var registration =
                 given().log()
