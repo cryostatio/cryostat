@@ -1351,6 +1351,36 @@ paths:
       summary: Upload Heap Dump
       tags:
         - Diagnostics
+  /api/beta/diagnostics/targets/{jvmId}/heapdump/{heapDumpId}/analyze:
+    post:
+      parameters:
+        - in: path
+          name: heapDumpId
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: jvmId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HttpServerResponse'
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: {}
+          description: OK
+        "400":
+          description: Bad Request
+      summary: Analyze Heap Dump
+      tags:
+        - Diagnostics
   /api/beta/diagnostics/targets/{jvmId}/threaddump/{threadDumpId}/analyze:
     post:
       parameters:

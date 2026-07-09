@@ -36,7 +36,6 @@ import io.cryostat.ws.Notification;
 import io.cryostat.ws.notifications.NotificationPayloads.ArchiveRecordingSuccessPayload;
 import io.cryostat.ws.notifications.NotificationPayloads.HeapDumpAnalysisFailurePayload;
 import io.cryostat.ws.notifications.NotificationPayloads.HeapDumpAnalysisSuccessPayload;
-import io.cryostat.ws.notifications.NotificationPayloads.HeapDumpReportCompletePayload;
 import io.cryostat.ws.notifications.NotificationPayloads.HeapDumpSuccessPayload;
 import io.cryostat.ws.notifications.NotificationPayloads.JobIdPayload;
 import io.cryostat.ws.notifications.NotificationPayloads.ReportSuccessPayload;
@@ -96,7 +95,6 @@ public class LongRunningRequestGenerator {
     private static final String HEAP_DUMP_SUCCESS = "HeapDumpSuccess";
     private static final String HEAP_DUMP_ANALYSIS_SUCCESS = "HeapDumpAnalysisSuccess";
     private static final String HEAP_DUMP_ANALYSIS_FAILURE = "HeapDumpAnalysisFailure";
-    private static final String HEAP_DUMP_REPORT_COMPLETE = "HeapDumpReportComplete";
     private static final String THREAD_DUMP_FAILURE = "ThreadDumpFailure";
 
     @Inject Logger logger;
@@ -171,7 +169,7 @@ public class LongRunningRequestGenerator {
                     .reportFor(request.jvmId, request.heapDumpId)
                     .onItem()
                     .invoke(
-                            (report) -> {
+                            () -> {
                                 logger.tracev("Report generation complete, firing notification");
                                 bus.publish(
                                         MessagingServer.class.getName(),
@@ -181,13 +179,6 @@ public class LongRunningRequestGenerator {
                                                         request.id(),
                                                         target.jvmId,
                                                         request.heapDumpId())));
-                                new Notification(
-                                        HEAP_DUMP_REPORT_COMPLETE,
-                                        new HeapDumpReportCompletePayload(
-                                                request.id(),
-                                                target.alias,
-                                                request.heapDumpId(),
-                                                report));
                             })
                     .ifNoItem()
                     .after(uploadFailedTimeout)

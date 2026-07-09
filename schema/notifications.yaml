@@ -39,6 +39,8 @@ channels:
         - $ref: '#/components/messages/ExpressionUpdated'
         - $ref: '#/components/messages/GrafanaUploadFailure'
         - $ref: '#/components/messages/GrafanaUploadSuccess'
+        - $ref: '#/components/messages/HeapDumpAnalysisFailure'
+        - $ref: '#/components/messages/HeapDumpAnalysisSuccess'
         - $ref: '#/components/messages/HeapDumpFailure'
         - $ref: '#/components/messages/HeapDumpSuccess'
         - $ref: '#/components/messages/ProbeTemplateApplied'
@@ -541,6 +543,66 @@ components:
             type: object
             properties:
               jobId:
+                type: string
+        required:
+        - meta
+        - message
+    HeapDumpAnalysisFailure:
+      name: HeapDumpAnalysisFailure
+      title: Heap Dump Analysis Failure
+      summary: 'Notification: HeapDumpAnalysisFailure'
+      description: WebSocket notification for Heap Dump Analysis Failure events
+      payload:
+        type: object
+        description: WebSocket notification message wrapper
+        properties:
+          meta:
+            type: object
+            description: Notification metadata
+            properties:
+              category:
+                type: string
+                const: HeapDumpAnalysisFailure
+                description: Notification category identifier
+            required:
+            - category
+          message:
+            type: object
+            properties:
+              jobId:
+                type: string
+              heapDumpId:
+                type: string
+        required:
+        - meta
+        - message
+    HeapDumpAnalysisSuccess:
+      name: HeapDumpAnalysisSuccess
+      title: Heap Dump Analysis Success
+      summary: 'Notification: HeapDumpAnalysisSuccess'
+      description: WebSocket notification for Heap Dump Analysis Success events
+      payload:
+        type: object
+        description: WebSocket notification message wrapper
+        properties:
+          meta:
+            type: object
+            description: Notification metadata
+            properties:
+              category:
+                type: string
+                const: HeapDumpAnalysisSuccess
+                description: Notification category identifier
+            required:
+            - category
+          message:
+            type: object
+            properties:
+              jobId:
+                type: string
+              jvmId:
+                type: string
+              heapDumpId:
                 type: string
         required:
         - meta

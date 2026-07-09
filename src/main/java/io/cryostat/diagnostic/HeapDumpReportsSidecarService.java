@@ -15,8 +15,6 @@
  */
 package io.cryostat.diagnostic;
 
-import java.io.InputStream;
-
 import io.cryostat.core.diagnostic.HeapDumpAnalysis;
 
 import io.smallrye.mutiny.Uni;
@@ -40,7 +38,7 @@ public interface HeapDumpReportsSidecarService {
     @POST
     @Consumes(MediaType.MULTIPART_FORM_DATA)
     Uni<HeapDumpAnalysis> generate(
-            @RestForm("file") @PartType(MediaType.APPLICATION_OCTET_STREAM) InputStream file,
+            @RestForm("file") @PartType(MediaType.APPLICATION_OCTET_STREAM) String file,
             @RestForm("jvmId") @PartType(MediaType.TEXT_PLAIN) String jvmId,
             @RestForm("heapDumpID") @PartType(MediaType.TEXT_PLAIN) String heapDumpId);
 

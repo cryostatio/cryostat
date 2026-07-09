@@ -19,6 +19,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.time.Duration;
 import java.util.Optional;
 
@@ -88,18 +90,46 @@ class HeapDumpReportsServiceImpl implements HeapDumpReportsService {
             logger.tracev("Attempting heap dump report with args {0}, {1}", jvmId, heapDumpId);
             if (!useSidecar()) {
                 InputStream stream = helper.getHeapDumpStream(jvmId, heapDumpId);
+                // Copy the heap dump from storage to a temporary file for analysis
+                // File will be cleaned up by the uni onItemOrFailure hook
+                java.nio.file.Path tmpFile = Files.createTempFile("", ".hprof");
+                Files.copy(stream, tmpFile, StandardCopyOption.REPLACE_EXISTING);
                 logger.tracev("inprocess reportFor heap dump {0} {1}", jvmId, heapDumpId);
-                return process(jvmId, heapDumpId, stream);
+                var uni =
+                        process(jvmId, heapDumpId, tmpFile.toString())
+                                .onItemOrFailure()
+                                .invoke(
+                                        () -> {
+                                            try {
+                                                Files.deleteIfExists(tmpFile);
+                                            } catch (IOException e) {
+                                                logger.error(e);
+                                            }
+                                        });
+                return uni;
             } else if (usePresignedSidecar()) {
                 logger.tracev("sidecar reportFor presigned heap dump {0} {1}", jvmId, heapDumpId);
                 var uri = getPresignedPath(jvmId, heapDumpId);
+                // Sidecar will handle download and cleanup
                 return sidecar.generatePresigned(uri.toString(), jvmId, heapDumpId);
             } else {
                 InputStream stream = helper.getHeapDumpStream(jvmId, heapDumpId);
+                // Copy the heap dump from storage to a temporary file for analysis
+                java.nio.file.Path tmpFile = Files.createTempFile("", ".hprof");
+                Files.copy(stream, tmpFile, StandardCopyOption.REPLACE_EXISTING);
                 logger.tracev("sidecar reportFor heap dump {0} {1}", jvmId, heapDumpId);
-                return fireRequest(stream, jvmId, heapDumpId).eventually(safeClose(stream));
+                return fireRequest(tmpFile.toString(), jvmId, heapDumpId)
+                        .eventually(
+                                () -> {
+                                    safeClose(stream);
+                                    try {
+                                        Files.deleteIfExists(tmpFile);
+                                    } catch (IOException e) {
+                                        logger.error(e);
+                                    }
+                                });
             }
-        } catch (URISyntaxException e) {
+        } catch (URISyntaxException | IOException e) {
             logger.error(e);
             throw new InternalServerErrorException(e);
         } catch (Exception e) {
@@ -107,12 +137,12 @@ class HeapDumpReportsServiceImpl implements HeapDumpReportsService {
         }
     }
 
-    private Uni<HeapDumpAnalysis> process(String jvmId, String heapDumpId, InputStream stream) {
-        return Uni.createFrom().future(reportGenerator.generate(stream, memoryLimit));
+    private Uni<HeapDumpAnalysis> process(String jvmId, String heapDumpId, String fileName) {
+        return Uni.createFrom().future(reportGenerator.generate(fileName, memoryLimit));
     }
 
-    private Uni<HeapDumpAnalysis> fireRequest(InputStream stream, String jvmId, String heapDumpId) {
-        return sidecar.generate(stream, jvmId, heapDumpId);
+    private Uni<HeapDumpAnalysis> fireRequest(String fileName, String jvmId, String heapDumpId) {
+        return sidecar.generate(fileName, jvmId, heapDumpId);
     }
 
     @Override

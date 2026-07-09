@@ -27,10 +27,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.ExecutionException;
 
 import io.cryostat.ConfigProperties;
-import io.cryostat.core.diagnostic.HeapDumpAnalysis;
 import io.cryostat.recordings.ActiveRecordings.Metadata;
 import io.cryostat.recordings.LongRunningRequestGenerator;
 import io.cryostat.recordings.LongRunningRequestGenerator.HeapDumpAnalysisRequest;
@@ -58,6 +56,9 @@ import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.HttpHeaders;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.UriBuilder;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
@@ -172,8 +173,18 @@ public class Diagnostics {
     @Blocking
     @Transactional
     @POST
-    public String analyzeHeapDump(
+    public Response analyzeHeapDump(
             HttpServerResponse response, @RestPath String jvmId, @RestPath String heapDumpId) {
+
+        if (reportService.keyExists(jvmId, heapDumpId)) {
+            return Response.ok(
+                            reportService.reportFor(jvmId, heapDumpId).await().indefinitely(),
+                            MediaType.APPLICATION_JSON)
+                    .status(200)
+                    .build();
+        }
+
+        log.trace("Cache miss. Creating heap dump reports request");
         var jobId = UUID.randomUUID().toString();
         HeapDumpAnalysisRequest request = new HeapDumpAnalysisRequest(jobId, jvmId, heapDumpId);
         response.endHandler(
@@ -181,18 +192,15 @@ public class Diagnostics {
                         bus.publish(
                                 LongRunningRequestGenerator.HEAP_DUMP_ANALYSIS_REQUEST_ADDRESS,
                                 request));
-        return jobId;
-    }
-
-    @Path("targets/{jvmId}/heapdump/{heapDumpId}/analyze")
-    @RolesAllowed("read")
-    @Blocking
-    @Transactional
-    @GET
-    public HeapDumpAnalysis getHeapDumpReport(
-            HttpServerResponse response, @RestPath String jvmId, @RestPath String heapDumpId)
-            throws InterruptedException, ExecutionException {
-        return reportService.reportFor(jvmId, heapDumpId).await().indefinitely();
+        return Response.ok(request.id(), MediaType.TEXT_PLAIN)
+                .status(202)
+                .location(
+                        UriBuilder.fromUri(
+                                        String.format(
+                                                "/api/beta/diagnostics/targets/%s/heapdump/%s/analyze",
+                                                jvmId, heapDumpId))
+                                .build())
+                .build();
     }
 
     @DELETE
