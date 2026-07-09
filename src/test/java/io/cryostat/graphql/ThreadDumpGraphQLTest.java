@@ -234,7 +234,7 @@ public class ThreadDumpGraphQLTest extends AbstractGraphQLTestBase {
                 "query",
                 String.format(
                         "mutation { deleteThreadDump (nodes: { annotations: [\"REALM = Custom"
-                                + " Targets\"]}, filter: { name: \"%s\"}) { name downloadUrl } }",
+                                + " Targets\"]}, filter: { name: \"%s\"}) { size } }",
                         retrievedThreadDumpId));
 
         Response deleteResponse =
