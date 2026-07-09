@@ -25,6 +25,7 @@ import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 
+import io.cryostat.AbstractTestBase;
 import io.cryostat.resources.AgentApplicationResource;
 
 import io.quarkus.test.common.QuarkusTestResource;
@@ -99,19 +100,28 @@ public class AgentHeapDumpIT extends AgentTestBase {
     @AfterEach
     void cleanupHeapDumps() {
         var variables = Map.<String, Object>of("targetIds", List.of(target.id()));
-        given().basePath("/")
-                .body(Map.of("query", GRAPHQL_HEAP_DUMP_CLEANUP_QUERY, "variables", variables))
-                .contentType(ContentType.JSON)
-                .log()
-                .all()
-                .when()
-                .post("/api/v4/graphql")
-                .then()
-                .log()
-                .all()
-                .and()
-                .assertThat()
-                .statusCode(200);
+        io.restassured.response.Response response =
+                given().basePath("/")
+                        .body(
+                                Map.of(
+                                        "query",
+                                        GRAPHQL_HEAP_DUMP_CLEANUP_QUERY,
+                                        "variables",
+                                        variables))
+                        .contentType(ContentType.JSON)
+                        .log()
+                        .all()
+                        .when()
+                        .post("/api/v4/graphql")
+                        .then()
+                        .log()
+                        .all()
+                        .and()
+                        .assertThat()
+                        .statusCode(200)
+                        .extract()
+                        .response();
+        AbstractTestBase.assertNoGraphQLErrors(response);
     }
 
     @Test
@@ -671,18 +681,27 @@ public class AgentHeapDumpIT extends AgentTestBase {
 
     protected void cleanupHeapDumpsForTarget(List<Integer> ids) {
         var variables = Map.<String, Object>of("targetIds", ids);
-        given().basePath("/")
-                .body(Map.of("query", GRAPHQL_HEAP_DUMP_CLEANUP_QUERY, "variables", variables))
-                .contentType(ContentType.JSON)
-                .log()
-                .all()
-                .when()
-                .post("/api/v4/graphql")
-                .then()
-                .log()
-                .all()
-                .and()
-                .assertThat()
-                .statusCode(200);
+        io.restassured.response.Response response =
+                given().basePath("/")
+                        .body(
+                                Map.of(
+                                        "query",
+                                        GRAPHQL_HEAP_DUMP_CLEANUP_QUERY,
+                                        "variables",
+                                        variables))
+                        .contentType(ContentType.JSON)
+                        .log()
+                        .all()
+                        .when()
+                        .post("/api/v4/graphql")
+                        .then()
+                        .log()
+                        .all()
+                        .and()
+                        .assertThat()
+                        .statusCode(200)
+                        .extract()
+                        .response();
+        AbstractTestBase.assertNoGraphQLErrors(response);
     }
 }

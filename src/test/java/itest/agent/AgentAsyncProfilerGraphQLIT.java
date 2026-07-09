@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeoutException;
 
+import io.cryostat.AbstractTestBase;
 import io.cryostat.resources.AgentApplicationResource;
 
 import io.quarkus.test.common.QuarkusTestResource;
@@ -74,31 +75,38 @@ public class AgentAsyncProfilerGraphQLIT extends AgentTestBase {
     }
 
     @Test
-    void testGraphQL() {
+    void testGraphQL() throws InterruptedException, TimeoutException {
         long targetId = target.id();
 
         // Create a Profile
         Map<String, Object> requestBody = Map.of("events", List.of("alloc"), "duration", 5);
 
-        given().log()
-                .all()
-                .pathParams("targetId", targetId)
-                .contentType(ContentType.JSON)
-                .body(requestBody)
-                .when()
-                .post("/api/beta/targets/{targetId}/async-profiler")
-                .then()
-                .log()
-                .all()
-                .and()
-                .assertThat()
-                .statusCode(200)
-                .contentType(ContentType.TEXT)
-                .body(Matchers.notNullValue())
-                .and()
-                .extract()
-                .body()
-                .asString();
+        String profileId =
+                given().log()
+                        .all()
+                        .pathParams("targetId", targetId)
+                        .contentType(ContentType.JSON)
+                        .body(requestBody)
+                        .when()
+                        .post("/api/beta/targets/{targetId}/async-profiler")
+                        .then()
+                        .log()
+                        .all()
+                        .and()
+                        .assertThat()
+                        .statusCode(200)
+                        .contentType(ContentType.TEXT)
+                        .body(Matchers.notNullValue())
+                        .and()
+                        .extract()
+                        .body()
+                        .asString();
+
+        webSocketClient.expectNotification(
+                "AsyncProfilerCreated",
+                Duration.ofSeconds(10),
+                o -> profileId.equals(o.getJsonObject("message").getString("id")));
+
         JsonObject query = new JsonObject();
         query.put(
                 "query",
@@ -123,9 +131,15 @@ public class AgentAsyncProfilerGraphQLIT extends AgentTestBase {
                         .extract()
                         .response();
 
+        AbstractTestBase.assertNoGraphQLErrors(resp);
         JsonObject retrievedResponse = new JsonObject(resp.asString());
         assertThat(retrievedResponse, notNullValue());
         assertThat(retrievedResponse.getMap().size(), not(0));
+
+        webSocketClient.expectNotification(
+                "AsyncProfilerStopped",
+                Duration.ofMinutes(2),
+                o -> profileId.equals(o.getJsonObject("message").getString("id")));
     }
 
     @Test
@@ -156,10 +170,23 @@ public class AgentAsyncProfilerGraphQLIT extends AgentTestBase {
                         .extract()
                         .response();
 
-        webSocketClient.expectNotification("AsyncProfilerCreated", Duration.ofSeconds(10));
+        AbstractTestBase.assertNoGraphQLErrors(response);
+
+        JsonObject createdNotification =
+                webSocketClient.expectNotification("AsyncProfilerCreated", Duration.ofSeconds(10));
 
         assertThat(response.getStatusCode(), equalTo(200));
         assertThat(response.getBody(), notNullValue());
+        assertThat(createdNotification, notNullValue());
+
+        webSocketClient.expectNotification(
+                "AsyncProfilerStopped",
+                Duration.ofMinutes(2),
+                o ->
+                        createdNotification
+                                .getJsonObject("message")
+                                .getString("id")
+                                .equals(o.getJsonObject("message").getString("id")));
     }
 
     @Test
@@ -223,6 +250,7 @@ public class AgentAsyncProfilerGraphQLIT extends AgentTestBase {
                         .extract()
                         .response();
 
+        AbstractTestBase.assertNoGraphQLErrors(deleteResponse);
         assertThat(deleteResponse.getStatusCode(), equalTo(200));
 
         // Verify the profile was deleted

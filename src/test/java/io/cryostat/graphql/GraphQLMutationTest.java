@@ -64,6 +64,7 @@ class GraphQLMutationTest extends AbstractGraphQLTestBase {
                         .extract()
                         .response();
 
+        assertNoGraphQLErrors(response);
         CreateRecordingMutationResponse actual =
                 mapper.readValue(response.body().asString(), CreateRecordingMutationResponse.class);
 
@@ -145,6 +146,7 @@ class GraphQLMutationTest extends AbstractGraphQLTestBase {
                         .extract()
                         .response();
 
+        assertNoGraphQLErrors(response);
         webSocketClient.expectNotification("ArchivedRecordingCreated", Duration.ofSeconds(15));
 
         ArchiveMutationResponse archiveResponse =
@@ -201,6 +203,7 @@ class GraphQLMutationTest extends AbstractGraphQLTestBase {
                         .extract()
                         .response();
 
+        assertNoGraphQLErrors(response);
         TypeReference<ActiveMutationResponse> typeRef =
                 new TypeReference<ActiveMutationResponse>() {};
         ActiveMutationResponse actual = mapper.readValue(response.body().asString(), typeRef);
@@ -257,6 +260,7 @@ class GraphQLMutationTest extends AbstractGraphQLTestBase {
                         .extract()
                         .response();
 
+        assertNoGraphQLErrors(response1);
         webSocketClient.expectNotification("ArchivedRecordingCreated", Duration.ofSeconds(15));
 
         ArchiveMutationResponse archiveResponse =
@@ -299,6 +303,7 @@ class GraphQLMutationTest extends AbstractGraphQLTestBase {
                         .extract()
                         .response();
 
+        assertNoGraphQLErrors(response2);
         MetadataUpdateResponse actual =
                 mapper.readValue(response2.body().asString(), MetadataUpdateResponse.class);
 
@@ -356,6 +361,7 @@ class GraphQLMutationTest extends AbstractGraphQLTestBase {
                         .extract()
                         .response();
 
+        assertNoGraphQLErrors(response1);
         webSocketClient.expectNotification("ArchivedRecordingCreated", Duration.ofSeconds(15));
 
         ArchiveMutationResponse archiveResponse =
@@ -384,6 +390,7 @@ class GraphQLMutationTest extends AbstractGraphQLTestBase {
                         .extract()
                         .response();
 
+        assertNoGraphQLErrors(response2);
         DeleteMutationResponse actual =
                 mapper.readValue(response2.body().asString(), DeleteMutationResponse.class);
         assertThat(actual.getData().getTargetNodes(), hasSize(1));

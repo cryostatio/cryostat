@@ -16,6 +16,8 @@
 package io.cryostat;
 
 import static io.restassured.RestAssured.given;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.nullValue;
 
 import java.io.IOException;
 import java.net.URI;
@@ -32,6 +34,8 @@ import io.cryostat.util.WebSocketTestClient;
 import io.quarkus.test.common.http.TestHTTPResource;
 import io.restassured.http.ContentType;
 import io.restassured.path.json.JsonPath;
+import io.restassured.response.Response;
+import io.vertx.core.json.JsonObject;
 import jakarta.inject.Inject;
 import jakarta.websocket.DeploymentException;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
@@ -311,38 +315,50 @@ public abstract class AbstractTestBase {
         } else {
             variables.put("targetIds", ids);
         }
-        given().basePath("/")
-                .body(Map.of("query", cleanupQuery(), "variables", variables))
-                .contentType(ContentType.JSON)
-                .log()
-                .all()
-                .when()
-                .post("/api/v4/graphql")
-                .then()
-                .log()
-                .all()
-                .and()
-                .assertThat()
-                .statusCode(200);
+        Response response =
+                given().basePath("/")
+                        .body(Map.of("query", cleanupQuery(), "variables", variables))
+                        .contentType(ContentType.JSON)
+                        .log()
+                        .all()
+                        .when()
+                        .post("/api/v4/graphql")
+                        .then()
+                        .log()
+                        .all()
+                        .and()
+                        .assertThat()
+                        .statusCode(200)
+                        .extract()
+                        .response();
+        assertNoGraphQLErrors(response);
     }
 
     protected JsonPath graphql(String query) {
-        return given().log()
-                .all()
-                .when()
-                .basePath("")
-                .contentType(ContentType.JSON)
-                .body(Map.of("query", query))
-                .post("/api/v4/graphql")
-                .then()
-                .log()
-                .all()
-                .and()
-                .assertThat()
-                .statusCode(200)
-                .contentType(ContentType.JSON)
-                .extract()
-                .body()
-                .jsonPath();
+        Response response =
+                given().log()
+                        .all()
+                        .when()
+                        .basePath("")
+                        .contentType(ContentType.JSON)
+                        .body(Map.of("query", query))
+                        .post("/api/v4/graphql")
+                        .then()
+                        .log()
+                        .all()
+                        .and()
+                        .assertThat()
+                        .statusCode(200)
+                        .contentType(ContentType.JSON)
+                        .extract()
+                        .response();
+        assertNoGraphQLErrors(response);
+        return response.body().jsonPath();
+    }
+
+    public static void assertNoGraphQLErrors(Response response) {
+        JsonObject body = new JsonObject(response.body().asString());
+        assertThat(
+                "GraphQL response must not contain errors", body.getValue("errors"), nullValue());
     }
 }
