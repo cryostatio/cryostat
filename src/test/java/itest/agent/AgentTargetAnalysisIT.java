@@ -18,6 +18,7 @@ package itest.agent;
 import static io.restassured.RestAssured.given;
 
 import java.io.IOException;
+import java.net.URL;
 import java.util.Objects;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
@@ -27,6 +28,7 @@ import java.util.concurrent.TimeoutException;
 import io.cryostat.resources.AgentApplicationResource;
 
 import io.quarkus.test.common.QuarkusTestResource;
+import io.quarkus.test.common.http.TestHTTPResource;
 import io.quarkus.test.junit.QuarkusIntegrationTest;
 import io.restassured.http.ContentType;
 import io.vertx.core.MultiMap;
@@ -40,6 +42,9 @@ import org.junit.jupiter.api.Test;
 @QuarkusTestResource(value = AgentApplicationResource.class, restrictToAnnotatedClass = true)
 @QuarkusTestResource(value = S3StorageITResource.class, restrictToAnnotatedClass = true)
 public class AgentTargetAnalysisIT extends AgentTestBase {
+
+    @TestHTTPResource("/api/v4.1/targets")
+    URL targetsUrl;
 
     @Test
     void testGetAgentTargetReport()
@@ -82,8 +87,8 @@ public class AgentTargetAnalysisIT extends AgentTestBase {
                                                 .header(
                                                         "Location",
                                                         String.format(
-                                                                "http://localhost:8081/api/v4.1/targets/%d/reports",
-                                                                targetId))
+                                                                "%s/%d/reports",
+                                                                targetsUrl.toString(), targetId))
                                                 .and()
                                                 .extract()
                                                 .body()
