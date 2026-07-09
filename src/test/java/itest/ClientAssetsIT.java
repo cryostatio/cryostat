@@ -17,12 +17,7 @@ package itest;
 
 import static io.restassured.RestAssured.given;
 
-import java.io.File;
-import java.nio.file.Files;
-import java.nio.file.Path;
-
 import io.quarkus.test.junit.QuarkusIntegrationTest;
-import io.restassured.RestAssured;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.jsoup.Jsoup;
@@ -30,32 +25,25 @@ import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 @QuarkusIntegrationTest
 public class ClientAssetsIT {
-    static File file;
-    static Document doc;
 
-    @BeforeAll
-    static void setup() throws Exception {
-        int port = Integer.parseInt(System.getenv().getOrDefault("QUARKUS_HTTP_PORT", "8081"));
-        RestAssured.baseURI = "http://localhost";
-        RestAssured.port = port;
+    Document doc;
 
+    @BeforeEach
+    void setup() throws Exception {
         byte[] content =
                 given().when().get("/index.html").then().statusCode(200).extract().asByteArray();
 
-        Path tempFile = Files.createTempFile("index", ".html");
-        Files.write(tempFile, content);
-        file = tempFile.toFile();
-        doc = Jsoup.parse(file, "UTF-8");
+        doc = Jsoup.parse(new String(content, "UTF-8"));
     }
 
     @Test
     public void indexHtmlShouldReturnClient() {
-        MatcherAssert.assertThat(file.length(), Matchers.greaterThan(0L));
+        MatcherAssert.assertThat(doc.html().length(), Matchers.greaterThan(0));
     }
 
     @Test
