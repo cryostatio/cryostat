@@ -20,6 +20,7 @@ import java.io.InputStream;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.time.Duration;
 import java.util.Optional;
@@ -92,11 +93,11 @@ class HeapDumpReportsServiceImpl implements HeapDumpReportsService {
                 InputStream stream = helper.getHeapDumpStream(jvmId, heapDumpId);
                 // Copy the heap dump from storage to a temporary file for analysis
                 // File will be cleaned up by the uni onItemOrFailure hook
-                java.nio.file.Path tmpFile = Files.createTempFile("", ".hprof");
+                Path tmpFile = Files.createTempFile("", ".hprof");
                 Files.copy(stream, tmpFile, StandardCopyOption.REPLACE_EXISTING);
                 logger.tracev("inprocess reportFor heap dump {0} {1}", jvmId, heapDumpId);
                 var uni =
-                        process(jvmId, heapDumpId, tmpFile.toString())
+                        process(jvmId, heapDumpId, tmpFile)
                                 .onItemOrFailure()
                                 .invoke(
                                         () -> {
@@ -115,10 +116,10 @@ class HeapDumpReportsServiceImpl implements HeapDumpReportsService {
             } else {
                 InputStream stream = helper.getHeapDumpStream(jvmId, heapDumpId);
                 // Copy the heap dump from storage to a temporary file for analysis
-                java.nio.file.Path tmpFile = Files.createTempFile("", ".hprof");
+                Path tmpFile = Files.createTempFile("", ".hprof");
                 Files.copy(stream, tmpFile, StandardCopyOption.REPLACE_EXISTING);
                 logger.tracev("sidecar reportFor heap dump {0} {1}", jvmId, heapDumpId);
-                return fireRequest(tmpFile.toString(), jvmId, heapDumpId)
+                return fireRequest(tmpFile, jvmId, heapDumpId)
                         .eventually(
                                 () -> {
                                     safeClose(stream);
@@ -137,12 +138,12 @@ class HeapDumpReportsServiceImpl implements HeapDumpReportsService {
         }
     }
 
-    private Uni<HeapDumpAnalysis> process(String jvmId, String heapDumpId, String fileName) {
-        return Uni.createFrom().future(reportGenerator.generate(fileName, memoryLimit));
+    private Uni<HeapDumpAnalysis> process(String jvmId, String heapDumpId, Path file) {
+        return Uni.createFrom().future(reportGenerator.generate(file, memoryLimit));
     }
 
-    private Uni<HeapDumpAnalysis> fireRequest(String fileName, String jvmId, String heapDumpId) {
-        return sidecar.generate(fileName, jvmId, heapDumpId);
+    private Uni<HeapDumpAnalysis> fireRequest(Path file, String jvmId, String heapDumpId) {
+        return sidecar.generate(file, jvmId, heapDumpId);
     }
 
     @Override
