@@ -21,7 +21,7 @@ import java.net.URISyntaxException;
 import java.net.URL;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.TimeoutException;
+import java.util.concurrent.TimeUnit;
 
 import io.cryostat.util.WebSocketTestClient;
 
@@ -32,12 +32,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.quarkus.test.common.http.TestHTTPResource;
 import jakarta.websocket.DeploymentException;
 import org.jboss.logging.Logger;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 
 public abstract class WebSocketTestBase {
 
-    protected static final ExecutorService WORKER = Executors.newCachedThreadPool();
+    protected static volatile ExecutorService WORKER = Executors.newCachedThreadPool();
     public static final Logger logger = Logger.getLogger(WebSocketTestBase.class);
     public static final ObjectMapper mapper;
     public static final int REQUEST_TIMEOUT_SECONDS = 30;
@@ -76,5 +77,12 @@ public abstract class WebSocketTestBase {
         if (webSocketClient != null) {
             webSocketClient.disconnect();
         }
+    }
+
+    @AfterAll
+    static void shutDownWorker() throws InterruptedException {
+        WORKER.shutdownNow();
+        WORKER.awaitTermination(10, TimeUnit.SECONDS);
+        WORKER = Executors.newCachedThreadPool();
     }
 }
