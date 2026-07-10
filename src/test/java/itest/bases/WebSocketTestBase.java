@@ -16,9 +16,12 @@
 package itest.bases;
 
 import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.net.Socket;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.time.Duration;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -84,5 +87,25 @@ public abstract class WebSocketTestBase {
         WORKER.shutdownNow();
         WORKER.awaitTermination(10, TimeUnit.SECONDS);
         WORKER = Executors.newCachedThreadPool();
+        waitForPortRelease(8081, Duration.ofMinutes(2));
+    }
+
+    private static void waitForPortRelease(int port, Duration timeout) {
+        long deadline = System.currentTimeMillis() + timeout.toMillis();
+        while (System.currentTimeMillis() < deadline) {
+            try (Socket s = new Socket()) {
+                s.connect(new InetSocketAddress("127.0.0.1", port), 200);
+                // port is still bound — wait and retry
+                logger.infov("Port {0} still in use, waiting for release...", port);
+                Thread.sleep(500);
+            } catch (IOException e) {
+                // connection refused = port is free
+                return;
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return;
+            }
+        }
+        logger.warnv("Port {0} still in use after {1}; proceeding anyway", port, timeout);
     }
 }
