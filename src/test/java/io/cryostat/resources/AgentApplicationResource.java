@@ -149,6 +149,6 @@ public class AgentApplicationResource
                                         context.devServicesProperties()
                                                 .getOrDefault("quarkus.http.port", "8081")));
         cryostatPort.set(port);
-        logger.debugv("Set cryostat port to {0}", port);
+        logger.infov("Set cryostat port to {0}", port);
     }
 }
