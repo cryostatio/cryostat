@@ -42,6 +42,9 @@ import org.junit.jupiter.api.condition.DisabledIfEnvironmentVariable;
 @QuarkusTestResource(value = AgentApplicationResource.class, restrictToAnnotatedClass = true)
 @QuarkusTestResource(value = S3StorageITResource.class, restrictToAnnotatedClass = true)
 @DisabledIfEnvironmentVariable(named = "CI", matches = "true")
+@Disabled(
+        "Runtime java.lang.IllegalStateException: Unable to determine the status of the running"
+                + " proces")
 public class AgentHeapDumpGraphQLIT extends AgentTestBase {
 
     private static final String GRAPHQL_HEAP_DUMP_CLEANUP_QUERY =
