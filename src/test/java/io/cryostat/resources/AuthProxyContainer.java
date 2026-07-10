@@ -19,12 +19,15 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
+import org.jboss.logging.Logger;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
 import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.images.builder.Transferable;
 
 public class AuthProxyContainer extends GenericContainer<AuthProxyContainer> {
+
+    public static final Logger logger = Logger.getLogger(AuthProxyContainer.class);
 
     private static final String IMAGE_NAME = "quay.io/oauth2-proxy/oauth2-proxy:latest";
     private static final String CFG_FILE_PATH = "/tmp/auth_proxy_alpha_config.yml";
@@ -66,20 +69,23 @@ providers:
         withExposedPorts(PORT);
         withNetworkAliases(ALIAS);
         withEnv(envMap);
-        withCopyToContainer(
-                Transferable.of(
-                        ALPHA_CONFIG
-                                .replaceAll("AUTHPROXY_HOST", "0.0.0.0")
-                                .replaceAll("AUTHPROXY_PORT", Integer.toString(PORT))
-                                .replaceAll(
-                                        "CRYOSTAT_HOST",
-                                        Optional.ofNullable(
-                                                        System.getProperty(
-                                                                "quarkus.test.network-alias"))
-                                                .orElse("cryostat"))
-                                .replaceAll("CRYOSTAT_PORT", Integer.toString(cryostatPort))),
-                CFG_FILE_PATH);
+        withCopyToContainer(Transferable.of(cfg(cryostatPort)), CFG_FILE_PATH);
         waitingFor(Wait.forLogMessage(".*OAuthProxy configured.*", 1));
         withStartupAttempts(3);
+    }
+
+    private String cfg(int cryostatPort) {
+        String cfg =
+                ALPHA_CONFIG
+                        .replaceAll("AUTHPROXY_HOST", "0.0.0.0")
+                        .replaceAll("AUTHPROXY_PORT", Integer.toString(PORT))
+                        .replaceAll(
+                                "CRYOSTAT_HOST",
+                                Optional.ofNullable(
+                                                System.getProperty("quarkus.test.network-alias"))
+                                        .orElse("cryostat"))
+                        .replaceAll("CRYOSTAT_PORT", Integer.toString(cryostatPort));
+        logger.debugf("auth proxy config:%n%s", cfg);
+        return cfg;
     }
 }
