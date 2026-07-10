@@ -97,7 +97,7 @@ public abstract class WebSocketTestBase {
                 s.connect(new InetSocketAddress("127.0.0.1", port), 200);
                 // port is still bound — wait and retry
                 logger.infov("Port {0} still in use, waiting for release...", port);
-                Thread.sleep(500);
+                Thread.sleep(5000);
             } catch (IOException e) {
                 // connection refused = port is free
                 return;
