@@ -24,7 +24,6 @@ import io.quarkus.test.common.DevServicesContext;
 import io.quarkus.test.common.QuarkusTestResourceLifecycleManager;
 import org.apache.commons.lang3.StringUtils;
 import org.eclipse.microprofile.config.ConfigProvider;
-import org.jboss.logging.Logger;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
 import org.testcontainers.containers.wait.strategy.HostPortWaitStrategy;
@@ -32,8 +31,6 @@ import org.testcontainers.utility.DockerImageName;
 
 public class AgentApplicationResource
         implements QuarkusTestResourceLifecycleManager, DevServicesContext.ContextAware {
-
-    public static final Logger logger = Logger.getLogger(AgentApplicationResource.class);
 
     private static final String DEFAULT_IMAGE =
             "quay.io/redhat-java-monitoring/quarkus-cryostat-agent:latest";
@@ -150,6 +147,5 @@ public class AgentApplicationResource
             throw new IllegalStateException("Could not determine dynamic HTTP port binding");
         }
         cryostatPort.set(port);
-        logger.infov("Set cryostat port to {0}", port);
     }
 }
