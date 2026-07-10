@@ -85,7 +85,7 @@ providers:
                                                 System.getProperty("quarkus.test.network-alias"))
                                         .orElse("cryostat"))
                         .replaceAll("CRYOSTAT_PORT", Integer.toString(cryostatPort));
-        logger.debugf("auth proxy config:%n%s", cfg);
+        logger.infof("auth proxy config:%n%s", cfg);
         return cfg;
     }
 }
