@@ -100,7 +100,12 @@ public class S3StorageResource
                         .withEnv(envMap)
                         .withTmpFs(Map.of("/data", "rw"))
                         .waitingFor(Wait.forListeningPort())
-                        .withStartupAttempts(3);
+                        .withStartupAttempts(3)
+                        .withCreateContainerCmdModifier(
+                                cmd ->
+                                        cmd.getHostConfig()
+                                                .withCpuShares(1024)
+                                                .withMemory(512L * 1024L * 1024L));
         containerNetworkId.ifPresent(container::withNetworkMode);
 
         container.start();

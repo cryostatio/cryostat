@@ -69,6 +69,8 @@ providers:
         withCopyToContainer(Transferable.of(cfg(cryostatPort)), CFG_FILE_PATH);
         waitingFor(Wait.forLogMessage(".*OAuthProxy configured.*", 1));
         withStartupAttempts(3);
+        withCreateContainerCmdModifier(
+                cmd -> cmd.getHostConfig().withCpuShares(512).withMemory(128L * 1024L * 1024L));
     }
 
     private String cfg(int cryostatPort) {
