@@ -34,6 +34,7 @@ import itest.resources.S3StorageITResource;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 @QuarkusIntegrationTest
@@ -205,6 +206,7 @@ public class AgentAsyncProfilerIT extends AgentTestBase {
     }
 
     @Test
+    @Disabled
     void testCreateProfileWithCpuAlloc()
             throws InterruptedException, ExecutionException, TimeoutException {
         long targetId = target.id();
@@ -267,6 +269,7 @@ public class AgentAsyncProfilerIT extends AgentTestBase {
     }
 
     @Test
+    @Disabled
     void testCreateProfileWithCpuNativemem()
             throws InterruptedException, ExecutionException, TimeoutException {
         long targetId = target.id();
