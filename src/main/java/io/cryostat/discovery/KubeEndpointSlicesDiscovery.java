@@ -29,6 +29,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Callable;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -165,6 +166,10 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
     @ConfigProperty(name = "cryostat.discovery.kubernetes.force-resync.enabled")
     boolean forceResyncEnabled;
 
+    private final ReentrantReadWriteLock shutdownLock = new ReentrantReadWriteLock();
+
+    private volatile boolean shuttingDown;
+
     private final LazyInitializer<HashMap<String, SharedIndexInformer<EndpointSlice>>> nsInformers =
             new LazyInitializer<HashMap<String, SharedIndexInformer<EndpointSlice>>>() {
                 @Override
@@ -224,6 +229,8 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
             };
 
     void onStart(@Observes StartupEvent evt) {
+        shuttingDown = false;
+
         if (!enabled()) {
             return;
         }
@@ -291,24 +298,38 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
     }
 
     void onStop(@Observes ShutdownEvent evt) {
-        if (!(enabled() && available())) {
-            return;
-        }
-        logger.debugv("Shutting down {0} client", REALM);
+        shuttingDown = true;
 
+        var writeLock = shutdownLock.writeLock();
+        writeLock.lock();
         try {
-            scheduler.deleteJob(RESYNC_JOB_KEY);
+            if (!(enabled() && available())) {
+                return;
+            }
+            logger.debugv("Shutting down {0} client", REALM);
+
+            deleteResyncJobIfSchedulerRunning();
+            safeGetInformers()
+                    .forEach(
+                            (ns, informer) -> {
+                                informer.close();
+                                logger.debugv(
+                                        "Closed EndpointSlice SharedInformer for namespace \"{0}\"",
+                                        ns);
+                            });
+        } finally {
+            writeLock.unlock();
+        }
+    }
+
+    void deleteResyncJobIfSchedulerRunning() {
+        try {
+            if (!scheduler.isShutdown()) {
+                scheduler.deleteJob(RESYNC_JOB_KEY);
+            }
         } catch (SchedulerException se) {
             logger.warn(se);
         }
-        safeGetInformers()
-                .forEach(
-                        (ns, informer) -> {
-                            informer.close();
-                            logger.debugv(
-                                    "Closed EndpointSlice SharedInformer for namespace \"{0}\"",
-                                    ns);
-                        });
     }
 
     boolean enabled() {
@@ -325,8 +346,34 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
         return false;
     }
 
+    void setShuttingDown(boolean shuttingDown) {
+        this.shuttingDown = shuttingDown;
+    }
+
+    boolean withDiscoveryEventHandler(Runnable handler) {
+        if (shuttingDown) {
+            return false;
+        }
+
+        var readLock = shutdownLock.readLock();
+        readLock.lock();
+        try {
+            if (shuttingDown) {
+                return false;
+            }
+            handler.run();
+            return true;
+        } finally {
+            readLock.unlock();
+        }
+    }
+
     @Override
     public void onAdd(EndpointSlice slice) {
+        if (shuttingDown) {
+            logger.trace("Ignoring EndpointSlice add event during shutdown");
+            return;
+        }
         logger.debugv(
                 "EndpointSlice {0} created in namespace {1}",
                 slice.getMetadata().getName(), slice.getMetadata().getNamespace());
@@ -335,6 +382,10 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
 
     @Override
     public void onUpdate(EndpointSlice oldSlice, EndpointSlice newSlice) {
+        if (shuttingDown) {
+            logger.trace("Ignoring EndpointSlice update event during shutdown");
+            return;
+        }
         logger.debugv(
                 "EndpointSlice {0} modified in namespace {1}",
                 newSlice.getMetadata().getName(), newSlice.getMetadata().getNamespace());
@@ -343,6 +394,10 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
 
     @Override
     public void onDelete(EndpointSlice endpoints, boolean deletedFinalStateUnknown) {
+        if (shuttingDown) {
+            logger.trace("Ignoring EndpointSlice delete event during shutdown");
+            return;
+        }
         logger.debugv(
                 "EndpointSlice {0} deleted in namespace {1}",
                 endpoints.getMetadata().getName(), endpoints.getMetadata().getNamespace());
@@ -368,6 +423,12 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
     @ConsumeEvent(value = NAMESPACE_QUERY_ADDR, blocking = true, ordered = true)
     @Transactional(TxType.REQUIRES_NEW)
     public void handleQueryEvent(NamespaceQueryEvent evt) {
+        if (!withDiscoveryEventHandler(() -> syncNamespaceTargets(evt))) {
+            logger.tracev("Ignoring EndpointSlice namespace query event during shutdown: {0}", evt);
+        }
+    }
+
+    private void syncNamespaceTargets(NamespaceQueryEvent evt) {
         for (var namespace : evt.namespaces) {
             try {
                 Set<Target> persistedTargets = queryPersistedTargets(namespace);
@@ -440,6 +501,12 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
     @ConsumeEvent(value = ENDPOINT_SLICE_DISCOVERY_ADDR, blocking = true, ordered = true)
     @Transactional(TxType.REQUIRED)
     public void handleEndpointEvent(EndpointDiscoveryEvent evt) {
+        if (!withDiscoveryEventHandler(() -> applyEndpointDiscoveryEvent(evt))) {
+            logger.tracev("Ignoring EndpointSlice discovery event during shutdown: {0}", evt);
+        }
+    }
+
+    private void applyEndpointDiscoveryEvent(EndpointDiscoveryEvent evt) {
         String namespace = evt.namespace;
         DiscoveryNode realm = DiscoveryNode.getRealm(REALM).orElseThrow();
         realm = entityManager.find(DiscoveryNode.class, realm.id, LockModeType.PESSIMISTIC_WRITE);
@@ -480,10 +547,18 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
     }
 
     private void notify(NamespaceQueryEvent evt) {
+        if (shuttingDown) {
+            logger.tracev("Ignoring EndpointSlice namespace query event during shutdown: {0}", evt);
+            return;
+        }
         bus.publish(NAMESPACE_QUERY_ADDR, evt);
     }
 
     private void notify(EndpointDiscoveryEvent evt) {
+        if (shuttingDown) {
+            logger.tracev("Ignoring EndpointSlice discovery event during shutdown: {0}", evt);
+            return;
+        }
         bus.publish(ENDPOINT_SLICE_DISCOVERY_ADDR, evt);
     }
 
@@ -1657,7 +1732,7 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
         }
     }
 
-    private static record EndpointDiscoveryEvent(
+    static record EndpointDiscoveryEvent(
             String namespace,
             Target target,
             ObjectReference objRef,

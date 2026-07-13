@@ -16,6 +16,7 @@
 package itest.agent;
 
 import static io.restassured.RestAssured.given;
+import static org.hamcrest.Matchers.*;
 
 import java.time.Duration;
 import java.util.List;

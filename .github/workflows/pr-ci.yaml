@@ -136,7 +136,7 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y colorized-logs
     - name: Set pending commit status
-      uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
+      uses: daltonbr/set-commit-status-action@2a09190f6d04d912bca5ede8094b5d5dce303ebb # v3.0.1
       if: always()
       with:
         context: unit-test
@@ -174,7 +174,7 @@ jobs:
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     - name: Set latest commit status
-      uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
+      uses: daltonbr/set-commit-status-action@2a09190f6d04d912bca5ede8094b5d5dce303ebb # v3.0.1
       if: always()
       with:
         context: unit-test
@@ -227,7 +227,7 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y colorized-logs
     - name: Set pending commit status
-      uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
+      uses: daltonbr/set-commit-status-action@2a09190f6d04d912bca5ede8094b5d5dce303ebb # v3.0.1
       if: always()
       with:
         context: integration-test
@@ -297,7 +297,7 @@ jobs:
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     - name: Set latest commit status
-      uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
+      uses: daltonbr/set-commit-status-action@2a09190f6d04d912bca5ede8094b5d5dce303ebb # v3.0.1
       if: always()
       with:
         context: integration-test
@@ -332,21 +332,21 @@ jobs:
         distribution: 'temurin'
         cache: 'maven'
     - name: Set pending commit status for OpenAPI schema
-      uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
+      uses: daltonbr/set-commit-status-action@2a09190f6d04d912bca5ede8094b5d5dce303ebb # v3.0.1
       with:
         context: openapi-schema-check
         sha: ${{ needs.checkout-branch.outputs.PR_head_sha }}
         token: ${{ secrets.GITHUB_TOKEN }}
         status: pending
     - name: Set pending commit status for GraphQL schema
-      uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
+      uses: daltonbr/set-commit-status-action@2a09190f6d04d912bca5ede8094b5d5dce303ebb # v3.0.1
       with:
         context: graphql-schema-check
         sha: ${{ needs.checkout-branch.outputs.PR_head_sha }}
         token: ${{ secrets.GITHUB_TOKEN }}
         status: pending
     - name: Set pending commit status for Notifications schema
-      uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
+      uses: daltonbr/set-commit-status-action@2a09190f6d04d912bca5ede8094b5d5dce303ebb # v3.0.1
       with:
         context: notifications-schema-check
         sha: ${{ needs.checkout-branch.outputs.PR_head_sha }}
@@ -416,7 +416,7 @@ jobs:
             body: commentBody
           });
     - name: Set commit status
-      uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
+      uses: daltonbr/set-commit-status-action@2a09190f6d04d912bca5ede8094b5d5dce303ebb # v3.0.1
       if: always()
       with:
         context: openapi-schema-check
@@ -452,7 +452,7 @@ jobs:
             body: commentBody
           });
     - name: Set commit status
-      uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
+      uses: daltonbr/set-commit-status-action@2a09190f6d04d912bca5ede8094b5d5dce303ebb # v3.0.1
       if: always()
       with:
         context: graphql-schema-check
@@ -488,7 +488,7 @@ jobs:
             body: commentBody
           });
     - name: Set commit status
-      uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
+      uses: daltonbr/set-commit-status-action@2a09190f6d04d912bca5ede8094b5d5dce303ebb # v3.0.1
       if: always()
       with:
         context: notifications-schema-check
