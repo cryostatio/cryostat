@@ -33,6 +33,7 @@ import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 import io.cryostat.ConfigProperties;
@@ -44,6 +45,7 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.RemovalCause;
 import com.github.benmanes.caffeine.cache.Scheduler;
 import com.github.benmanes.caffeine.cache.Weigher;
+import io.quarkus.runtime.ShutdownEvent;
 import io.quarkus.runtime.StartupEvent;
 import io.smallrye.common.annotation.Blocking;
 import io.smallrye.mutiny.Uni;
@@ -77,7 +79,7 @@ public class JfrAnalytics {
     @Inject RecordingHelper recordings;
     @Inject Logger logger;
 
-    private final Executor executor = Executors.newVirtualThreadPerTaskExecutor();
+    private final ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
     private final JavaTypeFactoryImpl typeFactory = new JavaTypeFactoryImpl();
     private AsyncLoadingCache<RecordingKey, Path> jfrFileCache;
 
@@ -91,6 +93,10 @@ public class JfrAnalytics {
                         .expireAfterAccess(cacheTtl)
                         .removalListener(this::onCacheRemoval)
                         .buildAsync(new JfrFileLoader());
+    }
+
+    void onStop(@Observes ShutdownEvent evt) {
+        executor.shutdownNow();
     }
 
     @jakarta.ws.rs.Path("/api/beta/recording_analytics/{jvmId}/{filename}")

@@ -15,13 +15,17 @@
  */
 package io.cryostat;
 
+import java.util.concurrent.ForkJoinPool;
+
 import org.openjdk.jmc.common.security.SecurityManagerFactory;
 
 import io.cryostat.core.CryostatCore;
 
 import io.quarkus.runtime.Quarkus;
 import io.quarkus.runtime.QuarkusApplication;
+import io.quarkus.runtime.ShutdownEvent;
 import io.quarkus.runtime.annotations.QuarkusMain;
+import jakarta.enterprise.event.Observes;
 
 /**
  * Main application entrypoint. Perform any required early initialization tasks, then kick off the
@@ -35,6 +39,11 @@ public class Cryostat {
     }
 
     public static class Launcher implements QuarkusApplication {
+
+        void onStop(@Observes ShutdownEvent evt) {
+            ForkJoinPool.commonPool().shutdownNow();
+        }
+
         @Override
         public int run(String... args) throws Exception {
             CryostatCore.initialize();

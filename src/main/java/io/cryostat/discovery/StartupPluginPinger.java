@@ -96,6 +96,10 @@ public class StartupPluginPinger {
                         });
     }
 
+    void onStop(@Observes ShutdownEvent evt) {
+        executorService.shutdownNow();
+    }
+
     private List<PluginData> fetchPluginData() {
         return QuarkusTransaction.joiningExisting()
                 .call(

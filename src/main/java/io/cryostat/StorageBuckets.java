@@ -128,5 +128,7 @@ public class StorageBuckets {
         locks.values().forEach(cf -> cf.complete(null));
         locks.clear();
         buckets.clear();
+        q.shutdownNow();
+        pool.shutdownNow();
     }
 }

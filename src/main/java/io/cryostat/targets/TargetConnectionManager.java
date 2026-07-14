@@ -58,11 +58,13 @@ import com.github.benmanes.caffeine.cache.RemovalCause;
 import com.github.benmanes.caffeine.cache.Scheduler;
 import com.nimbusds.jose.proc.BadJOSEException;
 import io.quarkus.narayana.jta.QuarkusTransaction;
+import io.quarkus.runtime.ShutdownEvent;
 import io.quarkus.vertx.ConsumeEvent;
 import io.smallrye.mutiny.Uni;
 import io.smallrye.mutiny.unchecked.Unchecked;
 import io.vertx.ext.web.handler.HttpException;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
 import jakarta.persistence.PersistenceException;
 import jakarta.validation.ValidationException;
@@ -149,6 +151,10 @@ public class TargetConnectionManager {
         }
         this.connections = cacheBuilder.buildAsync(new ConnectionLoader());
         this.logger = logger;
+    }
+
+    void onStop(@Observes ShutdownEvent evt) {
+        virtualThreadPool.shutdownNow();
     }
 
     @ConsumeEvent(Target.TARGET_JVM_DISCOVERY)
