@@ -80,7 +80,6 @@ import io.cryostat.ws.MessagingServer;
 import io.cryostat.ws.Notification;
 
 import io.quarkus.narayana.jta.QuarkusTransaction;
-import io.quarkus.runtime.ShutdownEvent;
 import io.quarkus.runtime.StartupEvent;
 import io.smallrye.common.annotation.Identifier;
 import io.smallrye.mutiny.Uni;
@@ -262,10 +261,6 @@ public class RecordingHelper {
                                     grafanaDatasourceURLProperty.get())));
             return;
         }
-    }
-
-    void onStop(@Observes ShutdownEvent evt) {
-        partUploader.shutdownNow();
     }
 
     public List<ActiveRecording> listActiveRecordings(Target target) {

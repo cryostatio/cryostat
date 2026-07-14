@@ -32,10 +32,8 @@ import io.cryostat.targets.Target;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import io.quarkus.narayana.jta.QuarkusTransaction;
-import io.quarkus.runtime.ShutdownEvent;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Event;
-import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EntityListeners;
@@ -195,10 +193,6 @@ public class ActiveRecording extends PanacheEntity {
         Duration externalRecordingDelay;
 
         ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
-
-        void onStop(@Observes ShutdownEvent evt) {
-            scheduler.shutdownNow();
-        }
 
         @PostPersist
         public void postPersist(ActiveRecording activeRecording) {

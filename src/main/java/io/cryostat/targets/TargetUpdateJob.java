@@ -22,8 +22,6 @@ import io.cryostat.core.net.JFRConnection;
 import io.cryostat.recordings.RecordingHelper;
 
 import io.quarkus.narayana.jta.QuarkusTransaction;
-import io.quarkus.runtime.ShutdownEvent;
-import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
 import jakarta.persistence.NoResultException;
 import jakarta.persistence.PersistenceException;
@@ -50,10 +48,6 @@ public class TargetUpdateJob implements Job {
     @Inject RecordingHelper recordingHelper;
     @Inject TargetUpdateService updateService;
     ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
-
-    void onStop(@Observes ShutdownEvent evt) {
-        executor.shutdownNow();
-    }
 
     @Override
     public void execute(JobExecutionContext context) throws JobExecutionException {
