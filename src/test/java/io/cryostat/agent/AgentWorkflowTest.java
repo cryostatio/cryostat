@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package itest.agent;
+package io.cryostat.agent;
 
 import static io.restassured.RestAssured.given;
 
@@ -26,25 +26,26 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 import io.cryostat.resources.AgentApplicationResource;
+import io.cryostat.resources.S3StorageResource;
 
 import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.common.http.TestHTTPResource;
-import io.quarkus.test.junit.QuarkusIntegrationTest;
+import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
 import io.vertx.core.MultiMap;
 import io.vertx.core.json.JsonObject;
-import itest.resources.S3StorageITResource;
 import jakarta.websocket.DeploymentException;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
 
-@QuarkusIntegrationTest
+@QuarkusTest
 @QuarkusTestResource(value = AgentApplicationResource.class, restrictToAnnotatedClass = true)
-@QuarkusTestResource(value = S3StorageITResource.class, restrictToAnnotatedClass = true)
-public class AgentWorkflowIT extends AgentTestBase {
+@QuarkusTestResource(value = S3StorageResource.class, restrictToAnnotatedClass = true)
+public class AgentWorkflowTest extends AgentTestBase {
 
-    static final String RECORDING_NAME = AgentWorkflowIT.class.getSimpleName();
+    static final String CONTINUOUS_TEMPLATE = "template=Continuous,type=TARGET";
+    static final String RECORDING_NAME = AgentWorkflowTest.class.getSimpleName();
 
     @TestHTTPResource("/api/v4.1/targets")
     URL targetsUrl;
@@ -164,13 +165,10 @@ public class AgentWorkflowIT extends AgentTestBase {
                                                 .all()
                                                 .and()
                                                 .assertThat()
-                                                // 202 Indicates report generation is in progress
-                                                // and sends an intermediate response.
                                                 .statusCode(202)
                                                 .contentType(ContentType.TEXT)
                                                 .body(Matchers.any(String.class))
                                                 .assertThat()
-                                                // Verify we get a location header from a 202.
                                                 .header(
                                                         "Location",
                                                         String.format(

@@ -15,15 +15,16 @@
  */
 package io.cryostat.resources;
 
+import java.io.IOException;
+import java.net.ServerSocket;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import io.quarkus.test.common.DevServicesContext;
 import io.quarkus.test.common.QuarkusTestResourceLifecycleManager;
 import org.apache.commons.lang3.StringUtils;
-import org.eclipse.microprofile.config.ConfigProvider;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
 import org.testcontainers.containers.wait.strategy.HostPortWaitStrategy;
@@ -37,12 +38,6 @@ public class AgentApplicationResource
     public static final int PORT = 9977;
     public static final String ALIAS = "quarkus-cryostat-agent";
 
-    /**
-     * Get the environment map for the agent container. Child classes can override this to add or
-     * modify environment variables.
-     *
-     * @return Map of environment variables
-     */
     protected Map<String, String> getEnvMap() {
         return new HashMap<>(
                 Map.of(
@@ -73,13 +68,14 @@ public class AgentApplicationResource
     }
 
     private Optional<String> containerNetworkId;
-    private AuthProxyContainer authProxy;
     private GenericContainer<?> container;
-    private AtomicInteger cryostatPort = new AtomicInteger(8081);
 
     @SuppressWarnings("resource")
     @Override
     public Map<String, String> start() {
+        int cryostatPort = findFreePort();
+        int hostAgentPort = findFreePort();
+
         Optional<Network> network =
                 containerNetworkId.map(
                         id ->
@@ -92,7 +88,6 @@ public class AgentApplicationResource
                                     @Override
                                     public void close() {}
                                 });
-        authProxy = new AuthProxyContainer(network, cryostatPort.get());
 
         String img =
                 Optional.ofNullable(System.getenv("QUARKUS_TEST_IMAGE"))
@@ -100,10 +95,10 @@ public class AgentApplicationResource
                         .orElse(DEFAULT_IMAGE);
         this.container =
                 new GenericContainer<>(DockerImageName.parse(img))
-                        .dependsOn(authProxy)
                         .withExposedPorts(PORT)
                         .withEnv(getEnvMap())
                         .withNetworkAliases(ALIAS)
+                        .withExtraHost("host.docker.internal", "host-gateway")
                         .waitingFor(new HostPortWaitStrategy().forPorts(PORT))
                         .withStartupAttempts(3)
                         .withCreateContainerCmdModifier(
@@ -112,21 +107,23 @@ public class AgentApplicationResource
                                                 .withCpuShares(512)
                                                 .withMemory(256L * 1024L * 1024L));
         network.ifPresent(container::withNetwork);
+
+        container.setPortBindings(List.of(String.format("%d:%d", hostAgentPort, PORT)));
         container.addEnv(
                 "CRYOSTAT_AGENT_BASEURI",
-                String.format("http://%s:%d/", AuthProxyContainer.ALIAS, AuthProxyContainer.PORT));
-        container.addEnv("CRYOSTAT_AGENT_CALLBACK", String.format("http://%s:%d/", ALIAS, PORT));
+                String.format("http://host.docker.internal:%d/", cryostatPort));
+        container.addEnv(
+                "CRYOSTAT_AGENT_CALLBACK", String.format("http://localhost:%d/", hostAgentPort));
 
         container.start();
 
         return Map.of(
-                "cryostat.agent.tls.required", "false",
-                "cryostat.http.proxy.host", ALIAS,
-                "cryostat.http.proxy.port", Integer.toString(cryostatPort.get()),
-                "quarkus.http.proxy.proxy-address-forwarding", "true",
-                "quarkus.http.proxy.allow-x-forwarded", "true",
-                "quarkus.http.proxy.enable-forwarded-host", "true",
-                "quarkus.http.proxy.enable-forwarded-prefix", "true");
+                "cryostat.agent.tls.required",
+                "false",
+                "quarkus.http.port",
+                Integer.toString(cryostatPort),
+                "quarkus.http.test-port",
+                Integer.toString(cryostatPort));
     }
 
     @Override
@@ -135,22 +132,18 @@ public class AgentApplicationResource
             container.stop();
             container.close();
         }
-        if (authProxy != null) {
-            authProxy.stop();
-            authProxy.close();
-        }
     }
 
     @Override
     public void setIntegrationTestContext(DevServicesContext context) {
         containerNetworkId = context.containerNetworkId();
-        int port = ConfigProvider.getConfig().getValue("quarkus.http.test-port", Integer.class);
-        if (port < 1) {
-            port = ConfigProvider.getConfig().getValue("quarkus.http.port", Integer.class);
+    }
+
+    private static int findFreePort() {
+        try (ServerSocket ss = new ServerSocket(0)) {
+            return ss.getLocalPort();
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to find free port", e);
         }
-        if (port < 1) {
-            throw new IllegalStateException("Could not determine dynamic HTTP port binding");
-        }
-        cryostatPort.set(port);
     }
 }

@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package itest.agent;
+package io.cryostat.agent;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -25,27 +25,23 @@ import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 
-import io.cryostat.AbstractTestBase;
 import io.cryostat.resources.AgentApplicationResource;
+import io.cryostat.resources.S3StorageResource;
 
 import io.quarkus.test.common.QuarkusTestResource;
-import io.quarkus.test.junit.QuarkusIntegrationTest;
+import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
 import io.restassured.response.Response;
 import io.vertx.core.json.JsonObject;
-import itest.resources.S3StorageITResource;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.DisabledIfEnvironmentVariable;
 
-@QuarkusIntegrationTest
+@QuarkusTest
 @QuarkusTestResource(value = AgentApplicationResource.class, restrictToAnnotatedClass = true)
-@QuarkusTestResource(value = S3StorageITResource.class, restrictToAnnotatedClass = true)
-@DisabledIfEnvironmentVariable(named = "CI", matches = "true")
-public class AgentAsyncProfilerIT extends AgentTestBase {
+@QuarkusTestResource(value = S3StorageResource.class, restrictToAnnotatedClass = true)
+public class AgentAsyncProfilerTest extends AgentTestBase {
 
     @AfterEach
     void cleanupAsyncProfiles() {
@@ -211,7 +207,6 @@ public class AgentAsyncProfilerIT extends AgentTestBase {
     }
 
     @Test
-    @Disabled
     void testCreateProfileWithCpuAlloc()
             throws InterruptedException, ExecutionException, TimeoutException {
         long targetId = target.id();
@@ -274,7 +269,6 @@ public class AgentAsyncProfilerIT extends AgentTestBase {
     }
 
     @Test
-    @Disabled
     void testCreateProfileWithCpuNativemem()
             throws InterruptedException, ExecutionException, TimeoutException {
         long targetId = target.id();
@@ -585,7 +579,6 @@ public class AgentAsyncProfilerIT extends AgentTestBase {
     void testCreateProfileWithMultipleEvents() {
         long targetId = target.id();
 
-        // cpu+itimer+ctimer is an invalid combination - the API returns 400
         Map<String, Object> requestBody =
                 Map.of("events", List.of("cpu", "itimer", "ctimer"), "duration", 5);
 
@@ -749,11 +742,9 @@ public class AgentAsyncProfilerIT extends AgentTestBase {
     }
 
     @Test
-    @Disabled
     void testGraphQL() throws InterruptedException, TimeoutException {
         long targetId = target.id();
 
-        // Create a Profile
         Map<String, Object> requestBody = Map.of("events", List.of("alloc"), "duration", 5);
 
         String profileId =
@@ -806,7 +797,7 @@ public class AgentAsyncProfilerIT extends AgentTestBase {
                         .extract()
                         .response();
 
-        AbstractTestBase.assertNoGraphQLErrors(resp);
+        assertNoGraphQLErrors(resp);
         JsonObject retrievedResponse = new JsonObject(resp.asString());
         assertThat(retrievedResponse, notNullValue());
         assertThat(retrievedResponse.getMap().size(), not(0));
@@ -818,7 +809,6 @@ public class AgentAsyncProfilerIT extends AgentTestBase {
     }
 
     @Test
-    @Disabled
     void testCreateMutation() throws InterruptedException, TimeoutException {
         long targetId = target.id();
 
@@ -846,7 +836,7 @@ public class AgentAsyncProfilerIT extends AgentTestBase {
                         .extract()
                         .response();
 
-        AbstractTestBase.assertNoGraphQLErrors(response);
+        assertNoGraphQLErrors(response);
 
         JsonObject createdNotification =
                 webSocketClient.expectNotification("AsyncProfilerCreated", Duration.ofSeconds(10));
@@ -866,11 +856,9 @@ public class AgentAsyncProfilerIT extends AgentTestBase {
     }
 
     @Test
-    @Disabled
     void testDeleteMutation() throws Exception {
         long targetId = target.id();
 
-        // Create a Profile
         Map<String, Object> requestBody = Map.of("events", List.of("alloc"), "duration", 5);
 
         String profileId =
@@ -895,7 +883,6 @@ public class AgentAsyncProfilerIT extends AgentTestBase {
                         .asString();
 
         webSocketClient.expectNotification("AsyncProfilerCreated", Duration.ofSeconds(10));
-        // Wait for the profile to stop
         JsonObject stoppedNotification =
                 webSocketClient.expectNotification(
                         "AsyncProfilerStopped",
@@ -927,10 +914,9 @@ public class AgentAsyncProfilerIT extends AgentTestBase {
                         .extract()
                         .response();
 
-        AbstractTestBase.assertNoGraphQLErrors(deleteResponse);
+        assertNoGraphQLErrors(deleteResponse);
         assertThat(deleteResponse.getStatusCode(), equalTo(200));
 
-        // Verify the profile was deleted
         given().log()
                 .all()
                 .pathParams("targetId", targetId)

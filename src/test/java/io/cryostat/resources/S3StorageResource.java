@@ -15,6 +15,8 @@
  */
 package io.cryostat.resources;
 
+import java.io.IOException;
+import java.net.ServerSocket;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -31,7 +33,7 @@ import org.testcontainers.utility.DockerImageName;
 public class S3StorageResource
         implements QuarkusTestResourceLifecycleManager, DevServicesContext.ContextAware {
 
-    protected static int S3_PORT = 8333;
+    protected static final int CONTAINER_PORT = 8333;
     protected static final String DEFAULT_IMAGE = "quay.io/cryostat/cryostat-storage:latest";
     protected static final Map<String, String> envMap =
             Map.of(
@@ -62,13 +64,11 @@ public class S3StorageResource
     protected Optional<String> containerNetworkId;
     protected GenericContainer<?> container;
 
-    public Map<String, String> getProperties(GenericContainer<?> container) {
+    public Map<String, String> getProperties(int hostPort) {
         Map<String, String> properties = new HashMap<>();
         properties.put("test.storage.enabled", "true");
         properties.put("quarkus.s3.aws.region", "us-east-1");
-        properties.put(
-                "s3.url.override",
-                adjustS3Url(container.getHost(), container.getMappedPort(S3_PORT)));
+        properties.put("s3.url.override", "http://localhost:" + hostPort);
         properties.put("quarkus.s3.endpoint-override", properties.get("s3.url.override"));
         properties.put("quarkus.s3.path-style-access", "true");
         properties.put("quarkus.s3.aws.credentials.type", "static");
@@ -90,13 +90,15 @@ public class S3StorageResource
     @SuppressWarnings("resource")
     @Override
     public Map<String, String> start() {
+        int hostPort = findFreePort();
+
         String img =
                 Optional.ofNullable(System.getenv("CRYOSTAT_STORAGE_IMAGE"))
                         .filter(StringUtils::isNotBlank)
                         .orElse(DEFAULT_IMAGE);
         this.container =
                 new GenericContainer<>(DockerImageName.parse(img))
-                        .withExposedPorts(S3_PORT)
+                        .withExposedPorts(CONTAINER_PORT)
                         .withEnv(envMap)
                         .withTmpFs(Map.of("/data", "rw"))
                         .waitingFor(Wait.forListeningPort())
@@ -105,12 +107,13 @@ public class S3StorageResource
                                 cmd ->
                                         cmd.getHostConfig()
                                                 .withCpuShares(1024)
-                                                .withMemory(512L * 1024L * 1024L));
+                                                .withMemory(1L * 1024L * 1024L * 1024L));
         containerNetworkId.ifPresent(container::withNetworkMode);
 
+        container.setPortBindings(List.of(String.format("%d:%d", hostPort, CONTAINER_PORT)));
         container.start();
 
-        return getProperties(container);
+        return getProperties(hostPort);
     }
 
     @Override
@@ -128,7 +131,11 @@ public class S3StorageResource
         containerNetworkId = context.containerNetworkId();
     }
 
-    protected String adjustS3Url(String host, int port) {
-        return "http://" + host + ":" + port;
+    private static int findFreePort() {
+        try (ServerSocket ss = new ServerSocket(0)) {
+            return ss.getLocalPort();
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to find free port", e);
+        }
     }
 }
