@@ -18,12 +18,10 @@ package io.cryostat.resources;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.testcontainers.containers.GenericContainer;
-
 public class S3StorageObjectMetadataResource extends S3StorageResource {
     @Override
-    public Map<String, String> getProperties(GenericContainer<?> container) {
-        Map<String, String> properties = new HashMap<>(super.getProperties(container));
+    public Map<String, String> getProperties(int hostPort) {
+        Map<String, String> properties = new HashMap<>(super.getProperties(hostPort));
         properties.put("storage.metadata.storage-mode", "metadata");
         return properties;
     }

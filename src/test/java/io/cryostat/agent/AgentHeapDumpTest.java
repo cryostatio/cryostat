@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package itest.agent;
+package io.cryostat.agent;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -27,25 +27,23 @@ import java.util.concurrent.TimeoutException;
 
 import io.cryostat.AbstractTestBase;
 import io.cryostat.resources.AgentApplicationResource;
+import io.cryostat.resources.S3StorageResource;
 
 import io.quarkus.test.common.QuarkusTestResource;
-import io.quarkus.test.junit.QuarkusIntegrationTest;
+import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
 import io.restassured.response.Response;
 import io.vertx.core.json.JsonObject;
-import itest.resources.S3StorageITResource;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.DisabledIfEnvironmentVariable;
 
-@QuarkusIntegrationTest
+@QuarkusTest
 @QuarkusTestResource(value = AgentApplicationResource.class, restrictToAnnotatedClass = true)
-@QuarkusTestResource(value = S3StorageITResource.class, restrictToAnnotatedClass = true)
-@DisabledIfEnvironmentVariable(named = "CI", matches = "true")
-public class AgentHeapDumpIT extends AgentTestBase {
+@QuarkusTestResource(value = S3StorageResource.class, restrictToAnnotatedClass = true)
+public class AgentHeapDumpTest extends AgentTestBase {
 
     private static final String GRAPHQL_HEAP_DUMP_CLEANUP_QUERY =
             """
@@ -149,7 +147,6 @@ public class AgentHeapDumpIT extends AgentTestBase {
     }
 
     @Test
-    @DisabledIfEnvironmentVariable(named = "CI", matches = "true")
     void testCreateListAndDeleteHeapDump()
             throws InterruptedException, ExecutionException, TimeoutException {
         long targetId = target.id();
@@ -234,7 +231,6 @@ public class AgentHeapDumpIT extends AgentTestBase {
     }
 
     @Test
-    @DisabledIfEnvironmentVariable(named = "CI", matches = "true")
     void testCreateListAndAnalyzeHeapDump()
             throws InterruptedException, ExecutionException, TimeoutException {
         long targetId = target.id();
@@ -344,7 +340,6 @@ public class AgentHeapDumpIT extends AgentTestBase {
     }
 
     @Test
-    @DisabledIfEnvironmentVariable(named = "CI", matches = "true")
     void testCreateMultipleHeapDumps()
             throws InterruptedException, ExecutionException, TimeoutException {
         long targetId = target.id();
@@ -479,7 +474,6 @@ public class AgentHeapDumpIT extends AgentTestBase {
     }
 
     @Test
-    @DisabledIfEnvironmentVariable(named = "CI", matches = "true")
     void testListAllHeapDumps() throws InterruptedException, ExecutionException, TimeoutException {
         long targetId = target.id();
 
@@ -528,10 +522,7 @@ public class AgentHeapDumpIT extends AgentTestBase {
     }
 
     @Test
-    @Disabled(
-            "Runtime java.lang.IllegalStateException: Unable to determine the status of the running"
-                    + " proces")
-    @DisabledIfEnvironmentVariable(named = "CI", matches = "true")
+    @Disabled
     void testGraphQLListHeapDumps() throws Exception {
         long targetId = target.id();
 
@@ -603,8 +594,7 @@ public class AgentHeapDumpIT extends AgentTestBase {
     }
 
     @Test
-    @Disabled("GraphQL createHeapDump mutation does not defer bus.publish past transaction commit")
-    @DisabledIfEnvironmentVariable(named = "CI", matches = "true")
+    @Disabled
     void testCaptureHeapDumpMutation() throws Exception {
         JsonObject query = new JsonObject();
         query.put(
@@ -634,8 +624,7 @@ public class AgentHeapDumpIT extends AgentTestBase {
     }
 
     @Test
-    @Disabled("GraphQL createHeapDump mutation does not defer bus.publish past transaction commit")
-    @DisabledIfEnvironmentVariable(named = "CI", matches = "true")
+    @Disabled
     void testGraphQLDeleteMutation() throws Exception {
         JsonObject createQuery = new JsonObject();
         createQuery.put(

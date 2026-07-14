@@ -13,35 +13,29 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package itest.agent;
+package io.cryostat.agent;
 
 import static io.restassured.RestAssured.given;
 
 import java.time.Duration;
 
 import io.cryostat.resources.AgentExternalRecordingAlreadyStoppedApplicationResource;
+import io.cryostat.resources.S3StorageResource;
 
 import io.quarkus.test.common.QuarkusTestResource;
-import io.quarkus.test.junit.QuarkusIntegrationTest;
+import io.quarkus.test.junit.QuarkusTest;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
-import itest.resources.S3StorageITResource;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.DisabledIfEnvironmentVariable;
 
-/**
- * Test for the case where an external recording is already in STOPPED state when Cryostat first
- * discovers the target. Verifies that the recording is immediately archived.
- */
-@QuarkusIntegrationTest
+@QuarkusTest
 @QuarkusTestResource(
         value = AgentExternalRecordingAlreadyStoppedApplicationResource.class,
         restrictToAnnotatedClass = true)
-@QuarkusTestResource(value = S3StorageITResource.class, restrictToAnnotatedClass = true)
-@DisabledIfEnvironmentVariable(named = "CI", matches = "true")
-public class AgentExternalRecordingAlreadyStoppedIT extends AgentTestBase {
+@QuarkusTestResource(value = S3StorageResource.class, restrictToAnnotatedClass = true)
+public class AgentExternalRecordingAlreadyStoppedTest extends AgentTestBase {
 
     @Test
     void testAlreadyStoppedExternalRecordingIsArchivedImmediately() throws Exception {

@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package itest.agent;
+package io.cryostat.agent;
 
 import static io.restassured.RestAssured.given;
 
@@ -21,33 +21,25 @@ import java.time.Duration;
 import java.util.concurrent.TimeUnit;
 
 import io.cryostat.resources.AgentExternalRecordingApplicationResource;
+import io.cryostat.resources.S3StorageResource;
 
 import io.quarkus.test.common.QuarkusTestResource;
-import io.quarkus.test.junit.QuarkusIntegrationTest;
+import io.quarkus.test.junit.QuarkusTest;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
-import itest.resources.S3StorageITResource;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.DisabledIfEnvironmentVariable;
 
-/**
- * Integration test for external recording detection using the Cryostat agent. Tests that recordings
- * started externally (not via Cryostat API) are properly detected, labeled, and managed according
- * to external recording configuration.
- */
-@QuarkusIntegrationTest
+@QuarkusTest
 @QuarkusTestResource(
         value = AgentExternalRecordingApplicationResource.class,
         restrictToAnnotatedClass = true)
-@QuarkusTestResource(value = S3StorageITResource.class, restrictToAnnotatedClass = true)
-@DisabledIfEnvironmentVariable(named = "CI", matches = "true")
-public class AgentExternalRecordingIT extends AgentTestBase {
+@QuarkusTestResource(value = S3StorageResource.class, restrictToAnnotatedClass = true)
+public class AgentExternalRecordingTest extends AgentTestBase {
 
     @Test
     void testExternalRecordingDetectionAndLifecycle() throws Exception {
-        // Wait a bit for external recording detection to occur
         Thread.sleep(3000);
 
         var response =
@@ -93,7 +85,6 @@ public class AgentExternalRecordingIT extends AgentTestBase {
                                         AgentExternalRecordingApplicationResource
                                                 .RECORDING_DURATION_SECONDS)));
 
-        // Verify autoanalyze label
         JsonObject metadata = recording.getJsonObject("metadata");
         MatcherAssert.assertThat("Metadata should not be null", metadata, Matchers.notNullValue());
 
