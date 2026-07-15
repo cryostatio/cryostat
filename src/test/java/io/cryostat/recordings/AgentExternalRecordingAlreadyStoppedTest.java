@@ -13,12 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.cryostat.agent;
+package io.cryostat.recordings;
 
 import static io.restassured.RestAssured.given;
 
 import java.time.Duration;
 
+import io.cryostat.AgentTestBase;
 import io.cryostat.resources.AgentExternalRecordingAlreadyStoppedApplicationResource;
 import io.cryostat.resources.S3StorageResource;
 

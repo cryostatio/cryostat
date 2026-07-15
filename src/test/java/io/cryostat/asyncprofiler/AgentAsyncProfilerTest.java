@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.cryostat.agent;
+package io.cryostat.asyncprofiler;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -25,6 +25,7 @@ import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 
+import io.cryostat.AgentTestBase;
 import io.cryostat.resources.AgentApplicationResource;
 import io.cryostat.resources.S3StorageResource;
 
