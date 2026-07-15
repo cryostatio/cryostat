@@ -39,6 +39,7 @@ import io.cryostat.targets.Target;
 import io.cryostat.util.HttpMimeType;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.smallrye.common.annotation.Blocking;
 import io.vertx.core.http.HttpServerResponse;
 import io.vertx.core.json.JsonObject;
@@ -165,6 +166,12 @@ public class ArchivedRecordings {
             rawLabels.getMap().forEach((k, v) -> labels.put(k, v.toString()));
         }
         labels.put("jvmId", id);
+        resolveActiveRecordingId(id, labels)
+                .ifPresent(
+                        i ->
+                                labels.put(
+                                        RecordingHelper.ACTIVE_RECORDING_ID_LABEL,
+                                        String.valueOf(i)));
         Metadata metadata = new Metadata(labels);
         logger.tracev(
                 "recording:{0}, labels:{1}, maxFiles:{2}", recording.fileName(), labels, maxFiles);
@@ -202,6 +209,44 @@ public class ArchivedRecordings {
                     });
         }
         doUpload(recording, metadata, id);
+    }
+
+    private Optional<Long> resolveActiveRecordingId(String jvmId, Map<String, String> labels) {
+        String sourceRecordingId = labels.get(RecordingHelper.SOURCE_RECORDING_ID_LABEL);
+        if (StringUtils.isBlank(sourceRecordingId)) {
+            logger.warnv(
+                    "No {0} provided for archived recording upload on target {1}",
+                    RecordingHelper.SOURCE_RECORDING_ID_LABEL, jvmId);
+            return Optional.empty();
+        }
+        long remoteId;
+        try {
+            remoteId = Long.parseLong(sourceRecordingId);
+        } catch (NumberFormatException e) {
+            logger.warnv(
+                    e,
+                    "Invalid {0}={1} provided for archived recording upload on target {2}",
+                    RecordingHelper.SOURCE_RECORDING_ID_LABEL,
+                    sourceRecordingId,
+                    jvmId);
+            return Optional.empty();
+        }
+        Optional<Target> target =
+                QuarkusTransaction.joiningExisting().call(() -> Target.getTargetByJvmId(jvmId));
+        if (target.isEmpty()) {
+            logger.warnv("No target found for archived recording upload on target {0}", jvmId);
+            return Optional.empty();
+        }
+        Optional<ActiveRecording> recording =
+                QuarkusTransaction.joiningExisting()
+                        .call(() -> recordingHelper.getActiveRecording(target.get(), remoteId));
+        if (recording.isEmpty()) {
+            logger.warnv(
+                    "No active recording found for {0}={1} on target {2}",
+                    RecordingHelper.SOURCE_RECORDING_ID_LABEL, sourceRecordingId, jvmId);
+            return Optional.empty();
+        }
+        return Optional.of(recording.get().id);
     }
 
     @GET

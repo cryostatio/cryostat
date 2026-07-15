@@ -165,6 +165,10 @@ public class RecordingHelper {
     private static final Pattern TEMPLATE_PATTERN =
             Pattern.compile("^template=([\\w]+)(?:,type=([\\w]+))?$");
     public static final String DATASOURCE_FILENAME = "cryostat-analysis.jfr";
+    public static final String ACTIVE_RECORDING_ID_LABEL = "activeRecordingId";
+    public static final String SOURCE_RECORDING_ID_LABEL = "sourceRecordingId";
+    public static final String START_TIME_LABEL = "startTime";
+    public static final String DURATION_LABEL = "duration";
 
     @Inject S3Client storage;
     @Inject S3AsyncClient storageAsync;
@@ -982,6 +986,12 @@ public class RecordingHelper {
                             AsyncRequestBody.fromInputStream(stream, null, partUploader))
                     .join();
         }
+        QuarkusTransaction.joiningExisting()
+                .run(
+                        () ->
+                                ArchivedRecordingInfo.of(
+                                                recording.target.jvmId, filename, recording.id)
+                                        .persist());
         ArchivedRecording archivedRecording =
                 getArchivedRecordingInfo(recording.target.jvmId, filename).orElseThrow();
 
@@ -1230,6 +1240,16 @@ public class RecordingHelper {
         Map<String, String> labels = new HashMap<>(recording.metadata.labels());
         labels.put("connectUrl", recording.target.connectUrl.toString());
         labels.put("jvmId", recording.target.jvmId);
+        labels.put(START_TIME_LABEL, String.valueOf(recording.startTime));
+        long duration = recording.duration;
+        if (duration <= 0) {
+            duration = clock.now().toEpochMilli() - recording.startTime;
+            if (recording.maxAge > 0) {
+                duration = Math.min(duration, recording.maxAge);
+            }
+        }
+        labels.put(DURATION_LABEL, String.valueOf(duration));
+        labels.put(ACTIVE_RECORDING_ID_LABEL, String.valueOf(recording.id));
         Metadata metadata = new Metadata(labels);
         return metadata;
     }
@@ -1322,6 +1342,11 @@ public class RecordingHelper {
         }
         Map<String, String> labels = new HashMap<>(metadata.labels());
         labels.put("jvmId", jvmId);
+        Long activeRecordingId =
+                Optional.ofNullable(labels.get(ACTIVE_RECORDING_ID_LABEL))
+                        .map(Long::valueOf)
+                        .orElse(null);
+        Metadata resolvedMetadata = new Metadata(labels);
         String key = archivedRecordingKey(jvmId, filename);
         Builder requestBuilder =
                 PutObjectRequest.builder()
@@ -1331,14 +1356,13 @@ public class RecordingHelper {
                         .contentDisposition(String.format("attachment; filename=\"%s\"", filename));
         switch (storageMode()) {
             case TAGGING:
-                requestBuilder =
-                        requestBuilder.tagging(createMetadataTagging(new Metadata(labels)));
+                requestBuilder = requestBuilder.tagging(createMetadataTagging(resolvedMetadata));
                 break;
             case METADATA:
                 requestBuilder = requestBuilder.metadata(labels);
                 break;
             case BUCKET:
-                metadataService.get().create(jvmId, filename, metadata);
+                metadataService.get().create(jvmId, filename, resolvedMetadata);
                 break;
             default:
                 throw new IllegalStateException();
@@ -1354,7 +1378,10 @@ public class RecordingHelper {
 
         String finalFilename = filename;
         QuarkusTransaction.joiningExisting()
-                .run(() -> ArchivedRecordingInfo.of(jvmId, finalFilename, null).persist());
+                .run(
+                        () ->
+                                ArchivedRecordingInfo.of(jvmId, finalFilename, activeRecordingId)
+                                        .persist());
 
         var target = Target.getTargetByJvmId(jvmId);
         ArchivedRecording archivedRecording =
@@ -1363,7 +1390,7 @@ public class RecordingHelper {
                         filename,
                         downloadUrl(jvmId, filename),
                         reportUrl(jvmId, filename),
-                        metadata,
+                        resolvedMetadata,
                         recording.size(),
                         clock.now().getEpochSecond());
         var event =
