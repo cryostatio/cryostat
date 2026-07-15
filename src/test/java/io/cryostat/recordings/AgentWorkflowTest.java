@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.cryostat.agent;
+package io.cryostat.recordings;
 
 import static io.restassured.RestAssured.given;
 
@@ -25,6 +25,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
+import io.cryostat.AgentTestBase;
 import io.cryostat.resources.AgentApplicationResource;
 import io.cryostat.resources.S3StorageResource;
 

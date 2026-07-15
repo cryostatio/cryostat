@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.cryostat.agent;
+package io.cryostat;
 
 import static io.restassured.RestAssured.given;
 
@@ -28,7 +28,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Predicate;
 
-import io.cryostat.AbstractTestBase;
 import io.cryostat.resources.AgentApplicationResource;
 
 import io.vertx.core.json.JsonArray;
@@ -242,7 +241,7 @@ public abstract class AgentTestBase extends AbstractTestBase {
         WORKER = Executors.newCachedThreadPool();
     }
 
-    record Target(
+    protected record Target(
             long id,
             String jvmId,
             String connectUrl,
@@ -251,7 +250,7 @@ public abstract class AgentTestBase extends AbstractTestBase {
             Annotations annotations,
             boolean agent) {}
 
-    record Annotations(List<KeyValue> cryostat, List<KeyValue> platform) {}
+    protected record Annotations(List<KeyValue> cryostat, List<KeyValue> platform) {}
 
-    record KeyValue(String key, String value) {}
+    protected record KeyValue(String key, String value) {}
 }
