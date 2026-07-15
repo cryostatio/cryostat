@@ -66,7 +66,7 @@
     <skip.surefire.tests>${skipTests}</skip.surefire.tests>
     <failsafe-plugin.version>3.5.6</failsafe-plugin.version>
     <failsafe.rerunFailingTestsCount>0</failsafe.rerunFailingTestsCount>
-    <failsafe.skipAfterFailureCount>1</failsafe.skipAfterFailureCount>
+    <failsafe.skipAfterFailureCount>0</failsafe.skipAfterFailureCount>
   </properties>
   <dependencyManagement>
     <dependencies>
