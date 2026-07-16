@@ -9,29 +9,35 @@ if ! command -v http && ! command -v wget; then
     exit 1
 fi
 
-(
-    trap 'kill $mvn_pid 2>/dev/null; wait $mvn_pid 2>/dev/null; exit 0' TERM INT
-    "${DIR}"/../mvnw -B \
-        -Dquarkus.quinoa=false \
-        -Dquarkus.log.level=warn \
-        -Dquarkus.http.access-log.enabled=false \
-        -Dquarkus.hibernate-orm.log.sql=false \
-        -Dmaven.test.skip \
-        -Dspotless.check.skip \
-        -Dquarkus.smallrye-openapi.info-title="Cryostat API" \
-        clean quarkus:generate-code compile test-compile quarkus:dev &
-    mvn_pid=$!
-    wait $mvn_pid
-) &
+setsid "${DIR}"/../mvnw -B \
+    -Dquarkus.quinoa=false \
+    -Dquarkus.log.level=warn \
+    -Dquarkus.http.access-log.enabled=false \
+    -Dquarkus.hibernate-orm.log.sql=false \
+    -Dmaven.test.skip \
+    -Dspotless.check.skip \
+    -Dquarkus.smallrye-openapi.info-title="Cryostat API" \
+    clean quarkus:generate-code compile test-compile quarkus:dev &
 
 pid="$!"
+
+kill_mvn() {
+    local pgid
+    pgid=$(ps -o pgid= -p "$pid" 2>/dev/null | tr -d ' ')
+    if [ -n "$pgid" ] && [ "$pgid" != "0" ]; then
+        kill -- "-$pgid" 2>/dev/null || true
+        sleep 5
+        kill -9 -- "-$pgid" 2>/dev/null || true
+    fi
+    wait "$pid" 2>/dev/null || true
+}
+
 set +e
 sleep "${1:-30}"
 counter=0
 while true; do
     if [ "${counter}" -gt "${MAX_REPEATS:-60}" ]; then
-        kill $pid
-        wait $pid
+        kill_mvn
         exit 1
     fi
     if command -v http; then
@@ -58,6 +64,5 @@ elif command -v wget; then
     wget http://localhost:8181/api/v4/graphql/schema.graphql -O "${DIR}/schema.graphql"
 fi
 yq -P 'sort_keys(..)' "${DIR}/openapi.yaml.tmp" > "${DIR}/openapi.yaml" || mv "${DIR}/openapi.yaml.tmp" "${DIR}/openapi.yaml"
-kill $pid
-wait $pid
+kill_mvn
 exit 0
