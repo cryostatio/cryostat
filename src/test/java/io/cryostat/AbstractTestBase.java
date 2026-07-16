@@ -88,7 +88,6 @@ public abstract class AbstractTestBase {
         }
         if (!webSocketClient.isConnected()) {
             webSocketClient.connect();
-            webSocketClient.awaitFullyConnected(Duration.ofSeconds(5));
         }
         webSocketClient.clearMessages();
 
