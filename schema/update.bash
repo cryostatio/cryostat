@@ -20,16 +20,12 @@ fi
     clean quarkus:generate-code compile test-compile quarkus:dev &
 
 pid="$!"
-function cleanup() {
-    kill $pid || true
-    exit 0
-}
-trap cleanup EXIT
 set +e
 sleep "${1:-30}"
 counter=0
 while true; do
     if [ "${counter}" -gt "${MAX_REPEATS:-60}" ]; then
+        kill $pid || true
         exit 1
     fi
     if command -v http; then
@@ -55,3 +51,5 @@ elif command -v wget; then
     wget http://localhost:8181/api -O - | yq -P 'sort_keys(..)' > "${DIR}/openapi.yaml"
     wget http://localhost:8181/api/v4/graphql/schema.graphql -O "${DIR}/schema.graphql"
 fi
+kill $pid || true
+exit 0
