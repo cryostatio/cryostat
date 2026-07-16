@@ -342,11 +342,12 @@ jobs:
         token: ${{ secrets.GITHUB_TOKEN }}
         status: pending
     - run: git submodule init && git submodule update
+    - name: Run Quarkus and fetch API schemas
+      continue-on-error: true
+      run: bash /home/runner/work/cryostat/cryostat/schema/update.bash 90 15
     - id: schema-update
-      name: Update API schemas
+      name: Diff API schemas
       run: |
-        bash /home/runner/work/cryostat/cryostat/schema/update.bash 90 15 || true
-
         test -f /home/runner/work/cryostat/cryostat/schema/openapi.yaml
         test -f /home/runner/work/cryostat/cryostat/schema/schema.graphql
 
