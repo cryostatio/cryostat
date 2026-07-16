@@ -22,6 +22,7 @@ import java.net.URL;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 import io.cryostat.util.WebSocketTestClient;
 
@@ -56,7 +57,12 @@ public abstract class WebSocketTestBase {
     protected WebSocketTestClient webSocketClient;
 
     @BeforeEach
-    void setupTestBase() throws IOException, DeploymentException, URISyntaxException {
+    void setupTestBase()
+            throws IOException,
+                    DeploymentException,
+                    URISyntaxException,
+                    TimeoutException,
+                    InterruptedException {
         URI notificationsUri = notificationsUrl.toURI();
         webSocketClient = new WebSocketTestClient(() -> notificationsUri);
         if (!webSocketClient.isConnected()) {
