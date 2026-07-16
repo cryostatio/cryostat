@@ -20,12 +20,15 @@ fi
     clean quarkus:generate-code compile test-compile quarkus:dev &
 
 pid="$!"
+function cleanup() {
+    kill $pid || true
+}
+trap cleanup EXIT
 set +e
 sleep "${1:-30}"
 counter=0
 while true; do
     if [ "${counter}" -gt "${MAX_REPEATS:-60}" ]; then
-        kill "$pid"
         exit 1
     fi
     if command -v http; then
@@ -45,11 +48,11 @@ while true; do
     fi
 done
 if command -v http; then
-    http --pretty=format --body :8181/api > "${DIR}/openapi.yaml.tmp"
+    http --pretty=format --body :8181/api | yq -P 'sort_keys(..)' > "${DIR}/openapi.yaml"
     http --pretty=format --body :8181/api/v4/graphql/schema.graphql > "${DIR}/schema.graphql"
 elif command -v wget; then
-    wget http://localhost:8181/api -O "${DIR}/openapi.yaml.tmp"
+    wget http://localhost:8181/api -O - | yq -P 'sort_keys(..)' > "${DIR}/openapi.yaml"
     wget http://localhost:8181/api/v4/graphql/schema.graphql -O "${DIR}/schema.graphql"
 fi
-yq -P 'sort_keys(..)' "${DIR}/openapi.yaml.tmp" > "${DIR}/openapi.yaml" || mv "${DIR}/openapi.yaml.tmp" "${DIR}/openapi.yaml"
-kill "$pid"
+
+"${DIR}"/generate-notifications.bash || true
