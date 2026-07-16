@@ -31,6 +31,7 @@ import java.util.UUID;
 import io.cryostat.ConfigProperties;
 import io.cryostat.recordings.ActiveRecordings.Metadata;
 import io.cryostat.recordings.LongRunningRequestGenerator;
+import io.cryostat.recordings.LongRunningRequestGenerator.HeapDumpAnalysisRequest;
 import io.cryostat.recordings.LongRunningRequestGenerator.HeapDumpRequest;
 import io.cryostat.recordings.LongRunningRequestGenerator.ThreadDumpRequest;
 import io.cryostat.targets.Target;
@@ -55,6 +56,9 @@ import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.HttpHeaders;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.UriBuilder;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
@@ -83,6 +87,7 @@ public class Diagnostics {
     @Inject S3Presigner presigner;
     @Inject Logger log;
     @Inject LongRunningRequestGenerator generator;
+    @Inject HeapDumpReportsService reportService;
 
     @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_THREAD_DUMPS)
     String threadDumpsBucket;
@@ -161,6 +166,43 @@ public class Diagnostics {
     public List<ThreadDump> getThreadDumps(@RestPath long targetId) {
         log.tracev("Fetching thread dumps for target: {0}", targetId);
         return helper.getThreadDumps(Target.getTargetById(targetId));
+    }
+
+    @Path("targets/{jvmId}/heapdump/{heapDumpId}/analyze")
+    @RolesAllowed("read")
+    @Blocking
+    @Transactional
+    @POST
+    public Response analyzeHeapDump(
+            HttpServerResponse response, @RestPath String jvmId, @RestPath String heapDumpId) {
+        String key = DiagnosticsHelper.storageKey(jvmId, heapDumpId);
+        storage.headObject(HeadObjectRequest.builder().bucket(heapDumpsBucket).key(key).build())
+                .sdkHttpResponse();
+        if (reportService.keyExists(jvmId, heapDumpId)) {
+            return Response.ok(
+                            reportService.reportFor(jvmId, heapDumpId).await().indefinitely(),
+                            MediaType.APPLICATION_JSON)
+                    .status(200)
+                    .build();
+        }
+
+        log.trace("Cache miss. Creating heap dump reports request");
+        var jobId = UUID.randomUUID().toString();
+        HeapDumpAnalysisRequest request = new HeapDumpAnalysisRequest(jobId, jvmId, heapDumpId);
+        response.endHandler(
+                (e) ->
+                        bus.publish(
+                                LongRunningRequestGenerator.HEAP_DUMP_ANALYSIS_REQUEST_ADDRESS,
+                                request));
+        return Response.ok(request.id(), MediaType.TEXT_PLAIN)
+                .status(202)
+                .location(
+                        UriBuilder.fromUri(
+                                        String.format(
+                                                "/api/beta/diagnostics/targets/%s/heapdump/%s/analyze",
+                                                jvmId, heapDumpId))
+                                .build())
+                .build();
     }
 
     @DELETE

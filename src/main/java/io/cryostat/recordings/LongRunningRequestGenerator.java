@@ -21,10 +21,12 @@ import java.util.Objects;
 import java.util.concurrent.CompletionException;
 
 import io.cryostat.ConfigProperties;
+import io.cryostat.core.diagnostic.HeapDumpAnalysis;
 import io.cryostat.core.reports.InterruptibleReportGenerator.AnalysisResult;
 import io.cryostat.diagnostic.DiagnosticsHelper;
 import io.cryostat.diagnostic.DiagnosticsHelper.EventCategory;
 import io.cryostat.diagnostic.DiagnosticsHelper.ThreadDumpEvent;
+import io.cryostat.diagnostic.HeapDumpReportsService;
 import io.cryostat.recordings.ArchivedRecordings.ArchivedRecording;
 import io.cryostat.reports.AnalysisReportAggregator;
 import io.cryostat.reports.ReportsService;
@@ -32,6 +34,8 @@ import io.cryostat.targets.Target;
 import io.cryostat.ws.MessagingServer;
 import io.cryostat.ws.Notification;
 import io.cryostat.ws.notifications.NotificationPayloads.ArchiveRecordingSuccessPayload;
+import io.cryostat.ws.notifications.NotificationPayloads.HeapDumpAnalysisFailurePayload;
+import io.cryostat.ws.notifications.NotificationPayloads.HeapDumpAnalysisSuccessPayload;
 import io.cryostat.ws.notifications.NotificationPayloads.HeapDumpSuccessPayload;
 import io.cryostat.ws.notifications.NotificationPayloads.JobIdPayload;
 import io.cryostat.ws.notifications.NotificationPayloads.ReportSuccessPayload;
@@ -68,6 +72,8 @@ public class LongRunningRequestGenerator {
             "io.cryostat.recordings.LongRunningRequestGenerator.ArchiveReportRequest";
     public static final String ACTIVE_REPORT_REQUEST_ADDRESS =
             "io.cryostat.recordings.LongRunningRequestGenerator.ActiveReportRequest";
+    public static final String HEAP_DUMP_ANALYSIS_REQUEST_ADDRESS =
+            "io.cryostat.recording.LongRunningRequestGenerator.HeapDumpAnalysisRequest";
 
     public static final String ACTIVE_REPORT_COMPLETE_ADDRESS =
             "io.cryostat.recording.LongRunningRequestGenerator.ActiveReportComplete";
@@ -87,12 +93,15 @@ public class LongRunningRequestGenerator {
     private static final String REPORT_FAILURE = "ReportFailure";
     private static final String HEAP_DUMP_FAILURE = "HeapDumpFailure";
     private static final String HEAP_DUMP_SUCCESS = "HeapDumpSuccess";
+    private static final String HEAP_DUMP_ANALYSIS_SUCCESS = "HeapDumpAnalysisSuccess";
+    private static final String HEAP_DUMP_ANALYSIS_FAILURE = "HeapDumpAnalysisFailure";
     private static final String THREAD_DUMP_FAILURE = "ThreadDumpFailure";
 
     @Inject Logger logger;
     @Inject private EventBus bus;
     @Inject private RecordingHelper recordingHelper;
     @Inject private ReportsService reportsService;
+    @Inject private HeapDumpReportsService heapDumpReportsService;
     @Inject private DiagnosticsHelper diagnosticsHelper;
     @Inject AnalysisReportAggregator analysisReportAggregator;
 
@@ -145,6 +154,51 @@ public class LongRunningRequestGenerator {
                     new Notification(
                             THREAD_DUMP_FAILURE,
                             new ThreadDumpFailurePayload(request.id(), request.targetId)));
+            throw new CompletionException(e);
+        }
+    }
+
+    @ConsumeEvent(value = HEAP_DUMP_ANALYSIS_REQUEST_ADDRESS, blocking = true)
+    @Transactional
+    public Uni<HeapDumpAnalysis> onMessage(HeapDumpAnalysisRequest request) {
+        logger.tracev("Job ID: {0} submitted.", request.id());
+        try {
+            var target = Target.getTargetByJvmId(request.jvmId).get();
+            logger.tracev("Generating Heap Dump Report");
+            return heapDumpReportsService
+                    .reportFor(request.jvmId, request.heapDumpId)
+                    .onItem()
+                    .invoke(
+                            () -> {
+                                logger.tracev("Report generation complete, firing notification");
+                                bus.publish(
+                                        MessagingServer.class.getName(),
+                                        new Notification(
+                                                HEAP_DUMP_ANALYSIS_SUCCESS,
+                                                new HeapDumpAnalysisSuccessPayload(
+                                                        request.id(),
+                                                        target.jvmId,
+                                                        request.heapDumpId())));
+                            })
+                    .ifNoItem()
+                    .after(uploadFailedTimeout)
+                    .fail()
+                    .onFailure()
+                    .invoke(
+                            (e) -> {
+                                logger.warn("Exception thrown while servicing request: ", e);
+                                bus.publish(
+                                        MessagingServer.class.getName(),
+                                        new HeapDumpAnalysisFailurePayload(
+                                                request.id(), request.heapDumpId));
+                            });
+        } catch (Exception e) {
+            logger.warn("Failed to analyze heap dump");
+            bus.publish(
+                    MessagingServer.class.getName(),
+                    new Notification(
+                            HEAP_DUMP_ANALYSIS_FAILURE,
+                            new HeapDumpAnalysisFailurePayload(request.id(), request.heapDumpId)));
             throw new CompletionException(e);
         }
     }
@@ -445,6 +499,14 @@ public class LongRunningRequestGenerator {
             Objects.requireNonNull(id);
             Objects.requireNonNull(targetId);
             Objects.requireNonNull(format);
+        }
+    }
+
+    public record HeapDumpAnalysisRequest(String id, String jvmId, String heapDumpId) {
+        public HeapDumpAnalysisRequest {
+            Objects.requireNonNull(id);
+            Objects.requireNonNull(jvmId);
+            Objects.requireNonNull(heapDumpId);
         }
     }
 }
