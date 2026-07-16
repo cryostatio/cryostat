@@ -103,11 +103,11 @@
   </build>
   <properties>
     <maven.compiler.release>21</maven.compiler.release>
-    <com.diffplug.spotless.maven.plugin.version>3.5.1</com.diffplug.spotless.maven.plugin.version>
-    <maven.compiler.source>21</maven.compiler.source>
-    <com.mycila.license.maven.plugin.version>5.0.0</com.mycila.license.maven.plugin.version>
+    <com.diffplug.spotless.maven.plugin.version>3.7.0</com.diffplug.spotless.maven.plugin.version>
     <maven.compiler.target>21</maven.compiler.target>
+    <maven.compiler.source>21</maven.compiler.source>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <com.google.java-format.version>1.33.0</com.google.java-format.version>
+    <com.mycila.license.maven.plugin.version>5.0.0</com.mycila.license.maven.plugin.version>
   </properties>
 </project>
