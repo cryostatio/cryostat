@@ -48,12 +48,13 @@ while true; do
     fi
 done
 if command -v http; then
-    http --pretty=format --body :8181/api | yq -P 'sort_keys(..)' > "${DIR}/openapi.yaml"
+    http --pretty=format --body :8181/api > "${DIR}/openapi.yaml.tmp"
     http --pretty=format --body :8181/api/v4/graphql/schema.graphql > "${DIR}/schema.graphql"
 elif command -v wget; then
-    wget http://localhost:8181/api -O - | yq -P 'sort_keys(..)' > "${DIR}/openapi.yaml"
+    wget http://localhost:8181/api -O "${DIR}/openapi.yaml.tmp"
     wget http://localhost:8181/api/v4/graphql/schema.graphql -O "${DIR}/schema.graphql"
 fi
+yq -P 'sort_keys(..)' "${DIR}/openapi.yaml.tmp" > "${DIR}/openapi.yaml" || mv "${DIR}/openapi.yaml.tmp" "${DIR}/openapi.yaml"
 kill $pid || true
 sleep 5
 kill -9 $pid || true
