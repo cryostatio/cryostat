@@ -28,6 +28,15 @@ kill_mvn() {
         kill -- "-$pgid" 2>/dev/null || true
         sleep 5
         kill -9 -- "-$pgid" 2>/dev/null || true
+        # Wait until every process in the group is gone
+        local i=0
+        while kill -0 -- "-$pgid" 2>/dev/null; do
+            sleep 1
+            i=$((i + 1))
+            if [ "$i" -gt 10 ]; then
+                break
+            fi
+        done
     fi
     wait "$pid" 2>/dev/null || true
 }
