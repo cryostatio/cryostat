@@ -9,37 +9,44 @@ if ! command -v http && ! command -v wget; then
     exit 1
 fi
 
-set +m
-setsid "${DIR}"/../mvnw -B \
-    -Dquarkus.quinoa=false \
-    -Dquarkus.log.level=warn \
-    -Dquarkus.http.access-log.enabled=false \
-    -Dquarkus.hibernate-orm.log.sql=false \
-    -Dmaven.test.skip \
-    -Dspotless.check.skip \
-    -Dquarkus.smallrye-openapi.info-title="Cryostat API" \
-    clean quarkus:generate-code compile test-compile quarkus:dev &
-
-pid="$!"
+PIDFILE="$(mktemp)"
+bash -c "
+    setsid \"${DIR}\"/../mvnw -B \
+        -Dquarkus.quinoa=false \
+        -Dquarkus.log.level=warn \
+        -Dquarkus.http.access-log.enabled=false \
+        -Dquarkus.hibernate-orm.log.sql=false \
+        -Dmaven.test.skip \
+        -Dspotless.check.skip \
+        \"-Dquarkus.smallrye-openapi.info-title=Cryostat API\" \
+        clean quarkus:generate-code compile test-compile quarkus:dev &
+    echo \$! > \"${PIDFILE}\"
+    wait
+" &
+wrapper_pid=$!
+sleep 2
+pid=$(cat "${PIDFILE}" 2>/dev/null)
+rm -f "${PIDFILE}"
 
 kill_mvn() {
-    local pgid
-    pgid=$(ps -o pgid= -p "$pid" 2>/dev/null | tr -d ' ')
-    if [ -n "$pgid" ] && [ "$pgid" != "0" ]; then
-        kill -- "-$pgid" 2>/dev/null || true
-        sleep 5
-        kill -9 -- "-$pgid" 2>/dev/null || true
-        # Wait until every process in the group is gone
-        local i=0
-        while kill -0 -- "-$pgid" 2>/dev/null; do
-            sleep 1
-            i=$((i + 1))
-            if [ "$i" -gt 10 ]; then
-                break
-            fi
-        done
+    if [ -n "$pid" ]; then
+        local pgid
+        pgid=$(ps -o pgid= -p "$pid" 2>/dev/null | tr -d ' ')
+        if [ -n "$pgid" ] && [ "$pgid" != "0" ]; then
+            kill -- "-$pgid" 2>/dev/null || true
+            sleep 5
+            kill -9 -- "-$pgid" 2>/dev/null || true
+            local i=0
+            while kill -0 -- "-$pgid" 2>/dev/null; do
+                sleep 1
+                i=$((i + 1))
+                if [ "$i" -gt 10 ]; then
+                    break
+                fi
+            done
+        fi
     fi
-    wait "$pid" 2>/dev/null || true
+    wait "$wrapper_pid" 2>/dev/null || true
 }
 
 set +e
