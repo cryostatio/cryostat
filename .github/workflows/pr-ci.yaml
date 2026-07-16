@@ -305,7 +305,7 @@ jobs:
         token: ${{ secrets.GITHUB_TOKEN }}
         status: ${{ steps.run-tests.outcome }}
 
-  update-schemas:
+  update-api-schemas:
     needs: [checkout-branch]
     runs-on: ubuntu-latest
     env:
@@ -313,12 +313,8 @@ jobs:
     permissions:
       statuses: write
     outputs:
-      OPENAPI_STATUS: ${{ fromJSON(steps.schema-update.outputs.outputs).openapi_status }}
-      OPENAPI_DIFF_FILE: ${{ fromJSON(steps.schema-update.outputs.outputs).openapi_diff_file }}
-      GRAPHQL_STATUS: ${{ fromJSON(steps.schema-update.outputs.outputs).graphql_status }}
-      GRAPHQL_DIFF_FILE: ${{ fromJSON(steps.schema-update.outputs.outputs).graphql_diff_file }}
-      NOTIFICATIONS_STATUS: ${{ fromJSON(steps.schema-update.outputs.outputs).notifications_status }}
-      NOTIFICATIONS_DIFF_FILE: ${{ fromJSON(steps.schema-update.outputs.outputs).notifications_diff_file }}
+      OPENAPI_STATUS: ${{ steps.schema-update.outputs.openapi_status }}
+      GRAPHQL_STATUS: ${{ steps.schema-update.outputs.graphql_status }}
     steps:
     - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       with:
@@ -345,6 +341,54 @@ jobs:
         sha: ${{ needs.checkout-branch.outputs.PR_head_sha }}
         token: ${{ secrets.GITHUB_TOKEN }}
         status: pending
+    - run: git submodule init && git submodule update
+    - name: Run Quarkus and fetch API schemas
+      continue-on-error: true
+      run: bash /home/runner/work/cryostat/cryostat/schema/update.bash 90 15
+    - id: schema-update
+      name: Diff API schemas
+      run: |
+        test -f /home/runner/work/cryostat/cryostat/schema/openapi.yaml
+        test -f /home/runner/work/cryostat/cryostat/schema/schema.graphql
+
+        git diff -U10 /home/runner/work/cryostat/cryostat/schema/openapi.yaml > /home/runner/work/openapi.diff
+        OPENAPI_STATUS=$([ -s /home/runner/work/openapi.diff ] && echo 1 || echo 0)
+        git diff -U10 /home/runner/work/cryostat/cryostat/schema/schema.graphql > /home/runner/work/graphql.diff
+        GRAPHQL_STATUS=$([ -s /home/runner/work/graphql.diff ] && echo 1 || echo 0)
+        echo "openapi_status=${OPENAPI_STATUS}" >> "$GITHUB_OUTPUT"
+        echo "graphql_status=${GRAPHQL_STATUS}" >> "$GITHUB_OUTPUT"
+    - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      if: always()
+      with:
+        name: openapi-diff
+        path: /home/runner/work/openapi.diff
+    - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      if: always()
+      with:
+        name: graphql-diff
+        path: /home/runner/work/graphql.diff
+
+  update-notifications-schema:
+    needs: [checkout-branch]
+    runs-on: ubuntu-latest
+    env:
+      SEGMENT_DOWNLOAD_TIMEOUT_MINS: '5'
+    permissions:
+      statuses: write
+    outputs:
+      NOTIFICATIONS_STATUS: ${{ steps.notifications-update.outputs.notifications_status }}
+    steps:
+    - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      with:
+        repository: ${{ needs.checkout-branch.outputs.PR_repo }}
+        ref: ${{ needs.checkout-branch.outputs.PR_head_ref }}
+        submodules: true
+        fetch-depth: 0
+    - uses: actions/setup-java@0f481fcb613427c0f801b606911222b5b6f3083a # v5.5.0
+      with:
+        java-version: '25'
+        distribution: 'temurin'
+        cache: 'maven'
     - name: Set pending commit status for Notifications schema
       uses: daltonbr/set-commit-status-action@2a09190f6d04d912bca5ede8094b5d5dce303ebb # v3.0.1
       with:
@@ -353,45 +397,24 @@ jobs:
         token: ${{ secrets.GITHUB_TOKEN }}
         status: pending
     - run: git submodule init && git submodule update
-    - id: schema-update
-      name: Update schemas
+    - id: notifications-update
+      name: Update notifications schema
       run: |
-        bash /home/runner/work/cryostat/cryostat/schema/update.bash 90 15 || true
+        bash /home/runner/work/cryostat/cryostat/schema/generate-notifications.bash
 
-        test -f /home/runner/work/cryostat/cryostat/schema/openapi.yaml
-        test -f /home/runner/work/cryostat/cryostat/schema/schema.graphql
         test -f /home/runner/work/cryostat/cryostat/schema/notifications.yaml
 
-        git diff -U10 --exit-code /home/runner/work/cryostat/cryostat/schema/openapi.yaml > /home/runner/work/openapi.diff
-        OPENAPI_STATUS=$?
-
-        git diff -U10 --exit-code /home/runner/work/cryostat/cryostat/schema/schema.graphql > /home/runner/work/graphql.diff
-        GRAPHQL_STATUS=$?
-
-        git diff -U10 --exit-code /home/runner/work/cryostat/cryostat/schema/notifications.yaml > /home/runner/work/notifications.diff
-        NOTIFICATIONS_STATUS=$?
-
-        echo "openapi_status=${OPENAPI_STATUS}" >> "$GITHUB_OUTPUT"
-        echo "openapi_diff_file=openapi.diff" >> "$GITHUB_OUTPUT"
-        echo "graphql_status=${GRAPHQL_STATUS}" >> "$GITHUB_OUTPUT"
-        echo "graphql_diff_file=graphql.diff" >> "$GITHUB_OUTPUT"
+        git diff -U10 /home/runner/work/cryostat/cryostat/schema/notifications.yaml > /home/runner/work/notifications.diff
+        NOTIFICATIONS_STATUS=$([ -s /home/runner/work/notifications.diff ] && echo 1 || echo 0)
         echo "notifications_status=${NOTIFICATIONS_STATUS}" >> "$GITHUB_OUTPUT"
-        echo "notifications_diff_file=notifications.diff" >> "$GITHUB_OUTPUT"
     - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-      with:
-        name: openapi-diff
-        path: /home/runner/work/openapi.diff
-    - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-      with:
-        name: graphql-diff
-        path: /home/runner/work/graphql.diff
-    - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      if: always()
       with:
         name: notifications-diff
         path: /home/runner/work/notifications.diff
 
-  compare-openapi-schema:
-    needs: [update-schemas, checkout-branch]
+  compare-schemas:
+    needs: [update-api-schemas, update-notifications-schema, checkout-branch]
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
@@ -400,100 +423,64 @@ jobs:
     - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
       with:
         name: openapi-diff
-    - name: Comment schema check result
+        path: diffs
+    - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+      with:
+        name: graphql-diff
+        path: diffs
+    - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+      with:
+        name: notifications-diff
+        path: diffs
+    - name: Comment schema check results
       uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
       with:
         script: |
-          const diffFmt = s => {
-            return "```diff\n" + s + "\n```";
-          };
-          const commentBody = '${{ needs.update-schemas.outputs.OPENAPI_STATUS }}' == '0'
-            ? `No OpenAPI schema changes detected.`
-            : `OpenAPI schema change detected:\n\n${diffFmt(require('fs').readFileSync('${{ needs.update-schemas.outputs.OPENAPI_DIFF_FILE }}'))}`;
+          const fs = require('fs');
+          const diffFmt = s => "```diff\n" + s + "\n```";
+          const openapiStatus = '${{ needs.update-api-schemas.outputs.OPENAPI_STATUS }}';
+          const graphqlStatus = '${{ needs.update-api-schemas.outputs.GRAPHQL_STATUS }}';
+          const notificationsStatus = '${{ needs.update-notifications-schema.outputs.NOTIFICATIONS_STATUS }}';
+          const lines = [];
+          lines.push(openapiStatus === '0'
+            ? 'No OpenAPI schema changes detected.'
+            : 'OpenAPI schema change detected:\n\n' + diffFmt(fs.readFileSync('diffs/openapi.diff')));
+          lines.push(graphqlStatus === '0'
+            ? 'No GraphQL schema changes detected.'
+            : 'GraphQL schema change detected:\n\n' + diffFmt(fs.readFileSync('diffs/graphql.diff')));
+          lines.push(notificationsStatus === '0'
+            ? 'No WebSocket notifications schema changes detected.'
+            : 'WebSocket notifications schema change detected:\n\n' + diffFmt(fs.readFileSync('diffs/notifications.diff')));
           github.rest.issues.createComment({
             issue_number: context.issue.number,
             owner: context.repo.owner,
             repo: context.repo.repo,
-            body: commentBody
+            body: lines.join('\n\n')
           });
-    - name: Set commit status
+    - name: Set OpenAPI schema commit status
       uses: daltonbr/set-commit-status-action@2a09190f6d04d912bca5ede8094b5d5dce303ebb # v3.0.1
       if: always()
       with:
         context: openapi-schema-check
         sha: ${{ needs.checkout-branch.outputs.PR_head_sha }}
         token: ${{ secrets.GITHUB_TOKEN }}
-        status: ${{ needs.update-schemas.outputs.OPENAPI_STATUS == '0' && 'success' || 'failure' }}
-        description: ${{ needs.update-schemas.outputs.OPENAPI_STATUS == '0' && 'No schema changes' || 'Schema update required' }}
-
-  compare-graphql-schema:
-    needs: [update-schemas, checkout-branch]
-    runs-on: ubuntu-latest
-    permissions:
-      pull-requests: write
-      statuses: write
-    steps:
-    - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-      with:
-        name: graphql-diff
-    - name: Comment schema check result
-      uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
-      with:
-        script: |
-          const diffFmt = s => {
-            return "```diff\n" + s + "\n```";
-          };
-          const commentBody = '${{ needs.update-schemas.outputs.GRAPHQL_STATUS }}' == '0'
-            ? `No GraphQL schema changes detected.`
-            : `GraphQL schema change detected:\n\n${diffFmt(require('fs').readFileSync('${{ needs.update-schemas.outputs.GRAPHQL_DIFF_FILE }}'))}`;
-          github.rest.issues.createComment({
-            issue_number: context.issue.number,
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            body: commentBody
-          });
-    - name: Set commit status
+        status: ${{ needs.update-api-schemas.outputs.OPENAPI_STATUS == '0' && 'success' || 'failure' }}
+        description: ${{ needs.update-api-schemas.outputs.OPENAPI_STATUS == '0' && 'No schema changes' || 'Schema update required' }}
+    - name: Set GraphQL schema commit status
       uses: daltonbr/set-commit-status-action@2a09190f6d04d912bca5ede8094b5d5dce303ebb # v3.0.1
       if: always()
       with:
         context: graphql-schema-check
         sha: ${{ needs.checkout-branch.outputs.PR_head_sha }}
         token: ${{ secrets.GITHUB_TOKEN }}
-        status: ${{ needs.update-schemas.outputs.GRAPHQL_STATUS == '0' && 'success' || 'failure' }}
-        description: ${{ needs.update-schemas.outputs.GRAPHQL_STATUS == '0' && 'No schema changes' || 'Schema update required' }}
-
-  compare-notifications-schema:
-    needs: [update-schemas, checkout-branch]
-    runs-on: ubuntu-latest
-    permissions:
-      pull-requests: write
-      statuses: write
-    steps:
-    - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-      with:
-        name: notifications-diff
-    - name: Comment schema check result
-      uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
-      with:
-        script: |
-          const diffFmt = s => {
-            return "```diff\n" + s + "\n```";
-          };
-          const commentBody = '${{ needs.update-schemas.outputs.NOTIFICATIONS_STATUS }}' == '0'
-            ? `No WebSocket notifications schema changes detected.`
-            : `WebSocket notifications schema change detected:\n\n${diffFmt(require('fs').readFileSync('${{ needs.update-schemas.outputs.NOTIFICATIONS_DIFF_FILE }}'))}`;
-          github.rest.issues.createComment({
-            issue_number: context.issue.number,
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            body: commentBody
-          });
-    - name: Set commit status
+        status: ${{ needs.update-api-schemas.outputs.GRAPHQL_STATUS == '0' && 'success' || 'failure' }}
+        description: ${{ needs.update-api-schemas.outputs.GRAPHQL_STATUS == '0' && 'No schema changes' || 'Schema update required' }}
+    - name: Set Notifications schema commit status
       uses: daltonbr/set-commit-status-action@2a09190f6d04d912bca5ede8094b5d5dce303ebb # v3.0.1
       if: always()
       with:
         context: notifications-schema-check
         sha: ${{ needs.checkout-branch.outputs.PR_head_sha }}
         token: ${{ secrets.GITHUB_TOKEN }}
-        status: ${{ needs.update-schemas.outputs.NOTIFICATIONS_STATUS == '0' && 'success' || 'failure' }}
-        description: ${{ needs.update-schemas.outputs.NOTIFICATIONS_STATUS == '0' && 'No schema changes' || 'Schema update required' }}
+        status: ${{ needs.update-notifications-schema.outputs.NOTIFICATIONS_STATUS == '0' && 'success' || 'failure' }}
+        description: ${{ needs.update-notifications-schema.outputs.NOTIFICATIONS_STATUS == '0' && 'No schema changes' || 'Schema update required' }}
