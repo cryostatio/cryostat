@@ -9,6 +9,7 @@ if ! command -v http && ! command -v wget; then
     exit 1
 fi
 
+set +m
 setsid "${DIR}"/../mvnw -B \
     -Dquarkus.quinoa=false \
     -Dquarkus.log.level=warn \
