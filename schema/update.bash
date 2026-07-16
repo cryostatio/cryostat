@@ -10,7 +10,7 @@ if ! command -v http && ! command -v wget; then
 fi
 
 (
-    trap 'exit 0' TERM INT
+    trap 'kill $mvn_pid 2>/dev/null; exit 0' TERM INT
     "${DIR}"/../mvnw -B \
         -Dquarkus.quinoa=false \
         -Dquarkus.log.level=warn \
@@ -19,7 +19,9 @@ fi
         -Dmaven.test.skip \
         -Dspotless.check.skip \
         -Dquarkus.smallrye-openapi.info-title="Cryostat API" \
-        clean quarkus:generate-code compile test-compile quarkus:dev
+        clean quarkus:generate-code compile test-compile quarkus:dev &
+    mvn_pid=$!
+    wait $mvn_pid
 ) &
 
 pid="$!"
