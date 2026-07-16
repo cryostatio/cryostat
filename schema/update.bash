@@ -26,7 +26,6 @@ function cleanup() {
 }
 trap cleanup EXIT
 set +e
-set -o pipefail
 sleep "${1:-30}"
 counter=0
 while true; do

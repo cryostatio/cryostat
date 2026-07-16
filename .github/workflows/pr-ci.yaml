@@ -367,8 +367,10 @@ jobs:
         test -f /home/runner/work/cryostat/cryostat/schema/openapi.yaml
         test -f /home/runner/work/cryostat/cryostat/schema/schema.graphql
 
-        git diff -U10 --exit-code /home/runner/work/cryostat/cryostat/schema/openapi.yaml > /home/runner/work/openapi.diff; OPENAPI_STATUS=$?
-        git diff -U10 --exit-code /home/runner/work/cryostat/cryostat/schema/schema.graphql > /home/runner/work/graphql.diff; GRAPHQL_STATUS=$?
+        git diff -U10 /home/runner/work/cryostat/cryostat/schema/openapi.yaml > /home/runner/work/openapi.diff
+        OPENAPI_STATUS=$([ -s /home/runner/work/openapi.diff ] && echo 1 || echo 0)
+        git diff -U10 /home/runner/work/cryostat/cryostat/schema/schema.graphql > /home/runner/work/graphql.diff
+        GRAPHQL_STATUS=$([ -s /home/runner/work/graphql.diff ] && echo 1 || echo 0)
         echo "openapi_status=${OPENAPI_STATUS}" >> "$GITHUB_OUTPUT"
         echo "graphql_status=${GRAPHQL_STATUS}" >> "$GITHUB_OUTPUT"
     - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -419,7 +421,8 @@ jobs:
 
         test -f /home/runner/work/cryostat/cryostat/schema/notifications.yaml
 
-        git diff -U10 --exit-code /home/runner/work/cryostat/cryostat/schema/notifications.yaml > /home/runner/work/notifications.diff; NOTIFICATIONS_STATUS=$?
+        git diff -U10 /home/runner/work/cryostat/cryostat/schema/notifications.yaml > /home/runner/work/notifications.diff
+        NOTIFICATIONS_STATUS=$([ -s /home/runner/work/notifications.diff ] && echo 1 || echo 0)
         echo "notifications_status=${NOTIFICATIONS_STATUS}" >> "$GITHUB_OUTPUT"
     - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
       if: always()
