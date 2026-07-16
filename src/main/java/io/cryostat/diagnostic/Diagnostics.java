@@ -175,7 +175,9 @@ public class Diagnostics {
     @POST
     public Response analyzeHeapDump(
             HttpServerResponse response, @RestPath String jvmId, @RestPath String heapDumpId) {
-
+        String key = DiagnosticsHelper.storageKey(jvmId, heapDumpId);
+        storage.headObject(HeadObjectRequest.builder().bucket(heapDumpsBucket).key(key).build())
+                .sdkHttpResponse();
         if (reportService.keyExists(jvmId, heapDumpId)) {
             return Response.ok(
                             reportService.reportFor(jvmId, heapDumpId).await().indefinitely(),

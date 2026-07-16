@@ -104,4 +104,17 @@ public class HeapDumpsTest extends AbstractTransactionalTestBase {
                 .assertThat()
                 .statusCode(404);
     }
+
+    @Test
+    public void testAnalyzeInvalidTarget() {
+        given().log()
+                .all()
+                .when()
+                .pathParam("jvmId", "bar")
+                .pathParam("heapDumpId", "foo")
+                .post("targets/{jvmId}/heapdump/{heapDumpId}/analyze")
+                .then()
+                .assertThat()
+                .statusCode(404);
+    }
 }

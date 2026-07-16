@@ -223,6 +223,116 @@ public class AgentHeapDumpIT extends AgentTestBase {
 
     @Test
     @DisabledIfEnvironmentVariable(named = "CI", matches = "true")
+    void testCreateListAndAnalyzeHeapDump()
+            throws InterruptedException, ExecutionException, TimeoutException {
+        long targetId = target.id();
+
+        String jobId =
+                given().log()
+                        .all()
+                        .pathParams("targetId", targetId)
+                        .when()
+                        .post("/api/beta/diagnostics/targets/{targetId}/heapdump")
+                        .then()
+                        .log()
+                        .all()
+                        .and()
+                        .assertThat()
+                        .statusCode(200)
+                        .contentType(ContentType.TEXT)
+                        .body(Matchers.notNullValue())
+                        .and()
+                        .extract()
+                        .body()
+                        .asString();
+
+        webSocketClient.expectNotification(
+                "HeapDumpSuccess",
+                Duration.ofMinutes(2),
+                o -> jobId.equals(o.getJsonObject("message").getString("jobId")));
+
+        JsonObject uploadedNotification =
+                webSocketClient.expectNotification(
+                        "HeapDumpUploaded",
+                        Duration.ofMinutes(5),
+                        o -> target.jvmId().equals(o.getJsonObject("message").getString("jvmId")));
+
+        JsonObject message = uploadedNotification.getJsonObject("message");
+        String notificationJvmId = message.getString("jvmId");
+        JsonObject heapDumpObj = message.getJsonObject("heapDump");
+        String notificationHeapDumpId = heapDumpObj.getString("heapDumpId");
+
+        MatcherAssert.assertThat(notificationJvmId, Matchers.equalTo(target.jvmId()));
+        MatcherAssert.assertThat(notificationHeapDumpId, Matchers.notNullValue());
+
+        List<Map<String, Object>> heapDumps =
+                given().log()
+                        .all()
+                        .pathParams("targetId", targetId)
+                        .when()
+                        .get("/api/beta/diagnostics/targets/{targetId}/heapdump")
+                        .then()
+                        .log()
+                        .all()
+                        .and()
+                        .assertThat()
+                        .contentType(ContentType.JSON)
+                        .statusCode(200)
+                        .body("$.size()", Matchers.equalTo(1))
+                        .and()
+                        .extract()
+                        .body()
+                        .jsonPath()
+                        .getList("$");
+
+        String heapDumpId = (String) heapDumps.get(0).get("heapDumpId");
+        String jvmId = (String) heapDumps.get(0).get("jvmId");
+        MatcherAssert.assertThat(heapDumpId, Matchers.equalTo(notificationHeapDumpId));
+        MatcherAssert.assertThat(heapDumps.get(0).get("jvmId"), Matchers.equalTo(target.jvmId()));
+        MatcherAssert.assertThat(
+                ((Number) heapDumps.get(0).get("size")).longValue(), Matchers.greaterThan(0L));
+
+        var analysisJobId =
+                given().log()
+                        .all()
+                        .pathParams("jvmId", jvmId, "heapDumpId", heapDumpId)
+                        .when()
+                        .post("/api/beta/diagnostics/targets/{jvmId}/heapdump/{heapDumpId}/analyze")
+                        .then()
+                        .log()
+                        .all()
+                        .and()
+                        .assertThat()
+                        .statusCode(202)
+                        .extract()
+                        .body()
+                        .asString();
+
+        webSocketClient.expectNotification(
+                "HeapDumpAnalysisSuccess",
+                Duration.ofMinutes(5),
+                o -> analysisJobId.equals(o.getJsonObject("message").getString("jobId")));
+
+        Response r =
+                given().log()
+                        .all()
+                        .pathParams("jvmId", jvmId, "heapDumpId", heapDumpId)
+                        .when()
+                        .post("/api/beta/diagnostics/targets/{jvmId}/heapdump/{heapDumpId}/analyze")
+                        .then()
+                        .log()
+                        .all()
+                        .and()
+                        .assertThat()
+                        .statusCode(200)
+                        .extract()
+                        .response();
+
+        assertThat(r.body().print().length(), not(0));
+    }
+
+    @Test
+    @DisabledIfEnvironmentVariable(named = "CI", matches = "true")
     void testCreateMultipleHeapDumps()
             throws InterruptedException, ExecutionException, TimeoutException {
         long targetId = target.id();
@@ -303,6 +413,21 @@ public class AgentHeapDumpIT extends AgentTestBase {
                 .pathParams("targetId", target.id(), "heapDumpId", "nonexistent")
                 .when()
                 .delete("/api/beta/diagnostics/targets/{targetId}/heapdump/{heapDumpId}")
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(404);
+    }
+
+    @Test
+    void testAnalyzeNonExistentHeapDump() {
+        given().log()
+                .all()
+                .pathParams("jvmId", target.jvmId(), "heapDumpId", "nonexistent")
+                .when()
+                .post("/api/beta/diagnostics/targets/{jvmId}/heapdump/{heapDumpId}/analyze")
                 .then()
                 .log()
                 .all()
