@@ -8,11 +8,6 @@ on:
   issue_comment:
     types:
       - created
-  pull_request:
-    types:
-      - opened
-      - synchronize
-      - reopened
 
 env:
   TESTCONTAINERS_RYUK_DISABLED: true
@@ -75,17 +70,6 @@ jobs:
             pull_number: context.issue.number
           })
           return { repo: result.data.head.repo.full_name, num: result.data.number, sha: result.data.head.sha, ref: result.data.head.ref }
-
-  checkout-branch-pr:
-    runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
-    outputs:
-      PR_head_ref: ${{ github.event.pull_request.head.ref }}
-      PR_head_sha: ${{ github.event.pull_request.head.sha }}
-      PR_num: ${{ github.event.pull_request.number }}
-      PR_repo: ${{ github.event.pull_request.head.repo.full_name }}
-    steps:
-    - run: 'true'
 
   start-comment:
     runs-on: ubuntu-latest
@@ -322,8 +306,7 @@ jobs:
         status: ${{ steps.run-tests.outcome }}
 
   update-api-schemas:
-    needs: [checkout-branch, checkout-branch-pr]
-    if: ${{ always() && (needs.checkout-branch.result == 'success' || needs.checkout-branch-pr.result == 'success') }}
+    needs: [checkout-branch]
     runs-on: ubuntu-latest
     env:
       SEGMENT_DOWNLOAD_TIMEOUT_MINS: '5'
@@ -335,8 +318,8 @@ jobs:
     steps:
     - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       with:
-        repository: ${{ needs.checkout-branch-pr.outputs.PR_repo || needs.checkout-branch.outputs.PR_repo }}
-        ref: ${{ needs.checkout-branch-pr.outputs.PR_head_ref || needs.checkout-branch.outputs.PR_head_ref }}
+        repository: ${{ needs.checkout-branch.outputs.PR_repo }}
+        ref: ${{ needs.checkout-branch.outputs.PR_head_ref }}
         submodules: true
         fetch-depth: 0
     - uses: actions/setup-java@0f481fcb613427c0f801b606911222b5b6f3083a # v5.5.0
@@ -348,14 +331,14 @@ jobs:
       uses: daltonbr/set-commit-status-action@2a09190f6d04d912bca5ede8094b5d5dce303ebb # v3.0.1
       with:
         context: openapi-schema-check
-        sha: ${{ needs.checkout-branch-pr.outputs.PR_head_sha || needs.checkout-branch.outputs.PR_head_sha }}
+        sha: ${{ needs.checkout-branch.outputs.PR_head_sha }}
         token: ${{ secrets.GITHUB_TOKEN }}
         status: pending
     - name: Set pending commit status for GraphQL schema
       uses: daltonbr/set-commit-status-action@2a09190f6d04d912bca5ede8094b5d5dce303ebb # v3.0.1
       with:
         context: graphql-schema-check
-        sha: ${{ needs.checkout-branch-pr.outputs.PR_head_sha || needs.checkout-branch.outputs.PR_head_sha }}
+        sha: ${{ needs.checkout-branch.outputs.PR_head_sha }}
         token: ${{ secrets.GITHUB_TOKEN }}
         status: pending
     - run: git submodule init && git submodule update
@@ -385,8 +368,7 @@ jobs:
         path: /home/runner/work/graphql.diff
 
   update-notifications-schema:
-    needs: [checkout-branch, checkout-branch-pr]
-    if: ${{ always() && (needs.checkout-branch.result == 'success' || needs.checkout-branch-pr.result == 'success') }}
+    needs: [checkout-branch]
     runs-on: ubuntu-latest
     env:
       SEGMENT_DOWNLOAD_TIMEOUT_MINS: '5'
@@ -397,8 +379,8 @@ jobs:
     steps:
     - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       with:
-        repository: ${{ needs.checkout-branch-pr.outputs.PR_repo || needs.checkout-branch.outputs.PR_repo }}
-        ref: ${{ needs.checkout-branch-pr.outputs.PR_head_ref || needs.checkout-branch.outputs.PR_head_ref }}
+        repository: ${{ needs.checkout-branch.outputs.PR_repo }}
+        ref: ${{ needs.checkout-branch.outputs.PR_head_ref }}
         submodules: true
         fetch-depth: 0
     - uses: actions/setup-java@0f481fcb613427c0f801b606911222b5b6f3083a # v5.5.0
@@ -410,7 +392,7 @@ jobs:
       uses: daltonbr/set-commit-status-action@2a09190f6d04d912bca5ede8094b5d5dce303ebb # v3.0.1
       with:
         context: notifications-schema-check
-        sha: ${{ needs.checkout-branch-pr.outputs.PR_head_sha || needs.checkout-branch.outputs.PR_head_sha }}
+        sha: ${{ needs.checkout-branch.outputs.PR_head_sha }}
         token: ${{ secrets.GITHUB_TOKEN }}
         status: pending
     - run: git submodule init && git submodule update
@@ -431,8 +413,7 @@ jobs:
         path: /home/runner/work/notifications.diff
 
   compare-schemas:
-    needs: [update-api-schemas, update-notifications-schema, checkout-branch, checkout-branch-pr]
-    if: ${{ always() && (needs.update-api-schemas.result == 'success' || needs.update-api-schemas.result == 'failure') }}
+    needs: [update-api-schemas, update-notifications-schema, checkout-branch]
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
@@ -459,7 +440,6 @@ jobs:
           const openapiStatus = '${{ needs.update-api-schemas.outputs.OPENAPI_STATUS }}';
           const graphqlStatus = '${{ needs.update-api-schemas.outputs.GRAPHQL_STATUS }}';
           const notificationsStatus = '${{ needs.update-notifications-schema.outputs.NOTIFICATIONS_STATUS }}';
-          const prNum = ${{ needs.checkout-branch-pr.outputs.PR_num || needs.checkout-branch.outputs.PR_num }};
           const lines = [];
           lines.push(openapiStatus === '0'
             ? 'No OpenAPI schema changes detected.'
@@ -471,7 +451,7 @@ jobs:
             ? 'No WebSocket notifications schema changes detected.'
             : 'WebSocket notifications schema change detected:\n\n' + diffFmt(fs.readFileSync('diffs/notifications.diff')));
           github.rest.issues.createComment({
-            issue_number: prNum,
+            issue_number: context.issue.number,
             owner: context.repo.owner,
             repo: context.repo.repo,
             body: lines.join('\n\n')
@@ -481,7 +461,7 @@ jobs:
       if: always()
       with:
         context: openapi-schema-check
-        sha: ${{ needs.checkout-branch-pr.outputs.PR_head_sha || needs.checkout-branch.outputs.PR_head_sha }}
+        sha: ${{ needs.checkout-branch.outputs.PR_head_sha }}
         token: ${{ secrets.GITHUB_TOKEN }}
         status: ${{ needs.update-api-schemas.outputs.OPENAPI_STATUS == '0' && 'success' || 'failure' }}
         description: ${{ needs.update-api-schemas.outputs.OPENAPI_STATUS == '0' && 'No schema changes' || 'Schema update required' }}
@@ -490,7 +470,7 @@ jobs:
       if: always()
       with:
         context: graphql-schema-check
-        sha: ${{ needs.checkout-branch-pr.outputs.PR_head_sha || needs.checkout-branch.outputs.PR_head_sha }}
+        sha: ${{ needs.checkout-branch.outputs.PR_head_sha }}
         token: ${{ secrets.GITHUB_TOKEN }}
         status: ${{ needs.update-api-schemas.outputs.GRAPHQL_STATUS == '0' && 'success' || 'failure' }}
         description: ${{ needs.update-api-schemas.outputs.GRAPHQL_STATUS == '0' && 'No schema changes' || 'Schema update required' }}
@@ -499,7 +479,7 @@ jobs:
       if: always()
       with:
         context: notifications-schema-check
-        sha: ${{ needs.checkout-branch-pr.outputs.PR_head_sha || needs.checkout-branch.outputs.PR_head_sha }}
+        sha: ${{ needs.checkout-branch.outputs.PR_head_sha }}
         token: ${{ secrets.GITHUB_TOKEN }}
         status: ${{ needs.update-notifications-schema.outputs.NOTIFICATIONS_STATUS == '0' && 'success' || 'failure' }}
         description: ${{ needs.update-notifications-schema.outputs.NOTIFICATIONS_STATUS == '0' && 'No schema changes' || 'Schema update required' }}
