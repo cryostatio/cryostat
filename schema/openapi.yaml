@@ -1704,6 +1704,45 @@ paths:
       summary: Execute Query
       tags:
         - Jfr Analytics
+  /api/beta/recording_synthesis/{jvmId}:
+    post:
+      parameters:
+        - in: path
+          name: jvmId
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: fromTimestamp
+          schema:
+            format: int64
+            type: integer
+        - in: query
+          name: tag
+          schema:
+            type: string
+        - in: query
+          name: toTimestamp
+          schema:
+            format: int64
+            type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HttpServerResponse'
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: {}
+          description: OK
+        "400":
+          description: Bad Request
+      summary: Synthesize
+      tags:
+        - Recordings Synthesis
   /api/beta/recordings/{connectUrl}/{filename}:
     delete:
       parameters:
