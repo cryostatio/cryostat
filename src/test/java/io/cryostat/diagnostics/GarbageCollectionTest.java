@@ -17,6 +17,8 @@ package io.cryostat.diagnostics;
 
 import static io.restassured.RestAssured.given;
 
+import java.util.List;
+
 import io.cryostat.audit.AuditTestBase;
 import io.cryostat.diagnostic.Diagnostics;
 import io.cryostat.diagnostic.GarbageCollection;
@@ -55,8 +57,22 @@ public class GarbageCollectionTest extends AuditTestBase {
                 .assertThat()
                 .statusCode(204);
 
-        long count = GarbageCollection.count("target.id = ?1", Long.valueOf(targetId));
-        Assertions.assertEquals(1, count, "Expected one GarbageCollection entity to be created");
+        // Primary table must be empty — the gc() handler deletes the row after persisting.
+        long primaryCount = GarbageCollection.count("target.id = ?1", Long.valueOf(targetId));
+        Assertions.assertEquals(
+                0, primaryCount, "GarbageCollection primary table should be empty after gc()");
+
+        // _AUD table must have exactly 2 revisions (INSERT + DELETE) for the entity.
+        AuditReader auditReader = AuditReaderFactory.get(em);
+        List<?> gcRevisions =
+                auditReader
+                        .createQuery()
+                        .forRevisionsOfEntity(GarbageCollection.class, false, true)
+                        .getResultList();
+        Assertions.assertEquals(
+                2,
+                gcRevisions.size(),
+                "GarbageCollection_AUD should have 2 revisions (INSERT + DELETE)");
     }
 
     @Test
@@ -74,16 +90,24 @@ public class GarbageCollectionTest extends AuditTestBase {
                 .assertThat()
                 .statusCode(204);
 
+        // Primary row is gone; query the AUD table instead.
         AuditReader auditReader = AuditReaderFactory.get(em);
-        var gcEntity =
-                GarbageCollection.<GarbageCollection>find("target.id", Long.valueOf(targetId))
-                        .firstResult();
-        Assertions.assertNotNull(gcEntity, "GarbageCollection entity should exist");
+        List<?> auditResults =
+                auditReader
+                        .createQuery()
+                        .forRevisionsOfEntity(GarbageCollection.class, true, true)
+                        .getResultList();
+        Assertions.assertFalse(auditResults.isEmpty(), "Should have at least one audit revision");
 
-        var revisions = auditReader.getRevisions(GarbageCollection.class, gcEntity.id);
-        Assertions.assertTrue(!revisions.isEmpty(), "Should have at least one audit revision");
+        // Retrieve the entity state from the last known revision (includes deleted entities).
+        List<?> allRevisions =
+                auditReader
+                        .createQuery()
+                        .forRevisionsOfEntity(GarbageCollection.class, false, true)
+                        .getResultList();
         Assertions.assertTrue(
-                revisions.size() >= 1, "Should have at least one audit revision for creation");
+                allRevisions.size() >= 2,
+                "Should have at least 2 audit revisions (INSERT and DELETE)");
     }
 
     @Test
@@ -104,15 +128,22 @@ public class GarbageCollectionTest extends AuditTestBase {
 
         long afterTrigger = System.currentTimeMillis();
 
-        var gcEntity =
-                GarbageCollection.<GarbageCollection>find("target.id", Long.valueOf(targetId))
-                        .firstResult();
-        Assertions.assertNotNull(gcEntity);
+        // Read triggeredAt from the INSERT revision in _AUD (primary row is deleted).
+        AuditReader auditReader = AuditReaderFactory.get(em);
+        List<?> results =
+                auditReader
+                        .createQuery()
+                        .forRevisionsOfEntity(GarbageCollection.class, true, true)
+                        .getResultList();
+        Assertions.assertFalse(results.isEmpty(), "Should have at least one audit revision");
+
+        GarbageCollection audited = (GarbageCollection) results.get(0);
+        Assertions.assertNotNull(audited);
         Assertions.assertTrue(
-                gcEntity.triggeredAt >= beforeTrigger,
+                audited.triggeredAt >= beforeTrigger,
                 "Triggered timestamp should be after or equal to before trigger time");
         Assertions.assertTrue(
-                gcEntity.triggeredAt <= afterTrigger,
+                audited.triggeredAt <= afterTrigger,
                 "Triggered timestamp should be before or equal to after trigger time");
     }
 
@@ -131,12 +162,19 @@ public class GarbageCollectionTest extends AuditTestBase {
                 .assertThat()
                 .statusCode(204);
 
-        var gcEntity =
-                GarbageCollection.<GarbageCollection>find("target.id", Long.valueOf(targetId))
-                        .firstResult();
-        Assertions.assertNotNull(gcEntity);
-        Assertions.assertNotNull(gcEntity.target);
-        Assertions.assertEquals(Long.valueOf(targetId), gcEntity.target.id);
+        // Read target reference from the INSERT revision in _AUD (primary row is deleted).
+        AuditReader auditReader = AuditReaderFactory.get(em);
+        List<?> results =
+                auditReader
+                        .createQuery()
+                        .forRevisionsOfEntity(GarbageCollection.class, true, true)
+                        .getResultList();
+        Assertions.assertFalse(results.isEmpty());
+
+        GarbageCollection audited = (GarbageCollection) results.get(0);
+        Assertions.assertNotNull(audited);
+        Assertions.assertNotNull(audited.target);
+        Assertions.assertEquals(Long.valueOf(targetId), audited.target.id);
     }
 
     @Test
@@ -156,9 +194,24 @@ public class GarbageCollectionTest extends AuditTestBase {
                     .statusCode(204);
         }
 
-        long count = GarbageCollection.count("target.id = ?1", Long.valueOf(targetId));
+        // Primary table must be empty — each gc() call deletes its row.
+        long primaryCount = GarbageCollection.count("target.id = ?1", Long.valueOf(targetId));
         Assertions.assertEquals(
-                3, count, "Expected three GarbageCollection entities to be created");
+                0,
+                primaryCount,
+                "GarbageCollection primary table should be empty after 3 gc() calls");
+
+        // _AUD table must have 6 revisions: 2 (INSERT + DELETE) per trigger.
+        AuditReader auditReader = AuditReaderFactory.get(em);
+        List<?> allRevisions =
+                auditReader
+                        .createQuery()
+                        .forRevisionsOfEntity(GarbageCollection.class, false, true)
+                        .getResultList();
+        Assertions.assertEquals(
+                6,
+                allRevisions.size(),
+                "Should have 6 audit revisions (2 per trigger × 3 triggers)");
     }
 
     @Test
@@ -215,6 +268,8 @@ public class GarbageCollectionTest extends AuditTestBase {
 
         long endTime = System.currentTimeMillis();
 
+        // The DELETE transaction creates its own REVINFO row; query the latest revision
+        // in the time window — it should be the DELETE revision (revtype == 2).
         Integer revisionNumber =
                 given().basePath("/")
                         .log()
@@ -235,6 +290,7 @@ public class GarbageCollectionTest extends AuditTestBase {
 
         Assertions.assertNotNull(revisionNumber, "Should have at least one revision");
 
+        // The most recent revision in the window is the DELETE revision (revtype == 2).
         given().basePath("/")
                 .log()
                 .all()
@@ -251,9 +307,6 @@ public class GarbageCollectionTest extends AuditTestBase {
                 .body(
                         "entities.GarbageCollection",
                         org.hamcrest.Matchers.instanceOf(java.util.List.class))
-                .body(
-                        "entities.GarbageCollection[0].triggeredAt",
-                        org.hamcrest.Matchers.notNullValue())
-                .body("entities.GarbageCollection[0].revtype", org.hamcrest.Matchers.equalTo(0));
+                .body("entities.GarbageCollection[0].revtype", org.hamcrest.Matchers.equalTo(2));
     }
 }

@@ -112,3 +112,52 @@ BEGIN
 
     RAISE NOTICE 'Added plugin-id labels to existing CryostatAgent target nodes';
 END $$;
+
+-- Migrate existing GarbageCollection rows into _AUD as INSERT+DELETE revision pairs,
+-- then truncate the primary table. Going forward, the gc() handler will persist and
+-- immediately delete each entity so only _AUD retains the durable record.
+DO $$
+DECLARE
+    migration_rev   INTEGER;
+    migration_ts    BIGINT;
+    gc              RECORD;
+    insert_rev      INTEGER;
+BEGIN
+    migration_ts := EXTRACT(EPOCH FROM now()) * 1000;
+
+    -- Create one synthetic REVINFO row for this migration event.
+    -- REVINFO.REV has no DEFAULT; use nextval() explicitly (Hibernate manages the sequence).
+    INSERT INTO REVINFO (REV, REVTSTMP, username)
+    VALUES (nextval('REVINFO_SEQ'), migration_ts, 'migration')
+    RETURNING REV INTO migration_rev;
+
+    -- For each existing GarbageCollection row that has a matching INSERT revision in _AUD,
+    -- add a DELETE revision and back-fill REVEND on the INSERT revision.
+    FOR gc IN SELECT id FROM GarbageCollection LOOP
+
+        -- Find the INSERT revision for this entity
+        SELECT REV INTO insert_rev
+        FROM GarbageCollection_AUD
+        WHERE id = gc.id AND REVTYPE = 0
+        ORDER BY REV DESC
+        LIMIT 1;
+
+        IF insert_rev IS NOT NULL THEN
+            -- Back-fill REVEND on the INSERT row (ValidityAuditStrategy requirement)
+            UPDATE GarbageCollection_AUD
+            SET REVEND = migration_rev, REVEND_TSTMP = migration_ts
+            WHERE id = gc.id AND REV = insert_rev;
+
+            -- Insert the DELETE revision row
+            INSERT INTO GarbageCollection_AUD (id, REV, REVTYPE, REVEND, REVEND_TSTMP, target_id, triggeredAt)
+            SELECT gc.id, migration_rev, 2, NULL, NULL, target_id, triggeredAt
+            FROM GarbageCollection
+            WHERE id = gc.id;
+        END IF;
+    END LOOP;
+
+    -- Primary table is now fully mirrored in _AUD; clear it
+    TRUNCATE TABLE GarbageCollection;
+
+    RAISE NOTICE 'GarbageCollection migration complete: primary table truncated, % revision created', migration_rev;
+END $$;

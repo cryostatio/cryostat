@@ -298,7 +298,6 @@ public class Diagnostics {
     @Path("targets/{targetId}/gc")
     @RolesAllowed("write")
     @Blocking
-    @Transactional
     @POST
     @Operation(
             summary = "Initiate a garbage collection on the specified target",
@@ -308,14 +307,22 @@ public class Diagnostics {
                     request. This is generally equivalent to a System.gc() call made within the target JVM.
                     """)
     public void gc(@RestPath long targetId) {
-        Target target = Target.getTargetById(targetId);
+        Target target =
+                QuarkusTransaction.requiringNew().call(() -> Target.getTargetById(targetId));
+        GarbageCollection gc =
+                QuarkusTransaction.requiringNew()
+                        .call(
+                                () -> {
+                                    GarbageCollection entity = GarbageCollection.of(target);
+                                    entity.persist();
+                                    return entity;
+                                });
         targetConnectionManager.executeConnectedTask(
                 target,
                 conn ->
                         conn.invokeMBeanOperation(
                                 "java.lang:type=Memory", "gc", null, null, Void.class));
-
-        GarbageCollection.of(target).persist();
+        QuarkusTransaction.requiringNew().run(() -> GarbageCollection.deleteById(gc.id));
     }
 
     @Path("fs/heapdumps")
