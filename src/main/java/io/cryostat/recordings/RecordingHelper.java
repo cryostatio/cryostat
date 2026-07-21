@@ -25,6 +25,7 @@ import java.net.URL;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -1456,6 +1457,66 @@ public class RecordingHelper {
         } catch (IOException ioe) {
             logger.warn(ioe);
         }
+        return archivedRecording;
+    }
+
+    public ArchivedRecording uploadSynthesizedRecording(
+            String jvmId, Path source, String filename, Metadata metadata) throws IOException {
+        Map<String, String> labels = new HashMap<>(metadata.labels());
+        labels.put("jvmId", jvmId);
+        Metadata resolvedMetadata = new Metadata(labels);
+        String key = archivedRecordingKey(jvmId, filename);
+        Builder requestBuilder =
+                PutObjectRequest.builder()
+                        .bucket(archiveBucket)
+                        .key(key)
+                        .contentType(HttpMimeType.JFR.mime())
+                        .contentDisposition(String.format("attachment; filename=\"%s\"", filename));
+        switch (storageMode()) {
+            case TAGGING:
+                requestBuilder = requestBuilder.tagging(createMetadataTagging(resolvedMetadata));
+                break;
+            case METADATA:
+                requestBuilder = requestBuilder.metadata(labels);
+                break;
+            case BUCKET:
+                metadataService.get().create(jvmId, filename, resolvedMetadata);
+                break;
+            default:
+                throw new IllegalStateException();
+        }
+        transferManager
+                .uploadFile(
+                        UploadFileRequest.builder()
+                                .putObjectRequest(requestBuilder.build())
+                                .source(source)
+                                .build())
+                .completionFuture()
+                .join();
+
+        QuarkusTransaction.joiningExisting()
+                .run(() -> ArchivedRecordingInfo.of(jvmId, filename, null).persist());
+
+        long size = Files.size(source);
+        var target = Target.getTargetByJvmId(jvmId);
+        ArchivedRecording archivedRecording =
+                new ArchivedRecording(
+                        jvmId,
+                        filename,
+                        downloadUrl(jvmId, filename),
+                        reportUrl(jvmId, filename),
+                        resolvedMetadata,
+                        size,
+                        clock.now().getEpochSecond());
+        var event =
+                new ArchivedRecordingNotification(
+                        ActiveRecordings.RecordingEventCategory.ARCHIVED_CREATED,
+                        ArchivedRecordingNotification.Payload.of(
+                                target.map(t -> t.connectUrl).orElse(null), archivedRecording));
+        bus.publish(event.category().category(), event.payload().recording());
+        bus.publish(
+                MessagingServer.class.getName(),
+                new Notification(event.category().category(), event.payload()));
         return archivedRecording;
     }
 
