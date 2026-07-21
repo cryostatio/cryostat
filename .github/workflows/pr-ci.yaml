@@ -105,7 +105,7 @@ jobs:
       pull-requests: write
       statuses: write
     steps:
-    - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
         repository: ${{ needs.checkout-branch.outputs.PR_repo }}
         ref: ${{ needs.checkout-branch.outputs.PR_head_ref }}
@@ -196,7 +196,7 @@ jobs:
       pull-requests: write
       statuses: write
     steps:
-    - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
         repository: ${{ needs.checkout-branch.outputs.PR_repo }}
         ref: ${{ needs.checkout-branch.outputs.PR_head_ref }}
@@ -316,7 +316,7 @@ jobs:
       OPENAPI_STATUS: ${{ steps.schema-update.outputs.openapi_status }}
       GRAPHQL_STATUS: ${{ steps.schema-update.outputs.graphql_status }}
     steps:
-    - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
         repository: ${{ needs.checkout-branch.outputs.PR_repo }}
         ref: ${{ needs.checkout-branch.outputs.PR_head_ref }}
@@ -378,7 +378,7 @@ jobs:
     outputs:
       NOTIFICATIONS_STATUS: ${{ steps.notifications-update.outputs.notifications_status }}
     steps:
-    - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
         repository: ${{ needs.checkout-branch.outputs.PR_repo }}
         ref: ${{ needs.checkout-branch.outputs.PR_head_ref }}
