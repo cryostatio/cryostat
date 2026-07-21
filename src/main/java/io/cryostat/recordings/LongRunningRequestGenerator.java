@@ -15,9 +15,22 @@
  */
 package io.cryostat.recordings;
 
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.time.Duration;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 
 import io.cryostat.ConfigProperties;
@@ -39,6 +52,7 @@ import io.cryostat.ws.notifications.NotificationPayloads.HeapDumpAnalysisSuccess
 import io.cryostat.ws.notifications.NotificationPayloads.HeapDumpSuccessPayload;
 import io.cryostat.ws.notifications.NotificationPayloads.JobIdPayload;
 import io.cryostat.ws.notifications.NotificationPayloads.ReportSuccessPayload;
+import io.cryostat.ws.notifications.NotificationPayloads.SynthesisCompletePayload;
 import io.cryostat.ws.notifications.NotificationPayloads.ThreadDumpFailurePayload;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -84,6 +98,8 @@ public class LongRunningRequestGenerator {
             "io.cryostat.recordings.LongRunningRequestGenerator.HeapDumpRequest";
     public static final String THREAD_DUMP_ADDRESS =
             "io.cryostat.recordings.LongRunningRequestGenerator.ThreadDump";
+    public static final String SYNTHESIS_REQUEST_ADDRESS =
+            "io.cryostat.recordings.LongRunningRequestGenerator.SynthesisRequest";
 
     private static final String ARCHIVE_RECORDING_SUCCESS = "ArchiveRecordingSuccess";
     private static final String ARCHIVE_RECORDING_FAIL = "ArchiveRecordingFailure";
@@ -96,6 +112,8 @@ public class LongRunningRequestGenerator {
     private static final String HEAP_DUMP_ANALYSIS_SUCCESS = "HeapDumpAnalysisSuccess";
     private static final String HEAP_DUMP_ANALYSIS_FAILURE = "HeapDumpAnalysisFailure";
     private static final String THREAD_DUMP_FAILURE = "ThreadDumpFailure";
+    private static final String SYNTHESIS_SUCCESS = "RecordingSynthesisComplete";
+    private static final String SYNTHESIS_FAILURE = "RecordingSynthesisFailure";
 
     @Inject Logger logger;
     @Inject private EventBus bus;
@@ -416,6 +434,141 @@ public class LongRunningRequestGenerator {
         }
     }
 
+    @ConsumeEvent(value = SYNTHESIS_REQUEST_ADDRESS, blocking = true)
+    @Transactional
+    public void onMessage(SynthesisRequest request) {
+        logger.tracev("Synthesis job ID: {0} submitted.", request.id());
+        long fromMs = request.fromTimestamp() * 1000L;
+        long toMs = request.toTimestamp() * 1000L;
+
+        List<ArchivedRecording> current = recordingHelper.listArchivedRecordings(request.jvmId());
+        Optional<ArchivedRecording> existing =
+                current.stream()
+                        .filter(RecordingsSynthesis.completeFilter(fromMs, toMs))
+                        .max(Comparator.comparingDouble(RecordingsSynthesis::density));
+        if (existing.isPresent()) {
+            bus.publish(
+                    MessagingServer.class.getName(),
+                    new Notification(
+                            SYNTHESIS_SUCCESS,
+                            new SynthesisCompletePayload(request.id(), existing.get())));
+            return;
+        }
+
+        List<ArchivedRecording> candidates = request.candidates();
+        long minStart = Long.MAX_VALUE;
+        long maxEnd = Long.MIN_VALUE;
+        for (ArchivedRecording r : candidates) {
+            long st = Long.parseLong(r.metadata().labels().get(RecordingHelper.START_TIME_LABEL));
+            long dur = Long.parseLong(r.metadata().labels().get(RecordingHelper.DURATION_LABEL));
+            if (st < minStart) minStart = st;
+            if (st + dur > maxEnd) maxEnd = st + dur;
+        }
+        long syntheticDuration = maxEnd - minStart;
+
+        String isoStart =
+                Instant.ofEpochMilli(minStart).toString().replace(':', '-').replace('.', '-');
+        String humanDur = formatDuration(Duration.ofMillis(syntheticDuration));
+        String filename = request.tag() + "_" + isoStart + "_" + humanDur + ".jfr";
+
+        long totalSize = candidates.stream().mapToLong(ArchivedRecording::size).sum();
+        long[] offsets = new long[candidates.size()];
+        offsets[0] = 0;
+        for (int i = 1; i < candidates.size(); i++) {
+            offsets[i] = offsets[i - 1] + candidates.get(i - 1).size();
+        }
+
+        Path tempFile = null;
+        FileChannel channel = null;
+        try {
+            tempFile = Files.createTempFile("synthesis-", ".jfr");
+            channel = FileChannel.open(tempFile, StandardOpenOption.READ, StandardOpenOption.WRITE);
+            // allocate tempFile large enough to hold concatenated contents of all candidate
+            // recordings, and fail fast if the required space is not available
+            try {
+                channel.write(ByteBuffer.allocate(1), totalSize - 1);
+            } catch (IOException e) {
+                throw e;
+            }
+
+            final FileChannel fc = channel;
+            List<CompletableFuture<Void>> futures = new ArrayList<>();
+            for (int i = 0; i < candidates.size(); i++) {
+                final String name = candidates.get(i).name();
+                final long offset = offsets[i];
+                futures.add(
+                        CompletableFuture.runAsync(
+                                () -> {
+                                    try (var in =
+                                            recordingHelper.getArchivedRecordingStream(
+                                                    request.jvmId(), name)) {
+                                        byte[] buf = new byte[8192];
+                                        int read;
+                                        long pos = offset;
+                                        while ((read = in.read(buf)) != -1) {
+                                            fc.write(ByteBuffer.wrap(buf, 0, read), pos);
+                                            pos += read;
+                                        }
+                                    } catch (Exception ex) {
+                                        throw new CompletionException(ex);
+                                    }
+                                },
+                                recordingHelper.partUploader));
+            }
+            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+
+            channel.close();
+            channel = null;
+
+            Map<String, String> labelsMap = new HashMap<>();
+            labelsMap.put("jvmId", request.jvmId());
+            labelsMap.put(RecordingHelper.START_TIME_LABEL, String.valueOf(minStart));
+            labelsMap.put(RecordingHelper.DURATION_LABEL, String.valueOf(syntheticDuration));
+            labelsMap.put(AnalysisReportAggregator.AUTOANALYZE_LABEL, "true");
+            labelsMap.put("synthetic", "true");
+            ActiveRecordings.Metadata metadata = new ActiveRecordings.Metadata(labelsMap);
+
+            ArchivedRecording result =
+                    recordingHelper.uploadSynthesizedRecording(
+                            request.jvmId(), tempFile, filename, metadata);
+            bus.publish(
+                    MessagingServer.class.getName(),
+                    new Notification(
+                            SYNTHESIS_SUCCESS, new SynthesisCompletePayload(request.id(), result)));
+        } catch (Exception e) {
+            logger.warnv("Synthesis job {0} failed: {1}", request.id(), e.getMessage());
+            bus.publish(
+                    MessagingServer.class.getName(),
+                    new Notification(SYNTHESIS_FAILURE, new JobIdPayload(request.id())));
+            throw new CompletionException(e);
+        } finally {
+            if (channel != null) {
+                try {
+                    channel.close();
+                } catch (Exception ignored) {
+                }
+            }
+            if (tempFile != null) {
+                try {
+                    Files.deleteIfExists(tempFile);
+                } catch (Exception ignored) {
+                }
+            }
+        }
+    }
+
+    private static String formatDuration(Duration d) {
+        long seconds = d.getSeconds();
+        long hours = seconds / 3600;
+        long minutes = (seconds % 3600) / 60;
+        long secs = seconds % 60;
+        StringBuilder sb = new StringBuilder();
+        if (hours > 0) sb.append(hours).append('h');
+        if (minutes > 0) sb.append(minutes).append('m');
+        if (secs > 0 || sb.length() == 0) sb.append(secs).append('s');
+        return sb.toString();
+    }
+
     @SuppressFBWarnings("EI_EXPOSE_REP")
     public record ArchiveRequest(String id, ActiveRecording recording, boolean deleteOnCompletion) {
         public ArchiveRequest {
@@ -507,6 +660,21 @@ public class LongRunningRequestGenerator {
             Objects.requireNonNull(id);
             Objects.requireNonNull(jvmId);
             Objects.requireNonNull(heapDumpId);
+        }
+    }
+
+    public record SynthesisRequest(
+            String id,
+            String jvmId,
+            long fromTimestamp,
+            long toTimestamp,
+            String tag,
+            List<ArchivedRecording> candidates) {
+        public SynthesisRequest {
+            Objects.requireNonNull(id);
+            Objects.requireNonNull(jvmId);
+            Objects.requireNonNull(tag);
+            Objects.requireNonNull(candidates);
         }
     }
 }
