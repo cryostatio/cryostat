@@ -27,6 +27,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
 
@@ -619,15 +620,19 @@ public class AgentClient {
                                 }));
     }
 
-    Uni<InputStream> pullGcLog() {
+    Uni<Optional<InputStream>> pullGcLog() {
         return agentRestClient
                 .getGcLog()
                 .map(
                         resp -> {
                             int statusCode = resp.getStatus();
-                            if (HttpStatusCodeIdentifier.isSuccessCode(statusCode)) {
-                                return new ResponseCloserInputStream(
-                                        (InputStream) resp.getEntity(), resp::close);
+                            if (statusCode == Response.Status.NO_CONTENT.getStatusCode()) {
+                                resp.close();
+                                return Optional.empty();
+                            } else if (HttpStatusCodeIdentifier.isSuccessCode(statusCode)) {
+                                return Optional.of(
+                                        new ResponseCloserInputStream(
+                                                (InputStream) resp.getEntity(), resp::close));
                             } else if (statusCode == 409) {
                                 throw new AgentApiException(
                                         Response.Status.CONFLICT.getStatusCode(),

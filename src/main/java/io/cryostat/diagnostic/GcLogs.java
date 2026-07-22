@@ -202,13 +202,13 @@ public class GcLogs {
     @RolesAllowed("write")
     @Blocking
     @POST
-    public GcLog pullGcLog(@RestPath long targetId) {
+    public RestResponse<GcLog> pullGcLog(@RestPath long targetId) {
         Target target =
                 QuarkusTransaction.requiringNew().call(() -> Target.getTargetById(targetId));
         if (!target.isAgent()) {
             throw new BadRequestException("GC log collection requires an Agent-monitored target");
         }
-        GcLog result;
+        Optional<GcLog> result;
         try {
             result = helper.pullGcLog(target);
         } catch (Exception e) {
@@ -226,6 +226,10 @@ public class GcLogs {
                             });
             throw e;
         }
+        if (result.isEmpty()) {
+            return RestResponse.noContent();
+        }
+        GcLog gcLog = result.get();
         QuarkusTransaction.requiringNew()
                 .run(
                         () -> {
@@ -234,11 +238,11 @@ public class GcLogs {
                                     .firstResultOptional()
                                     .ifPresent(
                                             s -> {
-                                                s.markPulled(result.gcLogId(), result.size());
+                                                s.markPulled(gcLog.gcLogId(), gcLog.size());
                                                 s.persist();
                                             });
                         });
-        return result;
+        return RestResponse.ok(gcLog);
     }
 
     @Path("targets/{targetId}/gclogs")
