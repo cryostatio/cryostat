@@ -106,7 +106,7 @@ public class DiagnosticsHelper {
     static final String HEAP_DUMP_METADATA = "HeapDumpMetadataUpdated";
     static final String GC_LOG_UPLOADED_NAME = "GcLogUploaded";
     static final String GC_LOG_DELETED_NAME = "GcLogDeleted";
-    private static final String VM_LOG_OPERATION = "VM.log";
+    private static final String VM_LOG_OPERATION = "vmLog";
     private static final String DIAGNOSTIC_BEAN_NAME = "com.sun.management:type=DiagnosticCommand";
     private static final String HOTSPOT_DIAGNOSTIC_BEAN_NAME =
             "com.sun.management:type=HotSpotDiagnostic";
