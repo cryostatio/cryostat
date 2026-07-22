@@ -21,6 +21,7 @@ import java.net.MalformedURLException;
 import java.net.URI;
 import java.time.Duration;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 import javax.management.InstanceNotFoundException;
@@ -114,7 +115,7 @@ public class AgentConnection implements JFRConnection {
         return client.gcLogStatus().await().atMost(client.getTimeout());
     }
 
-    public InputStream pullGcLog() {
+    public Optional<InputStream> pullGcLog() {
         return client.pullGcLog().await().atMost(client.getTimeout());
     }
 

@@ -411,10 +411,15 @@ public class DiagnosticsHelper {
                 target, conn -> ((AgentConnection) conn).gcLogStatus(), uploadFailedTimeout);
     }
 
-    public GcLogs.GcLog pullGcLog(Target target) {
-        InputStream stream =
+    public Optional<GcLogs.GcLog> pullGcLog(Target target) {
+        Optional<InputStream> streamOpt =
                 targetConnectionManager.executeConnectedTask(
                         target, conn -> ((AgentConnection) conn).pullGcLog(), uploadFailedTimeout);
+        if (streamOpt.isEmpty()) {
+            log.debugv("Agent returned no GC log content for target {0}", target.jvmId);
+            return Optional.empty();
+        }
+        InputStream stream = streamOpt.get();
         String uuid = UUID.randomUUID().toString();
         String filename = generateFileName(target.jvmId, uuid, ".gclog");
         String key = storageKey(target.jvmId, filename);
@@ -444,13 +449,14 @@ public class DiagnosticsHelper {
             default:
                 throw new IllegalStateException();
         }
+        InputStream safeStream = Objects.requireNonNullElse(stream, InputStream.nullInputStream());
         transferManager
                 .upload(
                         UploadRequest.builder()
                                 .putObjectRequest(req.build())
                                 .requestBody(
                                         AsyncRequestBody.fromInputStream(
-                                                stream,
+                                                safeStream,
                                                 null,
                                                 Executors.newVirtualThreadPerTaskExecutor()))
                                 .build())
@@ -472,7 +478,7 @@ public class DiagnosticsHelper {
         bus.publish(
                 MessagingServer.class.getName(),
                 new Notification(event.category().category(), event.payload()));
-        return result;
+        return Optional.of(result);
     }
 
     public List<S3Object> listGcLogObjects() {
