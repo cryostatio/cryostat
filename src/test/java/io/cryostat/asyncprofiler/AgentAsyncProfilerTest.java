@@ -13,9 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package itest.agent;
+package io.cryostat.asyncprofiler;
 
 import static io.restassured.RestAssured.given;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.*;
 
 import java.time.Duration;
@@ -24,22 +25,24 @@ import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 
+import io.cryostat.AgentTestBase;
 import io.cryostat.resources.AgentApplicationResource;
+import io.cryostat.resources.S3StorageResource;
 
 import io.quarkus.test.common.QuarkusTestResource;
-import io.quarkus.test.junit.QuarkusIntegrationTest;
+import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
+import io.restassured.response.Response;
 import io.vertx.core.json.JsonObject;
-import itest.resources.S3StorageITResource;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
-@QuarkusIntegrationTest
+@QuarkusTest
 @QuarkusTestResource(value = AgentApplicationResource.class, restrictToAnnotatedClass = true)
-@QuarkusTestResource(value = S3StorageITResource.class, restrictToAnnotatedClass = true)
-public class AgentAsyncProfilerIT extends AgentTestBase {
+@QuarkusTestResource(value = S3StorageResource.class, restrictToAnnotatedClass = true)
+public class AgentAsyncProfilerTest extends AgentTestBase {
 
     @AfterEach
     void cleanupAsyncProfiles() {
@@ -577,7 +580,6 @@ public class AgentAsyncProfilerIT extends AgentTestBase {
     void testCreateProfileWithMultipleEvents() {
         long targetId = target.id();
 
-        // cpu+itimer+ctimer is an invalid combination - the API returns 400
         Map<String, Object> requestBody =
                 Map.of("events", List.of("cpu", "itimer", "ctimer"), "duration", 5);
 
@@ -738,5 +740,196 @@ public class AgentAsyncProfilerIT extends AgentTestBase {
                 .contentType(ContentType.JSON)
                 .statusCode(200)
                 .body("$.size()", Matchers.equalTo(2));
+    }
+
+    @Test
+    void testGraphQL() throws InterruptedException, TimeoutException {
+        long targetId = target.id();
+
+        Map<String, Object> requestBody = Map.of("events", List.of("alloc"), "duration", 5);
+
+        String profileId =
+                given().log()
+                        .all()
+                        .pathParams("targetId", targetId)
+                        .contentType(ContentType.JSON)
+                        .body(requestBody)
+                        .when()
+                        .post("/api/beta/targets/{targetId}/async-profiler")
+                        .then()
+                        .log()
+                        .all()
+                        .and()
+                        .assertThat()
+                        .statusCode(200)
+                        .contentType(ContentType.TEXT)
+                        .body(Matchers.notNullValue())
+                        .and()
+                        .extract()
+                        .body()
+                        .asString();
+
+        webSocketClient.expectNotification(
+                "AsyncProfilerCreated",
+                Duration.ofSeconds(10),
+                o -> profileId.equals(o.getJsonObject("message").getString("id")));
+
+        JsonObject query = new JsonObject();
+        query.put(
+                "query",
+                "query TargetAsyncProfiles {targetNodes(filter: { id: "
+                        + targetId
+                        + " }) {target {agent id connectUrl alias jvmId asyncProfiles { data {"
+                        + " duration id startTime size } aggregate { count } } } } }");
+        Response resp =
+                given().basePath("/")
+                        .contentType(ContentType.JSON)
+                        .body(query.encode())
+                        .log()
+                        .all()
+                        .when()
+                        .post("/api/v4/graphql")
+                        .then()
+                        .log()
+                        .all()
+                        .and()
+                        .assertThat()
+                        .statusCode(200)
+                        .extract()
+                        .response();
+
+        assertNoGraphQLErrors(resp);
+        JsonObject retrievedResponse = new JsonObject(resp.asString());
+        assertThat(retrievedResponse, notNullValue());
+        assertThat(retrievedResponse.getMap().size(), not(0));
+
+        webSocketClient.expectNotification(
+                "AsyncProfilerStopped",
+                Duration.ofMinutes(2),
+                o -> profileId.equals(o.getJsonObject("message").getString("id")));
+    }
+
+    @Test
+    void testCreateMutation() throws InterruptedException, TimeoutException {
+        long targetId = target.id();
+
+        JsonObject query = new JsonObject();
+        query.put(
+                "query",
+                "mutation {createAsyncProfile(nodes:{id:"
+                        + targetId
+                        + "},id: \"profile\",startTime: 1,events: [\"alloc\"],duration: 5)}");
+
+        Response response =
+                given().basePath("/")
+                        .contentType(ContentType.JSON)
+                        .body(query.encode())
+                        .log()
+                        .all()
+                        .when()
+                        .post("/api/v4/graphql")
+                        .then()
+                        .log()
+                        .all()
+                        .and()
+                        .assertThat()
+                        .statusCode(allOf(greaterThanOrEqualTo(200), lessThan(300)))
+                        .extract()
+                        .response();
+
+        assertNoGraphQLErrors(response);
+
+        JsonObject createdNotification =
+                webSocketClient.expectNotification("AsyncProfilerCreated", Duration.ofSeconds(10));
+
+        assertThat(response.getStatusCode(), equalTo(200));
+        assertThat(response.getBody(), notNullValue());
+        assertThat(createdNotification, notNullValue());
+
+        webSocketClient.expectNotification(
+                "AsyncProfilerStopped",
+                Duration.ofMinutes(2),
+                o ->
+                        createdNotification
+                                .getJsonObject("message")
+                                .getString("id")
+                                .equals(o.getJsonObject("message").getString("id")));
+    }
+
+    @Test
+    void testDeleteMutation() throws Exception {
+        long targetId = target.id();
+
+        Map<String, Object> requestBody = Map.of("events", List.of("alloc"), "duration", 5);
+
+        String profileId =
+                given().log()
+                        .all()
+                        .pathParams("targetId", targetId)
+                        .contentType(ContentType.JSON)
+                        .body(requestBody)
+                        .when()
+                        .post("/api/beta/targets/{targetId}/async-profiler")
+                        .then()
+                        .log()
+                        .all()
+                        .and()
+                        .assertThat()
+                        .statusCode(200)
+                        .contentType(ContentType.TEXT)
+                        .body(Matchers.notNullValue())
+                        .and()
+                        .extract()
+                        .body()
+                        .asString();
+
+        webSocketClient.expectNotification("AsyncProfilerCreated", Duration.ofSeconds(10));
+        JsonObject stoppedNotification =
+                webSocketClient.expectNotification(
+                        "AsyncProfilerStopped",
+                        Duration.ofMinutes(2),
+                        o -> profileId.equals(o.getJsonObject("message").getString("id")));
+
+        MatcherAssert.assertThat(
+                stoppedNotification.getJsonObject("message").getString("id"),
+                Matchers.equalTo(profileId));
+
+        JsonObject deleteQuery = new JsonObject();
+        deleteQuery.put(
+                "query",
+                String.format(
+                        "mutation { deleteAsyncProfiles (nodes: { id:"
+                                + targetId
+                                + "}) { id size duration startTime }}",
+                        profileId));
+
+        Response deleteResponse =
+                given().contentType(ContentType.JSON)
+                        .body(deleteQuery.encode())
+                        .when()
+                        .post("/api/v4/graphql")
+                        .then()
+                        .log()
+                        .all()
+                        .statusCode(allOf(greaterThanOrEqualTo(200), lessThan(300)))
+                        .extract()
+                        .response();
+
+        assertNoGraphQLErrors(deleteResponse);
+        assertThat(deleteResponse.getStatusCode(), equalTo(200));
+
+        given().log()
+                .all()
+                .pathParams("targetId", targetId)
+                .when()
+                .get("/api/beta/targets/{targetId}/async-profiler")
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .contentType(ContentType.JSON)
+                .statusCode(200)
+                .body("$.size()", Matchers.equalTo(0));
     }
 }

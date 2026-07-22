@@ -13,30 +13,31 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package itest.agent;
+package io.cryostat.jmcagent;
 
 import static io.restassured.RestAssured.given;
 
 import java.util.List;
 
+import io.cryostat.AgentTestBase;
 import io.cryostat.resources.AgentExternalRecordingApplicationResource;
+import io.cryostat.resources.S3StorageResource;
 
 import io.quarkus.test.common.QuarkusTestResource;
-import io.quarkus.test.junit.QuarkusIntegrationTest;
+import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
-import itest.resources.S3StorageITResource;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-@QuarkusIntegrationTest
+@QuarkusTest
 @QuarkusTestResource(
         value = AgentExternalRecordingApplicationResource.class,
         restrictToAnnotatedClass = true)
-@QuarkusTestResource(value = S3StorageITResource.class, restrictToAnnotatedClass = true)
-public class JMCAgentProbesIT extends AgentTestBase {
+@QuarkusTestResource(value = S3StorageResource.class, restrictToAnnotatedClass = true)
+public class JMCAgentProbesTest extends AgentTestBase {
 
     static final String PROBE_TEMPLATE_NAME = "agentProbesTestTemplate";
     static final String PROBE_TEMPLATE_XML =

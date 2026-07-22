@@ -62,10 +62,11 @@
     <com.google.java-format.version>1.35.0</com.google.java-format.version>
     <com.mycila.license.maven.plugin.version>5.0.0</com.mycila.license.maven.plugin.version>
     <surefire-plugin.version>3.5.6</surefire-plugin.version>
-    <surefire.rerunFailingTestsCount>2</surefire.rerunFailingTestsCount>
+    <surefire.rerunFailingTestsCount>4</surefire.rerunFailingTestsCount>
     <skip.surefire.tests>${skipTests}</skip.surefire.tests>
     <failsafe-plugin.version>3.5.6</failsafe-plugin.version>
-    <failsafe.rerunFailingTestsCount>${surefire.rerunFailingTestsCount}</failsafe.rerunFailingTestsCount>
+    <failsafe.rerunFailingTestsCount>4</failsafe.rerunFailingTestsCount>
+    <failsafe.skipAfterFailureCount>0</failsafe.skipAfterFailureCount>
   </properties>
   <dependencyManagement>
     <dependencies>

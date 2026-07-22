@@ -18,11 +18,6 @@ package io.cryostat.resources;
 import java.util.HashMap;
 import java.util.Map;
 
-/**
- * Test resource that starts an agent container with a pre-started JFR recording. This allows
- * testing of external recording detection - recordings that were not created by Cryostat but are
- * discovered on the target JVM.
- */
 public class AgentExternalRecordingApplicationResource extends AgentApplicationResource {
 
     public static final String RECORDING_NAME = "external-test-recording";

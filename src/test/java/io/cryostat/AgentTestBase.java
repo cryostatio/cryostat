@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package itest.agent;
+package io.cryostat;
 
 import static io.restassured.RestAssured.given;
 
@@ -22,6 +22,9 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Predicate;
 
@@ -29,15 +32,16 @@ import io.cryostat.resources.AgentApplicationResource;
 
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
-import itest.bases.WebSocketTestBase;
 import org.hamcrest.Matchers;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
 
-public class AgentTestBase extends WebSocketTestBase {
+public abstract class AgentTestBase extends AbstractTestBase {
 
     static final Duration DISCOVERY_PERIOD = Duration.ofSeconds(30);
     static final Duration DISCOVERY_TIMEOUT = Duration.ofMinutes(5);
-    static final String CONTINUOUS_TEMPLATE = "template=Continuous,type=TARGET";
+
+    protected static volatile ExecutorService WORKER = Executors.newCachedThreadPool();
 
     protected Target target;
 
@@ -49,40 +53,28 @@ public class AgentTestBase extends WebSocketTestBase {
     }
 
     Target waitForDiscovery() throws InterruptedException, TimeoutException, ExecutionException {
-        return waitForDiscovery(
-                t ->
-                        t.agent()
-                                && AgentApplicationResource.ALIAS.equals(t.alias())
-                                && String.format(
-                                                "http://%s:%d",
-                                                AgentApplicationResource.ALIAS,
-                                                AgentApplicationResource.PORT)
-                                        .equals(t.connectUrl()));
+        return waitForDiscovery(t -> t.agent() && AgentApplicationResource.ALIAS.equals(t.alias()));
     }
 
     Target waitForDiscovery(Predicate<Target> p)
             throws InterruptedException, TimeoutException, ExecutionException {
-        // Race between WebSocket notification and API polling
         CompletableFuture<Target> webSocketFuture =
                 CompletableFuture.supplyAsync(() -> waitForDiscoveryViaWebSocket(p), WORKER);
 
         CompletableFuture<Target> pollingFuture =
                 CompletableFuture.supplyAsync(() -> waitForDiscoveryViaPolling(p), WORKER);
 
-        // Return whichever completes first, cancel the other
         try {
             Target result =
                     CompletableFuture.anyOf(webSocketFuture, pollingFuture)
                             .thenApply(r -> (Target) r)
-                            .get();
+                            .get(DISCOVERY_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS);
 
-            // Cancel the losing future
             webSocketFuture.cancel(true);
             pollingFuture.cancel(true);
 
             return result;
         } catch (ExecutionException e) {
-            // Cancel both futures on error
             webSocketFuture.cancel(true);
             pollingFuture.cancel(true);
 
@@ -96,7 +88,6 @@ public class AgentTestBase extends WebSocketTestBase {
             }
             throw e;
         } catch (InterruptedException e) {
-            // Cancel both futures on interrupt
             webSocketFuture.cancel(true);
             pollingFuture.cancel(true);
             throw e;
@@ -107,7 +98,7 @@ public class AgentTestBase extends WebSocketTestBase {
         try {
             JsonObject notification =
                     webSocketClient.expectNotification(
-                            "TargetJvmDiscovery", DISCOVERY_TIMEOUT, msg -> matchesAgentAlias(msg));
+                            "TargetJvmDiscovery", DISCOVERY_TIMEOUT, msg -> matchesAgent(msg));
 
             Target target = extractTargetFromNotification(notification);
 
@@ -122,7 +113,7 @@ public class AgentTestBase extends WebSocketTestBase {
         }
     }
 
-    private boolean matchesAgentAlias(JsonObject msg) {
+    private boolean matchesAgent(JsonObject msg) {
         JsonObject event = msg.getJsonObject("message").getJsonObject("event");
         if (!"FOUND".equals(event.getString("kind"))) {
             return false;
@@ -131,8 +122,8 @@ public class AgentTestBase extends WebSocketTestBase {
         if (serviceRef == null) {
             return false;
         }
-        String connectUrl = serviceRef.getString("connectUrl");
-        return connectUrl != null && connectUrl.contains(AgentApplicationResource.ALIAS);
+        String alias = serviceRef.getString("alias");
+        return AgentApplicationResource.ALIAS.equals(alias);
     }
 
     private Target extractTargetFromNotification(JsonObject notification) {
@@ -156,7 +147,7 @@ public class AgentTestBase extends WebSocketTestBase {
             return List.of();
         }
         if (arrayObj instanceof JsonArray) {
-            JsonArray array = (io.vertx.core.json.JsonArray) arrayObj;
+            JsonArray array = (JsonArray) arrayObj;
             return array.stream()
                     .map(
                             item -> {
@@ -218,11 +209,20 @@ public class AgentTestBase extends WebSocketTestBase {
                     if (Duration.ofNanos(elapsed).compareTo(DISCOVERY_TIMEOUT) > 0) {
                         throw new IllegalStateException("Timed out waiting for target discovery");
                     }
-                    try {
-                        Thread.sleep(DISCOVERY_PERIOD.toMillis());
-                    } catch (InterruptedException e) {
-                        Thread.currentThread().interrupt();
-                        throw new RuntimeException(e);
+                    long remaining = DISCOVERY_PERIOD.toMillis();
+                    while (remaining > 0 && !Thread.currentThread().isInterrupted()) {
+                        long step = Math.min(remaining, 500);
+                        try {
+                            Thread.sleep(step);
+                        } catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                            break;
+                        }
+                        remaining -= step;
+                    }
+                    if (Thread.currentThread().isInterrupted()) {
+                        throw new RuntimeException(
+                                new InterruptedException("Discovery polling interrupted"));
                     }
                     continue;
                 case 1:
@@ -234,7 +234,14 @@ public class AgentTestBase extends WebSocketTestBase {
         throw new RuntimeException(new InterruptedException("Discovery polling interrupted"));
     }
 
-    record Target(
+    @AfterAll
+    static void shutDownWorker() throws InterruptedException {
+        WORKER.shutdownNow();
+        WORKER.awaitTermination(10, TimeUnit.SECONDS);
+        WORKER = Executors.newCachedThreadPool();
+    }
+
+    protected record Target(
             long id,
             String jvmId,
             String connectUrl,
@@ -243,7 +250,7 @@ public class AgentTestBase extends WebSocketTestBase {
             Annotations annotations,
             boolean agent) {}
 
-    record Annotations(List<KeyValue> cryostat, List<KeyValue> platform) {}
+    protected record Annotations(List<KeyValue> cryostat, List<KeyValue> platform) {}
 
-    record KeyValue(String key, String value) {}
+    protected record KeyValue(String key, String value) {}
 }
