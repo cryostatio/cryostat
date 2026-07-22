@@ -126,6 +126,15 @@ components:
         reportsConfigured:
           type: boolean
       type: object
+    ArchivedGcLogDirectory:
+      properties:
+        gcLogs:
+          items:
+            $ref: '#/components/schemas/GcLog'
+          type: array
+        jvmId:
+          type: string
+      type: object
     ArchivedHeapDumpDirectory:
       properties:
         heapDumps:
@@ -490,6 +499,30 @@ components:
           type: string
         relationKey:
           type: string
+      type: object
+    GcLog:
+      properties:
+        downloadUrl:
+          type: string
+        gcLogId:
+          type: string
+        jvmId:
+          type: string
+        lastModified:
+          format: int64
+          type: integer
+        size:
+          format: int64
+          type: integer
+      type: object
+    GcLogStatus:
+      properties:
+        decorators:
+          type: string
+        enabled:
+          type: boolean
+        hasLog:
+          type: boolean
       type: object
     GitInfo:
       properties:
@@ -1234,6 +1267,39 @@ paths:
       summary: Target By Jvm Id
       tags:
         - Audit
+  /api/beta/diagnostics/fs/gclogs:
+    get:
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/ArchivedGcLogDirectory'
+                type: array
+          description: OK
+      summary: List Fs Gc Logs
+      tags:
+        - Gc Logs
+  /api/beta/diagnostics/fs/gclogs/{jvmId}/{gcLogId}:
+    delete:
+      parameters:
+        - in: path
+          name: gcLogId
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: jvmId
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
+      summary: Delete Gc Log By Path
+      tags:
+        - Gc Logs
   /api/beta/diagnostics/fs/heapdumps:
     get:
       responses:
@@ -1300,6 +1366,27 @@ paths:
       summary: Delete Thread Dump
       tags:
         - Diagnostics
+  /api/beta/diagnostics/gclog/download/{encodedKey}:
+    get:
+      parameters:
+        - in: path
+          name: encodedKey
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: filename
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: {}
+          description: OK
+      summary: Handle Gc Log Storage Download
+      tags:
+        - Gc Logs
   /api/beta/diagnostics/heapdump/download/{encodedKey}:
     get:
       parameters:
@@ -1422,6 +1509,181 @@ paths:
       summary: Initiate a garbage collection on the specified target
       tags:
         - Diagnostics
+  /api/beta/diagnostics/targets/{targetId}/gclogging:
+    delete:
+      parameters:
+        - in: path
+          name: targetId
+          required: true
+          schema:
+            format: int64
+            type: integer
+      responses:
+        "204":
+          description: No Content
+      summary: Disable Gc Logging
+      tags:
+        - Gc Logs
+    get:
+      parameters:
+        - in: path
+          name: targetId
+          required: true
+          schema:
+            format: int64
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GcLogStatus'
+          description: OK
+      summary: Gc Logging Status
+      tags:
+        - Gc Logs
+    patch:
+      parameters:
+        - in: path
+          name: targetId
+          required: true
+          schema:
+            format: int64
+            type: integer
+        - in: query
+          name: decorators
+          schema:
+            default: time,level
+            type: string
+        - in: query
+          name: what
+          schema:
+            default: gc
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GcLog'
+          description: OK
+      summary: Reconfigure Gc Logging
+      tags:
+        - Gc Logs
+    post:
+      parameters:
+        - in: path
+          name: targetId
+          required: true
+          schema:
+            format: int64
+            type: integer
+        - in: query
+          name: decorators
+          schema:
+            default: time,level
+            type: string
+        - in: query
+          name: what
+          schema:
+            default: gc
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GcLog'
+          description: OK
+      summary: Enable Gc Logging
+      tags:
+        - Gc Logs
+  /api/beta/diagnostics/targets/{targetId}/gclogging/pull:
+    post:
+      parameters:
+        - in: path
+          name: targetId
+          required: true
+          schema:
+            format: int64
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GcLog'
+          description: OK
+      summary: Pull Gc Log
+      tags:
+        - Gc Logs
+  /api/beta/diagnostics/targets/{targetId}/gclogs:
+    get:
+      parameters:
+        - in: path
+          name: targetId
+          required: true
+          schema:
+            format: int64
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/GcLog'
+                type: array
+          description: OK
+      summary: List Gc Logs
+      tags:
+        - Gc Logs
+  /api/beta/diagnostics/targets/{targetId}/gclogs/{gcLogId}:
+    delete:
+      parameters:
+        - in: path
+          name: gcLogId
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: targetId
+          required: true
+          schema:
+            format: int64
+            type: integer
+      responses:
+        "204":
+          description: No Content
+      summary: Delete Gc Log
+      tags:
+        - Gc Logs
+    get:
+      parameters:
+        - in: path
+          name: gcLogId
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: targetId
+          required: true
+          schema:
+            format: int64
+            type: integer
+        - in: query
+          name: filename
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: {}
+          description: OK
+      summary: Download Gc Log
+      tags:
+        - Gc Logs
   /api/beta/diagnostics/targets/{targetId}/heapdump:
     get:
       parameters:
