@@ -17,7 +17,7 @@ PULL_IMAGES=${PULL_IMAGES:-true}
 KEEP_VOLUMES=${KEEP_VOLUMES:-false}
 OPEN_TABS=${OPEN_TABS:-false}
 
-PRECREATE_BUCKETS=${PRECREATE_BUCKETS:-metadata,archivedrecordings,archivedreports,eventtemplates,probes,threaddumps,heapdumps,heapdumpreports}
+PRECREATE_BUCKETS=${PRECREATE_BUCKETS:-metadata,archivedrecordings,archivedreports,eventtemplates,probes,threaddumps,heapdumps,heapdumpreports,gclogs}
 
 LOG_LEVEL=0
 CRYOSTAT_HTTP_HOST=${CRYOSTAT_HTTP_HOST:-cryostat}
