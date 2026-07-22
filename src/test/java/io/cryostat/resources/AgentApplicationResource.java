@@ -23,6 +23,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import io.quarkus.test.common.DevServicesContext;
 import io.quarkus.test.common.QuarkusTestResourceLifecycleManager;
 import org.apache.commons.lang3.StringUtils;
+import org.eclipse.microprofile.config.ConfigProvider;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
 import org.testcontainers.containers.wait.strategy.HostPortWaitStrategy;
@@ -104,7 +105,12 @@ public class AgentApplicationResource
                         .withEnv(getEnvMap())
                         .withNetworkAliases(ALIAS)
                         .waitingFor(new HostPortWaitStrategy().forPorts(PORT))
-                        .withStartupAttempts(3);
+                        .withStartupAttempts(3)
+                        .withCreateContainerCmdModifier(
+                                cmd ->
+                                        cmd.getHostConfig()
+                                                .withCpuShares(512)
+                                                .withMemory(256L * 1024L * 1024L));
         network.ifPresent(container::withNetwork);
         container.addEnv(
                 "CRYOSTAT_AGENT_BASEURI",
@@ -138,8 +144,13 @@ public class AgentApplicationResource
     @Override
     public void setIntegrationTestContext(DevServicesContext context) {
         containerNetworkId = context.containerNetworkId();
-        cryostatPort.set(
-                Integer.parseInt(
-                        context.devServicesProperties().getOrDefault("quarkus.http.port", "8081")));
+        int port = ConfigProvider.getConfig().getValue("quarkus.http.test-port", Integer.class);
+        if (port < 1) {
+            port = ConfigProvider.getConfig().getValue("quarkus.http.port", Integer.class);
+        }
+        if (port < 1) {
+            throw new IllegalStateException("Could not determine dynamic HTTP port binding");
+        }
+        cryostatPort.set(port);
     }
 }
