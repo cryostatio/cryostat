@@ -27,6 +27,12 @@ public class ConfigProperties {
             "storage.metadata.archives.storage-mode";
     public static final String STORAGE_METADATA_EVENT_TEMPLATES_STORAGE_MODE =
             "storage.metadata.event-templates.storage-mode";
+    public static final String STORAGE_METADATA_HEAP_DUMPS_STORAGE_MODE =
+            "storage.metadata.heap-dumps.storage-mode";
+    public static final String STORAGE_METADATA_THREAD_DUMPS_STORAGE_MODE =
+            "storage.metadata.thread-dumps.storage-mode";
+    public static final String STORAGE_METADATA_GC_LOGS_STORAGE_MODE =
+            "storage.metadata.gc-logs.storage-mode";
     public static final String AWS_BUCKET_NAME_ARCHIVES = "storage.buckets.archives.name";
     public static final String AWS_BUCKET_NAME_METADATA = "storage.buckets.metadata.name";
     public static final String AWS_BUCKET_NAME_EVENT_TEMPLATES =
@@ -35,6 +41,7 @@ public class ConfigProperties {
             "storage.buckets.probe-templates.name";
     public static final String AWS_BUCKET_NAME_HEAP_DUMPS = "storage.buckets.heap-dumps.name";
     public static final String AWS_BUCKET_NAME_THREAD_DUMPS = "storage.buckets.thread-dumps.name";
+    public static final String AWS_BUCKET_NAME_GC_LOGS = "storage.buckets.gc-logs.name";
     public static final String AWS_METADATA_PREFIX_THREAD_DUMPS =
             "storage.metadata.prefix.thread-dumps";
     public static final String AWS_METADATA_PREFIX_HEAP_DUMPS =
@@ -43,6 +50,7 @@ public class ConfigProperties {
             "storage.metadata.prefix.recordings";
     public static final String AWS_METADATA_PREFIX_EVENT_TEMPLATES =
             "storage.metadata.prefix.event-templates";
+    public static final String AWS_METADATA_PREFIX_GC_LOGS = "storage.metadata.prefix.gc-logs";
 
     public static final String DISCOVERY_IPV6_ENABLED = "cryostat.discovery.ipv6-enabled";
     public static final String DISCOVERY_IPV4_DNS_TRANSFORM_ENABLED =
@@ -110,11 +118,6 @@ public class ConfigProperties {
     public static final String STORAGE_EXT_URL = "storage-ext.url";
     public static final String STORAGE_PRESIGNED_DOWNLOADS_ENABLED =
             "storage.presigned-downloads.enabled";
-
-    public static final String STORAGE_METADATA_HEAP_DUMPS_STORAGE_MODE =
-            "storage.metadata.heap-dumps.storage-mode";
-    public static final String STORAGE_METADATA_THREAD_DUMPS_STORAGE_MODE =
-            "storage.metadata.thread-dumps.storage-mode";
 
     public static final String CUSTOM_TEMPLATES_DIR = "templates-dir";
     public static final String PRESET_TEMPLATES_DIR = "preset-templates-dir";

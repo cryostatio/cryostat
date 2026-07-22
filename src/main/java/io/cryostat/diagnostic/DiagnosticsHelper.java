@@ -28,22 +28,31 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.Executors;
 
 import io.cryostat.ConfigProperties;
 import io.cryostat.Producers;
 import io.cryostat.StorageBuckets;
+import io.cryostat.asyncprofiler.AsyncProfilerRecording;
 import io.cryostat.diagnostic.Diagnostics.HeapDump;
 import io.cryostat.diagnostic.Diagnostics.ThreadDump;
+import io.cryostat.diagnostic.GcLogs.GcLog;
+import io.cryostat.diagnostic.GcLogs.GcLogEvent;
 import io.cryostat.diagnostic.HeapDumpsMetadataService.StorageMode;
 import io.cryostat.libcryostat.sys.Clock;
 import io.cryostat.recordings.ActiveRecordings.Metadata;
+import io.cryostat.targets.AgentClient;
+import io.cryostat.targets.AgentConnection;
 import io.cryostat.targets.Target;
+import io.cryostat.targets.Target.EventKind;
+import io.cryostat.targets.Target.TargetDiscovery;
 import io.cryostat.targets.TargetConnectionManager;
 import io.cryostat.ws.MessagingServer;
 import io.cryostat.ws.Notification;
 
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.runtime.StartupEvent;
+import io.quarkus.vertx.ConsumeEvent;
 import io.smallrye.common.annotation.Identifier;
 import io.smallrye.mutiny.Uni;
 import io.smallrye.mutiny.infrastructure.Infrastructure;
@@ -95,6 +104,9 @@ public class DiagnosticsHelper {
     static final String HEAP_DUMP_SUCCESS = "HeapDumpSuccess";
     static final String HEAP_DUMP_UPLOADED_NAME = "HeapDumpUploaded";
     static final String HEAP_DUMP_METADATA = "HeapDumpMetadataUpdated";
+    static final String GC_LOG_UPLOADED_NAME = "GcLogUploaded";
+    static final String GC_LOG_DELETED_NAME = "GcLogDeleted";
+    private static final String VM_LOG_OPERATION = "VM.log";
     private static final String DIAGNOSTIC_BEAN_NAME = "com.sun.management:type=DiagnosticCommand";
     private static final String HOTSPOT_DIAGNOSTIC_BEAN_NAME =
             "com.sun.management:type=HotSpotDiagnostic";
@@ -104,6 +116,9 @@ public class DiagnosticsHelper {
 
     @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_HEAP_DUMPS)
     String heapDumpBucket;
+
+    @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_GC_LOGS)
+    String gcLogBucket;
 
     @ConfigProperty(name = ConfigProperties.ARCHIVED_HEAP_DUMP_REPORTS_STORAGE_CACHE_NAME)
     String heapDumpReportBucket;
@@ -120,6 +135,7 @@ public class DiagnosticsHelper {
 
     @Inject Instance<HeapDumpsMetadataService> heapDumpsMetadataService;
     @Inject Instance<ThreadDumpsMetadataService> threadDumpsMetadataService;
+    @Inject Instance<GcLogsMetadataService> gcLogsMetadataService;
 
     @Inject S3Client storage;
     @Inject S3TransferManager transferManager;
@@ -137,6 +153,25 @@ public class DiagnosticsHelper {
         buckets.createIfNecessary(threadDumpBucket);
         log.tracev("Creating heap dump report bucket: {0}", heapDumpReportBucket);
         buckets.createIfNecessary(heapDumpReportBucket);
+        log.tracev("Creating gc log bucket: {0}", gcLogBucket);
+        buckets.createIfNecessary(gcLogBucket);
+    }
+
+    @ConsumeEvent(value = Target.TARGET_JVM_DISCOVERY, blocking = true)
+    void onTargetLost(TargetDiscovery event) {
+        if (!EventKind.LOST.equals(event.kind())) {
+            return;
+        }
+        Target target = event.serviceRef();
+        QuarkusTransaction.requiringNew()
+                .run(
+                        () -> {
+                            AsyncProfilerRecording.delete("target", target);
+                            io.cryostat.diagnostic.HeapDump.delete("target", target);
+                            io.cryostat.diagnostic.ThreadDump.delete("target", target);
+                            io.cryostat.diagnostic.GarbageCollection.delete("target", target);
+                            io.cryostat.diagnostic.GcLog.delete("target", target);
+                        });
     }
 
     public void dumpHeap(Target target, String requestId) {
@@ -338,6 +373,160 @@ public class DiagnosticsHelper {
             builder = builder.prefix(jvmId);
         }
         return storage.listObjectsV2(builder.build()).contents();
+    }
+
+    public void enableGcLogging(Target target, String what, String decorators) {
+        String args = String.format("what=%s decorators=%s", what, decorators);
+        targetConnectionManager.executeConnectedTask(
+                target,
+                conn ->
+                        conn.invokeMBeanOperation(
+                                DIAGNOSTIC_BEAN_NAME,
+                                VM_LOG_OPERATION,
+                                new Object[] {new String[] {args}},
+                                new String[] {String[].class.getName()},
+                                Void.class),
+                uploadFailedTimeout);
+    }
+
+    public void reconfigureGcLogging(Target target, String what, String decorators) {
+        enableGcLogging(target, what, decorators);
+    }
+
+    public void disableGcLogging(Target target) {
+        targetConnectionManager.executeConnectedTask(
+                target,
+                conn ->
+                        conn.invokeMBeanOperation(
+                                DIAGNOSTIC_BEAN_NAME,
+                                VM_LOG_OPERATION,
+                                new Object[] {new String[] {"disable=true"}},
+                                new String[] {String[].class.getName()},
+                                Void.class),
+                uploadFailedTimeout);
+    }
+
+    public AgentClient.GcLogStatus gcLogStatus(Target target) {
+        return targetConnectionManager.executeConnectedTask(
+                target, conn -> ((AgentConnection) conn).gcLogStatus(), uploadFailedTimeout);
+    }
+
+    public GcLogs.GcLog pullGcLog(Target target) {
+        InputStream stream =
+                targetConnectionManager.executeConnectedTask(
+                        target, conn -> ((AgentConnection) conn).pullGcLog(), uploadFailedTimeout);
+        String uuid = UUID.randomUUID().toString();
+        String filename = generateFileName(target.jvmId, uuid, ".gclog");
+        String key = storageKey(target.jvmId, filename);
+        log.tracev("Putting GC log into storage with key: {0}", key);
+        var req =
+                PutObjectRequest.builder()
+                        .bucket(gcLogBucket)
+                        .key(key)
+                        .contentType(MediaType.TEXT_PLAIN)
+                        .contentDisposition(String.format("attachment; filename=\"%s\"", filename));
+        switch (storageMode()) {
+            case TAGGING:
+                req = req.tagging(createMetadataTagging(new Metadata(Map.of())));
+                break;
+            case METADATA:
+                req = req.metadata(Map.of());
+                break;
+            case BUCKET:
+                try {
+                    gcLogsMetadataService
+                            .get()
+                            .create(target.jvmId, filename, new Metadata(Map.of()));
+                } catch (IOException ioe) {
+                    log.warn(ioe);
+                }
+                break;
+            default:
+                throw new IllegalStateException();
+        }
+        transferManager
+                .upload(
+                        UploadRequest.builder()
+                                .putObjectRequest(req.build())
+                                .requestBody(
+                                        AsyncRequestBody.fromInputStream(
+                                                stream,
+                                                null,
+                                                Executors.newVirtualThreadPerTaskExecutor()))
+                                .build())
+                .completionFuture()
+                .join();
+        long size =
+                storage.headObject(HeadObjectRequest.builder().bucket(gcLogBucket).key(key).build())
+                        .contentLength();
+        var result =
+                new GcLog(
+                        target.jvmId,
+                        gcLogDownloadUrl(target.jvmId, filename),
+                        filename,
+                        clock.now().getEpochSecond(),
+                        size);
+        var event =
+                new GcLogEvent(
+                        EventCategory.GC_LOG_UPLOADED, GcLogEvent.Payload.of(target.jvmId, result));
+        bus.publish(
+                MessagingServer.class.getName(),
+                new Notification(event.category().category(), event.payload()));
+        return result;
+    }
+
+    public List<S3Object> listGcLogObjects() {
+        return listGcLogObjects(null);
+    }
+
+    public List<S3Object> listGcLogObjects(String jvmId) {
+        var builder = ListObjectsV2Request.builder().bucket(gcLogBucket);
+        if (StringUtils.isNotBlank(jvmId)) {
+            builder = builder.prefix(jvmId);
+        }
+        return storage.listObjectsV2(builder.build()).contents();
+    }
+
+    public InputStream getGcLogStream(String encodedKey) {
+        Pair<String, String> decodedKey = decodedKey(encodedKey);
+        var key = storageKey(decodedKey);
+        GetObjectRequest getRequest =
+                GetObjectRequest.builder().bucket(gcLogBucket).key(key).build();
+        return storage.getObject(getRequest);
+    }
+
+    public void deleteGcLog(String jvmId, String gcLogId) {
+        String key = storageKey(jvmId, gcLogId);
+        storage.headObject(HeadObjectRequest.builder().bucket(gcLogBucket).key(key).build());
+        storage.deleteObject(DeleteObjectRequest.builder().bucket(gcLogBucket).key(key).build());
+        switch (storageMode()) {
+            case TAGGING:
+            case METADATA:
+                break;
+            case BUCKET:
+                try {
+                    gcLogsMetadataService.get().delete(jvmId, gcLogId);
+                } catch (IOException ioe) {
+                    log.warn(ioe);
+                }
+                break;
+            default:
+                throw new IllegalStateException();
+        }
+        var event =
+                new GcLogs.GcLogEvent(
+                        EventCategory.GC_LOG_DELETED,
+                        GcLogs.GcLogEvent.Payload.of(
+                                jvmId,
+                                new GcLog(jvmId, gcLogDownloadUrl(jvmId, gcLogId), gcLogId, 0, 0)));
+        bus.publish(
+                MessagingServer.class.getName(),
+                new Notification(event.category().category(), event.payload()));
+    }
+
+    public String gcLogDownloadUrl(String jvmId, String filename) {
+        return String.format(
+                "/api/beta/diagnostics/gclog/download/%s", encodedKey(jvmId, filename));
     }
 
     public List<ThreadDump> getThreadDumps(String jvmId) {
@@ -625,9 +814,13 @@ public class DiagnosticsHelper {
                     // later using computeIfAbsent, wrap it in a copy constructor.
                     return Optional.of(new Metadata(new HashMap<>(resp.metadata())));
                 case BUCKET:
-                    return storageBucket.equals(threadDumpBucket)
-                            ? threadDumpsMetadataService.get().read(storageKey)
-                            : heapDumpsMetadataService.get().read(storageKey);
+                    if (storageBucket.equals(threadDumpBucket)) {
+                        return threadDumpsMetadataService.get().read(storageKey);
+                    } else if (storageBucket.equals(gcLogBucket)) {
+                        return gcLogsMetadataService.get().read(storageKey);
+                    } else if (storageBucket.equals(heapDumpBucket)) {
+                        return heapDumpsMetadataService.get().read(storageKey);
+                    }
                 default:
                     throw new IllegalStateException();
             }
@@ -800,6 +993,8 @@ public class DiagnosticsHelper {
     }
 
     public enum EventCategory {
+        GC_LOG_UPLOADED(GC_LOG_UPLOADED_NAME),
+        GC_LOG_DELETED(GC_LOG_DELETED_NAME),
         // ThreadDumpSuccess and HeapDumpSuccess ("CREATED") events are emitted by
         // LongRunningRequestGenerator
         DELETED(THREAD_DUMP_DELETED),

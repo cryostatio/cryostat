@@ -606,6 +606,38 @@ public class AgentClient {
                         });
     }
 
+    Uni<GcLogStatus> gcLogStatus() {
+        return agentRestClient
+                .gcLogStatus()
+                .map(
+                        Unchecked.function(
+                                resp -> {
+                                    try (resp;
+                                            var is = (InputStream) resp.getEntity()) {
+                                        return mapper.readValue(is, GcLogStatus.class);
+                                    }
+                                }));
+    }
+
+    Uni<InputStream> pullGcLog() {
+        return agentRestClient
+                .getGcLog()
+                .map(
+                        resp -> {
+                            int statusCode = resp.getStatus();
+                            if (HttpStatusCodeIdentifier.isSuccessCode(statusCode)) {
+                                return new ResponseCloserInputStream(
+                                        (InputStream) resp.getEntity(), resp::close);
+                            } else if (statusCode == 409) {
+                                throw new AgentApiException(
+                                        Response.Status.CONFLICT.getStatusCode(),
+                                        new IllegalStateException("GC logging not active"));
+                            } else {
+                                throw new AgentApiException(statusCode);
+                            }
+                        });
+    }
+
     @ApplicationScoped
     public static class Factory {
 
@@ -859,4 +891,6 @@ public class AgentClient {
         UNKNOWN,
         ;
     }
+
+    public static record GcLogStatus(boolean enabled, String decorators, boolean hasLog) {}
 }
