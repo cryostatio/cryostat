@@ -162,6 +162,19 @@ public class Target extends PanacheEntity {
         return find("jvmId", jvmId).firstResultOptional();
     }
 
+    /**
+     * Returns the preferred target for a given JVM ID when multiple targets share the same JVM ID
+     * (e.g. dual discovery via Agent HTTP + JMX). The Agent HTTP target is preferred over JMX.
+     * Falls back to any matching target if no agent target is present.
+     */
+    public static Optional<Target> findPreferredByJvmId(String jvmId) {
+        List<Target> targets = find("jvmId", jvmId).list();
+        return targets.stream()
+                .filter(Target::isAgent)
+                .findFirst()
+                .or(() -> targets.stream().findFirst());
+    }
+
     public static List<Target> findByRealm(String realm) {
         List<Target> targets = findAll().list();
 
