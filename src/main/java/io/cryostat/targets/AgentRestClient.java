@@ -131,4 +131,14 @@ interface AgentRestClient {
     @GET
     @Produces(MediaType.APPLICATION_OCTET_STREAM)
     Uni<Response> streamAsyncProfile(@PathParam("id") String id);
+
+    @Path("/gc-log/status")
+    @GET
+    @Produces(MediaType.APPLICATION_JSON)
+    Uni<Response> gcLogStatus();
+
+    @Path("/gc-log/")
+    @GET
+    @Produces(MediaType.APPLICATION_OCTET_STREAM)
+    Uni<Response> getGcLog();
 }

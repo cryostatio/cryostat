@@ -110,6 +110,14 @@ public class AgentConnection implements JFRConnection {
         return client.streamAsyncProfile(id).await().atMost(client.getTimeout());
     }
 
+    public AgentClient.GcLogStatus gcLogStatus() {
+        return client.gcLogStatus().await().atMost(client.getTimeout());
+    }
+
+    public InputStream pullGcLog() {
+        return client.pullGcLog().await().atMost(client.getTimeout());
+    }
+
     @Override
     public long getApproximateServerTime(Clock clock) {
         return clock.now().toEpochMilli();
