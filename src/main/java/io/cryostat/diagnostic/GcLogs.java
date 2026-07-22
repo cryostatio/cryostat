@@ -398,8 +398,6 @@ public class GcLogs {
             String jvmId, String downloadUrl, String gcLogId, long lastModified, long size) {
         public GcLog {
             Objects.requireNonNull(jvmId);
-            Objects.requireNonNull(downloadUrl);
-            Objects.requireNonNull(gcLogId);
         }
     }
 
