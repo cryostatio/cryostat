@@ -143,5 +143,19 @@ public class RootNode {
                     .reduce(x -> true, Predicate::and)
                     .test(t);
         }
+
+        public boolean isBlank() {
+            return id == null
+                    && (ids == null || ids.isEmpty())
+                    && targetId == null
+                    && (targetIds == null || targetIds.isEmpty())
+                    && jvmId == null
+                    && (jvmIds == null || jvmIds.isEmpty())
+                    && name == null
+                    && (names == null || names.isEmpty())
+                    && (nodeTypes == null || nodeTypes.isEmpty())
+                    && (labels == null || labels.isEmpty())
+                    && (annotations == null || annotations.isEmpty());
+        }
     }
 }
