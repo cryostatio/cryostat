@@ -455,6 +455,64 @@ public class AgentGcLogTest extends AgentTestBase {
                 o -> target.jvmId().equals(o.getJsonObject("message").getString("jvmId")));
     }
 
+    @Test
+    void testPullGcLogWithNoContentReturns204() {
+        long targetId = target.id();
+
+        given().log()
+                .all()
+                .pathParam("targetId", targetId)
+                .when()
+                .post("/api/beta/diagnostics/targets/{targetId}/gclogging")
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(200);
+
+        // Pull immediately without triggering a GC cycle so the agent has no log
+        // content buffered yet. The agent must respond 204, and Cryostat must
+        // propagate that as its own 204 without uploading anything to S3.
+        given().log()
+                .all()
+                .pathParam("targetId", targetId)
+                .when()
+                .post("/api/beta/diagnostics/targets/{targetId}/gclogging/pull")
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(204);
+
+        // Session row must still exist and must not have been updated by markPulled.
+        GcLog session =
+                QuarkusTransaction.requiringNew()
+                        .call(() -> GcLog.<GcLog>find("target.id", targetId).firstResult());
+        assertThat(session, notNullValue());
+        assertThat(session.filename, nullValue());
+        assertThat(session.size, nullValue());
+        assertThat(session.lastModifiedAt, nullValue());
+        assertThat(session.status, equalTo(GcLog.Status.ACTIVE));
+
+        // Nothing must have been stored in S3.
+        io.restassured.response.Response listResp =
+                given().log()
+                        .all()
+                        .pathParam("targetId", targetId)
+                        .when()
+                        .get("/api/beta/diagnostics/targets/{targetId}/gclogs")
+                        .then()
+                        .log()
+                        .all()
+                        .extract()
+                        .response();
+        if (listResp.statusCode() == 200) {
+            assertThat(listResp.body().as(List.class), Matchers.equalTo(List.of()));
+        }
+    }
+
     // ── Disable ───────────────────────────────────────────────────────────────────
 
     @Test

@@ -189,6 +189,23 @@ public class GcLogTest extends AuditTestBase {
     }
 
     @Test
+    @Transactional
+    public void testGcLogSessionRowUnchangedAfterNoPull() {
+        int targetId = defineSelfCustomTarget();
+        Target target = Target.getTargetById(targetId);
+
+        GcLog session = GcLog.enable(target, "gc", "time,level");
+        session.persist();
+
+        // Simulate the no-content path: markPulled is never called.
+        // The session row must remain in its initial ACTIVE state.
+        Assertions.assertNull(session.filename);
+        Assertions.assertNull(session.size);
+        Assertions.assertNull(session.lastModifiedAt);
+        Assertions.assertEquals(GcLog.Status.ACTIVE, session.status);
+    }
+
+    @Test
     public void testListGcLogsForInvalidTargetReturns404() {
         given().log()
                 .all()
