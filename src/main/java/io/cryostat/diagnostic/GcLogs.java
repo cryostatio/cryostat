@@ -283,7 +283,10 @@ public class GcLogs {
                 QuarkusTransaction.requiringNew().call(() -> Target.getTargetById(targetId).jvmId);
         String encodedKey = helper.encodedKey(jvmId, gcLogId);
         return RestResponse.seeOther(
-                new URI(String.format("/api/beta/diagnostics/gclog/download/%s", encodedKey)));
+                new URI(
+                        String.format(
+                                "/api/beta/diagnostics/gclog/download/%s?filename=%s",
+                                encodedKey, filename)));
     }
 
     @Path("targets/{targetId}/gclogs/{gcLogId}")
