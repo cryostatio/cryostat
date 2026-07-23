@@ -24,6 +24,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.regex.Pattern;
 
 import io.cryostat.ConfigProperties;
 import io.cryostat.targets.AgentClient;
@@ -66,6 +67,8 @@ import software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequ
 @Path("/api/beta/diagnostics/")
 public class GcLogs {
 
+    static final Pattern SAFE_PARAM_PATTERN = Pattern.compile("^[A-Za-z0-9,+*=]+$");
+
     @Inject S3Client storage;
     @Inject S3Presigner presigner;
     @Inject Logger log;
@@ -88,6 +91,7 @@ public class GcLogs {
             @RestPath long targetId,
             @QueryParam("what") @DefaultValue("gc") String what,
             @QueryParam("decorators") @DefaultValue("time,level") String decorators) {
+        validateGcLoggingParams(what, decorators);
         Target target =
                 QuarkusTransaction.requiringNew().call(() -> Target.getTargetById(targetId));
         if (!target.isAgent()) {
@@ -127,6 +131,7 @@ public class GcLogs {
             @RestPath long targetId,
             @QueryParam("what") @DefaultValue("gc") String what,
             @QueryParam("decorators") @DefaultValue("time,level") String decorators) {
+        validateGcLoggingParams(what, decorators);
         Target target =
                 QuarkusTransaction.requiringNew().call(() -> Target.getTargetById(targetId));
         if (!target.isAgent()) {
@@ -388,6 +393,15 @@ public class GcLogs {
                         String.format("attachment; filename=\"%s\"", contentName))
                 .location(uri)
                 .build();
+    }
+
+    private static void validateGcLoggingParams(String what, String decorators) {
+        if (!SAFE_PARAM_PATTERN.matcher(what).matches()
+                || !SAFE_PARAM_PATTERN.matcher(decorators).matches()) {
+            throw new BadRequestException(
+                    "Query parameters 'what' and 'decorators' must contain only ASCII"
+                            + " alphanumerics, commas, plus signs, or asterisks");
+        }
     }
 
     @SuppressFBWarnings("EI_EXPOSE_REP")
