@@ -18,6 +18,7 @@ package io.cryostat.diagnostics;
 import static io.restassured.RestAssured.given;
 
 import java.util.List;
+import java.util.stream.Stream;
 
 import io.cryostat.audit.AuditTestBase;
 import io.cryostat.diagnostic.GcLog;
@@ -35,6 +36,9 @@ import org.hibernate.envers.AuditReader;
 import org.hibernate.envers.AuditReaderFactory;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 @QuarkusTest
 @TestProfile(GcLogTest.class)
@@ -98,6 +102,63 @@ public class GcLogTest extends AuditTestBase {
                 .when()
                 .pathParam("targetId", targetId)
                 .post("targets/{targetId}/gclogging/pull")
+                .then()
+                .log()
+                .all()
+                .assertThat()
+                .statusCode(400);
+    }
+
+    // ── Invalid query parameter characters ───────────────────────────────────────
+
+    static Stream<Arguments> invalidParams() {
+        return Stream.of(
+                Arguments.of("gc heap", "time,level"),
+                Arguments.of("gc\theap", "time,level"),
+                Arguments.of("gc\nheap", "time,level"),
+                Arguments.of("gc%20heap", "time,level"),
+                Arguments.of("gc&other", "time,level"),
+                Arguments.of("gc#frag", "time,level"),
+                Arguments.of("gc", "time level"),
+                Arguments.of("gc", "time%2Clevel"),
+                Arguments.of("gc", "time\tlevel"),
+                Arguments.of("gc", "time\nlevel"),
+                Arguments.of("gc", "time&level"),
+                Arguments.of("gc", "time#frag"),
+                Arguments.of("<script>", "time,level"),
+                Arguments.of("gc", "<script>"));
+    }
+
+    @ParameterizedTest
+    @MethodSource("invalidParams")
+    public void testEnableGcLoggingWithInvalidParamsReturns400(String what, String decorators) {
+        int targetId = defineSelfCustomTarget();
+        given().log()
+                .all()
+                .when()
+                .pathParam("targetId", targetId)
+                .queryParam("what", what)
+                .queryParam("decorators", decorators)
+                .post("targets/{targetId}/gclogging")
+                .then()
+                .log()
+                .all()
+                .assertThat()
+                .statusCode(400);
+    }
+
+    @ParameterizedTest
+    @MethodSource("invalidParams")
+    public void testReconfigureGcLoggingWithInvalidParamsReturns400(
+            String what, String decorators) {
+        int targetId = defineSelfCustomTarget();
+        given().log()
+                .all()
+                .when()
+                .pathParam("targetId", targetId)
+                .queryParam("what", what)
+                .queryParam("decorators", decorators)
+                .request("PATCH", "targets/{targetId}/gclogging")
                 .then()
                 .log()
                 .all()
