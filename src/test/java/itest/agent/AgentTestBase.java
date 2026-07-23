@@ -218,11 +218,20 @@ public class AgentTestBase extends WebSocketTestBase {
                     if (Duration.ofNanos(elapsed).compareTo(DISCOVERY_TIMEOUT) > 0) {
                         throw new IllegalStateException("Timed out waiting for target discovery");
                     }
-                    try {
-                        Thread.sleep(DISCOVERY_PERIOD.toMillis());
-                    } catch (InterruptedException e) {
-                        Thread.currentThread().interrupt();
-                        throw new RuntimeException(e);
+                    long remaining = DISCOVERY_PERIOD.toMillis();
+                    while (remaining > 0 && !Thread.currentThread().isInterrupted()) {
+                        long step = Math.min(remaining, 500);
+                        try {
+                            Thread.sleep(step);
+                        } catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                            break;
+                        }
+                        remaining -= step;
+                    }
+                    if (Thread.currentThread().isInterrupted()) {
+                        throw new RuntimeException(
+                                new InterruptedException("Discovery polling interrupted"));
                     }
                     continue;
                 case 1:

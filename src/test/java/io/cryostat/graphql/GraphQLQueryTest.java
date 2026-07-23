@@ -66,6 +66,7 @@ class GraphQLQueryTest extends AbstractGraphQLTestBase {
                         .extract()
                         .response();
 
+        assertNoGraphQLErrors(response);
         TypeReference<EnvironmentNodesResponse> typeRef =
                 new TypeReference<EnvironmentNodesResponse>() {};
         EnvironmentNodesResponse actual = mapper.readValue(response.body().asString(), typeRef);
@@ -123,6 +124,7 @@ class GraphQLQueryTest extends AbstractGraphQLTestBase {
                         .extract()
                         .response();
 
+        assertNoGraphQLErrors(response);
         TargetNodesQueryResponse actual =
                 mapper.readValue(response.body().asString(), TargetNodesQueryResponse.class);
 
@@ -164,6 +166,7 @@ class GraphQLQueryTest extends AbstractGraphQLTestBase {
                         .extract()
                         .response();
 
+        assertNoGraphQLErrors(response);
         TargetNodesQueryResponse actual =
                 mapper.readValue(response.body().asString(), TargetNodesQueryResponse.class);
         assertThat(actual.data.targetNodes, hasSize(1));
@@ -199,6 +202,7 @@ class GraphQLQueryTest extends AbstractGraphQLTestBase {
                         .extract()
                         .response();
 
+        assertNoGraphQLErrors(response);
         TargetNodesQueryResponse actual =
                 mapper.readValue(response.body().asString(), TargetNodesQueryResponse.class);
 
@@ -257,6 +261,7 @@ class GraphQLQueryTest extends AbstractGraphQLTestBase {
                         .extract()
                         .response();
 
+        assertNoGraphQLErrors(response2);
         TargetNodesQueryResponse graphqlResp =
                 mapper.readValue(response2.body().asString(), TargetNodesQueryResponse.class);
 
@@ -314,6 +319,7 @@ class GraphQLQueryTest extends AbstractGraphQLTestBase {
                         .extract()
                         .response();
 
+        assertNoGraphQLErrors(response1);
         webSocketClient.expectNotification("ArchivedRecordingCreated", Duration.ofSeconds(15));
 
         ArchiveMutationResponse archiveResponse =
@@ -364,6 +370,7 @@ class GraphQLQueryTest extends AbstractGraphQLTestBase {
                         .extract()
                         .response();
 
+        assertNoGraphQLErrors(response);
         TargetNodesQueryResponse graphqlResp =
                 mapper.readValue(response.body().asString(), TargetNodesQueryResponse.class);
 
@@ -457,6 +464,7 @@ class GraphQLQueryTest extends AbstractGraphQLTestBase {
                         .extract()
                         .response();
 
+        assertNoGraphQLErrors(response);
         EnvironmentNodesResponse actual =
                 mapper.readValue(response.body().asString(), EnvironmentNodesResponse.class);
         List<DiscoveryNode> environmentNodes = actual.getData().getEnvironmentNodes();
@@ -492,6 +500,7 @@ class GraphQLQueryTest extends AbstractGraphQLTestBase {
                         .extract()
                         .response();
 
+        assertNoGraphQLErrors(response);
         EnvironmentNodesResponse actual =
                 mapper.readValue(response.body().asString(), EnvironmentNodesResponse.class);
 

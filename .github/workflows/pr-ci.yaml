@@ -147,7 +147,7 @@ jobs:
       id: run-tests
       continue-on-error: true
       run: |
-        ./mvnw -B -U \
+        timeout 1h sh ./mvnw -B -U \
           -Dquarkus.container-image.builder=docker \
           -Dspotless.check.skip \
           -Dquarkus.quinoa=false \
@@ -262,7 +262,7 @@ jobs:
       id: run-tests
       continue-on-error: true
       run: |
-        ./mvnw -B -U \
+        timeout 1h sh ./mvnw -B -U \
           -Dquarkus.container-image.builder=docker \
           -Dskip.surefire.tests \
           -Dspotless.check.skip \

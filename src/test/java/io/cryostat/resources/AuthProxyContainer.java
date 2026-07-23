@@ -66,20 +66,19 @@ providers:
         withExposedPorts(PORT);
         withNetworkAliases(ALIAS);
         withEnv(envMap);
-        withCopyToContainer(
-                Transferable.of(
-                        ALPHA_CONFIG
-                                .replaceAll("AUTHPROXY_HOST", "0.0.0.0")
-                                .replaceAll("AUTHPROXY_PORT", Integer.toString(PORT))
-                                .replaceAll(
-                                        "CRYOSTAT_HOST",
-                                        Optional.ofNullable(
-                                                        System.getProperty(
-                                                                "quarkus.test.network-alias"))
-                                                .orElse("cryostat"))
-                                .replaceAll("CRYOSTAT_PORT", Integer.toString(cryostatPort))),
-                CFG_FILE_PATH);
+        withCopyToContainer(Transferable.of(cfg(cryostatPort)), CFG_FILE_PATH);
         waitingFor(Wait.forLogMessage(".*OAuthProxy configured.*", 1));
         withStartupAttempts(3);
+    }
+
+    private String cfg(int cryostatPort) {
+        return ALPHA_CONFIG
+                .replaceAll("AUTHPROXY_HOST", "0.0.0.0")
+                .replaceAll("AUTHPROXY_PORT", Integer.toString(PORT))
+                .replaceAll(
+                        "CRYOSTAT_HOST",
+                        Optional.ofNullable(System.getProperty("quarkus.test.network-alias"))
+                                .orElse("cryostat"))
+                .replaceAll("CRYOSTAT_PORT", Integer.toString(cryostatPort));
     }
 }
