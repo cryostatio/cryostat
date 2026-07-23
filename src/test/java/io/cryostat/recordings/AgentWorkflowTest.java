@@ -13,33 +13,127 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package itest.agent;
+package io.cryostat.recordings;
 
 import static io.restassured.RestAssured.given;
 
 import java.io.IOException;
+import java.net.URL;
 import java.util.Objects;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
+import io.cryostat.AgentTestBase;
 import io.cryostat.resources.AgentApplicationResource;
+import io.cryostat.resources.S3StorageResource;
 
 import io.quarkus.test.common.QuarkusTestResource;
-import io.quarkus.test.junit.QuarkusIntegrationTest;
+import io.quarkus.test.common.http.TestHTTPResource;
+import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
 import io.vertx.core.MultiMap;
 import io.vertx.core.json.JsonObject;
-import itest.resources.S3StorageITResource;
 import jakarta.websocket.DeploymentException;
+import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
 
-@QuarkusIntegrationTest
+@QuarkusTest
 @QuarkusTestResource(value = AgentApplicationResource.class, restrictToAnnotatedClass = true)
-@QuarkusTestResource(value = S3StorageITResource.class, restrictToAnnotatedClass = true)
-public class AgentTargetAnalysisIT extends AgentTestBase {
+@QuarkusTestResource(value = S3StorageResource.class, restrictToAnnotatedClass = true)
+public class AgentWorkflowTest extends AgentTestBase {
+
+    static final String CONTINUOUS_TEMPLATE = "template=Continuous,type=TARGET";
+    static final String RECORDING_NAME = AgentWorkflowTest.class.getSimpleName();
+
+    @TestHTTPResource("/api/v4.1/targets")
+    URL targetsUrl;
+
+    @Test
+    void shouldDiscoverTarget() throws InterruptedException, TimeoutException, ExecutionException {
+        MatcherAssert.assertThat(target.agent(), Matchers.equalTo(true));
+        MatcherAssert.assertThat(target.alias(), Matchers.equalTo(AgentApplicationResource.ALIAS));
+        MatcherAssert.assertThat(target.connectUrl(), Matchers.startsWith("http"));
+        MatcherAssert.assertThat(target.jvmId(), Matchers.not(Matchers.blankOrNullString()));
+    }
+
+    @Test
+    void testListNoRecordings() {
+        given().log()
+                .all()
+                .pathParams("targetId", target.id())
+                .when()
+                .get("/api/v4/targets/{targetId}/recordings")
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(200)
+                .and()
+                .body("$.size()", Matchers.equalTo(0));
+    }
+
+    @Test
+    void testStartListAndDeleteRecording() {
+        var recordingId =
+                given().log()
+                        .all()
+                        .pathParams("targetId", target.id())
+                        .when()
+                        .formParam("recordingName", RECORDING_NAME)
+                        .formParam("events", CONTINUOUS_TEMPLATE)
+                        .formParam("duration", 10)
+                        .post("/api/v4/targets/{targetId}/recordings")
+                        .then()
+                        .log()
+                        .all()
+                        .and()
+                        .assertThat()
+                        .statusCode(201)
+                        .and()
+                        .body("name", Matchers.equalTo(RECORDING_NAME))
+                        .body("state", Matchers.equalTo("RUNNING"))
+                        .body("duration", Matchers.equalTo(10_000))
+                        .and()
+                        .extract()
+                        .jsonPath()
+                        .getLong("remoteId");
+
+        given().log()
+                .all()
+                .pathParams("targetId", target.id())
+                .when()
+                .get("/api/v4/targets/{targetId}/recordings")
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(200)
+                .and()
+                .body("$.size()", Matchers.equalTo(1))
+                .and()
+                .body("[0].name", Matchers.equalTo(RECORDING_NAME))
+                .body("[0].state", Matchers.equalTo("RUNNING"))
+                .body("[0].duration", Matchers.equalTo(10_000));
+
+        given().log()
+                .all()
+                .pathParams("targetId", target.id(), "recordingId", recordingId)
+                .when()
+                .delete("/api/v4/targets/{targetId}/recordings/{recordingId}")
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(204);
+
+        testListNoRecordings();
+    }
 
     @Test
     void testGetAgentTargetReport()
@@ -72,18 +166,15 @@ public class AgentTargetAnalysisIT extends AgentTestBase {
                                                 .all()
                                                 .and()
                                                 .assertThat()
-                                                // 202 Indicates report generation is in progress
-                                                // and sends an intermediate response.
                                                 .statusCode(202)
                                                 .contentType(ContentType.TEXT)
                                                 .body(Matchers.any(String.class))
                                                 .assertThat()
-                                                // Verify we get a location header from a 202.
                                                 .header(
                                                         "Location",
                                                         String.format(
-                                                                "http://localhost:8081/api/v4.1/targets/%d/reports",
-                                                                targetId))
+                                                                "%s/%d/reports",
+                                                                targetsUrl.toString(), targetId))
                                                 .and()
                                                 .extract()
                                                 .body()

@@ -95,19 +95,28 @@ public class ThreadDumpGraphQLTest extends AbstractGraphQLTestBase {
     @AfterEach
     void cleanupThreadDumps() {
         var variables = Map.<String, Object>of("targetIds", List.of(selfId));
-        given().basePath("/")
-                .body(Map.of("query", GRAPHQL_THREAD_DUMP_CLEANUP_QUERY, "variables", variables))
-                .contentType(ContentType.JSON)
-                .log()
-                .all()
-                .when()
-                .post("/api/v4/graphql")
-                .then()
-                .log()
-                .all()
-                .and()
-                .assertThat()
-                .statusCode(200);
+        Response cleanupResponse =
+                given().basePath("/")
+                        .body(
+                                Map.of(
+                                        "query",
+                                        GRAPHQL_THREAD_DUMP_CLEANUP_QUERY,
+                                        "variables",
+                                        variables))
+                        .contentType(ContentType.JSON)
+                        .log()
+                        .all()
+                        .when()
+                        .post("/api/v4/graphql")
+                        .then()
+                        .log()
+                        .all()
+                        .and()
+                        .assertThat()
+                        .statusCode(200)
+                        .extract()
+                        .response();
+        assertNoGraphQLErrors(cleanupResponse);
     }
 
     @Test
@@ -175,6 +184,7 @@ public class ThreadDumpGraphQLTest extends AbstractGraphQLTestBase {
                         .extract()
                         .response();
 
+        assertNoGraphQLErrors(response);
         webSocketClient.expectNotification("ThreadDumpSuccess", Duration.ofSeconds(15));
 
         assertThat(response.getStatusCode(), equalTo(200));
@@ -200,6 +210,7 @@ public class ThreadDumpGraphQLTest extends AbstractGraphQLTestBase {
                         .extract()
                         .response();
 
+        assertNoGraphQLErrors(response);
         webSocketClient.expectNotification("ThreadDumpSuccess", Duration.ofSeconds(15));
 
         assertThat(response.getStatusCode(), equalTo(200));
@@ -223,7 +234,7 @@ public class ThreadDumpGraphQLTest extends AbstractGraphQLTestBase {
                 "query",
                 String.format(
                         "mutation { deleteThreadDump (nodes: { annotations: [\"REALM = Custom"
-                                + " Targets\"]}, filter: { name: \"%s\"}) { name downloadUrl } }",
+                                + " Targets\"]}, filter: { name: \"%s\"}) { size } }",
                         retrievedThreadDumpId));
 
         Response deleteResponse =
@@ -236,6 +247,7 @@ public class ThreadDumpGraphQLTest extends AbstractGraphQLTestBase {
                         .extract()
                         .response();
 
+        assertNoGraphQLErrors(deleteResponse);
         assertThat(deleteResponse.getStatusCode(), equalTo(200));
     }
 }

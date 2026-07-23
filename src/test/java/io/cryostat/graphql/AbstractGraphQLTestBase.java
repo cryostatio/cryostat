@@ -58,23 +58,25 @@ public abstract class AbstractGraphQLTestBase extends AbstractTransactionalTestB
     }
 
     protected JsonPath graphql(String query) {
-        return given().log()
-                .all()
-                .when()
-                .basePath("")
-                .contentType(ContentType.JSON)
-                .body(Map.of("query", query))
-                .post("/api/v4/graphql")
-                .then()
-                .log()
-                .all()
-                .and()
-                .assertThat()
-                .statusCode(200)
-                .contentType(ContentType.JSON)
-                .extract()
-                .body()
-                .jsonPath();
+        Response response =
+                given().log()
+                        .all()
+                        .when()
+                        .basePath("")
+                        .contentType(ContentType.JSON)
+                        .body(Map.of("query", query))
+                        .post("/api/v4/graphql")
+                        .then()
+                        .log()
+                        .all()
+                        .and()
+                        .assertThat()
+                        .statusCode(200)
+                        .contentType(ContentType.JSON)
+                        .extract()
+                        .response();
+        assertNoGraphQLErrors(response);
+        return response.body().jsonPath();
     }
 
     /**
@@ -97,14 +99,16 @@ public abstract class AbstractGraphQLTestBase extends AbstractTransactionalTestB
                         name));
 
         // Trigger recording creation
-        given().contentType(ContentType.JSON)
-                .body(query.encode())
-                .when()
-                .post("/api/v4/graphql")
-                .then()
-                .statusCode(allOf(greaterThanOrEqualTo(200), lessThan(300)))
-                .extract()
-                .response();
+        Response createResponse =
+                given().contentType(ContentType.JSON)
+                        .body(query.encode())
+                        .when()
+                        .post("/api/v4/graphql")
+                        .then()
+                        .statusCode(allOf(greaterThanOrEqualTo(200), lessThan(300)))
+                        .extract()
+                        .response();
+        assertNoGraphQLErrors(createResponse);
 
         // wait for notification
         JsonObject notification =
@@ -128,14 +132,16 @@ public abstract class AbstractGraphQLTestBase extends AbstractTransactionalTestB
                     + " }");
 
         // Trigger recording stop
-        given().contentType(ContentType.JSON)
-                .body(query.encode())
-                .when()
-                .post("/api/v4/graphql")
-                .then()
-                .statusCode(allOf(greaterThanOrEqualTo(200), lessThan(300)))
-                .extract()
-                .response();
+        Response stopResponse =
+                given().contentType(ContentType.JSON)
+                        .body(query.encode())
+                        .when()
+                        .post("/api/v4/graphql")
+                        .then()
+                        .statusCode(allOf(greaterThanOrEqualTo(200), lessThan(300)))
+                        .extract()
+                        .response();
+        assertNoGraphQLErrors(stopResponse);
 
         // wait for notification
         JsonObject notification =
@@ -154,12 +160,16 @@ public abstract class AbstractGraphQLTestBase extends AbstractTransactionalTestB
                     + " count } } archived { data { name doDelete { name } } aggregate { count size"
                     + " } } } } } }");
 
-        given().contentType(ContentType.JSON)
-                .body(query.encode())
-                .when()
-                .post("/api/v4/graphql")
-                .then()
-                .statusCode(allOf(greaterThanOrEqualTo(200), lessThan(300)));
+        Response deleteResponse =
+                given().contentType(ContentType.JSON)
+                        .body(query.encode())
+                        .when()
+                        .post("/api/v4/graphql")
+                        .then()
+                        .statusCode(allOf(greaterThanOrEqualTo(200), lessThan(300)))
+                        .extract()
+                        .response();
+        assertNoGraphQLErrors(deleteResponse);
     }
 
     /**
@@ -182,14 +192,16 @@ public abstract class AbstractGraphQLTestBase extends AbstractTransactionalTestB
                         name, replace));
 
         // Trigger recording restart
-        given().contentType(ContentType.JSON)
-                .body(query.encode())
-                .when()
-                .post("/api/v4/graphql")
-                .then()
-                .statusCode(allOf(greaterThanOrEqualTo(200), lessThan(300)))
-                .extract()
-                .response();
+        Response restartResponse =
+                given().contentType(ContentType.JSON)
+                        .body(query.encode())
+                        .when()
+                        .post("/api/v4/graphql")
+                        .then()
+                        .statusCode(allOf(greaterThanOrEqualTo(200), lessThan(300)))
+                        .extract()
+                        .response();
+        assertNoGraphQLErrors(restartResponse);
 
         // wait for notification
         JsonObject notification =

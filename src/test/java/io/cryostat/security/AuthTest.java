@@ -63,6 +63,6 @@ public class AuthTest extends AbstractTransactionalTestBase {
                 .and()
                 .assertThat()
                 .statusCode(308)
-                .header("Location", "http://localhost:8081/oauth2/sign_out");
+                .header("Location", baseUrl.toString().replaceAll("/$", "") + "/oauth2/sign_out");
     }
 }

@@ -174,9 +174,7 @@ public abstract class AbstractReportsTest extends AbstractTransactionalTestBase 
                         // Verify we get a location header from a 202.
                         .header(
                                 "Location",
-                                String.format(
-                                        "http://localhost:8081/api/v4.1/targets/%d/reports",
-                                        selfId))
+                                String.format("%sapi/v4.1/targets/%d/reports", baseUrl, selfId))
                         .and()
                         .extract()
                         .body()
@@ -214,9 +212,7 @@ public abstract class AbstractReportsTest extends AbstractTransactionalTestBase 
                 // 202 Indicates report generation is in progress and sends an intermediate
                 // response.
                 // Verify we get a location header from a 202.
-                .header(
-                        "Location",
-                        "http://localhost:8081/api/v4/targets/" + selfId + "/reports/" + remoteId);
+                .header("Location", baseUrl + "api/v4/targets/" + selfId + "/reports/" + remoteId);
     }
 
     @Test
@@ -240,7 +236,7 @@ public abstract class AbstractReportsTest extends AbstractTransactionalTestBase 
                 // 202 Indicates report generation is in progress and sends an intermediate
                 // response.
                 // Verify we get a location header from a 202.
-                .header("Location", "http://localhost:8081" + reportUrl);
+                .header("Location", baseUrl.toString().replaceAll("/$", "") + reportUrl);
     }
 
     @Test
@@ -297,7 +293,7 @@ public abstract class AbstractReportsTest extends AbstractTransactionalTestBase 
                         // intermediate
                         // response.
                         // Verify we get a location header from a 202.
-                        .header("Location", "http://localhost:8081" + reportUrl)
+                        .header("Location", baseUrl.toString().replaceAll("/$", "") + reportUrl)
                         .and()
                         .extract()
                         .body()
