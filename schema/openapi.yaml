@@ -523,6 +523,8 @@ components:
           type: boolean
         hasLog:
           type: boolean
+        logFilePath:
+          type: string
         what:
           type: string
       type: object
