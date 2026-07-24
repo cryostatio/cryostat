@@ -106,6 +106,7 @@ public class DiagnosticsHelper {
     static final String HEAP_DUMP_METADATA = "HeapDumpMetadataUpdated";
     static final String GC_LOG_UPLOADED_NAME = "GcLogUploaded";
     static final String GC_LOG_DELETED_NAME = "GcLogDeleted";
+    static final String GC_LOG_METADATA = "GcLogMetadataUpdated";
     private static final String VM_LOG_OPERATION = "vmLog";
     private static final String DIAGNOSTIC_BEAN_NAME = "com.sun.management:type=DiagnosticCommand";
     private static final String HOTSPOT_DIAGNOSTIC_BEAN_NAME =
@@ -487,7 +488,8 @@ public class DiagnosticsHelper {
                         gcLogDownloadUrl(target.jvmId, filename),
                         filename,
                         clock.now().getEpochSecond(),
-                        size);
+                        size,
+                        Metadata.empty());
         var event =
                 new GcLogEvent(
                         EventCategory.GC_LOG_UPLOADED, GcLogEvent.Payload.of(target.jvmId, result));
@@ -540,7 +542,13 @@ public class DiagnosticsHelper {
                         EventCategory.GC_LOG_DELETED,
                         GcLogs.GcLogEvent.Payload.of(
                                 jvmId,
-                                new GcLog(jvmId, gcLogDownloadUrl(jvmId, gcLogId), gcLogId, 0, 0)));
+                                new GcLog(
+                                        jvmId,
+                                        gcLogDownloadUrl(jvmId, gcLogId),
+                                        gcLogId,
+                                        0,
+                                        0,
+                                        Metadata.empty())));
         bus.publish(
                 MessagingServer.class.getName(),
                 new Notification(event.category().category(), event.payload()));
@@ -806,6 +814,10 @@ public class DiagnosticsHelper {
         return getObjectMetadata(storageKey, heapDumpBucket);
     }
 
+    public Optional<Metadata> getGcLogMetadata(String storageKey) {
+        return getObjectMetadata(storageKey, gcLogBucket);
+    }
+
     // Labels Handling
     public Optional<Metadata> getObjectMetadata(String storageKey, String storageBucket) {
         try {
@@ -947,6 +959,8 @@ public class DiagnosticsHelper {
             case BUCKET:
                 if (storageBucket.equals(threadDumpBucket)) {
                     threadDumpsMetadataService.get().update(jvmId, identifier, updatedMetadata);
+                } else if (storageBucket.equals(gcLogBucket)) {
+                    gcLogsMetadataService.get().update(jvmId, identifier, updatedMetadata);
                 } else {
                     heapDumpsMetadataService.get().update(jvmId, identifier, updatedMetadata);
                 }
@@ -984,6 +998,34 @@ public class DiagnosticsHelper {
                 new Notification(event.category().category(), event.payload()));
 
         return updatedDump;
+    }
+
+    public GcLog updateGcLogMetadata(String jvmId, String gcLogId, Map<String, String> metadata)
+            throws IOException {
+        var response = assertObjectExists(jvmId, gcLogId, gcLogBucket);
+        Metadata updatedMetadata = updateMetadata(jvmId, gcLogId, metadata, gcLogBucket);
+
+        long size = response.contentLength();
+        long lastModified = response.lastModified().getEpochSecond();
+
+        GcLog updatedLog =
+                new GcLog(
+                        jvmId,
+                        gcLogDownloadUrl(jvmId, gcLogId),
+                        gcLogId,
+                        lastModified,
+                        size,
+                        updatedMetadata);
+
+        var event =
+                new GcLogs.GcLogEvent(
+                        EventCategory.GC_LOG_METADATA_UPDATED,
+                        GcLogs.GcLogEvent.Payload.of(jvmId, updatedLog));
+        bus.publish(
+                MessagingServer.class.getName(),
+                new Notification(event.category().category(), event.payload()));
+
+        return updatedLog;
     }
 
     public HeapDump updateHeapDumpMetadata(
@@ -1024,7 +1066,8 @@ public class DiagnosticsHelper {
         HEAP_DUMP_DELETED(HEAP_DUMP_DELETED_NAME),
         HEAP_DUMP_UPLOADED(HEAP_DUMP_UPLOADED_NAME),
         THREAD_DUMP_METADATA_UPDATED(THREAD_DUMP_METADATA),
-        HEAP_DUMP_METADATA_UPDATED(HEAP_DUMP_METADATA);
+        HEAP_DUMP_METADATA_UPDATED(HEAP_DUMP_METADATA),
+        GC_LOG_METADATA_UPDATED(GC_LOG_METADATA);
 
         private final String category;
 

@@ -34,6 +34,7 @@ import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
+import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
@@ -792,5 +793,396 @@ public class AgentGcLogTest extends AgentTestBase {
                 .assertThat()
                 .statusCode(200)
                 .body("$.size()", Matchers.equalTo(0));
+    }
+
+    // ── Metadata PATCH ────────────────────────────────────────────────────────────
+
+    @Test
+    void testPullGcLogUploadsToS3AndUpdatesSessionRowIncludesMetadata()
+            throws InterruptedException, ExecutionException, TimeoutException {
+        long targetId = target.id();
+
+        given().log()
+                .all()
+                .pathParam("targetId", targetId)
+                .when()
+                .post("/api/beta/diagnostics/targets/{targetId}/gclogging")
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(200);
+
+        triggerGcAndWait(targetId);
+
+        JsonObject pullResponse =
+                new JsonObject(
+                        given().log()
+                                .all()
+                                .pathParam("targetId", targetId)
+                                .when()
+                                .post("/api/beta/diagnostics/targets/{targetId}/gclogging/pull")
+                                .then()
+                                .log()
+                                .all()
+                                .and()
+                                .assertThat()
+                                .statusCode(200)
+                                .contentType(ContentType.JSON)
+                                .extract()
+                                .body()
+                                .asString());
+
+        assertThat(pullResponse.containsKey("metadata"), equalTo(true));
+        JsonArray labels = pullResponse.getJsonObject("metadata").getJsonArray("labels");
+        assertThat(labels, notNullValue());
+        assertThat(labels.size(), equalTo(0));
+
+        List<Map<String, Object>> gcLogs =
+                given().log()
+                        .all()
+                        .pathParam("targetId", targetId)
+                        .when()
+                        .get("/api/beta/diagnostics/targets/{targetId}/gclogs")
+                        .then()
+                        .log()
+                        .all()
+                        .and()
+                        .assertThat()
+                        .contentType(ContentType.JSON)
+                        .statusCode(200)
+                        .body("$.size()", Matchers.greaterThanOrEqualTo(1))
+                        .extract()
+                        .body()
+                        .jsonPath()
+                        .getList("$");
+
+        assertThat(gcLogs.get(0).containsKey("metadata"), equalTo(true));
+        List<?> listLabels = (List<?>) ((Map<?, ?>) gcLogs.get(0).get("metadata")).get("labels");
+        assertThat(listLabels, notNullValue());
+        assertThat(listLabels.size(), equalTo(0));
+    }
+
+    @Test
+    void testPatchGcLogMetadataReturnsUpdatedLabels()
+            throws InterruptedException, ExecutionException, TimeoutException {
+        long targetId = target.id();
+
+        given().log()
+                .all()
+                .pathParam("targetId", targetId)
+                .when()
+                .post("/api/beta/diagnostics/targets/{targetId}/gclogging")
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(200);
+
+        triggerGcAndWait(targetId);
+
+        String gcLogId =
+                new JsonObject(
+                                given().log()
+                                        .all()
+                                        .pathParam("targetId", targetId)
+                                        .when()
+                                        .post(
+                                                "/api/beta/diagnostics/targets/{targetId}/gclogging/pull")
+                                        .then()
+                                        .log()
+                                        .all()
+                                        .and()
+                                        .assertThat()
+                                        .statusCode(200)
+                                        .extract()
+                                        .body()
+                                        .asString())
+                        .getString("gcLogId");
+
+        JsonObject patchResponse =
+                new JsonObject(
+                        given().log()
+                                .all()
+                                .pathParams("targetId", targetId, "gcLogId", gcLogId)
+                                .contentType(ContentType.JSON)
+                                .body("{\"labels\":{\"env\":\"prod\"}}")
+                                .when()
+                                .patch("/api/beta/diagnostics/targets/{targetId}/gclogs/{gcLogId}")
+                                .then()
+                                .log()
+                                .all()
+                                .and()
+                                .assertThat()
+                                .statusCode(200)
+                                .contentType(ContentType.JSON)
+                                .extract()
+                                .body()
+                                .asString());
+
+        assertThat(patchResponse.getString("gcLogId"), equalTo(gcLogId));
+        JsonArray labels = patchResponse.getJsonObject("metadata").getJsonArray("labels");
+        assertThat(labels, notNullValue());
+        assertThat(labels.size(), equalTo(1));
+        assertThat(labels.getJsonObject(0).getString("key"), equalTo("env"));
+        assertThat(labels.getJsonObject(0).getString("value"), equalTo("prod"));
+    }
+
+    @Test
+    void testPatchFsGcLogMetadataReturnsUpdatedLabels()
+            throws InterruptedException, ExecutionException, TimeoutException {
+        long targetId = target.id();
+
+        given().log()
+                .all()
+                .pathParam("targetId", targetId)
+                .when()
+                .post("/api/beta/diagnostics/targets/{targetId}/gclogging")
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(200);
+
+        triggerGcAndWait(targetId);
+
+        given().log()
+                .all()
+                .pathParam("targetId", targetId)
+                .when()
+                .post("/api/beta/diagnostics/targets/{targetId}/gclogging/pull")
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(200);
+
+        List<Map<String, Object>> gcLogs =
+                given().log()
+                        .all()
+                        .pathParam("targetId", targetId)
+                        .when()
+                        .get("/api/beta/diagnostics/targets/{targetId}/gclogs")
+                        .then()
+                        .log()
+                        .all()
+                        .and()
+                        .assertThat()
+                        .statusCode(200)
+                        .extract()
+                        .body()
+                        .jsonPath()
+                        .getList("$");
+
+        assertThat(gcLogs, hasSize(greaterThanOrEqualTo(1)));
+        String gcLogId = (String) gcLogs.get(0).get("gcLogId");
+
+        JsonObject patchResponse =
+                new JsonObject(
+                        given().log()
+                                .all()
+                                .pathParams("jvmId", target.jvmId(), "gcLogId", gcLogId)
+                                .contentType(ContentType.JSON)
+                                .body("{\"labels\":{\"env\":\"staging\"}}")
+                                .when()
+                                .patch("/api/beta/diagnostics/fs/gclogs/{jvmId}/{gcLogId}")
+                                .then()
+                                .log()
+                                .all()
+                                .and()
+                                .assertThat()
+                                .statusCode(200)
+                                .contentType(ContentType.JSON)
+                                .extract()
+                                .body()
+                                .asString());
+
+        assertThat(patchResponse.getString("gcLogId"), equalTo(gcLogId));
+        JsonArray labels = patchResponse.getJsonObject("metadata").getJsonArray("labels");
+        assertThat(labels, notNullValue());
+        assertThat(labels.size(), equalTo(1));
+        assertThat(labels.getJsonObject(0).getString("key"), equalTo("env"));
+        assertThat(labels.getJsonObject(0).getString("value"), equalTo("staging"));
+    }
+
+    @Test
+    void testPatchGcLogMetadataIsPersisted()
+            throws InterruptedException, ExecutionException, TimeoutException {
+        long targetId = target.id();
+
+        given().log()
+                .all()
+                .pathParam("targetId", targetId)
+                .when()
+                .post("/api/beta/diagnostics/targets/{targetId}/gclogging")
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(200);
+
+        triggerGcAndWait(targetId);
+
+        String gcLogId =
+                new JsonObject(
+                                given().log()
+                                        .all()
+                                        .pathParam("targetId", targetId)
+                                        .when()
+                                        .post(
+                                                "/api/beta/diagnostics/targets/{targetId}/gclogging/pull")
+                                        .then()
+                                        .log()
+                                        .all()
+                                        .and()
+                                        .assertThat()
+                                        .statusCode(200)
+                                        .extract()
+                                        .body()
+                                        .asString())
+                        .getString("gcLogId");
+
+        given().log()
+                .all()
+                .pathParams("targetId", targetId, "gcLogId", gcLogId)
+                .contentType(ContentType.JSON)
+                .body("{\"labels\":{\"env\":\"prod\"}}")
+                .when()
+                .patch("/api/beta/diagnostics/targets/{targetId}/gclogs/{gcLogId}")
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(200);
+
+        List<Map<String, Object>> gcLogs =
+                given().log()
+                        .all()
+                        .pathParam("targetId", targetId)
+                        .when()
+                        .get("/api/beta/diagnostics/targets/{targetId}/gclogs")
+                        .then()
+                        .log()
+                        .all()
+                        .and()
+                        .assertThat()
+                        .contentType(ContentType.JSON)
+                        .statusCode(200)
+                        .body("$.size()", Matchers.greaterThanOrEqualTo(1))
+                        .extract()
+                        .body()
+                        .jsonPath()
+                        .getList("$");
+
+        Map<?, ?> found =
+                gcLogs.stream()
+                        .filter(m -> gcLogId.equals(m.get("gcLogId")))
+                        .map(m -> (Map<?, ?>) m)
+                        .findFirst()
+                        .orElse(null);
+        assertThat("Expected to find the patched gc log in list", found, notNullValue());
+        @SuppressWarnings("unchecked")
+        List<Map<String, String>> persistedLabels =
+                (List<Map<String, String>>) ((Map<?, ?>) found.get("metadata")).get("labels");
+        assertThat(persistedLabels, notNullValue());
+        assertThat(persistedLabels.size(), equalTo(1));
+        assertThat(persistedLabels.get(0).get("key"), equalTo("env"));
+        assertThat(persistedLabels.get(0).get("value"), equalTo("prod"));
+    }
+
+    @Test
+    void testPatchGcLogMetadataNotFoundReturns404()
+            throws InterruptedException, ExecutionException, TimeoutException {
+        long targetId = target.id();
+
+        given().log()
+                .all()
+                .pathParam("targetId", targetId)
+                .when()
+                .post("/api/beta/diagnostics/targets/{targetId}/gclogging")
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(200);
+
+        given().log()
+                .all()
+                .pathParams("targetId", targetId, "gcLogId", "nonexistent-gc-log-id.gclog")
+                .contentType(ContentType.JSON)
+                .body("{\"labels\":{\"env\":\"prod\"}}")
+                .when()
+                .patch("/api/beta/diagnostics/targets/{targetId}/gclogs/{gcLogId}")
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(404);
+    }
+
+    @Test
+    void testPatchGcLogMetadataNotificationPublished()
+            throws InterruptedException, ExecutionException, TimeoutException {
+        long targetId = target.id();
+
+        given().log()
+                .all()
+                .pathParam("targetId", targetId)
+                .when()
+                .post("/api/beta/diagnostics/targets/{targetId}/gclogging")
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(200);
+
+        triggerGcAndWait(targetId);
+
+        String gcLogId =
+                new JsonObject(
+                                given().log()
+                                        .all()
+                                        .pathParam("targetId", targetId)
+                                        .when()
+                                        .post(
+                                                "/api/beta/diagnostics/targets/{targetId}/gclogging/pull")
+                                        .then()
+                                        .log()
+                                        .all()
+                                        .and()
+                                        .assertThat()
+                                        .statusCode(200)
+                                        .extract()
+                                        .body()
+                                        .asString())
+                        .getString("gcLogId");
+
+        given().log()
+                .all()
+                .pathParams("targetId", targetId, "gcLogId", gcLogId)
+                .contentType(ContentType.JSON)
+                .body("{\"labels\":{\"env\":\"prod\"}}")
+                .when()
+                .patch("/api/beta/diagnostics/targets/{targetId}/gclogs/{gcLogId}")
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(200);
+
+        webSocketClient.expectNotification(
+                "GcLogMetadataUpdated",
+                Duration.ofMinutes(2),
+                o -> target.jvmId().equals(o.getJsonObject("message").getString("jvmId")));
     }
 }

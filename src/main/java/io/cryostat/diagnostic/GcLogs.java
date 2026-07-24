@@ -22,11 +22,13 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.regex.Pattern;
 
 import io.cryostat.ConfigProperties;
+import io.cryostat.recordings.ActiveRecordings.Metadata;
 import io.cryostat.targets.AgentClient;
 import io.cryostat.targets.Target;
 import io.cryostat.util.HttpMimeType;
@@ -38,6 +40,7 @@ import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.ClientErrorException;
+import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.DefaultValue;
 import jakarta.ws.rs.GET;
@@ -120,7 +123,7 @@ public class GcLogs {
                             });
             throw e;
         }
-        return new GcLog(target.jvmId, null, null, session.enabledAt / 1000, 0);
+        return new GcLog(target.jvmId, null, null, session.enabledAt / 1000, 0, Metadata.empty());
     }
 
     @Path("targets/{targetId}/gclogging")
@@ -154,7 +157,8 @@ public class GcLogs {
                                             });
                         });
         helper.reconfigureGcLogging(target, what, decorators);
-        return new GcLog(target.jvmId, null, null, System.currentTimeMillis() / 1000, 0);
+        return new GcLog(
+                target.jvmId, null, null, System.currentTimeMillis() / 1000, 0, Metadata.empty());
     }
 
     @Path("targets/{targetId}/gclogging")
@@ -238,12 +242,16 @@ public class GcLogs {
                         item -> {
                             String[] parts = item.key().strip().split("/");
                             String filename = parts[1];
+                            String storageKey = DiagnosticsHelper.storageKey(jvmId, filename);
+                            Metadata metadata =
+                                    helper.getGcLogMetadata(storageKey).orElse(Metadata.empty());
                             return new GcLog(
                                     jvmId,
                                     helper.gcLogDownloadUrl(jvmId, filename),
                                     filename,
                                     item.lastModified().getEpochSecond(),
-                                    item.size());
+                                    item.size(),
+                                    metadata);
                         })
                 .toList();
     }
@@ -294,6 +302,9 @@ public class GcLogs {
                                             id ->
                                                     new ArchivedGcLogDirectory(
                                                             id, new ArrayList<>()));
+                            String storageKey = DiagnosticsHelper.storageKey(jvmId, filename);
+                            Metadata metadata =
+                                    helper.getGcLogMetadata(storageKey).orElse(Metadata.empty());
                             dir.gcLogs()
                                     .add(
                                             new GcLog(
@@ -301,7 +312,8 @@ public class GcLogs {
                                                     helper.gcLogDownloadUrl(jvmId, filename),
                                                     filename,
                                                     item.lastModified().getEpochSecond(),
-                                                    item.size()));
+                                                    item.size(),
+                                                    metadata));
                         });
         return map.values();
     }
@@ -312,6 +324,28 @@ public class GcLogs {
     @DELETE
     public void deleteGcLogByPath(@RestPath String jvmId, @RestPath String gcLogId) {
         helper.deleteGcLog(jvmId, gcLogId);
+    }
+
+    @Path("targets/{targetId}/gclogs/{gcLogId}")
+    @RolesAllowed("write")
+    @Blocking
+    @PATCH
+    @Consumes("application/json")
+    public GcLog patchGcLogMetadata(
+            @RestPath long targetId, @RestPath String gcLogId, MetadataBody body) throws Exception {
+        String jvmId =
+                QuarkusTransaction.requiringNew().call(() -> Target.getTargetById(targetId).jvmId);
+        return helper.updateGcLogMetadata(jvmId, gcLogId, body.labels());
+    }
+
+    @Path("fs/gclogs/{jvmId}/{gcLogId}")
+    @RolesAllowed("write")
+    @Blocking
+    @PATCH
+    @Consumes("application/json")
+    public GcLog patchFsGcLogMetadata(
+            @RestPath String jvmId, @RestPath String gcLogId, MetadataBody body) throws Exception {
+        return helper.updateGcLogMetadata(jvmId, gcLogId, body.labels());
     }
 
     @Path("/gclog/download/{encodedKey}")
@@ -374,6 +408,12 @@ public class GcLogs {
                 .build();
     }
 
+    public record MetadataBody(Map<String, String> labels) {
+        public MetadataBody {
+            Objects.requireNonNull(labels);
+        }
+    }
+
     private static void validateGcLoggingParams(String what, String decorators) {
         if (!SAFE_PARAM_PATTERN.matcher(what).matches()
                 || !SAFE_PARAM_PATTERN.matcher(decorators).matches()) {
@@ -392,9 +432,15 @@ public class GcLogs {
     }
 
     public record GcLog(
-            String jvmId, String downloadUrl, String gcLogId, long lastModified, long size) {
+            String jvmId,
+            String downloadUrl,
+            String gcLogId,
+            long lastModified,
+            long size,
+            Metadata metadata) {
         public GcLog {
             Objects.requireNonNull(jvmId);
+            Objects.requireNonNull(metadata);
         }
     }
 
