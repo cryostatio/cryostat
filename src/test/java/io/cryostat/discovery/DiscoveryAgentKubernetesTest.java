@@ -66,8 +66,8 @@ public class DiscoveryAgentKubernetesTest extends AbstractTransactionalTestBase 
         // cryostatio/cryostat#1604, KUBERNETES strategy (operator-injected Agents): re-registration
         // with an unchanged node set must preserve the Target, not recreate it.
         var realmName = "agent_k8s_identity_realm";
-        var callback = "http://localhost:8081/health/liveness";
-        var connectUrl = URI.create("http://localhost:8081");
+        var callback = baseUrl + "health/liveness";
+        URI connectUrl = URI.create(baseUrl.toString());
         var target = new Target(connectUrl, "k8s-agent");
         var node = new Node("k8s-agent", NodeType.BaseNodeType.AGENT.getKind(), target);
         var requestBody =

@@ -26,26 +26,18 @@ import java.util.List;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.quarkus.test.junit.QuarkusIntegrationTest;
-import io.restassured.RestAssured;
 import io.restassured.response.Response;
 import io.vertx.core.json.JsonArray;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
 @QuarkusIntegrationTest
 public class PresetRulesIT {
-    static final String[] RULE_NAMES = new String[] {"quarkus", "hibernate", "continuous_analysis"};
 
-    @BeforeAll
-    static void configureRestAssured() {
-        int port = Integer.parseInt(System.getenv().getOrDefault("QUARKUS_HTTP_PORT", "8081"));
-        RestAssured.baseURI = "http://localhost";
-        RestAssured.port = port;
-    }
+    static final String[] RULE_NAMES = new String[] {"quarkus", "hibernate", "continuous_analysis"};
 
     @Test
     public void shouldListPresetRules() throws Exception {

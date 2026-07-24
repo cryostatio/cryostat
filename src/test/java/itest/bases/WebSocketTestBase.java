@@ -17,8 +17,11 @@ package itest.bases;
 
 import java.io.IOException;
 import java.net.URI;
+import java.net.URISyntaxException;
+import java.net.URL;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 import io.cryostat.util.WebSocketTestClient;
@@ -27,16 +30,16 @@ import com.fasterxml.jackson.annotation.JsonAutoDetect.Visibility;
 import com.fasterxml.jackson.annotation.PropertyAccessor;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.restassured.RestAssured;
+import io.quarkus.test.common.http.TestHTTPResource;
 import jakarta.websocket.DeploymentException;
 import org.jboss.logging.Logger;
 import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 
 public abstract class WebSocketTestBase {
 
-    protected static final ExecutorService WORKER = Executors.newCachedThreadPool();
+    protected static volatile ExecutorService WORKER = Executors.newCachedThreadPool();
     public static final Logger logger = Logger.getLogger(WebSocketTestBase.class);
     public static final ObjectMapper mapper;
     public static final int REQUEST_TIMEOUT_SECONDS = 30;
@@ -48,22 +51,20 @@ public abstract class WebSocketTestBase {
                         .setVisibility(PropertyAccessor.ALL, Visibility.ANY);
     }
 
-    protected static WebSocketTestClient webSocketClient;
+    @TestHTTPResource("/api/notifications")
+    URL notificationsUrl;
 
-    @BeforeAll
-    static void setupTestBase()
-            throws IOException, DeploymentException, TimeoutException, InterruptedException {
-        // Integration tests don't have Quarkus injection, so construct URI from environment
-        int port = Integer.parseInt(System.getenv().getOrDefault("QUARKUS_HTTP_PORT", "8081"));
-        RestAssured.baseURI = "http://localhost";
-        RestAssured.port = port;
+    protected WebSocketTestClient webSocketClient;
 
-        webSocketClient =
-                new WebSocketTestClient(
-                        () ->
-                                URI.create(
-                                        String.format(
-                                                "ws://localhost:%d/api/notifications", port)));
+    @BeforeEach
+    void setupTestBase()
+            throws IOException,
+                    DeploymentException,
+                    URISyntaxException,
+                    TimeoutException,
+                    InterruptedException {
+        URI notificationsUri = notificationsUrl.toURI();
+        webSocketClient = new WebSocketTestClient(() -> notificationsUri);
         if (!webSocketClient.isConnected()) {
             webSocketClient.connect();
         }
@@ -72,13 +73,22 @@ public abstract class WebSocketTestBase {
 
     @BeforeEach
     void clearWebSocketNotifications() {
-        webSocketClient.clearMessages();
+        if (webSocketClient != null) {
+            webSocketClient.clearMessages();
+        }
     }
 
-    @AfterAll
-    static void tearDownWebSocketClient() throws IOException {
+    @AfterEach
+    void tearDownWebSocketClient() throws IOException {
         if (webSocketClient != null) {
             webSocketClient.disconnect();
         }
+    }
+
+    @AfterAll
+    static void shutDownWorker() throws InterruptedException {
+        WORKER.shutdownNow();
+        WORKER.awaitTermination(10, TimeUnit.SECONDS);
+        WORKER = Executors.newCachedThreadPool();
     }
 }

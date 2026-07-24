@@ -1088,8 +1088,6 @@ components:
                   serviceRef:
                     type: object
                     properties:
-                      id:
-                        type: integer
                       connectUrl:
                         type: object
                         description: Payload of type URI
@@ -1109,8 +1107,6 @@ components:
                           cryostat:
                             type: object
                             additionalProperties: true
-                      agent:
-                        type: boolean
                   jvmId:
                     type: string
         required:
