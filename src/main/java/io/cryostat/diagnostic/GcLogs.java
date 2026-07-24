@@ -175,17 +175,6 @@ public class GcLogs {
                                                 .<io.cryostat.diagnostic.GcLog>find(
                                                         "target", target)
                                                 .firstResult());
-        if (session != null) {
-            QuarkusTransaction.requiringNew()
-                    .run(
-                            () -> {
-                                io.cryostat.diagnostic.GcLog s =
-                                        io.cryostat.diagnostic.GcLog.findById(session.id);
-                                if (s != null) {
-                                    s.persist();
-                                }
-                            });
-        }
         helper.disableGcLogging(target);
         if (session != null) {
             QuarkusTransaction.requiringNew()
@@ -234,20 +223,7 @@ public class GcLogs {
         if (result.isEmpty()) {
             return RestResponse.noContent();
         }
-        GcLog gcLog = result.get();
-        QuarkusTransaction.requiringNew()
-                .run(
-                        () -> {
-                            io.cryostat.diagnostic.GcLog.<io.cryostat.diagnostic.GcLog>find(
-                                            "target", target)
-                                    .firstResultOptional()
-                                    .ifPresent(
-                                            s -> {
-                                                s.markPulled(gcLog.gcLogId(), gcLog.size());
-                                                s.persist();
-                                            });
-                        });
-        return RestResponse.ok(gcLog);
+        return RestResponse.ok(result.get());
     }
 
     @Path("targets/{targetId}/gclogs")

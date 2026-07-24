@@ -199,10 +199,8 @@ public class GcLogTest extends AuditTestBase {
         Assertions.assertEquals(GcLog.Status.ACTIVE, session.status);
         Assertions.assertEquals("gc", session.what);
         Assertions.assertEquals("time,level", session.decorators);
-        Assertions.assertNull(session.filename);
         Assertions.assertTrue(session.enabledAt >= before);
         Assertions.assertTrue(session.enabledAt <= after);
-        Assertions.assertNull(session.lastModifiedAt);
     }
 
     @Test
@@ -220,12 +218,12 @@ public class GcLogTest extends AuditTestBase {
                                     return session.id;
                                 });
 
-        // Touch the row once (simulating markPulled) so we get an UPDATE revision.
+        // Touch the row once so we get an UPDATE revision.
         QuarkusTransaction.requiringNew()
                 .run(
                         () -> {
                             GcLog session = GcLog.findById(sessionId);
-                            session.markPulled("somefile.gclog", 1024L);
+                            session.markReconfigured("gc,heap", "time,level,tags");
                             session.persist();
                         });
 
@@ -247,23 +245,6 @@ public class GcLogTest extends AuditTestBase {
         Assertions.assertTrue(
                 revisions.size() >= 3,
                 "GcLog_AUD should have at least 3 revisions (INSERT + UPDATE + DELETE)");
-    }
-
-    @Test
-    @Transactional
-    public void testGcLogSessionRowUnchangedAfterNoPull() {
-        int targetId = defineSelfCustomTarget();
-        Target target = Target.getTargetById(targetId);
-
-        GcLog session = GcLog.enable(target, "gc", "time,level");
-        session.persist();
-
-        // Simulate the no-content path: markPulled is never called.
-        // The session row must remain in its initial ACTIVE state.
-        Assertions.assertNull(session.filename);
-        Assertions.assertNull(session.size);
-        Assertions.assertNull(session.lastModifiedAt);
-        Assertions.assertEquals(GcLog.Status.ACTIVE, session.status);
     }
 
     @Test

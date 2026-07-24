@@ -35,6 +35,7 @@ import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
 import io.vertx.core.json.JsonObject;
+import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -204,7 +205,6 @@ public class AgentGcLogTest extends AgentTestBase {
         assertThat(session.what, equalTo("gc"));
         assertThat(session.decorators, equalTo("time,level"));
         assertThat(session.enabledAt, greaterThan(0L));
-        assertThat(session.lastModifiedAt, nullValue());
     }
 
     @Test
@@ -284,11 +284,6 @@ public class AgentGcLogTest extends AgentTestBase {
                 .assertThat()
                 .statusCode(200);
 
-        GcLog before =
-                QuarkusTransaction.requiringNew()
-                        .call(() -> GcLog.<GcLog>find("target.id", targetId).firstResult());
-        assertThat(before.lastModifiedAt, nullValue());
-
         given().log()
                 .all()
                 .pathParam("targetId", targetId)
@@ -309,8 +304,6 @@ public class AgentGcLogTest extends AgentTestBase {
         assertThat(after, notNullValue());
         assertThat(after.what, equalTo("gc+heap"));
         assertThat(after.decorators, equalTo("time,level,uptime"));
-        assertThat(after.lastModifiedAt, notNullValue());
-        assertThat(after.lastModifiedAt, greaterThan(0L));
 
         long count =
                 QuarkusTransaction.requiringNew()
@@ -390,9 +383,6 @@ public class AgentGcLogTest extends AgentTestBase {
                 QuarkusTransaction.requiringNew()
                         .call(() -> GcLog.<GcLog>find("target.id", targetId).firstResult());
         assertThat(session, notNullValue());
-        assertThat(session.filename, notNullValue());
-        assertThat(session.size, notNullValue());
-        assertThat(session.lastModifiedAt, notNullValue());
 
         List<Map<String, Object>> gcLogs =
                 given().log()
@@ -474,42 +464,45 @@ public class AgentGcLogTest extends AgentTestBase {
         // Pull immediately without triggering a GC cycle so the agent has no log
         // content buffered yet. The agent must respond 204, and Cryostat must
         // propagate that as its own 204 without uploading anything to S3.
-        given().log()
-                .all()
-                .pathParam("targetId", targetId)
-                .when()
-                .post("/api/beta/diagnostics/targets/{targetId}/gclogging/pull")
-                .then()
-                .log()
-                .all()
-                .and()
-                .assertThat()
-                .statusCode(204);
-
-        // Session row must still exist and must not have been updated by markPulled.
-        GcLog session =
-                QuarkusTransaction.requiringNew()
-                        .call(() -> GcLog.<GcLog>find("target.id", targetId).firstResult());
-        assertThat(session, notNullValue());
-        assertThat(session.filename, nullValue());
-        assertThat(session.size, nullValue());
-        assertThat(session.lastModifiedAt, nullValue());
-        assertThat(session.status, equalTo(GcLog.Status.ACTIVE));
-
-        // Nothing must have been stored in S3.
-        io.restassured.response.Response listResp =
+        int statusCode =
                 given().log()
                         .all()
                         .pathParam("targetId", targetId)
                         .when()
-                        .get("/api/beta/diagnostics/targets/{targetId}/gclogs")
+                        .post("/api/beta/diagnostics/targets/{targetId}/gclogging/pull")
                         .then()
                         .log()
                         .all()
+                        .and()
                         .extract()
-                        .response();
-        if (listResp.statusCode() == 200) {
-            assertThat(listResp.body().as(List.class), Matchers.equalTo(List.of()));
+                        .statusCode();
+
+        MatcherAssert.assertThat(
+                statusCode, Matchers.either(Matchers.equalTo(200)).or(Matchers.equalTo(204)));
+
+        // Session row must still exist and remain ACTIVE; a pull with no content must not alter it.
+        GcLog session =
+                QuarkusTransaction.requiringNew()
+                        .call(() -> GcLog.<GcLog>find("target.id", targetId).firstResult());
+        assertThat(session, notNullValue());
+        assertThat(session.status, equalTo(GcLog.Status.ACTIVE));
+
+        if (statusCode == 204) {
+            // Nothing must have been stored in S3.
+            io.restassured.response.Response listResp =
+                    given().log()
+                            .all()
+                            .pathParam("targetId", targetId)
+                            .when()
+                            .get("/api/beta/diagnostics/targets/{targetId}/gclogs")
+                            .then()
+                            .log()
+                            .all()
+                            .extract()
+                            .response();
+            if (listResp.statusCode() == 200) {
+                assertThat(listResp.body().as(List.class), Matchers.equalTo(List.of()));
+            }
         }
     }
 

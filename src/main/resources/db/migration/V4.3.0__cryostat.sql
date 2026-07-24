@@ -5,11 +5,8 @@ CREATE TABLE GcLog (
     target_id      BIGINT NOT NULL,
     what           text            CHECK (char_length(what) < 255),
     decorators     text            CHECK (char_length(decorators) < 255),
-    filename       text            CHECK (char_length(filename) < 255),
     status         text   NOT NULL CHECK (char_length(status) < 20),
     enabledAt      BIGINT NOT NULL,
-    lastModifiedAt BIGINT,
-    size           BIGINT,
     PRIMARY KEY (id),
     CONSTRAINT uk_gclog_target UNIQUE (target_id),
     CONSTRAINT fk_gclog_target FOREIGN KEY (target_id)
@@ -25,11 +22,8 @@ CREATE TABLE GcLog_AUD (
     target_id      BIGINT,
     what           text   CHECK (char_length(what) < 255),
     decorators     text   CHECK (char_length(decorators) < 255),
-    filename       text   CHECK (char_length(filename) < 255),
     status         text   CHECK (char_length(status) < 20),
     enabledAt      BIGINT,
-    lastModifiedAt BIGINT,
-    size           BIGINT,
     PRIMARY KEY (id, REV),
     FOREIGN KEY (REV)    REFERENCES REVINFO (REV),
     FOREIGN KEY (REVEND) REFERENCES REVINFO (REV)

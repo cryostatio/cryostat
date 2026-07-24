@@ -33,7 +33,7 @@ import org.hibernate.envers.Audited;
 /**
  * Represents an active GC logging session on a remote target JVM. One row exists per target while
  * GC logging is enabled; the row is deleted when GC logging is disabled. The full session lifecycle
- * (enable → reconfigure → pull(s) → disable) is preserved in {@code GcLog_AUD} via Envers.
+ * (enable → reconfigure → disable) is preserved in {@code GcLog_AUD} via Envers.
  */
 @Audited
 @Entity
@@ -49,17 +49,11 @@ public class GcLog extends PanacheEntity {
 
     @Column public String decorators;
 
-    @Column public String filename;
-
     @NotNull
     @Enumerated(EnumType.STRING)
     public Status status;
 
     @NotNull public long enabledAt;
-
-    @Column public Long lastModifiedAt;
-
-    @Column public Long size;
 
     public enum Status {
         ACTIVE,
@@ -79,17 +73,9 @@ public class GcLog extends PanacheEntity {
     public void markReconfigured(String what, String decorators) {
         this.what = what;
         this.decorators = decorators;
-        this.lastModifiedAt = System.currentTimeMillis();
-    }
-
-    public void markPulled(String filename, long size) {
-        this.filename = filename;
-        this.size = size;
-        this.lastModifiedAt = System.currentTimeMillis();
     }
 
     public void markFailed() {
         this.status = Status.FAILED;
-        this.lastModifiedAt = System.currentTimeMillis();
     }
 }
