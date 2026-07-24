@@ -90,11 +90,9 @@ public class AgentGcLogTest extends AgentTestBase {
         // call above returned.
         QuarkusTransaction.requiringNew().run(() -> GcLog.delete("target.id", target.id()));
 
-        // Delete any pulled GC log files from S3. GET /gclogs can return a non-2xx
-        // (e.g. 502 NoSuchBucketException) when the bucket was never created, so
-        // guard with a try/catch and skip the delete loop in that case.
+        // Delete any pulled GC log files from S3.
         try {
-            io.restassured.response.Response listResp =
+            List<Map<String, Object>> gcLogs =
                     given().log()
                             .all()
                             .pathParam("targetId", target.id())
@@ -103,22 +101,22 @@ public class AgentGcLogTest extends AgentTestBase {
                             .then()
                             .log()
                             .all()
+                            .assertThat()
+                            .statusCode(200)
                             .extract()
-                            .response();
-
-            if (listResp.statusCode() == 200) {
-                List<Map<String, Object>> gcLogs = listResp.body().jsonPath().getList("$");
-                for (Map<String, Object> entry : gcLogs) {
-                    String gcLogId = (String) entry.get("gcLogId");
-                    given().log()
-                            .all()
-                            .pathParams("targetId", target.id(), "gcLogId", gcLogId)
-                            .when()
-                            .delete("/api/beta/diagnostics/targets/{targetId}/gclogs/{gcLogId}")
-                            .then()
-                            .log()
-                            .all();
-                }
+                            .body()
+                            .jsonPath()
+                            .getList("$");
+            for (Map<String, Object> entry : gcLogs) {
+                String gcLogId = (String) entry.get("gcLogId");
+                given().log()
+                        .all()
+                        .pathParams("targetId", target.id(), "gcLogId", gcLogId)
+                        .when()
+                        .delete("/api/beta/diagnostics/targets/{targetId}/gclogs/{gcLogId}")
+                        .then()
+                        .log()
+                        .all();
             }
         } catch (Exception ignored) {
         }
@@ -128,25 +126,18 @@ public class AgentGcLogTest extends AgentTestBase {
 
     @Test
     void testListGcLogsInitiallyEmpty() {
-        io.restassured.response.Response resp =
-                given().log()
-                        .all()
-                        .pathParam("targetId", target.id())
-                        .when()
-                        .get("/api/beta/diagnostics/targets/{targetId}/gclogs")
-                        .then()
-                        .log()
-                        .all()
-                        .extract()
-                        .response();
-
-        // 200 with empty list, or 502 if the gclogs S3 bucket has not been created yet —
-        // both are valid "no GC logs" states for a freshly started agent target.
-        if (resp.statusCode() == 200) {
-            assertThat(resp.body().as(List.class), Matchers.equalTo(List.of()));
-        } else {
-            assertThat(resp.statusCode(), equalTo(502));
-        }
+        given().log()
+                .all()
+                .pathParam("targetId", target.id())
+                .when()
+                .get("/api/beta/diagnostics/targets/{targetId}/gclogs")
+                .then()
+                .log()
+                .all()
+                .assertThat()
+                .statusCode(200)
+                .contentType(ContentType.JSON)
+                .body("$", Matchers.equalTo(List.of()));
     }
 
     @Test
@@ -489,20 +480,17 @@ public class AgentGcLogTest extends AgentTestBase {
 
         if (statusCode == 204) {
             // Nothing must have been stored in S3.
-            io.restassured.response.Response listResp =
-                    given().log()
-                            .all()
-                            .pathParam("targetId", targetId)
-                            .when()
-                            .get("/api/beta/diagnostics/targets/{targetId}/gclogs")
-                            .then()
-                            .log()
-                            .all()
-                            .extract()
-                            .response();
-            if (listResp.statusCode() == 200) {
-                assertThat(listResp.body().as(List.class), Matchers.equalTo(List.of()));
-            }
+            given().log()
+                    .all()
+                    .pathParam("targetId", targetId)
+                    .when()
+                    .get("/api/beta/diagnostics/targets/{targetId}/gclogs")
+                    .then()
+                    .log()
+                    .all()
+                    .assertThat()
+                    .statusCode(200)
+                    .body("$", Matchers.equalTo(List.of()));
         }
     }
 
