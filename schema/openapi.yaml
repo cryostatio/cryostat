@@ -511,6 +511,8 @@ components:
         lastModified:
           format: int64
           type: integer
+        metadata:
+          $ref: '#/components/schemas/Metadata'
         size:
           format: int64
           type: integer
@@ -669,6 +671,13 @@ components:
           type: array
       type: object
     Metadata:
+      properties:
+        labels:
+          additionalProperties:
+            type: string
+          type: object
+      type: object
+    MetadataBody:
       properties:
         labels:
           additionalProperties:
@@ -1304,6 +1313,34 @@ paths:
       summary: Delete Gc Log By Path
       tags:
         - Gc Logs
+    patch:
+      parameters:
+        - in: path
+          name: gcLogId
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: jvmId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MetadataBody'
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GcLog'
+          description: OK
+      summary: Patch Fs Gc Log Metadata
+      tags:
+        - Gc Logs
   /api/beta/diagnostics/fs/heapdumps:
     get:
       responses:
@@ -1686,6 +1723,35 @@ paths:
               schema: {}
           description: OK
       summary: Download Gc Log
+      tags:
+        - Gc Logs
+    patch:
+      parameters:
+        - in: path
+          name: gcLogId
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: targetId
+          required: true
+          schema:
+            format: int64
+            type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MetadataBody'
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GcLog'
+          description: OK
+      summary: Patch Gc Log Metadata
       tags:
         - Gc Logs
   /api/beta/diagnostics/targets/{targetId}/heapdump:
