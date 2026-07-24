@@ -408,6 +408,7 @@ public class GcLogs {
                 .build();
     }
 
+    @SuppressFBWarnings("EI_EXPOSE_REP")
     public record MetadataBody(Map<String, String> labels) {
         public MetadataBody {
             Objects.requireNonNull(labels);
