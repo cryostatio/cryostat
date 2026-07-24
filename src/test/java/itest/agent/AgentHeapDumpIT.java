@@ -303,7 +303,7 @@ public class AgentHeapDumpIT extends AgentTestBase {
                         .extract()
                         .response();
 
-        assertThat(r.body().print().length(), not(0));
+        MatcherAssert.assertThat(r.body().print().length(), Matchers.not(0));
     }
 
     @Test
