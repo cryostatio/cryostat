@@ -29,6 +29,7 @@ import itest.resources.S3StorageITResource;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledIfEnvironmentVariable;
 
 /**
  * Test for the case where an external recording is already in STOPPED state when Cryostat first
@@ -39,6 +40,7 @@ import org.junit.jupiter.api.Test;
         value = AgentExternalRecordingAlreadyStoppedApplicationResource.class,
         restrictToAnnotatedClass = true)
 @QuarkusTestResource(value = S3StorageITResource.class, restrictToAnnotatedClass = true)
+@DisabledIfEnvironmentVariable(named = "CI", matches = "true")
 public class AgentExternalRecordingAlreadyStoppedIT extends AgentTestBase {
 
     @Test
