@@ -143,25 +143,26 @@ public class AgentGcLogTest extends AgentTestBase {
 
     @Test
     void testGetInitialGcLoggingStatus() {
-        Map<String, Object> status =
-                given().log()
-                        .all()
-                        .pathParam("targetId", target.id())
-                        .when()
-                        .get("/api/beta/diagnostics/targets/{targetId}/gclogging")
-                        .then()
-                        .log()
-                        .all()
-                        .and()
-                        .assertThat()
-                        .contentType(ContentType.JSON)
-                        .statusCode(200)
-                        .extract()
-                        .body()
-                        .jsonPath()
-                        .getMap("$");
+        JsonObject status =
+                new JsonObject(
+                        given().log()
+                                .all()
+                                .pathParam("targetId", target.id())
+                                .when()
+                                .get("/api/beta/diagnostics/targets/{targetId}/gclogging")
+                                .then()
+                                .log()
+                                .all()
+                                .and()
+                                .assertThat()
+                                .contentType(ContentType.JSON)
+                                .statusCode(200)
+                                .extract()
+                                .body()
+                                .asString());
 
-        assertThat(status.get("enabled"), equalTo(false));
+        assertThat(
+                status.getJsonObject("currentConfiguration").getBoolean("enabled"), equalTo(false));
     }
 
     // ── Enable ────────────────────────────────────────────────────────────────────

@@ -111,7 +111,7 @@ public class AgentConnection implements JFRConnection {
         return client.streamAsyncProfile(id).await().atMost(client.getTimeout());
     }
 
-    public AgentClient.GcLogStatus gcLogStatus() {
+    public AgentClient.GcLogStatusResponse gcLogStatus() {
         return client.gcLogStatus().await().atMost(client.getTimeout());
     }
 

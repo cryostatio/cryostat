@@ -607,7 +607,7 @@ public class AgentClient {
                         });
     }
 
-    Uni<GcLogStatus> gcLogStatus() {
+    Uni<GcLogStatusResponse> gcLogStatus() {
         return agentRestClient
                 .gcLogStatus()
                 .map(
@@ -615,7 +615,7 @@ public class AgentClient {
                                 resp -> {
                                     try (resp;
                                             var is = (InputStream) resp.getEntity()) {
-                                        return mapper.readValue(is, GcLogStatus.class);
+                                        return mapper.readValue(is, GcLogStatusResponse.class);
                                     }
                                 }));
     }
@@ -903,4 +903,7 @@ public class AgentClient {
 
     public static record GcLogStatus(
             boolean enabled, String what, String decorators, String logFilePath, boolean hasLog) {}
+
+    public static record GcLogStatusResponse(
+            GcLogStatus currentConfiguration, GcLogStatus initialConfiguration) {}
 }
