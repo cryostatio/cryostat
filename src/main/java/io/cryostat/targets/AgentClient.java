@@ -630,9 +630,13 @@ public class AgentClient {
                                 resp.close();
                                 return Optional.empty();
                             } else if (HttpStatusCodeIdentifier.isSuccessCode(statusCode)) {
+                                InputStream entity = (InputStream) resp.getEntity();
+                                if (entity == null) {
+                                    resp.close();
+                                    return Optional.empty();
+                                }
                                 return Optional.of(
-                                        new ResponseCloserInputStream(
-                                                (InputStream) resp.getEntity(), resp::close));
+                                        new ResponseCloserInputStream(entity, resp::close));
                             } else if (statusCode == 409) {
                                 throw new AgentApiException(
                                         Response.Status.CONFLICT.getStatusCode(),

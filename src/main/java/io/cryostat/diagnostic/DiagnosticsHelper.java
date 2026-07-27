@@ -466,14 +466,13 @@ public class DiagnosticsHelper {
             default:
                 throw new IllegalStateException();
         }
-        InputStream safeStream = Objects.requireNonNullElse(stream, InputStream.nullInputStream());
         transferManager
                 .upload(
                         UploadRequest.builder()
                                 .putObjectRequest(req.build())
                                 .requestBody(
                                         AsyncRequestBody.fromInputStream(
-                                                safeStream,
+                                                stream,
                                                 null,
                                                 Executors.newVirtualThreadPerTaskExecutor()))
                                 .build())
