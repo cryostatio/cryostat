@@ -32,18 +32,22 @@ import java.util.UUID;
 import io.cryostat.ConfigProperties;
 import io.cryostat.Producers;
 import io.cryostat.StorageBuckets;
+import io.cryostat.asyncprofiler.AsyncProfilerRecording;
 import io.cryostat.diagnostic.Diagnostics.HeapDump;
 import io.cryostat.diagnostic.Diagnostics.ThreadDump;
 import io.cryostat.diagnostic.HeapDumpsMetadataService.StorageMode;
 import io.cryostat.libcryostat.sys.Clock;
 import io.cryostat.recordings.ActiveRecordings.Metadata;
 import io.cryostat.targets.Target;
+import io.cryostat.targets.Target.EventKind;
+import io.cryostat.targets.Target.TargetDiscovery;
 import io.cryostat.targets.TargetConnectionManager;
 import io.cryostat.ws.MessagingServer;
 import io.cryostat.ws.Notification;
 
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.runtime.StartupEvent;
+import io.quarkus.vertx.ConsumeEvent;
 import io.smallrye.common.annotation.Identifier;
 import io.smallrye.mutiny.Uni;
 import io.smallrye.mutiny.infrastructure.Infrastructure;
@@ -137,6 +141,22 @@ public class DiagnosticsHelper {
         buckets.createIfNecessary(threadDumpBucket);
         log.tracev("Creating heap dump report bucket: {0}", heapDumpReportBucket);
         buckets.createIfNecessary(heapDumpReportBucket);
+    }
+
+    @ConsumeEvent(value = Target.TARGET_JVM_DISCOVERY, blocking = true)
+    void onTargetLost(TargetDiscovery event) {
+        if (!EventKind.LOST.equals(event.kind())) {
+            return;
+        }
+        Target target = event.serviceRef();
+        QuarkusTransaction.requiringNew()
+                .run(
+                        () -> {
+                            AsyncProfilerRecording.delete("target", target);
+                            io.cryostat.diagnostic.HeapDump.delete("target", target);
+                            io.cryostat.diagnostic.ThreadDump.delete("target", target);
+                            io.cryostat.diagnostic.GarbageCollection.delete("target", target);
+                        });
     }
 
     public void dumpHeap(Target target, String requestId) {
