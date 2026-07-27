@@ -18,12 +18,6 @@ package io.cryostat.resources;
 import java.util.HashMap;
 import java.util.Map;
 
-/**
- * Test resource that starts an agent container with a very short pre-started JFR recording. The
- * recording completes before Cryostat discovers the target, so it is already in STOPPED state when
- * first synced to the database. This is used to test that Cryostat immediately archives such
- * recordings.
- */
 public class AgentExternalRecordingAlreadyStoppedApplicationResource
         extends AgentApplicationResource {
 
