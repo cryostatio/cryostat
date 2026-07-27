@@ -140,8 +140,8 @@ public class GcLogs {
         if (!target.isAgent()) {
             throw new BadRequestException("GC log collection requires an Agent-monitored target");
         }
-        AgentClient.GcLogStatusResponse status = helper.gcLogStatus(target);
-        if (!status.currentConfiguration().enabled()) {
+        AgentClient.GcLogStatus status = helper.gcLogStatus(target);
+        if (!status.enabled()) {
             throw new ClientErrorException(Response.Status.CONFLICT);
         }
         QuarkusTransaction.requiringNew()
@@ -190,7 +190,7 @@ public class GcLogs {
     @RolesAllowed("read")
     @Blocking
     @GET
-    public AgentClient.GcLogStatusResponse gcLoggingStatus(@RestPath long targetId) {
+    public AgentClient.GcLogStatus gcLoggingStatus(@RestPath long targetId) {
         Target target =
                 QuarkusTransaction.requiringNew().call(() -> Target.getTargetById(targetId));
         return helper.gcLogStatus(target);

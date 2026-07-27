@@ -407,7 +407,7 @@ public class DiagnosticsHelper {
                 uploadFailedTimeout);
     }
 
-    public AgentClient.GcLogStatusResponse gcLogStatus(Target target) {
+    public AgentClient.GcLogStatus gcLogStatus(Target target) {
         return targetConnectionManager.executeConnectedTask(
                 target, conn -> ((AgentConnection) conn).gcLogStatus(), uploadFailedTimeout);
     }
