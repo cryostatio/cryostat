@@ -175,22 +175,6 @@ public class DiagnosticsHelper {
                         });
     }
 
-    @ConsumeEvent(value = Target.TARGET_JVM_DISCOVERY, blocking = true)
-    void onTargetLost(TargetDiscovery event) {
-        if (!EventKind.LOST.equals(event.kind())) {
-            return;
-        }
-        Target target = event.serviceRef();
-        QuarkusTransaction.requiringNew()
-                .run(
-                        () -> {
-                            AsyncProfilerRecording.delete("target", target);
-                            io.cryostat.diagnostic.HeapDump.delete("target", target);
-                            io.cryostat.diagnostic.ThreadDump.delete("target", target);
-                            io.cryostat.diagnostic.GarbageCollection.delete("target", target);
-                        });
-    }
-
     public void dumpHeap(Target target, String requestId) {
         log.tracev(
                 "Heap Dump request received for Target: {0} with jobId {1}", target.id, requestId);
