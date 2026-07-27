@@ -169,7 +169,8 @@ public class TargetUpdateService {
         JobDetail jobDetail =
                 JobBuilder.newJob(ActiveRecordingUpdateJob.class)
                         .withIdentity(key)
-                        .usingJobData("recordingId", recording.id)
+                        .usingJobData("jvmId", recording.target.jvmId)
+                        .usingJobData("remoteId", recording.remoteId)
                         .build();
 
         Instant when =

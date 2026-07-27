@@ -90,6 +90,7 @@ import jakarta.enterprise.event.Event;
 import jakarta.enterprise.event.Observes;
 import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
+import jakarta.persistence.NoResultException;
 import jakarta.persistence.PersistenceException;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.BadRequestException;
@@ -619,7 +620,8 @@ public class RecordingHelper {
                     JobBuilder.newJob(StopRecordingJob.class)
                             .withIdentity(key)
                             .usingJobData(JobInterruptMonitorPlugin.AUTO_INTERRUPTIBLE, "true")
-                            .usingJobData("recordingId", recording.id)
+                            .usingJobData("jvmId", lockedTarget.jvmId)
+                            .usingJobData("remoteId", recording.remoteId)
                             .build();
             try {
                 if (!scheduler.checkExists(key)) {
@@ -1647,9 +1649,19 @@ public class RecordingHelper {
         @Transactional
         public void execute(JobExecutionContext ctx) throws JobExecutionException {
             try {
-                ActiveRecording recording =
-                        ActiveRecording.find("id", ctx.getMergedJobDataMap().get("recordingId"))
-                                .singleResult();
+                String jvmId = ctx.getMergedJobDataMap().getString("jvmId");
+                long remoteId = ctx.getMergedJobDataMap().getLong("remoteId");
+                Target target =
+                        Target.findPreferredByJvmId(jvmId)
+                                .orElseThrow(
+                                        () ->
+                                                new NoResultException(
+                                                        "No target found for jvmId: " + jvmId));
+                ActiveRecording recording = target.getRecordingById(remoteId);
+                if (recording == null) {
+                    throw new NoResultException(
+                            "No recording found for jvmId: " + jvmId + " remoteId: " + remoteId);
+                }
                 recordingHelper.stopRecording(recording).await().atMost(connectionFailedTimeout);
             } catch (Exception e) {
                 var jee = new JobExecutionException(e);
