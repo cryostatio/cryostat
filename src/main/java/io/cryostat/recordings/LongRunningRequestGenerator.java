@@ -441,10 +441,9 @@ public class LongRunningRequestGenerator {
         long fromMs = request.fromTimestamp() * 1000L;
         long toMs = request.toTimestamp() * 1000L;
 
-        List<ArchivedRecording> current = recordingHelper.listArchivedRecordings(request.jvmId());
         Optional<ArchivedRecording> existing =
-                current.stream()
-                        .filter(RecordingsSynthesis.completeFilter(fromMs, toMs))
+                request.candidates().stream()
+                        .filter(r -> RecordingsSynthesis.isComplete(r, fromMs, toMs))
                         .max(Comparator.comparingDouble(RecordingsSynthesis::density));
         if (existing.isPresent()) {
             bus.publish(
@@ -535,7 +534,7 @@ public class LongRunningRequestGenerator {
                     MessagingServer.class.getName(),
                     new Notification(
                             SYNTHESIS_SUCCESS, new SynthesisCompletePayload(request.id(), result)));
-        } catch (Exception e) {
+        } catch (IOException | CompletionException e) {
             logger.warnv("Synthesis job {0} failed: {1}", request.id(), e.getMessage());
             bus.publish(
                     MessagingServer.class.getName(),
@@ -674,7 +673,7 @@ public class LongRunningRequestGenerator {
             Objects.requireNonNull(id);
             Objects.requireNonNull(jvmId);
             Objects.requireNonNull(tag);
-            Objects.requireNonNull(candidates);
+            candidates = List.copyOf(candidates);
         }
     }
 }
