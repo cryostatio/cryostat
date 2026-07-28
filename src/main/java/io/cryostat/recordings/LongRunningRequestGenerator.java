@@ -477,24 +477,31 @@ public class LongRunningRequestGenerator {
             offsets[i] = offsets[i - 1] + candidates.get(i - 1).size();
         }
 
+        if (totalSize <= 0) {
+            throw new IllegalStateException(
+                    "Cannot synthesise recordings: total candidate size is zero");
+        }
+
         Path tempFile = null;
         FileChannel channel = null;
         try {
             tempFile = Files.createTempFile("synthesis-", ".jfr");
             channel = FileChannel.open(tempFile, StandardOpenOption.READ, StandardOpenOption.WRITE);
-            // allocate tempFile large enough to hold concatenated contents of all candidate
-            // recordings, and fail fast if the required space is not available
-            try {
-                channel.write(ByteBuffer.allocate(1), totalSize - 1);
-            } catch (IOException e) {
-                throw e;
-            }
+
+            // Best-effort space probe: writing one byte at the last expected offset forces the
+            // filesystem to report ENOSPC immediately if it cannot accommodate totalSize bytes,
+            // before any downloads begin.
+            channel.write(ByteBuffer.allocate(1), totalSize - 1);
+            channel.truncate(0);
 
             final FileChannel fc = channel;
+            final long[] actualWritten = new long[candidates.size()];
             List<CompletableFuture<Void>> futures = new ArrayList<>();
             for (int i = 0; i < candidates.size(); i++) {
                 final String name = candidates.get(i).name();
+                final long expectedSize = candidates.get(i).size();
                 final long offset = offsets[i];
+                final int idx = i;
                 futures.add(
                         CompletableFuture.runAsync(
                                 () -> {
@@ -508,13 +515,32 @@ public class LongRunningRequestGenerator {
                                             fc.write(ByteBuffer.wrap(buf, 0, read), pos);
                                             pos += read;
                                         }
-                                    } catch (Exception ex) {
+                                        long written = pos - offset;
+                                        if (written != expectedSize) {
+                                            throw new IOException(
+                                                    "Size mismatch for '"
+                                                            + name
+                                                            + "': expected "
+                                                            + expectedSize
+                                                            + " bytes but transferred "
+                                                            + written);
+                                        }
+                                        actualWritten[idx] = written;
+                                    } catch (IOException ex) {
                                         throw new CompletionException(ex);
                                     }
                                 },
                                 recordingHelper.partUploader));
             }
-            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+
+            CompletableFuture<Void> allFutures =
+                    CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]));
+            try {
+                allFutures.join();
+            } catch (CompletionException e) {
+                futures.forEach(f -> f.cancel(true));
+                throw e;
+            }
 
             channel.close();
             channel = null;
