@@ -2036,6 +2036,7 @@ paths:
             type: string
         - in: query
           name: fromTimestamp
+          required: true
           schema:
             format: int64
             type: integer
@@ -2045,6 +2046,7 @@ paths:
             type: string
         - in: query
           name: toTimestamp
+          required: true
           schema:
             format: int64
             type: integer
