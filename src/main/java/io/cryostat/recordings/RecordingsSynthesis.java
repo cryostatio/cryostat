@@ -19,7 +19,6 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
-import java.util.function.Predicate;
 
 import io.cryostat.recordings.ArchivedRecordings.ArchivedRecording;
 import io.cryostat.recordings.LongRunningRequestGenerator.SynthesisRequest;
@@ -32,7 +31,6 @@ import jakarta.annotation.security.RolesAllowed;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
-import jakarta.transaction.Transactional;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
@@ -40,6 +38,7 @@ import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import org.apache.commons.lang3.StringUtils;
+import org.eclipse.microprofile.openapi.annotations.parameters.Parameter;
 import org.hibernate.envers.AuditReaderFactory;
 import org.hibernate.envers.query.AuditEntity;
 import org.jboss.logging.Logger;
@@ -56,14 +55,13 @@ public class RecordingsSynthesis {
 
     @POST
     @Blocking
-    @Transactional
     @RolesAllowed("write")
     @Path("/api/beta/recording_synthesis/{jvmId}")
     public Response synthesize(
             HttpServerResponse response,
             @RestPath String jvmId,
-            @QueryParam("fromTimestamp") long fromTimestamp,
-            @QueryParam("toTimestamp") long toTimestamp,
+            @Parameter(required = true) @QueryParam("fromTimestamp") long fromTimestamp,
+            @Parameter(required = true) @QueryParam("toTimestamp") long toTimestamp,
             @QueryParam("tag") String tag) {
 
         if (fromTimestamp >= toTimestamp) {
@@ -131,11 +129,8 @@ public class RecordingsSynthesis {
             @SuppressWarnings("unchecked")
             var q =
                     ar.createQuery()
-                            .forRevisionsOfEntity(Target.class, false, true)
+                            .forRevisionsOfEntity(Target.class, false, false)
                             .add(AuditEntity.property("jvmId").eq(jvmId))
-                            .add(
-                                    AuditEntity.revisionType()
-                                            .ne(org.hibernate.envers.RevisionType.DEL))
                             .addOrder(AuditEntity.revisionNumber().desc())
                             .setMaxResults(1)
                             .getResultList();
@@ -147,7 +142,7 @@ public class RecordingsSynthesis {
                 }
             }
         } catch (Exception e) {
-            logger.debug("Failed to look up target alias from audit for jvmId: " + jvmId, e);
+            logger.debugv("Failed to look up target alias from audit for jvmId: {0}", jvmId, e);
         }
         return jvmId;
     }
@@ -174,10 +169,6 @@ public class RecordingsSynthesis {
         } catch (Exception e) {
             return false;
         }
-    }
-
-    static Predicate<ArchivedRecording> completeFilter(long fromMs, long toMs) {
-        return r -> isComplete(r, fromMs, toMs);
     }
 
     static double density(ArchivedRecording r) {

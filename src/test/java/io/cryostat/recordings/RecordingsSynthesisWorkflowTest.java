@@ -95,54 +95,56 @@ public class RecordingsSynthesisWorkflowTest extends AbstractTransactionalTestBa
 
         final String[] jobId = new String[1];
 
-        Executors.newSingleThreadScheduledExecutor()
-                .schedule(
-                        () -> {
-                            var body =
-                                    given().basePath("/")
-                                            .log()
-                                            .all()
-                                            .queryParam("fromTimestamp", 1000L)
-                                            .queryParam("toTimestamp", 2000L)
-                                            .when()
-                                            .post(
-                                                    "/api/beta/recording_synthesis/{jvmId}",
-                                                    selfJvmId)
-                                            .then()
-                                            .log()
-                                            .all()
-                                            .assertThat()
-                                            .statusCode(202)
-                                            .contentType(ContentType.TEXT)
-                                            .extract()
-                                            .body()
-                                            .asString();
-                            jobId[0] = body.strip();
-                        },
-                        1,
-                        TimeUnit.SECONDS);
+        var executor1 = Executors.newSingleThreadScheduledExecutor();
+        try {
+            executor1.schedule(
+                    () -> {
+                        var body =
+                                given().basePath("/")
+                                        .log()
+                                        .all()
+                                        .queryParam("fromTimestamp", 1000L)
+                                        .queryParam("toTimestamp", 2000L)
+                                        .when()
+                                        .post("/api/beta/recording_synthesis/{jvmId}", selfJvmId)
+                                        .then()
+                                        .log()
+                                        .all()
+                                        .assertThat()
+                                        .statusCode(202)
+                                        .contentType(ContentType.TEXT)
+                                        .extract()
+                                        .body()
+                                        .asString();
+                        jobId[0] = body.strip();
+                    },
+                    1,
+                    TimeUnit.SECONDS);
 
-        var notification =
-                webSocketClient.expectNotification(
-                        "RecordingSynthesisComplete",
-                        json ->
-                                Objects.equals(
-                                        json.getJsonObject("message").getString("jobId"),
-                                        jobId[0]));
+            var notification =
+                    webSocketClient.expectNotification(
+                            "RecordingSynthesisComplete",
+                            json ->
+                                    Objects.equals(
+                                            json.getJsonObject("message").getString("jobId"),
+                                            jobId[0]));
 
-        var message = notification.getJsonObject("message");
-        assertThat(message.containsKey("recording"), is(true));
-        var recording = message.getJsonObject("recording");
-        assertThat(recording.getString("jvmId"), is(selfJvmId));
-        var labels = recording.getJsonObject("metadata").getJsonArray("labels");
-        String syntheticValue =
-                labels.stream()
-                        .map(o -> (io.vertx.core.json.JsonObject) o)
-                        .filter(e -> "synthetic".equals(e.getString("key")))
-                        .map(e -> e.getString("value"))
-                        .findFirst()
-                        .orElse(null);
-        assertThat(syntheticValue, is("true"));
+            var message = notification.getJsonObject("message");
+            assertThat(message.containsKey("recording"), is(true));
+            var recording = message.getJsonObject("recording");
+            assertThat(recording.getString("jvmId"), is(selfJvmId));
+            var labels = recording.getJsonObject("metadata").getJsonArray("labels");
+            String syntheticValue =
+                    labels.stream()
+                            .map(o -> (io.vertx.core.json.JsonObject) o)
+                            .filter(e -> "synthetic".equals(e.getString("key")))
+                            .map(e -> e.getString("value"))
+                            .findFirst()
+                            .orElse(null);
+            assertThat(syntheticValue, is("true"));
+        } finally {
+            executor1.shutdown();
+        }
     }
 
     // -------------------------------------------------------------------------
@@ -158,10 +160,8 @@ public class RecordingsSynthesisWorkflowTest extends AbstractTransactionalTestBa
 
         Path file1 = Files.createTempFile("synthesis-idem-a", ".jfr");
         Path file2 = Files.createTempFile("synthesis-idem-b", ".jfr");
-        Path fileCover = Files.createTempFile("synthesis-idem-cover", ".jfr");
         Files.write(file1, new byte[] {1, 2});
         Files.write(file2, new byte[] {3, 4});
-        Files.write(fileCover, new byte[] {1, 2, 3, 4, 5, 6, 7, 8});
         try {
             // Two partial recordings to trigger the 202 path
             recordingHelper.uploadArchivedRecording(
@@ -186,62 +186,62 @@ public class RecordingsSynthesisWorkflowTest extends AbstractTransactionalTestBa
         final String[] jobId = new String[1];
 
         // Issue first synthesis request to get a 202 job
-        Executors.newSingleThreadScheduledExecutor()
-                .schedule(
-                        () -> {
-                            var body =
-                                    given().basePath("/")
-                                            .queryParam("fromTimestamp", 1000L)
-                                            .queryParam("toTimestamp", 2000L)
-                                            .when()
-                                            .post(
-                                                    "/api/beta/recording_synthesis/{jvmId}",
-                                                    selfJvmId)
-                                            .then()
-                                            .assertThat()
-                                            .statusCode(202)
-                                            .extract()
-                                            .body()
-                                            .asString();
-                            jobId[0] = body.strip();
-                        },
-                        1,
-                        TimeUnit.SECONDS);
-
-        // Wait for the synthesis to complete (success notification)
-        var notification =
-                webSocketClient.expectNotification(
-                        "RecordingSynthesisComplete",
-                        json ->
-                                Objects.equals(
-                                        json.getJsonObject("message").getString("jobId"),
-                                        jobId[0]));
-
-        // Extract the synthesised recording name
-        var syntheticName =
-                notification.getJsonObject("message").getJsonObject("recording").getString("name");
-
-        // Issue a second request with the same range. Must be served as an immediate 200
-        // because the synthetic recording now fully covers the range
-        given().basePath("/")
-                .log()
-                .all()
-                .queryParam("fromTimestamp", 1000L)
-                .queryParam("toTimestamp", 2000L)
-                .when()
-                .post("/api/beta/recording_synthesis/{jvmId}", selfJvmId)
-                .then()
-                .log()
-                .all()
-                .assertThat()
-                .statusCode(200)
-                .contentType(ContentType.JSON)
-                .body("name", is(syntheticName))
-                .body("jvmId", is(selfJvmId));
-
+        var executor2 = Executors.newSingleThreadScheduledExecutor();
         try {
-            Files.deleteIfExists(fileCover);
-        } catch (Exception ignored) {
+            executor2.schedule(
+                    () -> {
+                        var body =
+                                given().basePath("/")
+                                        .queryParam("fromTimestamp", 1000L)
+                                        .queryParam("toTimestamp", 2000L)
+                                        .when()
+                                        .post("/api/beta/recording_synthesis/{jvmId}", selfJvmId)
+                                        .then()
+                                        .assertThat()
+                                        .statusCode(202)
+                                        .extract()
+                                        .body()
+                                        .asString();
+                        jobId[0] = body.strip();
+                    },
+                    1,
+                    TimeUnit.SECONDS);
+
+            // Wait for the synthesis to complete (success notification)
+            var notification =
+                    webSocketClient.expectNotification(
+                            "RecordingSynthesisComplete",
+                            json ->
+                                    Objects.equals(
+                                            json.getJsonObject("message").getString("jobId"),
+                                            jobId[0]));
+
+            // Extract the synthesised recording name
+            var syntheticName =
+                    notification
+                            .getJsonObject("message")
+                            .getJsonObject("recording")
+                            .getString("name");
+
+            // Issue a second request with the same range. Must be served as an immediate 200
+            // because the synthetic recording now fully covers the range
+            given().basePath("/")
+                    .log()
+                    .all()
+                    .queryParam("fromTimestamp", 1000L)
+                    .queryParam("toTimestamp", 2000L)
+                    .when()
+                    .post("/api/beta/recording_synthesis/{jvmId}", selfJvmId)
+                    .then()
+                    .log()
+                    .all()
+                    .assertThat()
+                    .statusCode(200)
+                    .contentType(ContentType.JSON)
+                    .body("name", is(syntheticName))
+                    .body("jvmId", is(selfJvmId));
+        } finally {
+            executor2.shutdown();
         }
     }
 }
