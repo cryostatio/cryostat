@@ -637,7 +637,7 @@ public class AgentClient {
                                 }
                                 return Optional.of(
                                         new ResponseCloserInputStream(entity, resp::close));
-                            } else if (statusCode == 409) {
+                            } else if (statusCode == Response.Status.NOT_FOUND.getStatusCode()) {
                                 throw new AgentApiException(
                                         Response.Status.CONFLICT.getStatusCode(),
                                         new IllegalStateException("GC logging not active"));
