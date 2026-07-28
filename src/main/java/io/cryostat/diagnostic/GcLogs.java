@@ -51,6 +51,7 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.UriBuilder;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
@@ -144,19 +145,36 @@ public class GcLogs {
         if (!status.enabled()) {
             throw new ClientErrorException(Response.Status.CONFLICT);
         }
-        QuarkusTransaction.requiringNew()
-                .run(
-                        () -> {
-                            io.cryostat.diagnostic.GcLog.<io.cryostat.diagnostic.GcLog>find(
-                                            "target", target)
-                                    .firstResultOptional()
-                                    .ifPresent(
-                                            s -> {
-                                                s.markReconfigured(what, decorators);
-                                                s.persist();
-                                            });
-                        });
-        helper.reconfigureGcLogging(target, what, decorators);
+        Long sessionId =
+                QuarkusTransaction.requiringNew()
+                        .call(
+                                () ->
+                                        io.cryostat.diagnostic.GcLog
+                                                .<io.cryostat.diagnostic.GcLog>find(
+                                                        "target", target)
+                                                .firstResultOptional()
+                                                .map(
+                                                        s -> {
+                                                            s.markReconfigured(what, decorators);
+                                                            s.persist();
+                                                            return s.id;
+                                                        })
+                                                .orElse(null));
+        try {
+            helper.reconfigureGcLogging(target, what, decorators);
+        } catch (Exception e) {
+            if (sessionId != null) {
+                QuarkusTransaction.requiringNew()
+                        .run(
+                                () -> {
+                                    io.cryostat.diagnostic.GcLog s =
+                                            io.cryostat.diagnostic.GcLog.findById(sessionId);
+                                    s.markFailed();
+                                    s.persist();
+                                });
+            }
+            throw e;
+        }
         return new GcLog(
                 target.jvmId, null, null, System.currentTimeMillis() / 1000, 0, Metadata.empty());
     }
@@ -261,16 +279,16 @@ public class GcLogs {
     @Blocking
     @GET
     public RestResponse<Object> downloadGcLog(
-            @RestPath long targetId, @RestPath String gcLogId, @RestQuery String filename)
-            throws URISyntaxException {
+            @RestPath long targetId, @RestPath String gcLogId, @RestQuery String filename) {
         String jvmId =
                 QuarkusTransaction.requiringNew().call(() -> Target.getTargetById(targetId).jvmId);
         String encodedKey = helper.encodedKey(jvmId, gcLogId);
-        return RestResponse.seeOther(
-                new URI(
-                        String.format(
-                                "/api/beta/diagnostics/gclog/download/%s?filename=%s",
-                                encodedKey, filename)));
+        URI redirectUri =
+                UriBuilder.fromUri("/api/beta/diagnostics/gclog/download/{encodedKey}")
+                        .resolveTemplate("encodedKey", encodedKey)
+                        .queryParam("filename", filename)
+                        .build();
+        return RestResponse.seeOther(redirectUri);
     }
 
     @Path("targets/{targetId}/gclogs/{gcLogId}")

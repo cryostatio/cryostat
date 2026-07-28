@@ -28,6 +28,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 import io.cryostat.ConfigProperties;
@@ -147,7 +148,10 @@ public class DiagnosticsHelper {
     @Inject TargetConnectionManager targetConnectionManager;
     @Inject StorageBuckets buckets;
 
+    private ExecutorService uploadExecutor;
+
     void onStart(@Observes StartupEvent evt) {
+        uploadExecutor = Executors.newVirtualThreadPerTaskExecutor();
         log.tracev("Creating heap dump bucket: {0}", heapDumpBucket);
         buckets.createIfNecessary(heapDumpBucket);
         log.tracev("Creating thread dump bucket: {0}", threadDumpBucket);
@@ -456,9 +460,7 @@ public class DiagnosticsHelper {
                                 .putObjectRequest(req.build())
                                 .requestBody(
                                         AsyncRequestBody.fromInputStream(
-                                                stream,
-                                                null,
-                                                Executors.newVirtualThreadPerTaskExecutor()))
+                                                stream, null, uploadExecutor))
                                 .build())
                 .completionFuture()
                 .join();
@@ -838,6 +840,7 @@ public class DiagnosticsHelper {
                     } else if (storageBucket.equals(heapDumpBucket)) {
                         return heapDumpsMetadataService.get().read(storageKey);
                     }
+                    throw new IllegalArgumentException("Unknown bucket: " + storageBucket);
                 default:
                     throw new IllegalStateException();
             }

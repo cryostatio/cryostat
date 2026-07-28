@@ -37,6 +37,7 @@ import software.amazon.awssdk.core.async.AsyncRequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.transfer.s3.S3TransferManager;
 import software.amazon.awssdk.transfer.s3.model.UploadRequest;
@@ -100,11 +101,15 @@ class BucketedGcLogsMetadataService implements GcLogsMetadataService {
     public Optional<Metadata> read(String storageKey) throws IOException {
         GetObjectRequest.Builder builder =
                 GetObjectRequest.builder().bucket(bucket).key(prefix(storageKey));
-        var resp = storage.getObject(builder.build());
-        if (resp.response().sdkHttpResponse().isSuccessful()) {
-            return Optional.of(mapper.readValue(new BufferedInputStream(resp), Metadata.class));
+        try {
+            var resp = storage.getObject(builder.build());
+            if (resp.response().sdkHttpResponse().isSuccessful()) {
+                return Optional.of(mapper.readValue(new BufferedInputStream(resp), Metadata.class));
+            }
+            return Optional.empty();
+        } catch (NoSuchKeyException e) {
+            return Optional.empty();
         }
-        return Optional.empty();
     }
 
     @Override
