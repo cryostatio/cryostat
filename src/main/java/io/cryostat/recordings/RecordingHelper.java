@@ -1480,7 +1480,6 @@ public class RecordingHelper {
                 requestBuilder = requestBuilder.metadata(labels);
                 break;
             case BUCKET:
-                metadataService.get().create(jvmId, filename, resolvedMetadata);
                 break;
             default:
                 throw new IllegalStateException();
@@ -1493,6 +1492,9 @@ public class RecordingHelper {
                                 .build())
                 .completionFuture()
                 .join();
+        if (storageMode() == ArchivedRecordingMetadataService.StorageMode.BUCKET) {
+            metadataService.get().create(jvmId, filename, resolvedMetadata);
+        }
 
         QuarkusTransaction.joiningExisting()
                 .run(() -> ArchivedRecordingInfo.of(jvmId, filename, null).persist());
