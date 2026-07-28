@@ -51,7 +51,6 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.Response;
-import jakarta.ws.rs.core.UriBuilder;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
@@ -279,16 +278,16 @@ public class GcLogs {
     @Blocking
     @GET
     public RestResponse<Object> downloadGcLog(
-            @RestPath long targetId, @RestPath String gcLogId, @RestQuery String filename) {
+            @RestPath long targetId, @RestPath String gcLogId, @RestQuery String filename)
+            throws URISyntaxException {
         String jvmId =
                 QuarkusTransaction.requiringNew().call(() -> Target.getTargetById(targetId).jvmId);
         String encodedKey = helper.encodedKey(jvmId, gcLogId);
-        URI redirectUri =
-                UriBuilder.fromUri("/api/beta/diagnostics/gclog/download/{encodedKey}")
-                        .resolveTemplate("encodedKey", encodedKey)
-                        .queryParam("filename", filename)
-                        .build();
-        return RestResponse.seeOther(redirectUri);
+        return RestResponse.seeOther(
+                new URI(
+                        String.format(
+                                "/api/beta/diagnostics/gclog/download/%s?filename=%s",
+                                encodedKey, filename)));
     }
 
     @Path("targets/{targetId}/gclogs/{gcLogId}")
