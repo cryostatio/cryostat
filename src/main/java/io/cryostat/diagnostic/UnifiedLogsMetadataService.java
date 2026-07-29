@@ -21,7 +21,7 @@ import java.util.Optional;
 import io.cryostat.recordings.ActiveRecordings.Metadata;
 import io.cryostat.util.CRUDService;
 
-public interface GcLogsMetadataService extends CRUDService<String, Metadata, Metadata> {
+public interface UnifiedLogsMetadataService extends CRUDService<String, Metadata, Metadata> {
 
     public static final String METADATA_STORAGE_MODE_TAGGING = "tagging";
     public static final String METADATA_STORAGE_MODE_OBJECTMETA = "metadata";

@@ -31,14 +31,14 @@ import jakarta.validation.constraints.NotNull;
 import org.hibernate.envers.Audited;
 
 /**
- * Represents an active GC logging session on a remote target JVM. One row exists per target while
- * GC logging is enabled; the row is deleted when GC logging is disabled. The full session lifecycle
- * (enable → reconfigure → disable) is preserved in {@code GcLog_AUD} via Envers.
+ * Represents an active logging session on a remote target JVM. One row exists per target while
+ * logging is enabled; the row is deleted when logging is disabled. The full session lifecycle
+ * (enable → reconfigure → disable) is preserved in {@code Log_AUD} via Envers.
  */
 @Audited
 @Entity
 @Table(uniqueConstraints = {@UniqueConstraint(columnNames = {"target_id"})})
-public class GcLog extends PanacheEntity {
+public class UnifiedLog extends PanacheEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "target_id")
@@ -60,8 +60,8 @@ public class GcLog extends PanacheEntity {
         FAILED
     }
 
-    public static GcLog enable(Target target, String what, String decorators) {
-        GcLog log = new GcLog();
+    public static UnifiedLog enable(Target target, String what, String decorators) {
+        UnifiedLog log = new UnifiedLog();
         log.target = target;
         log.what = what;
         log.decorators = decorators;

@@ -60,7 +60,7 @@ public class S3StorageResource
                                     "probes",
                                     "threaddumps",
                                     "heapdumps",
-                                    "gclogs")));
+                                    "logs")));
     protected final Logger logger = Logger.getLogger(getClass());
     protected Optional<String> containerNetworkId;
     protected GenericContainer<?> container;

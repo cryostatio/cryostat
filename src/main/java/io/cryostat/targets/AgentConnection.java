@@ -111,12 +111,12 @@ public class AgentConnection implements JFRConnection {
         return client.streamAsyncProfile(id).await().atMost(client.getTimeout());
     }
 
-    public AgentClient.GcLogStatus gcLogStatus() {
-        return client.gcLogStatus().await().atMost(client.getTimeout());
+    public AgentClient.UnifiedLogStatus unifiedLogStatus() {
+        return client.unifiedLogStatus().await().atMost(client.getTimeout());
     }
 
-    public Optional<InputStream> pullGcLog() {
-        return client.pullGcLog().await().atMost(client.getTimeout());
+    public Optional<InputStream> pullUnifiedLog() {
+        return client.pullUnifiedLog().await().atMost(client.getTimeout());
     }
 
     @Override

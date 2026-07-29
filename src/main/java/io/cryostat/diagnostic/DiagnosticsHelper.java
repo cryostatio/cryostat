@@ -37,8 +37,8 @@ import io.cryostat.StorageBuckets;
 import io.cryostat.asyncprofiler.AsyncProfilerRecording;
 import io.cryostat.diagnostic.Diagnostics.HeapDump;
 import io.cryostat.diagnostic.Diagnostics.ThreadDump;
-import io.cryostat.diagnostic.GcLogs.GcLog;
-import io.cryostat.diagnostic.GcLogs.GcLogEvent;
+import io.cryostat.diagnostic.UnifiedLogs.UnifiedLog;
+import io.cryostat.diagnostic.UnifiedLogs.UnifiedLogEvent;
 import io.cryostat.diagnostic.HeapDumpsMetadataService.StorageMode;
 import io.cryostat.libcryostat.sys.Clock;
 import io.cryostat.recordings.ActiveRecordings.Metadata;
@@ -105,9 +105,9 @@ public class DiagnosticsHelper {
     static final String HEAP_DUMP_SUCCESS = "HeapDumpSuccess";
     static final String HEAP_DUMP_UPLOADED_NAME = "HeapDumpUploaded";
     static final String HEAP_DUMP_METADATA = "HeapDumpMetadataUpdated";
-    static final String GC_LOG_UPLOADED_NAME = "GcLogUploaded";
-    static final String GC_LOG_DELETED_NAME = "GcLogDeleted";
-    static final String GC_LOG_METADATA = "GcLogMetadataUpdated";
+    static final String UNIFIED_LOG_UPLOADED_NAME = "UnifiedLogUploaded";
+    static final String UNIFIED_LOG_DELETED_NAME = "UnifiedLogDeleted";
+    static final String UNIFIED_LOG_METADATA = "UnifiedLogMetadataUpdated";
     private static final String VM_LOG_OPERATION = "vmLog";
     private static final String DIAGNOSTIC_BEAN_NAME = "com.sun.management:type=DiagnosticCommand";
     private static final String HOTSPOT_DIAGNOSTIC_BEAN_NAME =
@@ -119,8 +119,8 @@ public class DiagnosticsHelper {
     @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_HEAP_DUMPS)
     String heapDumpBucket;
 
-    @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_GC_LOGS)
-    String gcLogBucket;
+    @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_UNIFIED_LOGS)
+    String unifiedLogBucket;
 
     @ConfigProperty(name = ConfigProperties.ARCHIVED_HEAP_DUMP_REPORTS_STORAGE_CACHE_NAME)
     String heapDumpReportBucket;
@@ -137,7 +137,7 @@ public class DiagnosticsHelper {
 
     @Inject Instance<HeapDumpsMetadataService> heapDumpsMetadataService;
     @Inject Instance<ThreadDumpsMetadataService> threadDumpsMetadataService;
-    @Inject Instance<GcLogsMetadataService> gcLogsMetadataService;
+    @Inject Instance<UnifiedLogsMetadataService> unifiedLogsMetadataService;
 
     @Inject S3Client storage;
     @Inject S3TransferManager transferManager;
@@ -158,8 +158,8 @@ public class DiagnosticsHelper {
         buckets.createIfNecessary(threadDumpBucket);
         log.tracev("Creating heap dump report bucket: {0}", heapDumpReportBucket);
         buckets.createIfNecessary(heapDumpReportBucket);
-        log.tracev("Creating gc log bucket: {0}", gcLogBucket);
-        buckets.createIfNecessary(gcLogBucket);
+        log.tracev("Creating unified log bucket: {0}", unifiedLogBucket);
+        buckets.createIfNecessary(unifiedLogBucket);
     }
 
     @ConsumeEvent(value = Target.TARGET_JVM_DISCOVERY, blocking = true)
@@ -175,7 +175,7 @@ public class DiagnosticsHelper {
                             io.cryostat.diagnostic.HeapDump.delete("target", target);
                             io.cryostat.diagnostic.ThreadDump.delete("target", target);
                             io.cryostat.diagnostic.GarbageCollection.delete("target", target);
-                            io.cryostat.diagnostic.GcLog.delete("target", target);
+                            io.cryostat.diagnostic.UnifiedLog.delete("target", target);
                         });
     }
 
@@ -380,7 +380,7 @@ public class DiagnosticsHelper {
         return storage.listObjectsV2(builder.build()).contents();
     }
 
-    public void enableGcLogging(Target target, String what, String decorators) {
+    public void enableUnifiedLogging(Target target, String what, String decorators) {
         String args = String.format("what=%s decorators=%s", what, decorators);
         targetConnectionManager.executeConnectedTask(
                 target,
@@ -394,11 +394,11 @@ public class DiagnosticsHelper {
                 uploadFailedTimeout);
     }
 
-    public void reconfigureGcLogging(Target target, String what, String decorators) {
-        enableGcLogging(target, what, decorators);
+    public void reconfigureUnifiedLogging(Target target, String what, String decorators) {
+        enableUnifiedLogging(target, what, decorators);
     }
 
-    public void disableGcLogging(Target target) {
+    public void disableUnifiedLogging(Target target) {
         targetConnectionManager.executeConnectedTask(
                 target,
                 conn ->
@@ -411,27 +411,27 @@ public class DiagnosticsHelper {
                 uploadFailedTimeout);
     }
 
-    public AgentClient.GcLogStatus gcLogStatus(Target target) {
+    public AgentClient.UnifiedLogStatus unifiedLogStatus(Target target) {
         return targetConnectionManager.executeConnectedTask(
-                target, conn -> ((AgentConnection) conn).gcLogStatus(), uploadFailedTimeout);
+                target, conn -> ((AgentConnection) conn).unifiedLogStatus(), uploadFailedTimeout);
     }
 
-    public Optional<GcLogs.GcLog> pullGcLog(Target target) {
+    public Optional<UnifiedLogs.UnifiedLog> pullUnifiedLog(Target target) {
         Optional<InputStream> streamOpt =
                 targetConnectionManager.executeConnectedTask(
-                        target, conn -> ((AgentConnection) conn).pullGcLog(), uploadFailedTimeout);
+                        target, conn -> ((AgentConnection) conn).pullUnifiedLog(), uploadFailedTimeout);
         if (streamOpt.isEmpty()) {
-            log.debugv("Agent returned no GC log content for target {0}", target.jvmId);
+            log.debugv("Agent returned no unified log content for target {0}", target.jvmId);
             return Optional.empty();
         }
         InputStream stream = streamOpt.get();
         String uuid = UUID.randomUUID().toString();
-        String filename = generateFileName(target.jvmId, uuid, ".gclog");
+        String filename = generateFileName(target.jvmId, uuid, ".log");
         String key = storageKey(target.jvmId, filename);
-        log.tracev("Putting GC log into storage with key: {0}", key);
+        log.tracev("Putting log into storage with key: {0}", key);
         var req =
                 PutObjectRequest.builder()
-                        .bucket(gcLogBucket)
+                        .bucket(unifiedLogBucket)
                         .key(key)
                         .contentType(MediaType.TEXT_PLAIN)
                         .contentDisposition(String.format("attachment; filename=\"%s\"", filename));
@@ -444,7 +444,7 @@ public class DiagnosticsHelper {
                 break;
             case BUCKET:
                 try {
-                    gcLogsMetadataService
+                    unifiedLogsMetadataService
                             .get()
                             .create(target.jvmId, filename, new Metadata(Map.of()));
                 } catch (IOException ioe) {
@@ -465,56 +465,56 @@ public class DiagnosticsHelper {
                 .completionFuture()
                 .join();
         long size =
-                storage.headObject(HeadObjectRequest.builder().bucket(gcLogBucket).key(key).build())
+                storage.headObject(HeadObjectRequest.builder().bucket(unifiedLogBucket).key(key).build())
                         .contentLength();
         var result =
-                new GcLog(
+                new UnifiedLog(
                         target.jvmId,
-                        gcLogDownloadUrl(target.jvmId, filename),
+                        unifiedLogDownloadUrl(target.jvmId, filename),
                         filename,
                         clock.now().getEpochSecond(),
                         size,
                         Metadata.empty());
         var event =
-                new GcLogEvent(
-                        EventCategory.GC_LOG_UPLOADED, GcLogEvent.Payload.of(target.jvmId, result));
+                new UnifiedLogEvent(
+                        EventCategory.UNIFIED_LOG_UPLOADED, UnifiedLogEvent.Payload.of(target.jvmId, result));
         bus.publish(
                 MessagingServer.class.getName(),
                 new Notification(event.category().category(), event.payload()));
         return Optional.of(result);
     }
 
-    public List<S3Object> listGcLogObjects() {
-        return listGcLogObjects(null);
+    public List<S3Object> listUnifiedLogObjects() {
+        return listUnifiedLogObjects(null);
     }
 
-    public List<S3Object> listGcLogObjects(String jvmId) {
-        var builder = ListObjectsV2Request.builder().bucket(gcLogBucket);
+    public List<S3Object> listUnifiedLogObjects(String jvmId) {
+        var builder = ListObjectsV2Request.builder().bucket(unifiedLogBucket);
         if (StringUtils.isNotBlank(jvmId)) {
             builder = builder.prefix(jvmId);
         }
         return storage.listObjectsV2(builder.build()).contents();
     }
 
-    public InputStream getGcLogStream(String encodedKey) {
+    public InputStream getUnifiedLogStream(String encodedKey) {
         Pair<String, String> decodedKey = decodedKey(encodedKey);
         var key = storageKey(decodedKey);
         GetObjectRequest getRequest =
-                GetObjectRequest.builder().bucket(gcLogBucket).key(key).build();
+                GetObjectRequest.builder().bucket(unifiedLogBucket).key(key).build();
         return storage.getObject(getRequest);
     }
 
-    public void deleteGcLog(String jvmId, String gcLogId) {
-        String key = storageKey(jvmId, gcLogId);
-        storage.headObject(HeadObjectRequest.builder().bucket(gcLogBucket).key(key).build());
-        storage.deleteObject(DeleteObjectRequest.builder().bucket(gcLogBucket).key(key).build());
+    public void deleteUnifiedLog(String jvmId, String logId) {
+        String key = storageKey(jvmId, logId);
+        storage.headObject(HeadObjectRequest.builder().bucket(unifiedLogBucket).key(key).build());
+        storage.deleteObject(DeleteObjectRequest.builder().bucket(unifiedLogBucket).key(key).build());
         switch (storageMode()) {
             case TAGGING:
             case METADATA:
                 break;
             case BUCKET:
                 try {
-                    gcLogsMetadataService.get().delete(jvmId, gcLogId);
+                    unifiedLogsMetadataService.get().delete(jvmId, logId);
                 } catch (IOException ioe) {
                     log.warn(ioe);
                 }
@@ -523,14 +523,14 @@ public class DiagnosticsHelper {
                 throw new IllegalStateException();
         }
         var event =
-                new GcLogs.GcLogEvent(
-                        EventCategory.GC_LOG_DELETED,
-                        GcLogs.GcLogEvent.Payload.of(
+                new UnifiedLogs.UnifiedLogEvent(
+                        EventCategory.UNIFIED_LOG_DELETED,
+                        UnifiedLogs.UnifiedLogEvent.Payload.of(
                                 jvmId,
-                                new GcLog(
+                                new UnifiedLog(
                                         jvmId,
-                                        gcLogDownloadUrl(jvmId, gcLogId),
-                                        gcLogId,
+                                        unifiedLogDownloadUrl(jvmId, logId),
+                                        logId,
                                         0,
                                         0,
                                         Metadata.empty())));
@@ -539,9 +539,9 @@ public class DiagnosticsHelper {
                 new Notification(event.category().category(), event.payload()));
     }
 
-    public String gcLogDownloadUrl(String jvmId, String filename) {
+    public String unifiedLogDownloadUrl(String jvmId, String filename) {
         return String.format(
-                "/api/beta/diagnostics/gclog/download/%s", encodedKey(jvmId, filename));
+                "/api/beta/diagnostics/unified-logs/download/%s", encodedKey(jvmId, filename));
     }
 
     public List<ThreadDump> getThreadDumps(String jvmId) {
@@ -799,8 +799,8 @@ public class DiagnosticsHelper {
         return getObjectMetadata(storageKey, heapDumpBucket);
     }
 
-    public Optional<Metadata> getGcLogMetadata(String storageKey) {
-        return getObjectMetadata(storageKey, gcLogBucket);
+    public Optional<Metadata> getUnifiedLogMetadata(String storageKey) {
+        return getObjectMetadata(storageKey, unifiedLogBucket);
     }
 
     // Labels Handling
@@ -835,8 +835,8 @@ public class DiagnosticsHelper {
                 case BUCKET:
                     if (storageBucket.equals(threadDumpBucket)) {
                         return threadDumpsMetadataService.get().read(storageKey);
-                    } else if (storageBucket.equals(gcLogBucket)) {
-                        return gcLogsMetadataService.get().read(storageKey);
+                    } else if (storageBucket.equals(unifiedLogBucket)) {
+                        return unifiedLogsMetadataService.get().read(storageKey);
                     } else if (storageBucket.equals(heapDumpBucket)) {
                         return heapDumpsMetadataService.get().read(storageKey);
                     }
@@ -945,8 +945,8 @@ public class DiagnosticsHelper {
             case BUCKET:
                 if (storageBucket.equals(threadDumpBucket)) {
                     threadDumpsMetadataService.get().update(jvmId, identifier, updatedMetadata);
-                } else if (storageBucket.equals(gcLogBucket)) {
-                    gcLogsMetadataService.get().update(jvmId, identifier, updatedMetadata);
+                } else if (storageBucket.equals(unifiedLogBucket)) {
+                    unifiedLogsMetadataService.get().update(jvmId, identifier, updatedMetadata);
                 } else {
                     heapDumpsMetadataService.get().update(jvmId, identifier, updatedMetadata);
                 }
@@ -986,27 +986,27 @@ public class DiagnosticsHelper {
         return updatedDump;
     }
 
-    public GcLog updateGcLogMetadata(String jvmId, String gcLogId, Map<String, String> metadata)
+    public UnifiedLog updateUnifiedLogMetadata(String jvmId, String logId, Map<String, String> metadata)
             throws IOException {
-        var response = assertObjectExists(jvmId, gcLogId, gcLogBucket);
-        Metadata updatedMetadata = updateMetadata(jvmId, gcLogId, metadata, gcLogBucket);
+        var response = assertObjectExists(jvmId, logId, unifiedLogBucket);
+        Metadata updatedMetadata = updateMetadata(jvmId, logId, metadata, unifiedLogBucket);
 
         long size = response.contentLength();
         long lastModified = response.lastModified().getEpochSecond();
 
-        GcLog updatedLog =
-                new GcLog(
+        UnifiedLog updatedLog =
+                new UnifiedLog(
                         jvmId,
-                        gcLogDownloadUrl(jvmId, gcLogId),
-                        gcLogId,
+                        unifiedLogDownloadUrl(jvmId, logId),
+                        logId,
                         lastModified,
                         size,
                         updatedMetadata);
 
         var event =
-                new GcLogs.GcLogEvent(
-                        EventCategory.GC_LOG_METADATA_UPDATED,
-                        GcLogs.GcLogEvent.Payload.of(jvmId, updatedLog));
+                new UnifiedLogs.UnifiedLogEvent(
+                        EventCategory.UNIFIED_LOG_METADATA_UPDATED,
+                        UnifiedLogs.UnifiedLogEvent.Payload.of(jvmId, updatedLog));
         bus.publish(
                 MessagingServer.class.getName(),
                 new Notification(event.category().category(), event.payload()));
@@ -1043,8 +1043,8 @@ public class DiagnosticsHelper {
     }
 
     public enum EventCategory {
-        GC_LOG_UPLOADED(GC_LOG_UPLOADED_NAME),
-        GC_LOG_DELETED(GC_LOG_DELETED_NAME),
+        UNIFIED_LOG_UPLOADED(UNIFIED_LOG_UPLOADED_NAME),
+        UNIFIED_LOG_DELETED(UNIFIED_LOG_DELETED_NAME),
         // ThreadDumpSuccess and HeapDumpSuccess ("CREATED") events are emitted by
         // LongRunningRequestGenerator
         DELETED(THREAD_DUMP_DELETED),
@@ -1053,7 +1053,7 @@ public class DiagnosticsHelper {
         HEAP_DUMP_UPLOADED(HEAP_DUMP_UPLOADED_NAME),
         THREAD_DUMP_METADATA_UPDATED(THREAD_DUMP_METADATA),
         HEAP_DUMP_METADATA_UPDATED(HEAP_DUMP_METADATA),
-        GC_LOG_METADATA_UPDATED(GC_LOG_METADATA);
+        UNIFIED_LOG_METADATA_UPDATED(UNIFIED_LOG_METADATA);
 
         private final String category;
 

@@ -44,27 +44,27 @@ import software.amazon.awssdk.transfer.s3.model.UploadRequest;
 
 @ApplicationScoped
 @LookupIfProperty(
-        name = ConfigProperties.STORAGE_METADATA_GC_LOGS_STORAGE_MODE,
-        stringValue = GcLogsMetadataService.METADATA_STORAGE_MODE_BUCKET)
+        name = ConfigProperties.STORAGE_METADATA_UNIFIED_LOGS_STORAGE_MODE,
+        stringValue = UnifiedLogsMetadataService.METADATA_STORAGE_MODE_BUCKET)
 /**
- * Implements GC log metadata as standalone objects in a bucket. When the storage mode is set to
+ * Implements unified log metadata as standalone objects in a bucket. When the storage mode is set to
  * select this implementation, metadata is stored as separate JSON files rather than S3 object tags,
  * ensuring broader compatibility with different S3 implementations.
  */
-class BucketedGcLogsMetadataService implements GcLogsMetadataService {
+class BucketedUnifiedLogsMetadataService implements UnifiedLogsMetadataService {
 
     @Inject StorageBuckets storageBuckets;
     @Inject S3Client storage;
     @Inject S3TransferManager transferManager;
     @Inject Logger logger;
 
-    @ConfigProperty(name = ConfigProperties.STORAGE_METADATA_GC_LOGS_STORAGE_MODE)
+    @ConfigProperty(name = ConfigProperties.STORAGE_METADATA_UNIFIED_LOGS_STORAGE_MODE)
     String storageMode;
 
     @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_METADATA)
     String bucket;
 
-    @ConfigProperty(name = ConfigProperties.AWS_METADATA_PREFIX_GC_LOGS)
+    @ConfigProperty(name = ConfigProperties.AWS_METADATA_PREFIX_UNIFIED_LOGS)
     String prefix;
 
     // don't use the application-wide instance. That one serializes maps as key-value pair lists for

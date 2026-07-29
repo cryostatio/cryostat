@@ -132,13 +132,13 @@ interface AgentRestClient {
     @Produces(MediaType.APPLICATION_OCTET_STREAM)
     Uni<Response> streamAsyncProfile(@PathParam("id") String id);
 
-    @Path("/gc-log/status")
+    @Path("/unified-log/status")
     @GET
     @Produces(MediaType.APPLICATION_JSON)
-    Uni<Response> gcLogStatus();
+    Uni<Response> unifiedLogStatus();
 
-    @Path("/gc-log/")
+    @Path("/unified-log/")
     @GET
     @Produces(MediaType.APPLICATION_OCTET_STREAM)
-    Uni<Response> getGcLog();
+    Uni<Response> getUnifiedLog();
 }

@@ -68,7 +68,7 @@ import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignReques
 import software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequest;
 
 @Path("/api/beta/diagnostics/")
-public class GcLogs {
+public class UnifiedLogs {
 
     static final Pattern SAFE_PARAM_PATTERN = Pattern.compile("^[A-Za-z0-9,+*=]+$");
 
@@ -77,8 +77,8 @@ public class GcLogs {
     @Inject Logger log;
     @Inject DiagnosticsHelper helper;
 
-    @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_GC_LOGS)
-    String gcLogsBucket;
+    @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_UNIFIED_LOGS)
+    String logsBucket;
 
     @ConfigProperty(name = ConfigProperties.STORAGE_PRESIGNED_DOWNLOADS_ENABLED)
     boolean presignedDownloadsEnabled;
@@ -86,61 +86,61 @@ public class GcLogs {
     @ConfigProperty(name = ConfigProperties.STORAGE_EXT_URL)
     Optional<String> externalStorageUrl;
 
-    @Path("targets/{targetId}/gclogging")
+    @Path("targets/{targetId}/unified-logging")
     @RolesAllowed("write")
     @Blocking
     @POST
-    public GcLog enableGcLogging(
+    public UnifiedLog enableUnifiedLogging(
             @RestPath long targetId,
-            @QueryParam("what") @DefaultValue("gc") String what,
-            @QueryParam("decorators") @DefaultValue("time,level") String decorators) {
-        validateGcLoggingParams(what, decorators);
+            @QueryParam("what") String what,
+            @QueryParam("decorators") String decorators) {
+        validateLoggingParams(what, decorators);
         Target target =
                 QuarkusTransaction.requiringNew().call(() -> Target.getTargetById(targetId));
         if (!target.isAgent()) {
-            throw new BadRequestException("GC log collection requires an Agent-monitored target");
+            throw new BadRequestException("Log collection requires an Agent-monitored target");
         }
-        io.cryostat.diagnostic.GcLog session =
+        io.cryostat.diagnostic.UnifiedLog session =
                 QuarkusTransaction.requiringNew()
                         .call(
                                 () -> {
-                                    io.cryostat.diagnostic.GcLog entity =
-                                            io.cryostat.diagnostic.GcLog.enable(
+                                    io.cryostat.diagnostic.UnifiedLog entity =
+                                            io.cryostat.diagnostic.UnifiedLog.enable(
                                                     target, what, decorators);
                                     entity.persist();
                                     return entity;
                                 });
         try {
-            helper.enableGcLogging(target, what, decorators);
+            helper.enableUnifiedLogging(target, what, decorators);
         } catch (Exception e) {
             QuarkusTransaction.requiringNew()
                     .run(
                             () -> {
-                                io.cryostat.diagnostic.GcLog s =
-                                        io.cryostat.diagnostic.GcLog.findById(session.id);
+                                io.cryostat.diagnostic.UnifiedLog s =
+                                        io.cryostat.diagnostic.UnifiedLog.findById(session.id);
                                 s.markFailed();
                                 s.persist();
                             });
             throw e;
         }
-        return new GcLog(target.jvmId, null, null, session.enabledAt / 1000, 0, Metadata.empty());
+        return new UnifiedLog(target.jvmId, null, null, session.enabledAt / 1000, 0, Metadata.empty());
     }
 
-    @Path("targets/{targetId}/gclogging")
+    @Path("targets/{targetId}/unified-logging")
     @RolesAllowed("write")
     @Blocking
     @PATCH
-    public GcLog reconfigureGcLogging(
+    public UnifiedLog reconfigureUnifiedLogging(
             @RestPath long targetId,
-            @QueryParam("what") @DefaultValue("gc") String what,
-            @QueryParam("decorators") @DefaultValue("time,level") String decorators) {
-        validateGcLoggingParams(what, decorators);
+            @QueryParam("what") String what,
+            @QueryParam("decorators") String decorators) {
+        validateLoggingParams(what, decorators);
         Target target =
                 QuarkusTransaction.requiringNew().call(() -> Target.getTargetById(targetId));
         if (!target.isAgent()) {
-            throw new BadRequestException("GC log collection requires an Agent-monitored target");
+            throw new BadRequestException("Log collection requires an Agent-monitored target");
         }
-        AgentClient.GcLogStatus status = helper.gcLogStatus(target);
+        AgentClient.UnifiedLogStatus status = helper.unifiedLogStatus(target);
         if (!status.enabled()) {
             throw new ClientErrorException(Response.Status.CONFLICT);
         }
@@ -148,8 +148,8 @@ public class GcLogs {
                 QuarkusTransaction.requiringNew()
                         .call(
                                 () ->
-                                        io.cryostat.diagnostic.GcLog
-                                                .<io.cryostat.diagnostic.GcLog>find(
+                                        io.cryostat.diagnostic.UnifiedLog
+                                                .<io.cryostat.diagnostic.UnifiedLog>find(
                                                         "target", target)
                                                 .firstResultOptional()
                                                 .map(
@@ -160,77 +160,77 @@ public class GcLogs {
                                                         })
                                                 .orElse(null));
         try {
-            helper.reconfigureGcLogging(target, what, decorators);
+            helper.reconfigureUnifiedLogging(target, what, decorators);
         } catch (Exception e) {
             if (sessionId != null) {
                 QuarkusTransaction.requiringNew()
                         .run(
                                 () -> {
-                                    io.cryostat.diagnostic.GcLog s =
-                                            io.cryostat.diagnostic.GcLog.findById(sessionId);
+                                    io.cryostat.diagnostic.UnifiedLog s =
+                                            io.cryostat.diagnostic.UnifiedLog.findById(sessionId);
                                     s.markFailed();
                                     s.persist();
                                 });
             }
             throw e;
         }
-        return new GcLog(
+        return new UnifiedLog(
                 target.jvmId, null, null, System.currentTimeMillis() / 1000, 0, Metadata.empty());
     }
 
-    @Path("targets/{targetId}/gclogging")
+    @Path("targets/{targetId}/unified-logging")
     @RolesAllowed("write")
     @Blocking
     @DELETE
-    public void disableGcLogging(@RestPath long targetId) {
+    public void disableUnifiedLogging(@RestPath long targetId) {
         Target target =
                 QuarkusTransaction.requiringNew().call(() -> Target.getTargetById(targetId));
         if (!target.isAgent()) {
-            throw new BadRequestException("GC log collection requires an Agent-monitored target");
+            throw new BadRequestException("Log collection requires an Agent-monitored target");
         }
-        io.cryostat.diagnostic.GcLog session =
+        io.cryostat.diagnostic.UnifiedLog session =
                 QuarkusTransaction.requiringNew()
                         .call(
                                 () ->
-                                        io.cryostat.diagnostic.GcLog
-                                                .<io.cryostat.diagnostic.GcLog>find(
+                                        io.cryostat.diagnostic.UnifiedLog
+                                                .<io.cryostat.diagnostic.UnifiedLog>find(
                                                         "target", target)
                                                 .firstResult());
-        helper.disableGcLogging(target);
+        helper.disableUnifiedLogging(target);
         if (session != null) {
             QuarkusTransaction.requiringNew()
-                    .run(() -> io.cryostat.diagnostic.GcLog.deleteById(session.id));
+                    .run(() -> io.cryostat.diagnostic.UnifiedLog.deleteById(session.id));
         }
     }
 
-    @Path("targets/{targetId}/gclogging")
+    @Path("targets/{targetId}/unified-logging")
     @RolesAllowed("read")
     @Blocking
     @GET
-    public AgentClient.GcLogStatus gcLoggingStatus(@RestPath long targetId) {
+    public AgentClient.UnifiedLogStatus unifiedLoggingStatus(@RestPath long targetId) {
         Target target =
                 QuarkusTransaction.requiringNew().call(() -> Target.getTargetById(targetId));
-        return helper.gcLogStatus(target);
+        return helper.unifiedLogStatus(target);
     }
 
-    @Path("targets/{targetId}/gclogging/pull")
+    @Path("targets/{targetId}/unified-logging/pull")
     @RolesAllowed("write")
     @Blocking
     @POST
-    public RestResponse<GcLog> pullGcLog(@RestPath long targetId) {
+    public RestResponse<UnifiedLog> pullUnifiedLog(@RestPath long targetId) {
         Target target =
                 QuarkusTransaction.requiringNew().call(() -> Target.getTargetById(targetId));
         if (!target.isAgent()) {
-            throw new BadRequestException("GC log collection requires an Agent-monitored target");
+            throw new BadRequestException("Log collection requires an Agent-monitored target");
         }
-        Optional<GcLog> result;
+        Optional<UnifiedLog> result;
         try {
-            result = helper.pullGcLog(target);
+            result = helper.pullUnifiedLog(target);
         } catch (Exception e) {
             QuarkusTransaction.requiringNew()
                     .run(
                             () -> {
-                                io.cryostat.diagnostic.GcLog.<io.cryostat.diagnostic.GcLog>find(
+                                io.cryostat.diagnostic.UnifiedLog.<io.cryostat.diagnostic.UnifiedLog>find(
                                                 "target", target)
                                         .firstResultOptional()
                                         .ifPresent(
@@ -247,24 +247,24 @@ public class GcLogs {
         return RestResponse.ok(result.get());
     }
 
-    @Path("targets/{targetId}/gclogs")
+    @Path("targets/{targetId}/unified-logs")
     @RolesAllowed("read")
     @Blocking
     @GET
-    public List<GcLog> listGcLogs(@RestPath long targetId) {
+    public List<UnifiedLog> listUnifiedLogs(@RestPath long targetId) {
         String jvmId =
                 QuarkusTransaction.requiringNew().call(() -> Target.getTargetById(targetId).jvmId);
-        return helper.listGcLogObjects(jvmId).stream()
+        return helper.listUnifiedLogObjects(jvmId).stream()
                 .map(
                         item -> {
                             String[] parts = item.key().strip().split("/");
                             String filename = parts[1];
                             String storageKey = DiagnosticsHelper.storageKey(jvmId, filename);
                             Metadata metadata =
-                                    helper.getGcLogMetadata(storageKey).orElse(Metadata.empty());
-                            return new GcLog(
+                                    helper.getUnifiedLogMetadata(storageKey).orElse(Metadata.empty());
+                            return new UnifiedLog(
                                     jvmId,
-                                    helper.gcLogDownloadUrl(jvmId, filename),
+                                    helper.unifiedLogDownloadUrl(jvmId, filename),
                                     filename,
                                     item.lastModified().getEpochSecond(),
                                     item.size(),
@@ -273,40 +273,40 @@ public class GcLogs {
                 .toList();
     }
 
-    @Path("targets/{targetId}/gclogs/{gcLogId}")
+    @Path("targets/{targetId}/unified-logs/{logId}")
     @RolesAllowed("read")
     @Blocking
     @GET
-    public RestResponse<Object> downloadGcLog(
-            @RestPath long targetId, @RestPath String gcLogId, @RestQuery String filename)
+    public RestResponse<Object> downloadUnifiedLog(
+            @RestPath long targetId, @RestPath String logId, @RestQuery String filename)
             throws URISyntaxException {
         String jvmId =
                 QuarkusTransaction.requiringNew().call(() -> Target.getTargetById(targetId).jvmId);
-        String encodedKey = helper.encodedKey(jvmId, gcLogId);
+        String encodedKey = helper.encodedKey(jvmId, logId);
         return RestResponse.seeOther(
                 new URI(
                         String.format(
-                                "/api/beta/diagnostics/gclog/download/%s?filename=%s",
+                                "/api/beta/diagnostics/unified-logs/download/%s?filename=%s",
                                 encodedKey, filename)));
     }
 
-    @Path("targets/{targetId}/gclogs/{gcLogId}")
+    @Path("targets/{targetId}/unified-logs/{logId}")
     @RolesAllowed("write")
     @Blocking
     @DELETE
-    public void deleteGcLog(@RestPath long targetId, @RestPath String gcLogId) {
+    public void deleteUnifiedLog(@RestPath long targetId, @RestPath String logId) {
         String jvmId =
                 QuarkusTransaction.requiringNew().call(() -> Target.getTargetById(targetId).jvmId);
-        helper.deleteGcLog(jvmId, gcLogId);
+        helper.deleteUnifiedLog(jvmId, logId);
     }
 
-    @Path("fs/gclogs")
+    @Path("fs/unified-logs")
     @RolesAllowed("read")
     @Blocking
     @GET
-    public Collection<ArchivedGcLogDirectory> listFsGcLogs() {
-        var map = new HashMap<String, ArchivedGcLogDirectory>();
-        helper.listGcLogObjects()
+    public Collection<ArchivedUnifiedLogDirectory> listFsUnifiedLogs() {
+        var map = new HashMap<String, ArchivedUnifiedLogDirectory>();
+        helper.listUnifiedLogObjects()
                 .forEach(
                         item -> {
                             String path = item.key().strip();
@@ -317,16 +317,16 @@ public class GcLogs {
                                     map.computeIfAbsent(
                                             jvmId,
                                             id ->
-                                                    new ArchivedGcLogDirectory(
+                                                    new ArchivedUnifiedLogDirectory(
                                                             id, new ArrayList<>()));
                             String storageKey = DiagnosticsHelper.storageKey(jvmId, filename);
                             Metadata metadata =
-                                    helper.getGcLogMetadata(storageKey).orElse(Metadata.empty());
-                            dir.gcLogs()
+                                    helper.getUnifiedLogMetadata(storageKey).orElse(Metadata.empty());
+                            dir.unifiedLogs()
                                     .add(
-                                            new GcLog(
+                                            new UnifiedLog(
                                                     jvmId,
-                                                    helper.gcLogDownloadUrl(jvmId, filename),
+                                                    helper.unifiedLogDownloadUrl(jvmId, filename),
                                                     filename,
                                                     item.lastModified().getEpochSecond(),
                                                     item.size(),
@@ -335,50 +335,50 @@ public class GcLogs {
         return map.values();
     }
 
-    @Path("fs/gclogs/{jvmId}/{gcLogId}")
+    @Path("fs/unified-logs/{jvmId}/{logId}")
     @RolesAllowed("write")
     @Blocking
     @DELETE
-    public void deleteGcLogByPath(@RestPath String jvmId, @RestPath String gcLogId) {
-        helper.deleteGcLog(jvmId, gcLogId);
+    public void deleteUnifiedLogByPath(@RestPath String jvmId, @RestPath String logId) {
+        helper.deleteUnifiedLog(jvmId, logId);
     }
 
-    @Path("targets/{targetId}/gclogs/{gcLogId}")
+    @Path("targets/{targetId}/unified-logs/{logId}")
     @RolesAllowed("write")
     @Blocking
     @PATCH
     @Consumes("application/json")
-    public GcLog patchGcLogMetadata(
-            @RestPath long targetId, @RestPath String gcLogId, MetadataBody body) throws Exception {
+    public UnifiedLog patchUnifiedLogMetadata(
+            @RestPath long targetId, @RestPath String logId, MetadataBody body) throws Exception {
         String jvmId =
                 QuarkusTransaction.requiringNew().call(() -> Target.getTargetById(targetId).jvmId);
-        return helper.updateGcLogMetadata(jvmId, gcLogId, body.labels());
+        return helper.updateUnifiedLogMetadata(jvmId, logId, body.labels());
     }
 
-    @Path("fs/gclogs/{jvmId}/{gcLogId}")
+    @Path("fs/unified-logs/{jvmId}/{logId}")
     @RolesAllowed("write")
     @Blocking
     @PATCH
     @Consumes("application/json")
-    public GcLog patchFsGcLogMetadata(
-            @RestPath String jvmId, @RestPath String gcLogId, MetadataBody body) throws Exception {
-        return helper.updateGcLogMetadata(jvmId, gcLogId, body.labels());
+    public UnifiedLog patchFsUnifiedLogMetadata(
+            @RestPath String jvmId, @RestPath String logId, MetadataBody body) throws Exception {
+        return helper.updateUnifiedLogMetadata(jvmId, logId, body.labels());
     }
 
-    @Path("/gclog/download/{encodedKey}")
+    @Path("/unified-logs/download/{encodedKey}")
     @RolesAllowed("read")
     @Blocking
     @GET
-    public RestResponse<Object> handleGcLogStorageDownload(
+    public RestResponse<Object> handleUnifiedLogStorageDownload(
             @RestPath String encodedKey, @RestQuery String filename) throws URISyntaxException {
         Pair<String, String> decodedKey = helper.decodedKey(encodedKey);
-        log.tracev("Handling GC log download Request for key: {0}", decodedKey);
+        log.tracev("Handling log download Request for key: {0}", decodedKey);
         String key = helper.storageKey(decodedKey);
         try {
-            storage.headObject(HeadObjectRequest.builder().bucket(gcLogsBucket).key(key).build())
+            storage.headObject(HeadObjectRequest.builder().bucket(logsBucket).key(key).build())
                     .sdkHttpResponse();
         } catch (NoSuchKeyException e) {
-            log.warnv("Failed to find GC log for key {0}", decodedKey.toString());
+            log.warnv("Failed to find log for key {0}", decodedKey.toString());
             throw new NotFoundException(e);
         }
         String contentName = StringUtils.isNotBlank(filename) ? filename : decodedKey.getRight();
@@ -389,12 +389,12 @@ public class GcLogs {
                             HttpHeaders.CONTENT_DISPOSITION,
                             String.format("attachment; filename=\"%s\"", contentName))
                     .header(HttpHeaders.CONTENT_TYPE, HttpMimeType.OCTET_STREAM.mime())
-                    .entity(helper.getGcLogStream(encodedKey))
+                    .entity(helper.getUnifiedLogStream(encodedKey))
                     .build();
         }
 
         GetObjectRequest getRequest =
-                GetObjectRequest.builder().bucket(gcLogsBucket).key(key).build();
+                GetObjectRequest.builder().bucket(logsBucket).key(key).build();
         GetObjectPresignRequest presignRequest =
                 GetObjectPresignRequest.builder()
                         .signatureDuration(Duration.ofMinutes(1))
@@ -432,7 +432,7 @@ public class GcLogs {
         }
     }
 
-    private static void validateGcLoggingParams(String what, String decorators) {
+    private static void validateLoggingParams(String what, String decorators) {
         if (!SAFE_PARAM_PATTERN.matcher(what).matches()
                 || !SAFE_PARAM_PATTERN.matcher(decorators).matches()) {
             throw new BadRequestException(
@@ -442,40 +442,40 @@ public class GcLogs {
     }
 
     @SuppressFBWarnings("EI_EXPOSE_REP")
-    public record ArchivedGcLogDirectory(String jvmId, List<GcLog> gcLogs) {
-        public ArchivedGcLogDirectory {
+    public record ArchivedUnifiedLogDirectory(String jvmId, List<UnifiedLog> unifiedLogs) {
+        public ArchivedUnifiedLogDirectory {
             Objects.requireNonNull(jvmId);
-            Objects.requireNonNull(gcLogs);
+            Objects.requireNonNull(unifiedLogs);
         }
     }
 
-    public record GcLog(
+    public record UnifiedLog(
             String jvmId,
             String downloadUrl,
-            String gcLogId,
+            String logId,
             long lastModified,
             long size,
             Metadata metadata) {
-        public GcLog {
+        public UnifiedLog {
             Objects.requireNonNull(jvmId);
             Objects.requireNonNull(metadata);
         }
     }
 
-    public record GcLogEvent(DiagnosticsHelper.EventCategory category, Payload payload) {
-        public GcLogEvent {
+    public record UnifiedLogEvent(DiagnosticsHelper.EventCategory category, Payload payload) {
+        public UnifiedLogEvent {
             Objects.requireNonNull(category);
             Objects.requireNonNull(payload);
         }
 
-        public record Payload(String jvmId, GcLog gcLog) {
+        public record Payload(String jvmId, UnifiedLog unifiedLog) {
             public Payload {
                 Objects.requireNonNull(jvmId);
-                Objects.requireNonNull(gcLog);
+                Objects.requireNonNull(unifiedLog);
             }
 
-            public static Payload of(String jvmId, GcLog gcLog) {
-                return new Payload(jvmId, gcLog);
+            public static Payload of(String jvmId, UnifiedLog unifiedLog) {
+                return new Payload(jvmId, unifiedLog);
             }
         }
     }

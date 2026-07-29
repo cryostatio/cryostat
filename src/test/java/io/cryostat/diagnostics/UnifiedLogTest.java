@@ -21,8 +21,8 @@ import java.util.List;
 import java.util.stream.Stream;
 
 import io.cryostat.audit.AuditTestBase;
-import io.cryostat.diagnostic.GcLog;
-import io.cryostat.diagnostic.GcLogs;
+import io.cryostat.diagnostic.UnifiedLog;
+import io.cryostat.diagnostic.UnifiedLogs;
 import io.cryostat.targets.Target;
 
 import io.quarkus.narayana.jta.QuarkusTransaction;
@@ -41,22 +41,22 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 @QuarkusTest
-@TestProfile(GcLogTest.class)
-@TestHTTPEndpoint(GcLogs.class)
-public class GcLogTest extends AuditTestBase {
+@TestProfile(UnifiedLogTest.class)
+@TestHTTPEndpoint(UnifiedLogs.class)
+public class UnifiedLogTest extends AuditTestBase {
 
     @Inject EntityManager em;
 
     // ── Non-agent target: all session management endpoints must return 400 ────────
 
     @Test
-    public void testEnableGcLoggingOnJmxTargetReturns400() {
+    public void testEnableUnifiedLoggingOnJmxTargetReturns400() {
         int targetId = defineSelfCustomTarget();
         given().log()
                 .all()
                 .when()
                 .pathParam("targetId", targetId)
-                .post("targets/{targetId}/gclogging")
+                .post("targets/{targetId}/unified-logging")
                 .then()
                 .log()
                 .all()
@@ -65,13 +65,13 @@ public class GcLogTest extends AuditTestBase {
     }
 
     @Test
-    public void testPatchGcLoggingOnJmxTargetReturns400() {
+    public void testPatchUnifiedLoggingOnJmxTargetReturns400() {
         int targetId = defineSelfCustomTarget();
         given().log()
                 .all()
                 .when()
                 .pathParam("targetId", targetId)
-                .request("PATCH", "targets/{targetId}/gclogging")
+                .request("PATCH", "targets/{targetId}/unified-logging")
                 .then()
                 .log()
                 .all()
@@ -80,13 +80,13 @@ public class GcLogTest extends AuditTestBase {
     }
 
     @Test
-    public void testDisableGcLoggingOnJmxTargetReturns400() {
+    public void testDisableUnifiedLoggingOnJmxTargetReturns400() {
         int targetId = defineSelfCustomTarget();
         given().log()
                 .all()
                 .when()
                 .pathParam("targetId", targetId)
-                .delete("targets/{targetId}/gclogging")
+                .delete("targets/{targetId}/unified-logging")
                 .then()
                 .log()
                 .all()
@@ -95,13 +95,13 @@ public class GcLogTest extends AuditTestBase {
     }
 
     @Test
-    public void testPullGcLogOnJmxTargetReturns400() {
+    public void testPullUnifiedLogOnJmxTargetReturns400() {
         int targetId = defineSelfCustomTarget();
         given().log()
                 .all()
                 .when()
                 .pathParam("targetId", targetId)
-                .post("targets/{targetId}/gclogging/pull")
+                .post("targets/{targetId}/unified-logging/pull")
                 .then()
                 .log()
                 .all()
@@ -131,7 +131,7 @@ public class GcLogTest extends AuditTestBase {
 
     @ParameterizedTest
     @MethodSource("invalidParams")
-    public void testEnableGcLoggingWithInvalidParamsReturns400(String what, String decorators) {
+    public void testEnableUnifiedLoggingWithInvalidParamsReturns400(String what, String decorators) {
         int targetId = defineSelfCustomTarget();
         given().log()
                 .all()
@@ -139,7 +139,7 @@ public class GcLogTest extends AuditTestBase {
                 .pathParam("targetId", targetId)
                 .queryParam("what", what)
                 .queryParam("decorators", decorators)
-                .post("targets/{targetId}/gclogging")
+                .post("targets/{targetId}/unified-logging")
                 .then()
                 .log()
                 .all()
@@ -149,7 +149,7 @@ public class GcLogTest extends AuditTestBase {
 
     @ParameterizedTest
     @MethodSource("invalidParams")
-    public void testReconfigureGcLoggingWithInvalidParamsReturns400(
+    public void testReconfigureUnifiedLoggingWithInvalidParamsReturns400(
             String what, String decorators) {
         int targetId = defineSelfCustomTarget();
         given().log()
@@ -158,7 +158,7 @@ public class GcLogTest extends AuditTestBase {
                 .pathParam("targetId", targetId)
                 .queryParam("what", what)
                 .queryParam("decorators", decorators)
-                .request("PATCH", "targets/{targetId}/gclogging")
+                .request("PATCH", "targets/{targetId}/unified-logging")
                 .then()
                 .log()
                 .all()
@@ -169,12 +169,12 @@ public class GcLogTest extends AuditTestBase {
     // ── Invalid target ID ─────────────────────────────────────────────────────────
 
     @Test
-    public void testEnableGcLoggingOnInvalidTargetReturns404() {
+    public void testEnableUnifiedLoggingOnInvalidTargetReturns404() {
         given().log()
                 .all()
                 .when()
                 .pathParam("targetId", Integer.MAX_VALUE)
-                .post("targets/{targetId}/gclogging")
+                .post("targets/{targetId}/unified-logging")
                 .then()
                 .log()
                 .all()
@@ -182,21 +182,21 @@ public class GcLogTest extends AuditTestBase {
                 .statusCode(404);
     }
 
-    // ── GcLog entity lifecycle — Envers-based assertions ─────────────────────────
+    // ── UnifiedLog entity lifecycle — Envers-based assertions ─────────────────────────
 
     @Test
     @Transactional
-    public void testGcLogEntityEnableCreatesActiveRow() {
+    public void testUnifiedLogEntityEnableCreatesActiveRow() {
         int targetId = defineSelfCustomTarget();
         Target target = Target.getTargetById(targetId);
 
         long before = System.currentTimeMillis();
-        GcLog session = GcLog.enable(target, "gc", "time,level");
+        UnifiedLog session = UnifiedLog.enable(target, "gc", "time,level");
         session.persist();
         long after = System.currentTimeMillis();
 
         Assertions.assertNotNull(session.id);
-        Assertions.assertEquals(GcLog.Status.ACTIVE, session.status);
+        Assertions.assertEquals(UnifiedLog.Status.ACTIVE, session.status);
         Assertions.assertEquals("gc", session.what);
         Assertions.assertEquals("time,level", session.decorators);
         Assertions.assertTrue(session.enabledAt >= before);
@@ -204,16 +204,16 @@ public class GcLogTest extends AuditTestBase {
     }
 
     @Test
-    public void testGcLogSessionLifecycleCreatesAuditRevisions() {
+    public void testUnifiedLogSessionLifecycleCreatesAuditRevisions() {
         int targetId = defineSelfCustomTarget();
 
-        // Persist a GcLog session and immediately delete it (simulating enable + disable).
+        // Persist a UnifiedLog session and immediately delete it (simulating enable + disable).
         long sessionId =
                 QuarkusTransaction.requiringNew()
                         .call(
                                 () -> {
                                     Target target = Target.getTargetById(targetId);
-                                    GcLog session = GcLog.enable(target, "gc", "time,level");
+                                    UnifiedLog session = UnifiedLog.enable(target, "gc", "time,level");
                                     session.persist();
                                     return session.id;
                                 });
@@ -222,38 +222,38 @@ public class GcLogTest extends AuditTestBase {
         QuarkusTransaction.requiringNew()
                 .run(
                         () -> {
-                            GcLog session = GcLog.findById(sessionId);
+                            UnifiedLog session = UnifiedLog.findById(sessionId);
                             session.markReconfigured("gc,heap", "time,level,tags");
                             session.persist();
                         });
 
         // Delete in a separate transaction — Envers must record the DELETE revision.
-        QuarkusTransaction.requiringNew().run(() -> GcLog.deleteById(sessionId));
+        QuarkusTransaction.requiringNew().run(() -> UnifiedLog.deleteById(sessionId));
 
         // Primary table must be empty.
-        long primaryCount = GcLog.count();
+        long primaryCount = UnifiedLog.count();
         Assertions.assertEquals(
-                0, primaryCount, "GcLog primary table should be empty after delete");
+                0, primaryCount, "Log primary table should be empty after delete");
 
         // _AUD must have at least 3 revisions: INSERT + UPDATE + DELETE.
         AuditReader auditReader = AuditReaderFactory.get(em);
         List<?> revisions =
                 auditReader
                         .createQuery()
-                        .forRevisionsOfEntity(GcLog.class, false, true)
+                        .forRevisionsOfEntity(UnifiedLog.class, false, true)
                         .getResultList();
         Assertions.assertTrue(
                 revisions.size() >= 3,
-                "GcLog_AUD should have at least 3 revisions (INSERT + UPDATE + DELETE)");
+                "Log_AUD should have at least 3 revisions (INSERT + UPDATE + DELETE)");
     }
 
     @Test
-    public void testListGcLogsForInvalidTargetReturns404() {
+    public void testListUnifiedLogsForInvalidTargetReturns404() {
         given().log()
                 .all()
                 .when()
                 .pathParam("targetId", Integer.MAX_VALUE)
-                .get("targets/{targetId}/gclogs")
+                .get("targets/{targetId}/unified-logs")
                 .then()
                 .log()
                 .all()
@@ -262,11 +262,11 @@ public class GcLogTest extends AuditTestBase {
     }
 
     @Test
-    public void testDownloadInvalidGcLogKeyReturns404() {
+    public void testDownloadInvalidUnifiedLogKeyReturns404() {
         given().log()
                 .all()
                 .when()
-                .get("/api/beta/diagnostics/gclog/download/abcd1234")
+                .get("/api/beta/diagnostics/unified-log/download/abcd1234")
                 .then()
                 .assertThat()
                 .statusCode(404);

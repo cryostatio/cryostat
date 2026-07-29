@@ -607,22 +607,22 @@ public class AgentClient {
                         });
     }
 
-    Uni<GcLogStatus> gcLogStatus() {
+    Uni<UnifiedLogStatus> unifiedLogStatus() {
         return agentRestClient
-                .gcLogStatus()
+                .unifiedLogStatus()
                 .map(
                         Unchecked.function(
                                 resp -> {
                                     try (resp;
                                             var is = (InputStream) resp.getEntity()) {
-                                        return mapper.readValue(is, GcLogStatus.class);
+                                        return mapper.readValue(is, UnifiedLogStatus.class);
                                     }
                                 }));
     }
 
-    Uni<Optional<InputStream>> pullGcLog() {
+    Uni<Optional<InputStream>> pullUnifiedLog() {
         return agentRestClient
-                .getGcLog()
+                .getUnifiedLog()
                 .map(
                         resp -> {
                             int statusCode = resp.getStatus();
@@ -640,7 +640,7 @@ public class AgentClient {
                             } else if (statusCode == Response.Status.NOT_FOUND.getStatusCode()) {
                                 throw new AgentApiException(
                                         Response.Status.CONFLICT.getStatusCode(),
-                                        new IllegalStateException("GC logging not active"));
+                                        new IllegalStateException("Logging not active"));
                             } else {
                                 throw new AgentApiException(statusCode);
                             }
@@ -901,6 +901,6 @@ public class AgentClient {
         ;
     }
 
-    public static record GcLogStatus(
+    public static record UnifiedLogStatus(
             boolean enabled, String what, String decorators, String logFilePath) {}
 }

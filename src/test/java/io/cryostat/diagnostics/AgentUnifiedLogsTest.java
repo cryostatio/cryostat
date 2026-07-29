@@ -26,7 +26,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 
 import io.cryostat.AgentTestBase;
-import io.cryostat.diagnostic.GcLog;
+import io.cryostat.diagnostic.UnifiedLog;
 import io.cryostat.resources.AgentApplicationResource;
 import io.cryostat.resources.S3StorageResource;
 
@@ -45,60 +45,55 @@ import org.junit.jupiter.api.Test;
 @QuarkusTest
 @QuarkusTestResource(value = AgentApplicationResource.class, restrictToAnnotatedClass = true)
 @QuarkusTestResource(value = S3StorageResource.class, restrictToAnnotatedClass = true)
-public class AgentGcLogTest extends AgentTestBase {
+public class AgentUnifiedLogsTest extends AgentTestBase {
 
     @BeforeEach
-    void disableGcLoggingOnAgent() {
+    void disableUnifiedLoggingOnAgent() {
         if (target == null) {
             return;
         }
-        // Ensure the agent has GC logging disabled before each test so that a leftover
-        // agent-side state from a previous test does not cause POST /gclogging to return
-        // 409 (already active). Ignore errors — the agent may already be clean.
         try {
             given().pathParam("targetId", target.id())
                     .when()
-                    .delete("/api/beta/diagnostics/targets/{targetId}/gclogging")
+                    .delete("/api/beta/diagnostics/targets/{targetId}/unified-logging")
                     .then()
                     .log()
                     .all();
         } catch (Exception ignored) {
         }
-        // Purge any leftover DB session row from a previous test too.
-        QuarkusTransaction.requiringNew().run(() -> GcLog.delete("target.id", target.id()));
+        QuarkusTransaction.requiringNew().run(() -> UnifiedLog.delete("target.id", target.id()));
     }
 
     @AfterEach
-    void cleanupGcLogging() {
+    void cleanupUnifiedLogging() {
         if (target == null) {
             return;
         }
-        // Disable GC logging on the Agent if it is still active.
         try {
             given().log()
                     .all()
                     .pathParam("targetId", target.id())
                     .when()
-                    .delete("/api/beta/diagnostics/targets/{targetId}/gclogging")
+                    .delete("/api/beta/diagnostics/targets/{targetId}/unified-logging")
                     .then()
                     .log()
                     .all();
         } catch (Exception ignored) {
         }
 
-        // Remove any leftover GcLog session rows directly so the unique constraint on
+        // Remove any leftover UnifiedLog session rows directly so the unique constraint on
         // (target_id) does not bleed into the next test regardless of what the REST
         // call above returned.
-        QuarkusTransaction.requiringNew().run(() -> GcLog.delete("target.id", target.id()));
+        QuarkusTransaction.requiringNew().run(() -> UnifiedLog.delete("target.id", target.id()));
 
-        // Delete any pulled GC log files from S3.
+        // Delete any pulled log files from S3.
         try {
-            List<Map<String, Object>> gcLogs =
+            List<Map<String, Object>> logs =
                     given().log()
                             .all()
                             .pathParam("targetId", target.id())
                             .when()
-                            .get("/api/beta/diagnostics/targets/{targetId}/gclogs")
+                            .get("/api/beta/diagnostics/targets/{targetId}/unified-logs")
                             .then()
                             .log()
                             .all()
@@ -108,13 +103,13 @@ public class AgentGcLogTest extends AgentTestBase {
                             .body()
                             .jsonPath()
                             .getList("$");
-            for (Map<String, Object> entry : gcLogs) {
-                String gcLogId = (String) entry.get("gcLogId");
+            for (Map<String, Object> entry : logs) {
+                String logId = (String) entry.get("logId");
                 given().log()
                         .all()
-                        .pathParams("targetId", target.id(), "gcLogId", gcLogId)
+                        .pathParams("targetId", target.id(), "logId", logId)
                         .when()
-                        .delete("/api/beta/diagnostics/targets/{targetId}/gclogs/{gcLogId}")
+                        .delete("/api/beta/diagnostics/targets/{targetId}/unified-logs/{logId}")
                         .then()
                         .log()
                         .all();
@@ -126,12 +121,12 @@ public class AgentGcLogTest extends AgentTestBase {
     // ── Initial state ─────────────────────────────────────────────────────────────
 
     @Test
-    void testListGcLogsInitiallyEmpty() {
+    void testListUnifiedLogsInitiallyEmpty() {
         given().log()
                 .all()
                 .pathParam("targetId", target.id())
                 .when()
-                .get("/api/beta/diagnostics/targets/{targetId}/gclogs")
+                .get("/api/beta/diagnostics/targets/{targetId}/unified-logs")
                 .then()
                 .log()
                 .all()
@@ -142,13 +137,13 @@ public class AgentGcLogTest extends AgentTestBase {
     }
 
     @Test
-    void testGetInitialGcLoggingStatus() {
+    void testGetInitialUnifiedLoggingStatus() {
         Map<String, Object> status =
                 given().log()
                         .all()
                         .pathParam("targetId", target.id())
                         .when()
-                        .get("/api/beta/diagnostics/targets/{targetId}/gclogging")
+                        .get("/api/beta/diagnostics/targets/{targetId}/unified-logging")
                         .then()
                         .log()
                         .all()
@@ -167,7 +162,7 @@ public class AgentGcLogTest extends AgentTestBase {
     // ── Enable ────────────────────────────────────────────────────────────────────
 
     @Test
-    void testEnableGcLoggingCreatesSessionRow()
+    void testEnableUnifiedLoggingCreatesSessionRow()
             throws InterruptedException, ExecutionException, TimeoutException {
         long targetId = target.id();
 
@@ -175,7 +170,7 @@ public class AgentGcLogTest extends AgentTestBase {
                 .all()
                 .pathParam("targetId", targetId)
                 .when()
-                .post("/api/beta/diagnostics/targets/{targetId}/gclogging")
+                .post("/api/beta/diagnostics/targets/{targetId}/unified-logging")
                 .then()
                 .log()
                 .all()
@@ -186,21 +181,21 @@ public class AgentGcLogTest extends AgentTestBase {
 
         long count =
                 QuarkusTransaction.requiringNew()
-                        .call(() -> GcLog.count("target.id = ?1", targetId));
+                        .call(() -> UnifiedLog.count("target.id = ?1", targetId));
         assertThat(count, equalTo(1L));
 
-        GcLog session =
+        UnifiedLog session =
                 QuarkusTransaction.requiringNew()
-                        .call(() -> GcLog.<GcLog>find("target.id", targetId).firstResult());
+                        .call(() -> UnifiedLog.<UnifiedLog>find("target.id", targetId).firstResult());
         assertThat(session, notNullValue());
-        assertThat(session.status, equalTo(GcLog.Status.ACTIVE));
+        assertThat(session.status, equalTo(UnifiedLog.Status.ACTIVE));
         assertThat(session.what, equalTo("gc"));
         assertThat(session.decorators, equalTo("time,level"));
         assertThat(session.enabledAt, greaterThan(0L));
     }
 
     @Test
-    void testEnableGcLoggingWithCustomParams() {
+    void testEnableUnifiedLoggingWithCustomParams() {
         long targetId = target.id();
 
         given().log()
@@ -209,7 +204,7 @@ public class AgentGcLogTest extends AgentTestBase {
                 .queryParam("what", "gc+heap")
                 .queryParam("decorators", "time,level,pid")
                 .when()
-                .post("/api/beta/diagnostics/targets/{targetId}/gclogging")
+                .post("/api/beta/diagnostics/targets/{targetId}/unified-logging")
                 .then()
                 .log()
                 .all()
@@ -217,23 +212,23 @@ public class AgentGcLogTest extends AgentTestBase {
                 .assertThat()
                 .statusCode(200);
 
-        GcLog session =
+        UnifiedLog session =
                 QuarkusTransaction.requiringNew()
-                        .call(() -> GcLog.<GcLog>find("target.id", targetId).firstResult());
+                        .call(() -> UnifiedLog.<UnifiedLog>find("target.id", targetId).firstResult());
         assertThat(session, notNullValue());
         assertThat(session.what, equalTo("gc+heap"));
         assertThat(session.decorators, equalTo("time,level,pid"));
     }
 
     @Test
-    void testGetGcLoggingStatusAfterEnable() {
+    void testGetUnifiedLoggingStatusAfterEnable() {
         long targetId = target.id();
 
         given().log()
                 .all()
                 .pathParam("targetId", targetId)
                 .when()
-                .post("/api/beta/diagnostics/targets/{targetId}/gclogging")
+                .post("/api/beta/diagnostics/targets/{targetId}/unified-logging")
                 .then()
                 .log()
                 .all()
@@ -241,14 +236,14 @@ public class AgentGcLogTest extends AgentTestBase {
                 .assertThat()
                 .statusCode(200);
 
-        // Verify the GET /gclogging status endpoint is reachable and returns valid JSON.
+        // Verify the GET /unified-logging status endpoint is reachable and returns valid JSON.
         // The agent may report enabled=false briefly after a VM.log invocation due to
         // internal state propagation; we verify the endpoint works rather than the value.
         given().log()
                 .all()
                 .pathParam("targetId", targetId)
                 .when()
-                .get("/api/beta/diagnostics/targets/{targetId}/gclogging")
+                .get("/api/beta/diagnostics/targets/{targetId}/unified-logging")
                 .then()
                 .log()
                 .all()
@@ -261,14 +256,14 @@ public class AgentGcLogTest extends AgentTestBase {
     // ── Reconfigure ───────────────────────────────────────────────────────────────
 
     @Test
-    void testReconfigureGcLoggingUpdatesSessionRow() {
+    void testReconfigureUnifiedLoggingUpdatesSessionRow() {
         long targetId = target.id();
 
         given().log()
                 .all()
                 .pathParam("targetId", targetId)
                 .when()
-                .post("/api/beta/diagnostics/targets/{targetId}/gclogging")
+                .post("/api/beta/diagnostics/targets/{targetId}/unified-logging")
                 .then()
                 .log()
                 .all()
@@ -282,7 +277,7 @@ public class AgentGcLogTest extends AgentTestBase {
                 .queryParam("what", "gc+heap")
                 .queryParam("decorators", "time,level,uptime")
                 .when()
-                .request("PATCH", "/api/beta/diagnostics/targets/{targetId}/gclogging")
+                .request("PATCH", "/api/beta/diagnostics/targets/{targetId}/unified-logging")
                 .then()
                 .log()
                 .all()
@@ -290,26 +285,26 @@ public class AgentGcLogTest extends AgentTestBase {
                 .assertThat()
                 .statusCode(200);
 
-        GcLog after =
+        UnifiedLog after =
                 QuarkusTransaction.requiringNew()
-                        .call(() -> GcLog.<GcLog>find("target.id", targetId).firstResult());
+                        .call(() -> UnifiedLog.<UnifiedLog>find("target.id", targetId).firstResult());
         assertThat(after, notNullValue());
         assertThat(after.what, equalTo("gc+heap"));
         assertThat(after.decorators, equalTo("time,level,uptime"));
 
         long count =
                 QuarkusTransaction.requiringNew()
-                        .call(() -> GcLog.count("target.id = ?1", targetId));
+                        .call(() -> UnifiedLog.count("target.id = ?1", targetId));
         assertThat("Session row count must remain at 1 after reconfigure", count, equalTo(1L));
     }
 
     @Test
-    void testReconfigureGcLoggingWhenNotEnabledReturns409() {
+    void testReconfigureUnifiedLoggingWhenNotEnabledReturns409() {
         given().log()
                 .all()
                 .pathParam("targetId", target.id())
                 .when()
-                .request("PATCH", "/api/beta/diagnostics/targets/{targetId}/gclogging")
+                .request("PATCH", "/api/beta/diagnostics/targets/{targetId}/unified-logging")
                 .then()
                 .log()
                 .all()
@@ -331,7 +326,7 @@ public class AgentGcLogTest extends AgentTestBase {
     }
 
     @Test
-    void testPullGcLogUploadsToS3AndUpdatesSessionRow()
+    void testPullUnifiedLogUploadsToS3AndUpdatesSessionRow()
             throws InterruptedException, ExecutionException, TimeoutException {
         long targetId = target.id();
 
@@ -339,7 +334,7 @@ public class AgentGcLogTest extends AgentTestBase {
                 .all()
                 .pathParam("targetId", targetId)
                 .when()
-                .post("/api/beta/diagnostics/targets/{targetId}/gclogging")
+                .post("/api/beta/diagnostics/targets/{targetId}/unified-logging")
                 .then()
                 .log()
                 .all()
@@ -355,7 +350,7 @@ public class AgentGcLogTest extends AgentTestBase {
                                 .all()
                                 .pathParam("targetId", targetId)
                                 .when()
-                                .post("/api/beta/diagnostics/targets/{targetId}/gclogging/pull")
+                                .post("/api/beta/diagnostics/targets/{targetId}/unified-logging/pull")
                                 .then()
                                 .log()
                                 .all()
@@ -367,21 +362,21 @@ public class AgentGcLogTest extends AgentTestBase {
                                 .body()
                                 .asString());
 
-        assertThat(pullResponse.getString("gcLogId"), notNullValue());
+        assertThat(pullResponse.getString("logId"), notNullValue());
         assertThat(pullResponse.getString("jvmId"), equalTo(target.jvmId()));
         assertThat(pullResponse.getLong("size"), greaterThanOrEqualTo(0L));
 
-        GcLog session =
+        UnifiedLog session =
                 QuarkusTransaction.requiringNew()
-                        .call(() -> GcLog.<GcLog>find("target.id", targetId).firstResult());
+                        .call(() -> UnifiedLog.<UnifiedLog>find("target.id", targetId).firstResult());
         assertThat(session, notNullValue());
 
-        List<Map<String, Object>> gcLogs =
+        List<Map<String, Object>> logs =
                 given().log()
                         .all()
                         .pathParam("targetId", targetId)
                         .when()
-                        .get("/api/beta/diagnostics/targets/{targetId}/gclogs")
+                        .get("/api/beta/diagnostics/targets/{targetId}/unified-logs")
                         .then()
                         .log()
                         .all()
@@ -395,13 +390,13 @@ public class AgentGcLogTest extends AgentTestBase {
                         .jsonPath()
                         .getList("$");
 
-        assertThat(gcLogs.get(0).get("jvmId"), equalTo(target.jvmId()));
-        assertThat(gcLogs.get(0).get("gcLogId"), notNullValue());
-        assertThat(((Number) gcLogs.get(0).get("size")).longValue(), greaterThanOrEqualTo(0L));
+        assertThat(logs.get(0).get("jvmId"), equalTo(target.jvmId()));
+        assertThat(logs.get(0).get("logId"), notNullValue());
+        assertThat(((Number) logs.get(0).get("size")).longValue(), greaterThanOrEqualTo(0L));
     }
 
     @Test
-    void testGcLogNotificationPublishedOnPull()
+    void testUnifiedLogNotificationPublishedOnPull()
             throws InterruptedException, ExecutionException, TimeoutException {
         long targetId = target.id();
 
@@ -409,7 +404,7 @@ public class AgentGcLogTest extends AgentTestBase {
                 .all()
                 .pathParam("targetId", targetId)
                 .when()
-                .post("/api/beta/diagnostics/targets/{targetId}/gclogging")
+                .post("/api/beta/diagnostics/targets/{targetId}/unified-logging")
                 .then()
                 .log()
                 .all()
@@ -423,7 +418,7 @@ public class AgentGcLogTest extends AgentTestBase {
                 .all()
                 .pathParam("targetId", targetId)
                 .when()
-                .post("/api/beta/diagnostics/targets/{targetId}/gclogging/pull")
+                .post("/api/beta/diagnostics/targets/{targetId}/unified-logging/pull")
                 .then()
                 .log()
                 .all()
@@ -432,20 +427,20 @@ public class AgentGcLogTest extends AgentTestBase {
                 .statusCode(200);
 
         webSocketClient.expectNotification(
-                "GcLogUploaded",
+                "UnifiedLogUploaded",
                 Duration.ofMinutes(2),
                 o -> target.jvmId().equals(o.getJsonObject("message").getString("jvmId")));
     }
 
     @Test
-    void testPullGcLogWithNoContentReturns204() {
+    void testPullUnifiedLogWithNoContentReturns204() {
         long targetId = target.id();
 
         given().log()
                 .all()
                 .pathParam("targetId", targetId)
                 .when()
-                .post("/api/beta/diagnostics/targets/{targetId}/gclogging")
+                .post("/api/beta/diagnostics/targets/{targetId}/unified-logging")
                 .then()
                 .log()
                 .all()
@@ -461,7 +456,7 @@ public class AgentGcLogTest extends AgentTestBase {
                         .all()
                         .pathParam("targetId", targetId)
                         .when()
-                        .post("/api/beta/diagnostics/targets/{targetId}/gclogging/pull")
+                        .post("/api/beta/diagnostics/targets/{targetId}/unified-logging/pull")
                         .then()
                         .log()
                         .all()
@@ -473,11 +468,11 @@ public class AgentGcLogTest extends AgentTestBase {
                 statusCode, Matchers.either(Matchers.equalTo(200)).or(Matchers.equalTo(204)));
 
         // Session row must still exist and remain ACTIVE; a pull with no content must not alter it.
-        GcLog session =
+        UnifiedLog session =
                 QuarkusTransaction.requiringNew()
-                        .call(() -> GcLog.<GcLog>find("target.id", targetId).firstResult());
+                        .call(() -> UnifiedLog.<UnifiedLog>find("target.id", targetId).firstResult());
         assertThat(session, notNullValue());
-        assertThat(session.status, equalTo(GcLog.Status.ACTIVE));
+        assertThat(session.status, equalTo(UnifiedLog.Status.ACTIVE));
 
         if (statusCode == 204) {
             // Nothing must have been stored in S3.
@@ -485,7 +480,7 @@ public class AgentGcLogTest extends AgentTestBase {
                     .all()
                     .pathParam("targetId", targetId)
                     .when()
-                    .get("/api/beta/diagnostics/targets/{targetId}/gclogs")
+                    .get("/api/beta/diagnostics/targets/{targetId}/unified-logs")
                     .then()
                     .log()
                     .all()
@@ -498,14 +493,14 @@ public class AgentGcLogTest extends AgentTestBase {
     // ── Disable ───────────────────────────────────────────────────────────────────
 
     @Test
-    void testDisableGcLoggingDeletesSessionRow() {
+    void testDisableUnifiedLoggingDeletesSessionRow() {
         long targetId = target.id();
 
         given().log()
                 .all()
                 .pathParam("targetId", targetId)
                 .when()
-                .post("/api/beta/diagnostics/targets/{targetId}/gclogging")
+                .post("/api/beta/diagnostics/targets/{targetId}/unified-logging")
                 .then()
                 .log()
                 .all()
@@ -515,14 +510,14 @@ public class AgentGcLogTest extends AgentTestBase {
 
         long countAfterEnable =
                 QuarkusTransaction.requiringNew()
-                        .call(() -> GcLog.count("target.id = ?1", targetId));
+                        .call(() -> UnifiedLog.count("target.id = ?1", targetId));
         assertThat(countAfterEnable, equalTo(1L));
 
         given().log()
                 .all()
                 .pathParam("targetId", targetId)
                 .when()
-                .delete("/api/beta/diagnostics/targets/{targetId}/gclogging")
+                .delete("/api/beta/diagnostics/targets/{targetId}/unified-logging")
                 .then()
                 .log()
                 .all()
@@ -532,14 +527,14 @@ public class AgentGcLogTest extends AgentTestBase {
 
         long countAfterDisable =
                 QuarkusTransaction.requiringNew()
-                        .call(() -> GcLog.count("target.id = ?1", targetId));
+                        .call(() -> UnifiedLog.count("target.id = ?1", targetId));
         assertThat("Session row should be deleted after disable", countAfterDisable, equalTo(0L));
     }
 
     // ── Full lifecycle ────────────────────────────────────────────────────────────
 
     @Test
-    void testFullGcLogLifecycle()
+    void testFullUnifiedLogLifecycle()
             throws InterruptedException, ExecutionException, TimeoutException {
         long targetId = target.id();
 
@@ -548,7 +543,7 @@ public class AgentGcLogTest extends AgentTestBase {
                 .all()
                 .pathParam("targetId", targetId)
                 .when()
-                .post("/api/beta/diagnostics/targets/{targetId}/gclogging")
+                .post("/api/beta/diagnostics/targets/{targetId}/unified-logging")
                 .then()
                 .log()
                 .all()
@@ -558,7 +553,7 @@ public class AgentGcLogTest extends AgentTestBase {
 
         assertThat(
                 QuarkusTransaction.requiringNew()
-                        .call(() -> GcLog.count("target.id = ?1", targetId)),
+                        .call(() -> UnifiedLog.count("target.id = ?1", targetId)),
                 equalTo(1L));
 
         // 2. Reconfigure
@@ -568,7 +563,7 @@ public class AgentGcLogTest extends AgentTestBase {
                 .queryParam("what", "gc+heap")
                 .queryParam("decorators", "time,level,uptime")
                 .when()
-                .request("PATCH", "/api/beta/diagnostics/targets/{targetId}/gclogging")
+                .request("PATCH", "/api/beta/diagnostics/targets/{targetId}/unified-logging")
                 .then()
                 .log()
                 .all()
@@ -583,7 +578,7 @@ public class AgentGcLogTest extends AgentTestBase {
                 .all()
                 .pathParam("targetId", targetId)
                 .when()
-                .post("/api/beta/diagnostics/targets/{targetId}/gclogging/pull")
+                .post("/api/beta/diagnostics/targets/{targetId}/unified-logging/pull")
                 .then()
                 .log()
                 .all()
@@ -591,12 +586,12 @@ public class AgentGcLogTest extends AgentTestBase {
                 .assertThat()
                 .statusCode(200);
 
-        List<Map<String, Object>> gcLogs =
+        List<Map<String, Object>> logs =
                 given().log()
                         .all()
                         .pathParam("targetId", targetId)
                         .when()
-                        .get("/api/beta/diagnostics/targets/{targetId}/gclogs")
+                        .get("/api/beta/diagnostics/targets/{targetId}/unified-logs")
                         .then()
                         .log()
                         .all()
@@ -609,18 +604,18 @@ public class AgentGcLogTest extends AgentTestBase {
                         .jsonPath()
                         .getList("$");
 
-        String gcLogId = (String) gcLogs.get(0).get("gcLogId");
-        assertThat(gcLogId, notNullValue());
+        String logId = (String) logs.get(0).get("logId");
+        assertThat(logId, notNullValue());
 
         // 4. Download the pulled log via redirect
         given().log()
                 .all()
                 .pathParam("targetId", targetId)
-                .pathParam("gcLogId", gcLogId)
+                .pathParam("logId", logId)
                 .redirects()
                 .follow(false)
                 .when()
-                .get("/api/beta/diagnostics/targets/{targetId}/gclogs/{gcLogId}")
+                .get("/api/beta/diagnostics/targets/{targetId}/unified-logs/{logId}")
                 .then()
                 .log()
                 .all()
@@ -631,9 +626,9 @@ public class AgentGcLogTest extends AgentTestBase {
         // 5. Delete the pulled log from S3 — session row must remain
         given().log()
                 .all()
-                .pathParams("targetId", targetId, "gcLogId", gcLogId)
+                .pathParams("targetId", targetId, "logId", logId)
                 .when()
-                .delete("/api/beta/diagnostics/targets/{targetId}/gclogs/{gcLogId}")
+                .delete("/api/beta/diagnostics/targets/{targetId}/unified-logs/{logId}")
                 .then()
                 .log()
                 .all()
@@ -644,7 +639,7 @@ public class AgentGcLogTest extends AgentTestBase {
         assertThat(
                 "Session row must survive S3 delete",
                 QuarkusTransaction.requiringNew()
-                        .call(() -> GcLog.count("target.id = ?1", targetId)),
+                        .call(() -> UnifiedLog.count("target.id = ?1", targetId)),
                 equalTo(1L));
 
         // 6. Disable — session row must be deleted
@@ -652,7 +647,7 @@ public class AgentGcLogTest extends AgentTestBase {
                 .all()
                 .pathParam("targetId", targetId)
                 .when()
-                .delete("/api/beta/diagnostics/targets/{targetId}/gclogging")
+                .delete("/api/beta/diagnostics/targets/{targetId}/unified-logging")
                 .then()
                 .log()
                 .all()
@@ -663,14 +658,14 @@ public class AgentGcLogTest extends AgentTestBase {
         assertThat(
                 "Session row should be absent after disable",
                 QuarkusTransaction.requiringNew()
-                        .call(() -> GcLog.count("target.id = ?1", targetId)),
+                        .call(() -> UnifiedLog.count("target.id = ?1", targetId)),
                 equalTo(0L));
     }
 
-    // ── List all GC logs (fs/ path) ───────────────────────────────────────────────
+    // ── List all logs (fs/ path) ───────────────────────────────────────────────
 
     @Test
-    void testListAllGcLogsAfterPull()
+    void testListAllUnifiedLogsAfterPull()
             throws InterruptedException, ExecutionException, TimeoutException {
         long targetId = target.id();
 
@@ -678,7 +673,7 @@ public class AgentGcLogTest extends AgentTestBase {
                 .all()
                 .pathParam("targetId", targetId)
                 .when()
-                .post("/api/beta/diagnostics/targets/{targetId}/gclogging")
+                .post("/api/beta/diagnostics/targets/{targetId}/unified-logging")
                 .then()
                 .log()
                 .all()
@@ -692,7 +687,7 @@ public class AgentGcLogTest extends AgentTestBase {
                 .all()
                 .pathParam("targetId", targetId)
                 .when()
-                .post("/api/beta/diagnostics/targets/{targetId}/gclogging/pull")
+                .post("/api/beta/diagnostics/targets/{targetId}/unified-logging/pull")
                 .then()
                 .log()
                 .all()
@@ -703,7 +698,7 @@ public class AgentGcLogTest extends AgentTestBase {
         given().log()
                 .all()
                 .when()
-                .get("/api/beta/diagnostics/fs/gclogs")
+                .get("/api/beta/diagnostics/fs/unified-logs")
                 .then()
                 .log()
                 .all()
@@ -713,21 +708,21 @@ public class AgentGcLogTest extends AgentTestBase {
                 .statusCode(200)
                 .body("$.size()", Matchers.greaterThanOrEqualTo(1))
                 .body(
-                        "find { it.jvmId == '" + target.jvmId() + "' }.gcLogs.size()",
+                        "find { it.jvmId == '" + target.jvmId() + "' }.unifiedLogs.size()",
                         Matchers.greaterThanOrEqualTo(1));
     }
 
     // ── fs/ delete ────────────────────────────────────────────────────────────────
 
     @Test
-    void testDeleteGcLogByPath() throws InterruptedException, ExecutionException, TimeoutException {
+    void testDeleteUnifiedLogByPath() throws InterruptedException, ExecutionException, TimeoutException {
         long targetId = target.id();
 
         given().log()
                 .all()
                 .pathParam("targetId", targetId)
                 .when()
-                .post("/api/beta/diagnostics/targets/{targetId}/gclogging")
+                .post("/api/beta/diagnostics/targets/{targetId}/unified-logging")
                 .then()
                 .log()
                 .all()
@@ -741,7 +736,7 @@ public class AgentGcLogTest extends AgentTestBase {
                 .all()
                 .pathParam("targetId", targetId)
                 .when()
-                .post("/api/beta/diagnostics/targets/{targetId}/gclogging/pull")
+                .post("/api/beta/diagnostics/targets/{targetId}/unified-logging/pull")
                 .then()
                 .log()
                 .all()
@@ -749,12 +744,12 @@ public class AgentGcLogTest extends AgentTestBase {
                 .assertThat()
                 .statusCode(200);
 
-        List<Map<String, Object>> gcLogs =
+        List<Map<String, Object>> logs =
                 given().log()
                         .all()
                         .pathParam("targetId", targetId)
                         .when()
-                        .get("/api/beta/diagnostics/targets/{targetId}/gclogs")
+                        .get("/api/beta/diagnostics/targets/{targetId}/unified-logs")
                         .then()
                         .log()
                         .all()
@@ -766,14 +761,14 @@ public class AgentGcLogTest extends AgentTestBase {
                         .jsonPath()
                         .getList("$");
 
-        assertThat(gcLogs, hasSize(greaterThanOrEqualTo(1)));
-        String gcLogId = (String) gcLogs.get(0).get("gcLogId");
+        assertThat(logs, hasSize(greaterThanOrEqualTo(1)));
+        String logId = (String) logs.get(0).get("logId");
 
         given().log()
                 .all()
-                .pathParams("jvmId", target.jvmId(), "gcLogId", gcLogId)
+                .pathParams("jvmId", target.jvmId(), "logId", logId)
                 .when()
-                .delete("/api/beta/diagnostics/fs/gclogs/{jvmId}/{gcLogId}")
+                .delete("/api/beta/diagnostics/fs/unified-logs/{jvmId}/{logId}")
                 .then()
                 .log()
                 .all()
@@ -785,7 +780,7 @@ public class AgentGcLogTest extends AgentTestBase {
                 .all()
                 .pathParam("targetId", targetId)
                 .when()
-                .get("/api/beta/diagnostics/targets/{targetId}/gclogs")
+                .get("/api/beta/diagnostics/targets/{targetId}/unified-logs")
                 .then()
                 .log()
                 .all()
@@ -798,7 +793,7 @@ public class AgentGcLogTest extends AgentTestBase {
     // ── Metadata PATCH ────────────────────────────────────────────────────────────
 
     @Test
-    void testPullGcLogUploadsToS3AndUpdatesSessionRowIncludesMetadata()
+    void testPullUnifiedLogUploadsToS3AndUpdatesSessionRowIncludesMetadata()
             throws InterruptedException, ExecutionException, TimeoutException {
         long targetId = target.id();
 
@@ -806,7 +801,7 @@ public class AgentGcLogTest extends AgentTestBase {
                 .all()
                 .pathParam("targetId", targetId)
                 .when()
-                .post("/api/beta/diagnostics/targets/{targetId}/gclogging")
+                .post("/api/beta/diagnostics/targets/{targetId}/unified-logging")
                 .then()
                 .log()
                 .all()
@@ -822,7 +817,7 @@ public class AgentGcLogTest extends AgentTestBase {
                                 .all()
                                 .pathParam("targetId", targetId)
                                 .when()
-                                .post("/api/beta/diagnostics/targets/{targetId}/gclogging/pull")
+                                .post("/api/beta/diagnostics/targets/{targetId}/unified-logging/pull")
                                 .then()
                                 .log()
                                 .all()
@@ -839,12 +834,12 @@ public class AgentGcLogTest extends AgentTestBase {
         assertThat(labels, notNullValue());
         assertThat(labels.size(), equalTo(0));
 
-        List<Map<String, Object>> gcLogs =
+        List<Map<String, Object>> logs =
                 given().log()
                         .all()
                         .pathParam("targetId", targetId)
                         .when()
-                        .get("/api/beta/diagnostics/targets/{targetId}/gclogs")
+                        .get("/api/beta/diagnostics/targets/{targetId}/unified-logs")
                         .then()
                         .log()
                         .all()
@@ -858,14 +853,14 @@ public class AgentGcLogTest extends AgentTestBase {
                         .jsonPath()
                         .getList("$");
 
-        assertThat(gcLogs.get(0).containsKey("metadata"), equalTo(true));
-        List<?> listLabels = (List<?>) ((Map<?, ?>) gcLogs.get(0).get("metadata")).get("labels");
+        assertThat(logs.get(0).containsKey("metadata"), equalTo(true));
+        List<?> listLabels = (List<?>) ((Map<?, ?>) logs.get(0).get("metadata")).get("labels");
         assertThat(listLabels, notNullValue());
         assertThat(listLabels.size(), equalTo(0));
     }
 
     @Test
-    void testPatchGcLogMetadataReturnsUpdatedLabels()
+    void testPatchUnifiedLogMetadataReturnsUpdatedLabels()
             throws InterruptedException, ExecutionException, TimeoutException {
         long targetId = target.id();
 
@@ -873,7 +868,7 @@ public class AgentGcLogTest extends AgentTestBase {
                 .all()
                 .pathParam("targetId", targetId)
                 .when()
-                .post("/api/beta/diagnostics/targets/{targetId}/gclogging")
+                .post("/api/beta/diagnostics/targets/{targetId}/unified-logging")
                 .then()
                 .log()
                 .all()
@@ -883,14 +878,14 @@ public class AgentGcLogTest extends AgentTestBase {
 
         triggerGcAndWait(targetId);
 
-        String gcLogId =
+        String logId =
                 new JsonObject(
                                 given().log()
                                         .all()
                                         .pathParam("targetId", targetId)
                                         .when()
                                         .post(
-                                                "/api/beta/diagnostics/targets/{targetId}/gclogging/pull")
+                                                "/api/beta/diagnostics/targets/{targetId}/unified-logging/pull")
                                         .then()
                                         .log()
                                         .all()
@@ -900,17 +895,17 @@ public class AgentGcLogTest extends AgentTestBase {
                                         .extract()
                                         .body()
                                         .asString())
-                        .getString("gcLogId");
+                        .getString("logId");
 
         JsonObject patchResponse =
                 new JsonObject(
                         given().log()
                                 .all()
-                                .pathParams("targetId", targetId, "gcLogId", gcLogId)
+                                .pathParams("targetId", targetId, "logId", logId)
                                 .contentType(ContentType.JSON)
                                 .body("{\"labels\":{\"env\":\"prod\"}}")
                                 .when()
-                                .patch("/api/beta/diagnostics/targets/{targetId}/gclogs/{gcLogId}")
+                                .patch("/api/beta/diagnostics/targets/{targetId}/unified-logs/{logId}")
                                 .then()
                                 .log()
                                 .all()
@@ -922,7 +917,7 @@ public class AgentGcLogTest extends AgentTestBase {
                                 .body()
                                 .asString());
 
-        assertThat(patchResponse.getString("gcLogId"), equalTo(gcLogId));
+        assertThat(patchResponse.getString("logId"), equalTo(logId));
         JsonArray labels = patchResponse.getJsonObject("metadata").getJsonArray("labels");
         assertThat(labels, notNullValue());
         assertThat(labels.size(), equalTo(1));
@@ -931,7 +926,7 @@ public class AgentGcLogTest extends AgentTestBase {
     }
 
     @Test
-    void testPatchFsGcLogMetadataReturnsUpdatedLabels()
+    void testPatchFsUnifiedLogMetadataReturnsUpdatedLabels()
             throws InterruptedException, ExecutionException, TimeoutException {
         long targetId = target.id();
 
@@ -939,7 +934,7 @@ public class AgentGcLogTest extends AgentTestBase {
                 .all()
                 .pathParam("targetId", targetId)
                 .when()
-                .post("/api/beta/diagnostics/targets/{targetId}/gclogging")
+                .post("/api/beta/diagnostics/targets/{targetId}/unified-logging")
                 .then()
                 .log()
                 .all()
@@ -953,7 +948,7 @@ public class AgentGcLogTest extends AgentTestBase {
                 .all()
                 .pathParam("targetId", targetId)
                 .when()
-                .post("/api/beta/diagnostics/targets/{targetId}/gclogging/pull")
+                .post("/api/beta/diagnostics/targets/{targetId}/unified-logging/pull")
                 .then()
                 .log()
                 .all()
@@ -961,12 +956,12 @@ public class AgentGcLogTest extends AgentTestBase {
                 .assertThat()
                 .statusCode(200);
 
-        List<Map<String, Object>> gcLogs =
+        List<Map<String, Object>> logs =
                 given().log()
                         .all()
                         .pathParam("targetId", targetId)
                         .when()
-                        .get("/api/beta/diagnostics/targets/{targetId}/gclogs")
+                        .get("/api/beta/diagnostics/targets/{targetId}/unified-logs")
                         .then()
                         .log()
                         .all()
@@ -978,18 +973,18 @@ public class AgentGcLogTest extends AgentTestBase {
                         .jsonPath()
                         .getList("$");
 
-        assertThat(gcLogs, hasSize(greaterThanOrEqualTo(1)));
-        String gcLogId = (String) gcLogs.get(0).get("gcLogId");
+        assertThat(logs, hasSize(greaterThanOrEqualTo(1)));
+        String logId = (String) logs.get(0).get("logId");
 
         JsonObject patchResponse =
                 new JsonObject(
                         given().log()
                                 .all()
-                                .pathParams("jvmId", target.jvmId(), "gcLogId", gcLogId)
+                                .pathParams("jvmId", target.jvmId(), "logId", logId)
                                 .contentType(ContentType.JSON)
                                 .body("{\"labels\":{\"env\":\"staging\"}}")
                                 .when()
-                                .patch("/api/beta/diagnostics/fs/gclogs/{jvmId}/{gcLogId}")
+                                .patch("/api/beta/diagnostics/fs/unified-logs/{jvmId}/{logId}")
                                 .then()
                                 .log()
                                 .all()
@@ -1001,7 +996,7 @@ public class AgentGcLogTest extends AgentTestBase {
                                 .body()
                                 .asString());
 
-        assertThat(patchResponse.getString("gcLogId"), equalTo(gcLogId));
+        assertThat(patchResponse.getString("logId"), equalTo(logId));
         JsonArray labels = patchResponse.getJsonObject("metadata").getJsonArray("labels");
         assertThat(labels, notNullValue());
         assertThat(labels.size(), equalTo(1));
@@ -1010,7 +1005,7 @@ public class AgentGcLogTest extends AgentTestBase {
     }
 
     @Test
-    void testPatchGcLogMetadataIsPersisted()
+    void testPatchUnifiedLogMetadataIsPersisted()
             throws InterruptedException, ExecutionException, TimeoutException {
         long targetId = target.id();
 
@@ -1018,7 +1013,7 @@ public class AgentGcLogTest extends AgentTestBase {
                 .all()
                 .pathParam("targetId", targetId)
                 .when()
-                .post("/api/beta/diagnostics/targets/{targetId}/gclogging")
+                .post("/api/beta/diagnostics/targets/{targetId}/unified-logging")
                 .then()
                 .log()
                 .all()
@@ -1028,14 +1023,14 @@ public class AgentGcLogTest extends AgentTestBase {
 
         triggerGcAndWait(targetId);
 
-        String gcLogId =
+        String logId =
                 new JsonObject(
                                 given().log()
                                         .all()
                                         .pathParam("targetId", targetId)
                                         .when()
                                         .post(
-                                                "/api/beta/diagnostics/targets/{targetId}/gclogging/pull")
+                                                "/api/beta/diagnostics/targets/{targetId}/unified-logging/pull")
                                         .then()
                                         .log()
                                         .all()
@@ -1045,15 +1040,15 @@ public class AgentGcLogTest extends AgentTestBase {
                                         .extract()
                                         .body()
                                         .asString())
-                        .getString("gcLogId");
+                        .getString("logId");
 
         given().log()
                 .all()
-                .pathParams("targetId", targetId, "gcLogId", gcLogId)
+                .pathParams("targetId", targetId, "logId", logId)
                 .contentType(ContentType.JSON)
                 .body("{\"labels\":{\"env\":\"prod\"}}")
                 .when()
-                .patch("/api/beta/diagnostics/targets/{targetId}/gclogs/{gcLogId}")
+                .patch("/api/beta/diagnostics/targets/{targetId}/unified-logs/{logId}")
                 .then()
                 .log()
                 .all()
@@ -1061,12 +1056,12 @@ public class AgentGcLogTest extends AgentTestBase {
                 .assertThat()
                 .statusCode(200);
 
-        List<Map<String, Object>> gcLogs =
+        List<Map<String, Object>> logs =
                 given().log()
                         .all()
                         .pathParam("targetId", targetId)
                         .when()
-                        .get("/api/beta/diagnostics/targets/{targetId}/gclogs")
+                        .get("/api/beta/diagnostics/targets/{targetId}/unified-logs")
                         .then()
                         .log()
                         .all()
@@ -1081,12 +1076,12 @@ public class AgentGcLogTest extends AgentTestBase {
                         .getList("$");
 
         Map<?, ?> found =
-                gcLogs.stream()
-                        .filter(m -> gcLogId.equals(m.get("gcLogId")))
+                logs.stream()
+                        .filter(m -> logId.equals(m.get("logId")))
                         .map(m -> (Map<?, ?>) m)
                         .findFirst()
                         .orElse(null);
-        assertThat("Expected to find the patched gc log in list", found, notNullValue());
+        assertThat("Expected to find the patched log in list", found, notNullValue());
         @SuppressWarnings("unchecked")
         List<Map<String, String>> persistedLabels =
                 (List<Map<String, String>>) ((Map<?, ?>) found.get("metadata")).get("labels");
@@ -1097,7 +1092,7 @@ public class AgentGcLogTest extends AgentTestBase {
     }
 
     @Test
-    void testPatchGcLogMetadataNotFoundReturns404()
+    void testPatchUnifiedLogMetadataNotFoundReturns404()
             throws InterruptedException, ExecutionException, TimeoutException {
         long targetId = target.id();
 
@@ -1105,7 +1100,7 @@ public class AgentGcLogTest extends AgentTestBase {
                 .all()
                 .pathParam("targetId", targetId)
                 .when()
-                .post("/api/beta/diagnostics/targets/{targetId}/gclogging")
+                .post("/api/beta/diagnostics/targets/{targetId}/unified-logging")
                 .then()
                 .log()
                 .all()
@@ -1115,11 +1110,11 @@ public class AgentGcLogTest extends AgentTestBase {
 
         given().log()
                 .all()
-                .pathParams("targetId", targetId, "gcLogId", "nonexistent-gc-log-id.gclog")
+                .pathParams("targetId", targetId, "logId", "nonexistent-log-id.log")
                 .contentType(ContentType.JSON)
                 .body("{\"labels\":{\"env\":\"prod\"}}")
                 .when()
-                .patch("/api/beta/diagnostics/targets/{targetId}/gclogs/{gcLogId}")
+                .patch("/api/beta/diagnostics/targets/{targetId}/unified-logs/{logId}")
                 .then()
                 .log()
                 .all()
@@ -1129,7 +1124,7 @@ public class AgentGcLogTest extends AgentTestBase {
     }
 
     @Test
-    void testPatchGcLogMetadataNotificationPublished()
+    void testPatchUnifiedLogMetadataNotificationPublished()
             throws InterruptedException, ExecutionException, TimeoutException {
         long targetId = target.id();
 
@@ -1137,7 +1132,7 @@ public class AgentGcLogTest extends AgentTestBase {
                 .all()
                 .pathParam("targetId", targetId)
                 .when()
-                .post("/api/beta/diagnostics/targets/{targetId}/gclogging")
+                .post("/api/beta/diagnostics/targets/{targetId}/unified-logging")
                 .then()
                 .log()
                 .all()
@@ -1147,14 +1142,14 @@ public class AgentGcLogTest extends AgentTestBase {
 
         triggerGcAndWait(targetId);
 
-        String gcLogId =
+        String logId =
                 new JsonObject(
                                 given().log()
                                         .all()
                                         .pathParam("targetId", targetId)
                                         .when()
                                         .post(
-                                                "/api/beta/diagnostics/targets/{targetId}/gclogging/pull")
+                                                "/api/beta/diagnostics/targets/{targetId}/unified-logging/pull")
                                         .then()
                                         .log()
                                         .all()
@@ -1164,15 +1159,15 @@ public class AgentGcLogTest extends AgentTestBase {
                                         .extract()
                                         .body()
                                         .asString())
-                        .getString("gcLogId");
+                        .getString("logId");
 
         given().log()
                 .all()
-                .pathParams("targetId", targetId, "gcLogId", gcLogId)
+                .pathParams("targetId", targetId, "logId", logId)
                 .contentType(ContentType.JSON)
                 .body("{\"labels\":{\"env\":\"prod\"}}")
                 .when()
-                .patch("/api/beta/diagnostics/targets/{targetId}/gclogs/{gcLogId}")
+                .patch("/api/beta/diagnostics/targets/{targetId}/unified-logs/{logId}")
                 .then()
                 .log()
                 .all()
@@ -1181,7 +1176,7 @@ public class AgentGcLogTest extends AgentTestBase {
                 .statusCode(200);
 
         webSocketClient.expectNotification(
-                "GcLogMetadataUpdated",
+                "UnifiedLogMetadataUpdated",
                 Duration.ofMinutes(2),
                 o -> target.jvmId().equals(o.getJsonObject("message").getString("jvmId")));
     }
