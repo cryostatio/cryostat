@@ -47,9 +47,9 @@ import software.amazon.awssdk.transfer.s3.model.UploadRequest;
         name = ConfigProperties.STORAGE_METADATA_UNIFIED_LOGS_STORAGE_MODE,
         stringValue = UnifiedLogsMetadataService.METADATA_STORAGE_MODE_BUCKET)
 /**
- * Implements unified log metadata as standalone objects in a bucket. When the storage mode is set to
- * select this implementation, metadata is stored as separate JSON files rather than S3 object tags,
- * ensuring broader compatibility with different S3 implementations.
+ * Implements unified log metadata as standalone objects in a bucket. When the storage mode is set
+ * to select this implementation, metadata is stored as separate JSON files rather than S3 object
+ * tags, ensuring broader compatibility with different S3 implementations.
  */
 class BucketedUnifiedLogsMetadataService implements UnifiedLogsMetadataService {
 

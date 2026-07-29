@@ -42,7 +42,6 @@ import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.ClientErrorException;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.DELETE;
-import jakarta.ws.rs.DefaultValue;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.PATCH;
@@ -123,7 +122,8 @@ public class UnifiedLogs {
                             });
             throw e;
         }
-        return new UnifiedLog(target.jvmId, null, null, session.enabledAt / 1000, 0, Metadata.empty());
+        return new UnifiedLog(
+                target.jvmId, null, null, session.enabledAt / 1000, 0, Metadata.empty());
     }
 
     @Path("targets/{targetId}/unified-logging")
@@ -230,8 +230,8 @@ public class UnifiedLogs {
             QuarkusTransaction.requiringNew()
                     .run(
                             () -> {
-                                io.cryostat.diagnostic.UnifiedLog.<io.cryostat.diagnostic.UnifiedLog>find(
-                                                "target", target)
+                                io.cryostat.diagnostic.UnifiedLog
+                                        .<io.cryostat.diagnostic.UnifiedLog>find("target", target)
                                         .firstResultOptional()
                                         .ifPresent(
                                                 s -> {
@@ -261,7 +261,8 @@ public class UnifiedLogs {
                             String filename = parts[1];
                             String storageKey = DiagnosticsHelper.storageKey(jvmId, filename);
                             Metadata metadata =
-                                    helper.getUnifiedLogMetadata(storageKey).orElse(Metadata.empty());
+                                    helper.getUnifiedLogMetadata(storageKey)
+                                            .orElse(Metadata.empty());
                             return new UnifiedLog(
                                     jvmId,
                                     helper.unifiedLogDownloadUrl(jvmId, filename),
@@ -321,7 +322,8 @@ public class UnifiedLogs {
                                                             id, new ArrayList<>()));
                             String storageKey = DiagnosticsHelper.storageKey(jvmId, filename);
                             Metadata metadata =
-                                    helper.getUnifiedLogMetadata(storageKey).orElse(Metadata.empty());
+                                    helper.getUnifiedLogMetadata(storageKey)
+                                            .orElse(Metadata.empty());
                             dir.unifiedLogs()
                                     .add(
                                             new UnifiedLog(

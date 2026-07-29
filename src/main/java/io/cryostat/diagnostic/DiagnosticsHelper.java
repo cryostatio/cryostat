@@ -37,9 +37,9 @@ import io.cryostat.StorageBuckets;
 import io.cryostat.asyncprofiler.AsyncProfilerRecording;
 import io.cryostat.diagnostic.Diagnostics.HeapDump;
 import io.cryostat.diagnostic.Diagnostics.ThreadDump;
+import io.cryostat.diagnostic.HeapDumpsMetadataService.StorageMode;
 import io.cryostat.diagnostic.UnifiedLogs.UnifiedLog;
 import io.cryostat.diagnostic.UnifiedLogs.UnifiedLogEvent;
-import io.cryostat.diagnostic.HeapDumpsMetadataService.StorageMode;
 import io.cryostat.libcryostat.sys.Clock;
 import io.cryostat.recordings.ActiveRecordings.Metadata;
 import io.cryostat.targets.AgentClient;
@@ -419,7 +419,9 @@ public class DiagnosticsHelper {
     public Optional<UnifiedLogs.UnifiedLog> pullUnifiedLog(Target target) {
         Optional<InputStream> streamOpt =
                 targetConnectionManager.executeConnectedTask(
-                        target, conn -> ((AgentConnection) conn).pullUnifiedLog(), uploadFailedTimeout);
+                        target,
+                        conn -> ((AgentConnection) conn).pullUnifiedLog(),
+                        uploadFailedTimeout);
         if (streamOpt.isEmpty()) {
             log.debugv("Agent returned no unified log content for target {0}", target.jvmId);
             return Optional.empty();
@@ -465,7 +467,11 @@ public class DiagnosticsHelper {
                 .completionFuture()
                 .join();
         long size =
-                storage.headObject(HeadObjectRequest.builder().bucket(unifiedLogBucket).key(key).build())
+                storage.headObject(
+                                HeadObjectRequest.builder()
+                                        .bucket(unifiedLogBucket)
+                                        .key(key)
+                                        .build())
                         .contentLength();
         var result =
                 new UnifiedLog(
@@ -477,7 +483,8 @@ public class DiagnosticsHelper {
                         Metadata.empty());
         var event =
                 new UnifiedLogEvent(
-                        EventCategory.UNIFIED_LOG_UPLOADED, UnifiedLogEvent.Payload.of(target.jvmId, result));
+                        EventCategory.UNIFIED_LOG_UPLOADED,
+                        UnifiedLogEvent.Payload.of(target.jvmId, result));
         bus.publish(
                 MessagingServer.class.getName(),
                 new Notification(event.category().category(), event.payload()));
@@ -507,7 +514,8 @@ public class DiagnosticsHelper {
     public void deleteUnifiedLog(String jvmId, String logId) {
         String key = storageKey(jvmId, logId);
         storage.headObject(HeadObjectRequest.builder().bucket(unifiedLogBucket).key(key).build());
-        storage.deleteObject(DeleteObjectRequest.builder().bucket(unifiedLogBucket).key(key).build());
+        storage.deleteObject(
+                DeleteObjectRequest.builder().bucket(unifiedLogBucket).key(key).build());
         switch (storageMode()) {
             case TAGGING:
             case METADATA:
@@ -986,8 +994,8 @@ public class DiagnosticsHelper {
         return updatedDump;
     }
 
-    public UnifiedLog updateUnifiedLogMetadata(String jvmId, String logId, Map<String, String> metadata)
-            throws IOException {
+    public UnifiedLog updateUnifiedLogMetadata(
+            String jvmId, String logId, Map<String, String> metadata) throws IOException {
         var response = assertObjectExists(jvmId, logId, unifiedLogBucket);
         Metadata updatedMetadata = updateMetadata(jvmId, logId, metadata, unifiedLogBucket);
 

@@ -50,7 +50,8 @@ public class ConfigProperties {
             "storage.metadata.prefix.recordings";
     public static final String AWS_METADATA_PREFIX_EVENT_TEMPLATES =
             "storage.metadata.prefix.event-templates";
-    public static final String AWS_METADATA_PREFIX_UNIFIED_LOGS = "storage.metadata.prefix.unified-logs";
+    public static final String AWS_METADATA_PREFIX_UNIFIED_LOGS =
+            "storage.metadata.prefix.unified-logs";
 
     public static final String DISCOVERY_IPV6_ENABLED = "cryostat.discovery.ipv6-enabled";
     public static final String DISCOVERY_IPV4_DNS_TRANSFORM_ENABLED =

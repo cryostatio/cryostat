@@ -186,7 +186,10 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
 
         UnifiedLog session =
                 QuarkusTransaction.requiringNew()
-                        .call(() -> UnifiedLog.<UnifiedLog>find("target.id", targetId).firstResult());
+                        .call(
+                                () ->
+                                        UnifiedLog.<UnifiedLog>find("target.id", targetId)
+                                                .firstResult());
         assertThat(session, notNullValue());
         assertThat(session.status, equalTo(UnifiedLog.Status.ACTIVE));
         assertThat(session.what, equalTo("gc"));
@@ -214,7 +217,10 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
 
         UnifiedLog session =
                 QuarkusTransaction.requiringNew()
-                        .call(() -> UnifiedLog.<UnifiedLog>find("target.id", targetId).firstResult());
+                        .call(
+                                () ->
+                                        UnifiedLog.<UnifiedLog>find("target.id", targetId)
+                                                .firstResult());
         assertThat(session, notNullValue());
         assertThat(session.what, equalTo("gc+heap"));
         assertThat(session.decorators, equalTo("time,level,pid"));
@@ -287,7 +293,10 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
 
         UnifiedLog after =
                 QuarkusTransaction.requiringNew()
-                        .call(() -> UnifiedLog.<UnifiedLog>find("target.id", targetId).firstResult());
+                        .call(
+                                () ->
+                                        UnifiedLog.<UnifiedLog>find("target.id", targetId)
+                                                .firstResult());
         assertThat(after, notNullValue());
         assertThat(after.what, equalTo("gc+heap"));
         assertThat(after.decorators, equalTo("time,level,uptime"));
@@ -350,7 +359,8 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
                                 .all()
                                 .pathParam("targetId", targetId)
                                 .when()
-                                .post("/api/beta/diagnostics/targets/{targetId}/unified-logging/pull")
+                                .post(
+                                        "/api/beta/diagnostics/targets/{targetId}/unified-logging/pull")
                                 .then()
                                 .log()
                                 .all()
@@ -368,7 +378,10 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
 
         UnifiedLog session =
                 QuarkusTransaction.requiringNew()
-                        .call(() -> UnifiedLog.<UnifiedLog>find("target.id", targetId).firstResult());
+                        .call(
+                                () ->
+                                        UnifiedLog.<UnifiedLog>find("target.id", targetId)
+                                                .firstResult());
         assertThat(session, notNullValue());
 
         List<Map<String, Object>> logs =
@@ -470,7 +483,10 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
         // Session row must still exist and remain ACTIVE; a pull with no content must not alter it.
         UnifiedLog session =
                 QuarkusTransaction.requiringNew()
-                        .call(() -> UnifiedLog.<UnifiedLog>find("target.id", targetId).firstResult());
+                        .call(
+                                () ->
+                                        UnifiedLog.<UnifiedLog>find("target.id", targetId)
+                                                .firstResult());
         assertThat(session, notNullValue());
         assertThat(session.status, equalTo(UnifiedLog.Status.ACTIVE));
 
@@ -715,7 +731,8 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
     // ── fs/ delete ────────────────────────────────────────────────────────────────
 
     @Test
-    void testDeleteUnifiedLogByPath() throws InterruptedException, ExecutionException, TimeoutException {
+    void testDeleteUnifiedLogByPath()
+            throws InterruptedException, ExecutionException, TimeoutException {
         long targetId = target.id();
 
         given().log()
@@ -817,7 +834,8 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
                                 .all()
                                 .pathParam("targetId", targetId)
                                 .when()
-                                .post("/api/beta/diagnostics/targets/{targetId}/unified-logging/pull")
+                                .post(
+                                        "/api/beta/diagnostics/targets/{targetId}/unified-logging/pull")
                                 .then()
                                 .log()
                                 .all()
@@ -905,7 +923,8 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
                                 .contentType(ContentType.JSON)
                                 .body("{\"labels\":{\"env\":\"prod\"}}")
                                 .when()
-                                .patch("/api/beta/diagnostics/targets/{targetId}/unified-logs/{logId}")
+                                .patch(
+                                        "/api/beta/diagnostics/targets/{targetId}/unified-logs/{logId}")
                                 .then()
                                 .log()
                                 .all()

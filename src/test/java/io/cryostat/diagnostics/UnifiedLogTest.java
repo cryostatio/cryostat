@@ -131,7 +131,8 @@ public class UnifiedLogTest extends AuditTestBase {
 
     @ParameterizedTest
     @MethodSource("invalidParams")
-    public void testEnableUnifiedLoggingWithInvalidParamsReturns400(String what, String decorators) {
+    public void testEnableUnifiedLoggingWithInvalidParamsReturns400(
+            String what, String decorators) {
         int targetId = defineSelfCustomTarget();
         given().log()
                 .all()
@@ -213,7 +214,8 @@ public class UnifiedLogTest extends AuditTestBase {
                         .call(
                                 () -> {
                                     Target target = Target.getTargetById(targetId);
-                                    UnifiedLog session = UnifiedLog.enable(target, "gc", "time,level");
+                                    UnifiedLog session =
+                                            UnifiedLog.enable(target, "gc", "time,level");
                                     session.persist();
                                     return session.id;
                                 });
@@ -232,8 +234,7 @@ public class UnifiedLogTest extends AuditTestBase {
 
         // Primary table must be empty.
         long primaryCount = UnifiedLog.count();
-        Assertions.assertEquals(
-                0, primaryCount, "Log primary table should be empty after delete");
+        Assertions.assertEquals(0, primaryCount, "Log primary table should be empty after delete");
 
         // _AUD must have at least 3 revisions: INSERT + UPDATE + DELETE.
         AuditReader auditReader = AuditReaderFactory.get(em);
