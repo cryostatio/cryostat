@@ -381,6 +381,8 @@ input ArchivedRecordingsFilterInput {
 }
 
 input DiscoveryNodeFilterInput {
+  alias: String
+  aliases: [String]
   annotations: [String]
   id: BigInteger
   ids: [BigInteger]
