@@ -67,7 +67,7 @@ public class RulesPostJsonTest extends AbstractTransactionalTestBase {
 
     @Test
     void testAddRuleThrowsWhenMimeInvalid() {
-        given().header("Content-Type", "NOTAMIME").when().post().then().log().all().statusCode(400);
+        given().header("Content-Type", "NOTAMIME").when().post().then().log().all().statusCode(415);
     }
 
     @Test
