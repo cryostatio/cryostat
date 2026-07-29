@@ -902,5 +902,5 @@ public class AgentClient {
     }
 
     public static record GcLogStatus(
-            boolean enabled, String what, String decorators, String logFilePath, boolean hasLog) {}
+            boolean enabled, String what, String decorators, String logFilePath) {}
 }
