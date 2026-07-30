@@ -472,6 +472,11 @@ public class Discovery {
         publishPluginTree(plugin, body);
     }
 
+    @SuppressFBWarnings(
+            value = "NP_NULL_ON_SOME_PATH",
+            justification =
+                    "body.nodes only contains validated leaf (target) nodes at this point;"
+                            + " n.target is guaranteed non-null by validatePublishedNode()")
     private void publishPluginTree(DiscoveryPlugin plugin, DiscoveryPublication body) {
         for (var n : body.nodes) {
             validatePublishedNode(n);
@@ -635,7 +640,8 @@ public class Discovery {
             if (n.target.labels == null) {
                 n.target.labels = new HashMap<>();
             }
-            k8sMetadata.labels().forEach((k, v) -> n.target.labels.putIfAbsent(k, v));
+            var labels = n.target.labels;
+            k8sMetadata.labels().forEach((k, v) -> labels.putIfAbsent(k, v));
         }
         if (!k8sMetadata.annotations().isEmpty()) {
             if (n.target.annotations == null) {
@@ -785,7 +791,9 @@ public class Discovery {
 
         Set<URI> incomingUrls = new HashSet<>();
         for (DiscoveryNode n : incoming) {
-            incomingUrls.add(n.target.connectUrl);
+            if (n.target != null) {
+                incomingUrls.add(n.target.connectUrl);
+            }
         }
 
         for (DiscoveryNode child : new ArrayList<>(realm.children)) {
@@ -800,6 +808,9 @@ public class Discovery {
         entityManager.flush();
 
         for (DiscoveryNode n : incoming) {
+            if (n.target == null) {
+                continue;
+            }
             DiscoveryNode existing = existingByUrl.get(n.target.connectUrl);
             if (existing == null) {
                 n.parent = realm;
@@ -812,12 +823,14 @@ public class Discovery {
             if (n.labels != null) {
                 existing.labels = n.labels;
             }
-            existing.target.alias = n.target.alias;
-            if (n.target.labels != null) {
-                existing.target.labels = n.target.labels;
-            }
-            if (n.target.annotations != null) {
-                existing.target.annotations = n.target.annotations;
+            if (existing.target != null) {
+                existing.target.alias = n.target.alias;
+                if (n.target.labels != null) {
+                    existing.target.labels = n.target.labels;
+                }
+                if (n.target.annotations != null) {
+                    existing.target.annotations = n.target.annotations;
+                }
             }
             existing.persist();
         }
