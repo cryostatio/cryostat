@@ -174,6 +174,15 @@ components:
             $ref: '#/components/schemas/ThreadDump'
           type: array
       type: object
+    ArchivedUnifiedLogDirectory:
+      properties:
+        jvmId:
+          type: string
+        unifiedLogs:
+          items:
+            $ref: '#/components/schemas/UnifiedLog'
+          type: array
+      type: object
     AsyncProfile:
       properties:
         duration:
@@ -632,6 +641,13 @@ components:
           type: array
       type: object
     Metadata:
+      properties:
+        labels:
+          additionalProperties:
+            type: string
+          type: object
+      type: object
+    MetadataBody:
       properties:
         labels:
           additionalProperties:
@@ -1109,6 +1125,34 @@ components:
       format: uuid
       pattern: '[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}'
       type: string
+    UnifiedLog:
+      properties:
+        downloadUrl:
+          type: string
+        jvmId:
+          type: string
+        lastModified:
+          format: int64
+          type: integer
+        logId:
+          type: string
+        metadata:
+          $ref: '#/components/schemas/Metadata'
+        size:
+          format: int64
+          type: integer
+      type: object
+    UnifiedLogStatus:
+      properties:
+        decorators:
+          type: string
+        enabled:
+          type: boolean
+        logFilePath:
+          type: string
+        what:
+          type: string
+      type: object
 info:
   contact:
     email: cryostat-development@googlegroups.com
@@ -1300,6 +1344,67 @@ paths:
       summary: Delete Thread Dump
       tags:
         - Diagnostics
+  /api/beta/diagnostics/fs/unified-logs:
+    get:
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/ArchivedUnifiedLogDirectory'
+                type: array
+          description: OK
+      summary: List Fs Unified Logs
+      tags:
+        - Unified Logs
+  /api/beta/diagnostics/fs/unified-logs/{jvmId}/{logId}:
+    delete:
+      parameters:
+        - in: path
+          name: jvmId
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: logId
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
+      summary: Delete Unified Log By Path
+      tags:
+        - Unified Logs
+    patch:
+      parameters:
+        - in: path
+          name: jvmId
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: logId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MetadataBody'
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnifiedLog'
+          description: OK
+      summary: Patch Fs Unified Log Metadata
+      tags:
+        - Unified Logs
   /api/beta/diagnostics/heapdump/download/{encodedKey}:
     get:
       parameters:
@@ -1563,6 +1668,206 @@ paths:
       summary: Delete Thread Dump
       tags:
         - Diagnostics
+  /api/beta/diagnostics/targets/{targetId}/unified-logging:
+    delete:
+      parameters:
+        - in: path
+          name: targetId
+          required: true
+          schema:
+            format: int64
+            type: integer
+      responses:
+        "204":
+          description: No Content
+      summary: Disable Unified Logging
+      tags:
+        - Unified Logs
+    get:
+      parameters:
+        - in: path
+          name: targetId
+          required: true
+          schema:
+            format: int64
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnifiedLogStatus'
+          description: OK
+      summary: Unified Logging Status
+      tags:
+        - Unified Logs
+    patch:
+      parameters:
+        - in: path
+          name: targetId
+          required: true
+          schema:
+            format: int64
+            type: integer
+        - in: query
+          name: decorators
+          schema:
+            type: string
+        - in: query
+          name: what
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnifiedLog'
+          description: OK
+      summary: Reconfigure Unified Logging
+      tags:
+        - Unified Logs
+    post:
+      parameters:
+        - in: path
+          name: targetId
+          required: true
+          schema:
+            format: int64
+            type: integer
+        - in: query
+          name: decorators
+          schema:
+            type: string
+        - in: query
+          name: what
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnifiedLog'
+          description: OK
+      summary: Enable Unified Logging
+      tags:
+        - Unified Logs
+  /api/beta/diagnostics/targets/{targetId}/unified-logging/pull:
+    post:
+      parameters:
+        - in: path
+          name: targetId
+          required: true
+          schema:
+            format: int64
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnifiedLog'
+          description: OK
+      summary: Pull Unified Log
+      tags:
+        - Unified Logs
+  /api/beta/diagnostics/targets/{targetId}/unified-logs:
+    get:
+      parameters:
+        - in: path
+          name: targetId
+          required: true
+          schema:
+            format: int64
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/UnifiedLog'
+                type: array
+          description: OK
+      summary: List Unified Logs
+      tags:
+        - Unified Logs
+  /api/beta/diagnostics/targets/{targetId}/unified-logs/{logId}:
+    delete:
+      parameters:
+        - in: path
+          name: logId
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: targetId
+          required: true
+          schema:
+            format: int64
+            type: integer
+      responses:
+        "204":
+          description: No Content
+      summary: Delete Unified Log
+      tags:
+        - Unified Logs
+    get:
+      parameters:
+        - in: path
+          name: logId
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: targetId
+          required: true
+          schema:
+            format: int64
+            type: integer
+        - in: query
+          name: filename
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: {}
+          description: OK
+      summary: Download Unified Log
+      tags:
+        - Unified Logs
+    patch:
+      parameters:
+        - in: path
+          name: logId
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: targetId
+          required: true
+          schema:
+            format: int64
+            type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MetadataBody'
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnifiedLog'
+          description: OK
+      summary: Patch Unified Log Metadata
+      tags:
+        - Unified Logs
   /api/beta/diagnostics/threaddump/download/{encodedKey}:
     get:
       parameters:
@@ -1584,6 +1889,27 @@ paths:
       summary: Handle Thread Dumps Storage Download
       tags:
         - Diagnostics
+  /api/beta/diagnostics/unified-logs/download/{encodedKey}:
+    get:
+      parameters:
+        - in: path
+          name: encodedKey
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: filename
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: {}
+          description: OK
+      summary: Handle Unified Log Storage Download
+      tags:
+        - Unified Logs
   /api/beta/discovery/credential_exists:
     post:
       requestBody:

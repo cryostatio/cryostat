@@ -28,6 +28,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import io.cryostat.ConfigProperties;
 import io.cryostat.Producers;
@@ -36,8 +38,12 @@ import io.cryostat.asyncprofiler.AsyncProfilerRecording;
 import io.cryostat.diagnostic.Diagnostics.HeapDump;
 import io.cryostat.diagnostic.Diagnostics.ThreadDump;
 import io.cryostat.diagnostic.HeapDumpsMetadataService.StorageMode;
+import io.cryostat.diagnostic.UnifiedLogs.UnifiedLog;
+import io.cryostat.diagnostic.UnifiedLogs.UnifiedLogEvent;
 import io.cryostat.libcryostat.sys.Clock;
 import io.cryostat.recordings.ActiveRecordings.Metadata;
+import io.cryostat.targets.AgentClient;
+import io.cryostat.targets.AgentConnection;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.Target.EventKind;
 import io.cryostat.targets.Target.TargetDiscovery;
@@ -99,6 +105,10 @@ public class DiagnosticsHelper {
     static final String HEAP_DUMP_SUCCESS = "HeapDumpSuccess";
     static final String HEAP_DUMP_UPLOADED_NAME = "HeapDumpUploaded";
     static final String HEAP_DUMP_METADATA = "HeapDumpMetadataUpdated";
+    static final String UNIFIED_LOG_UPLOADED_NAME = "UnifiedLogUploaded";
+    static final String UNIFIED_LOG_DELETED_NAME = "UnifiedLogDeleted";
+    static final String UNIFIED_LOG_METADATA = "UnifiedLogMetadataUpdated";
+    private static final String VM_LOG_OPERATION = "vmLog";
     private static final String DIAGNOSTIC_BEAN_NAME = "com.sun.management:type=DiagnosticCommand";
     private static final String HOTSPOT_DIAGNOSTIC_BEAN_NAME =
             "com.sun.management:type=HotSpotDiagnostic";
@@ -108,6 +118,9 @@ public class DiagnosticsHelper {
 
     @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_HEAP_DUMPS)
     String heapDumpBucket;
+
+    @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_UNIFIED_LOGS)
+    String unifiedLogBucket;
 
     @ConfigProperty(name = ConfigProperties.ARCHIVED_HEAP_DUMP_REPORTS_STORAGE_CACHE_NAME)
     String heapDumpReportBucket;
@@ -124,6 +137,7 @@ public class DiagnosticsHelper {
 
     @Inject Instance<HeapDumpsMetadataService> heapDumpsMetadataService;
     @Inject Instance<ThreadDumpsMetadataService> threadDumpsMetadataService;
+    @Inject Instance<UnifiedLogsMetadataService> unifiedLogsMetadataService;
 
     @Inject S3Client storage;
     @Inject S3TransferManager transferManager;
@@ -134,13 +148,18 @@ public class DiagnosticsHelper {
     @Inject TargetConnectionManager targetConnectionManager;
     @Inject StorageBuckets buckets;
 
+    private ExecutorService uploadExecutor;
+
     void onStart(@Observes StartupEvent evt) {
+        uploadExecutor = Executors.newVirtualThreadPerTaskExecutor();
         log.tracev("Creating heap dump bucket: {0}", heapDumpBucket);
         buckets.createIfNecessary(heapDumpBucket);
         log.tracev("Creating thread dump bucket: {0}", threadDumpBucket);
         buckets.createIfNecessary(threadDumpBucket);
         log.tracev("Creating heap dump report bucket: {0}", heapDumpReportBucket);
         buckets.createIfNecessary(heapDumpReportBucket);
+        log.tracev("Creating unified log bucket: {0}", unifiedLogBucket);
+        buckets.createIfNecessary(unifiedLogBucket);
     }
 
     @ConsumeEvent(value = Target.TARGET_JVM_DISCOVERY, blocking = true)
@@ -156,6 +175,7 @@ public class DiagnosticsHelper {
                             io.cryostat.diagnostic.HeapDump.delete("target", target);
                             io.cryostat.diagnostic.ThreadDump.delete("target", target);
                             io.cryostat.diagnostic.GarbageCollection.delete("target", target);
+                            io.cryostat.diagnostic.UnifiedLog.delete("target", target);
                         });
     }
 
@@ -358,6 +378,178 @@ public class DiagnosticsHelper {
             builder = builder.prefix(jvmId);
         }
         return storage.listObjectsV2(builder.build()).contents();
+    }
+
+    public void enableUnifiedLogging(Target target, String what, String decorators) {
+        String args = String.format("what=%s decorators=%s", what, decorators);
+        targetConnectionManager.executeConnectedTask(
+                target,
+                conn ->
+                        conn.invokeMBeanOperation(
+                                DIAGNOSTIC_BEAN_NAME,
+                                VM_LOG_OPERATION,
+                                new Object[] {new String[] {args}},
+                                new String[] {String[].class.getName()},
+                                Void.class),
+                uploadFailedTimeout);
+    }
+
+    public void reconfigureUnifiedLogging(Target target, String what, String decorators) {
+        enableUnifiedLogging(target, what, decorators);
+    }
+
+    public void disableUnifiedLogging(Target target) {
+        targetConnectionManager.executeConnectedTask(
+                target,
+                conn ->
+                        conn.invokeMBeanOperation(
+                                DIAGNOSTIC_BEAN_NAME,
+                                VM_LOG_OPERATION,
+                                new Object[] {new String[] {"disable=true"}},
+                                new String[] {String[].class.getName()},
+                                Void.class),
+                uploadFailedTimeout);
+    }
+
+    public AgentClient.UnifiedLogStatus unifiedLogStatus(Target target) {
+        return targetConnectionManager.executeConnectedTask(
+                target, conn -> ((AgentConnection) conn).unifiedLogStatus(), uploadFailedTimeout);
+    }
+
+    public Optional<UnifiedLogs.UnifiedLog> pullUnifiedLog(Target target) {
+        Optional<InputStream> streamOpt =
+                targetConnectionManager.executeConnectedTask(
+                        target,
+                        conn -> ((AgentConnection) conn).pullUnifiedLog(),
+                        uploadFailedTimeout);
+        if (streamOpt.isEmpty()) {
+            log.debugv("Agent returned no unified log content for target {0}", target.jvmId);
+            return Optional.empty();
+        }
+        InputStream stream = streamOpt.get();
+        String uuid = UUID.randomUUID().toString();
+        String filename = generateFileName(target.jvmId, uuid, ".log");
+        String key = storageKey(target.jvmId, filename);
+        log.tracev("Putting log into storage with key: {0}", key);
+        var req =
+                PutObjectRequest.builder()
+                        .bucket(unifiedLogBucket)
+                        .key(key)
+                        .contentType(MediaType.TEXT_PLAIN)
+                        .contentDisposition(String.format("attachment; filename=\"%s\"", filename));
+        switch (storageMode()) {
+            case TAGGING:
+                req = req.tagging(createMetadataTagging(new Metadata(Map.of())));
+                break;
+            case METADATA:
+                req = req.metadata(Map.of());
+                break;
+            case BUCKET:
+                try {
+                    unifiedLogsMetadataService
+                            .get()
+                            .create(target.jvmId, filename, new Metadata(Map.of()));
+                } catch (IOException ioe) {
+                    log.warn(ioe);
+                }
+                break;
+            default:
+                throw new IllegalStateException();
+        }
+        transferManager
+                .upload(
+                        UploadRequest.builder()
+                                .putObjectRequest(req.build())
+                                .requestBody(
+                                        AsyncRequestBody.fromInputStream(
+                                                stream, null, uploadExecutor))
+                                .build())
+                .completionFuture()
+                .join();
+        long size =
+                storage.headObject(
+                                HeadObjectRequest.builder()
+                                        .bucket(unifiedLogBucket)
+                                        .key(key)
+                                        .build())
+                        .contentLength();
+        var result =
+                new UnifiedLog(
+                        target.jvmId,
+                        unifiedLogDownloadUrl(target.jvmId, filename),
+                        filename,
+                        clock.now().getEpochSecond(),
+                        size,
+                        Metadata.empty());
+        var event =
+                new UnifiedLogEvent(
+                        EventCategory.UNIFIED_LOG_UPLOADED,
+                        UnifiedLogEvent.Payload.of(target.jvmId, result));
+        bus.publish(
+                MessagingServer.class.getName(),
+                new Notification(event.category().category(), event.payload()));
+        return Optional.of(result);
+    }
+
+    public List<S3Object> listUnifiedLogObjects() {
+        return listUnifiedLogObjects(null);
+    }
+
+    public List<S3Object> listUnifiedLogObjects(String jvmId) {
+        var builder = ListObjectsV2Request.builder().bucket(unifiedLogBucket);
+        if (StringUtils.isNotBlank(jvmId)) {
+            builder = builder.prefix(jvmId);
+        }
+        return storage.listObjectsV2(builder.build()).contents();
+    }
+
+    public InputStream getUnifiedLogStream(String encodedKey) {
+        Pair<String, String> decodedKey = decodedKey(encodedKey);
+        var key = storageKey(decodedKey);
+        GetObjectRequest getRequest =
+                GetObjectRequest.builder().bucket(unifiedLogBucket).key(key).build();
+        return storage.getObject(getRequest);
+    }
+
+    public void deleteUnifiedLog(String jvmId, String logId) {
+        String key = storageKey(jvmId, logId);
+        storage.headObject(HeadObjectRequest.builder().bucket(unifiedLogBucket).key(key).build());
+        storage.deleteObject(
+                DeleteObjectRequest.builder().bucket(unifiedLogBucket).key(key).build());
+        switch (storageMode()) {
+            case TAGGING:
+            case METADATA:
+                break;
+            case BUCKET:
+                try {
+                    unifiedLogsMetadataService.get().delete(jvmId, logId);
+                } catch (IOException ioe) {
+                    log.warn(ioe);
+                }
+                break;
+            default:
+                throw new IllegalStateException();
+        }
+        var event =
+                new UnifiedLogs.UnifiedLogEvent(
+                        EventCategory.UNIFIED_LOG_DELETED,
+                        UnifiedLogs.UnifiedLogEvent.Payload.of(
+                                jvmId,
+                                new UnifiedLog(
+                                        jvmId,
+                                        unifiedLogDownloadUrl(jvmId, logId),
+                                        logId,
+                                        0,
+                                        0,
+                                        Metadata.empty())));
+        bus.publish(
+                MessagingServer.class.getName(),
+                new Notification(event.category().category(), event.payload()));
+    }
+
+    public String unifiedLogDownloadUrl(String jvmId, String filename) {
+        return String.format(
+                "/api/beta/diagnostics/unified-logs/download/%s", encodedKey(jvmId, filename));
     }
 
     public List<ThreadDump> getThreadDumps(String jvmId) {
@@ -615,6 +807,10 @@ public class DiagnosticsHelper {
         return getObjectMetadata(storageKey, heapDumpBucket);
     }
 
+    public Optional<Metadata> getUnifiedLogMetadata(String storageKey) {
+        return getObjectMetadata(storageKey, unifiedLogBucket);
+    }
+
     // Labels Handling
     public Optional<Metadata> getObjectMetadata(String storageKey, String storageBucket) {
         try {
@@ -645,9 +841,14 @@ public class DiagnosticsHelper {
                     // later using computeIfAbsent, wrap it in a copy constructor.
                     return Optional.of(new Metadata(new HashMap<>(resp.metadata())));
                 case BUCKET:
-                    return storageBucket.equals(threadDumpBucket)
-                            ? threadDumpsMetadataService.get().read(storageKey)
-                            : heapDumpsMetadataService.get().read(storageKey);
+                    if (storageBucket.equals(threadDumpBucket)) {
+                        return threadDumpsMetadataService.get().read(storageKey);
+                    } else if (storageBucket.equals(unifiedLogBucket)) {
+                        return unifiedLogsMetadataService.get().read(storageKey);
+                    } else if (storageBucket.equals(heapDumpBucket)) {
+                        return heapDumpsMetadataService.get().read(storageKey);
+                    }
+                    throw new IllegalArgumentException("Unknown bucket: " + storageBucket);
                 default:
                     throw new IllegalStateException();
             }
@@ -752,6 +953,8 @@ public class DiagnosticsHelper {
             case BUCKET:
                 if (storageBucket.equals(threadDumpBucket)) {
                     threadDumpsMetadataService.get().update(jvmId, identifier, updatedMetadata);
+                } else if (storageBucket.equals(unifiedLogBucket)) {
+                    unifiedLogsMetadataService.get().update(jvmId, identifier, updatedMetadata);
                 } else {
                     heapDumpsMetadataService.get().update(jvmId, identifier, updatedMetadata);
                 }
@@ -791,6 +994,34 @@ public class DiagnosticsHelper {
         return updatedDump;
     }
 
+    public UnifiedLog updateUnifiedLogMetadata(
+            String jvmId, String logId, Map<String, String> metadata) throws IOException {
+        var response = assertObjectExists(jvmId, logId, unifiedLogBucket);
+        Metadata updatedMetadata = updateMetadata(jvmId, logId, metadata, unifiedLogBucket);
+
+        long size = response.contentLength();
+        long lastModified = response.lastModified().getEpochSecond();
+
+        UnifiedLog updatedLog =
+                new UnifiedLog(
+                        jvmId,
+                        unifiedLogDownloadUrl(jvmId, logId),
+                        logId,
+                        lastModified,
+                        size,
+                        updatedMetadata);
+
+        var event =
+                new UnifiedLogs.UnifiedLogEvent(
+                        EventCategory.UNIFIED_LOG_METADATA_UPDATED,
+                        UnifiedLogs.UnifiedLogEvent.Payload.of(jvmId, updatedLog));
+        bus.publish(
+                MessagingServer.class.getName(),
+                new Notification(event.category().category(), event.payload()));
+
+        return updatedLog;
+    }
+
     public HeapDump updateHeapDumpMetadata(
             String jvmId, String heapDumpId, Map<String, String> metadata) throws IOException {
         var response = assertObjectExists(jvmId, heapDumpId, heapDumpBucket);
@@ -820,6 +1051,8 @@ public class DiagnosticsHelper {
     }
 
     public enum EventCategory {
+        UNIFIED_LOG_UPLOADED(UNIFIED_LOG_UPLOADED_NAME),
+        UNIFIED_LOG_DELETED(UNIFIED_LOG_DELETED_NAME),
         // ThreadDumpSuccess and HeapDumpSuccess ("CREATED") events are emitted by
         // LongRunningRequestGenerator
         DELETED(THREAD_DUMP_DELETED),
@@ -827,7 +1060,8 @@ public class DiagnosticsHelper {
         HEAP_DUMP_DELETED(HEAP_DUMP_DELETED_NAME),
         HEAP_DUMP_UPLOADED(HEAP_DUMP_UPLOADED_NAME),
         THREAD_DUMP_METADATA_UPDATED(THREAD_DUMP_METADATA),
-        HEAP_DUMP_METADATA_UPDATED(HEAP_DUMP_METADATA);
+        HEAP_DUMP_METADATA_UPDATED(HEAP_DUMP_METADATA),
+        UNIFIED_LOG_METADATA_UPDATED(UNIFIED_LOG_METADATA);
 
         private final String category;
 

@@ -27,6 +27,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
 
@@ -606,6 +607,46 @@ public class AgentClient {
                         });
     }
 
+    Uni<UnifiedLogStatus> unifiedLogStatus() {
+        return agentRestClient
+                .unifiedLogStatus()
+                .map(
+                        Unchecked.function(
+                                resp -> {
+                                    try (resp;
+                                            var is = (InputStream) resp.getEntity()) {
+                                        return mapper.readValue(is, UnifiedLogStatus.class);
+                                    }
+                                }));
+    }
+
+    Uni<Optional<InputStream>> pullUnifiedLog() {
+        return agentRestClient
+                .getUnifiedLog()
+                .map(
+                        resp -> {
+                            int statusCode = resp.getStatus();
+                            if (statusCode == Response.Status.NO_CONTENT.getStatusCode()) {
+                                resp.close();
+                                return Optional.empty();
+                            } else if (HttpStatusCodeIdentifier.isSuccessCode(statusCode)) {
+                                InputStream entity = (InputStream) resp.getEntity();
+                                if (entity == null) {
+                                    resp.close();
+                                    return Optional.empty();
+                                }
+                                return Optional.of(
+                                        new ResponseCloserInputStream(entity, resp::close));
+                            } else if (statusCode == Response.Status.NOT_FOUND.getStatusCode()) {
+                                throw new AgentApiException(
+                                        Response.Status.CONFLICT.getStatusCode(),
+                                        new IllegalStateException("Logging not active"));
+                            } else {
+                                throw new AgentApiException(statusCode);
+                            }
+                        });
+    }
+
     @ApplicationScoped
     public static class Factory {
 
@@ -859,4 +900,7 @@ public class AgentClient {
         UNKNOWN,
         ;
     }
+
+    public static record UnifiedLogStatus(
+            boolean enabled, String what, String decorators, String logFilePath) {}
 }
