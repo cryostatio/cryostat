@@ -161,8 +161,8 @@ class StorageCachingReportsService implements ReportsService {
                                 var sc = res.sdkHttpResponse().statusCode();
                                 if (!HttpStatusCodeIdentifier.isSuccessCode(sc)) {
                                     throw new CompletionException(
-                                            String.format("Bad S3 report storage response: %d", sc),
-                                            null);
+                                            String.format(
+                                                    "Bad S3 report storage response: %d", sc));
                                 }
                             } catch (JsonProcessingException jpe) {
                                 throw new CompletionException(jpe);

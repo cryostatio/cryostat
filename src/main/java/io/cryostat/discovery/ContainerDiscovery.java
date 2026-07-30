@@ -48,6 +48,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sun.security.auth.module.UnixSystem;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.runtime.ShutdownEvent;
 import io.quarkus.runtime.StartupEvent;
@@ -379,6 +380,12 @@ public abstract class ContainerDiscovery {
         private JobExecutionContext context;
 
         @Override
+        @SuppressFBWarnings(
+                value = "EI_EXPOSE_REP2",
+                justification =
+                        "context is a Quartz JobExecutionContext scoped to a single job invocation;"
+                                + " the field is used only within this class and poses no real"
+                                + " representation-exposure risk")
         public void execute(JobExecutionContext context) throws JobExecutionException {
             this.context = context;
             queryContainers();
