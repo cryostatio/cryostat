@@ -41,9 +41,9 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 @QuarkusTest
-@TestProfile(UnifiedLogTest.class)
+@TestProfile(UnifiedLogsTest.class)
 @TestHTTPEndpoint(UnifiedLogs.class)
-public class UnifiedLogTest extends AuditTestBase {
+public class UnifiedLogsTest extends AuditTestBase {
 
     @Inject EntityManager em;
 
@@ -56,6 +56,8 @@ public class UnifiedLogTest extends AuditTestBase {
                 .all()
                 .when()
                 .pathParam("targetId", targetId)
+                .queryParam("what", "gc")
+                .queryParam("decorators", "time,level")
                 .post("targets/{targetId}/unified-logging")
                 .then()
                 .log()
@@ -71,6 +73,8 @@ public class UnifiedLogTest extends AuditTestBase {
                 .all()
                 .when()
                 .pathParam("targetId", targetId)
+                .queryParam("what", "gc")
+                .queryParam("decorators", "time,level")
                 .request("PATCH", "targets/{targetId}/unified-logging")
                 .then()
                 .log()
@@ -175,6 +179,8 @@ public class UnifiedLogTest extends AuditTestBase {
                 .all()
                 .when()
                 .pathParam("targetId", Integer.MAX_VALUE)
+                .queryParam("what", "gc")
+                .queryParam("decorators", "time,level")
                 .post("targets/{targetId}/unified-logging")
                 .then()
                 .log()
