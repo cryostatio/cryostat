@@ -1,7 +1,7 @@
-CREATE SEQUENCE Log_SEQ START WITH 1 INCREMENT BY 50;
+CREATE SEQUENCE UnifiedLog_SEQ START WITH 1 INCREMENT BY 50;
 
-CREATE TABLE Log (
-    id             BIGINT NOT NULL DEFAULT nextval('Log_SEQ'),
+CREATE TABLE UnifiedLog (
+    id             BIGINT NOT NULL DEFAULT nextval('UnifiedLog_SEQ'),
     target_id      BIGINT NOT NULL,
     what           text            CHECK (char_length(what) < 255),
     decorators     text            CHECK (char_length(decorators) < 255),
@@ -13,7 +13,7 @@ CREATE TABLE Log (
         REFERENCES Target(id) ON DELETE CASCADE
 );
 
-CREATE TABLE Log_AUD (
+CREATE TABLE UnifiedLog_AUD (
     id             BIGINT NOT NULL,
     REV            INTEGER NOT NULL,
     REVTYPE        SMALLINT,
@@ -29,7 +29,7 @@ CREATE TABLE Log_AUD (
     FOREIGN KEY (REVEND) REFERENCES REVINFO (REV)
 );
 
-CREATE INDEX IDX_LOG_AUD_ID      ON Log_AUD (id);
-CREATE INDEX IDX_LOG_AUD_REV     ON Log_AUD (REV);
-CREATE INDEX IDX_LOG_AUD_REVTYPE ON Log_AUD (REVTYPE);
-CREATE INDEX IDX_LOG_AUD_REVEND  ON Log_AUD (REVEND);
+CREATE INDEX IDX_LOG_AUD_ID      ON UnifiedLog_AUD (id);
+CREATE INDEX IDX_LOG_AUD_REV     ON UnifiedLog_AUD (REV);
+CREATE INDEX IDX_LOG_AUD_REVTYPE ON UnifiedLog_AUD (REVTYPE);
+CREATE INDEX IDX_LOG_AUD_REVEND  ON UnifiedLog_AUD (REVEND);
