@@ -435,6 +435,9 @@ public class UnifiedLogs {
     }
 
     private static void validateLoggingParams(String what, String decorators) {
+        if (StringUtils.isAnyBlank(what, decorators)) {
+            throw new BadRequestException("Query parameters 'what' and 'decorators' are required");
+        }
         if (!SAFE_PARAM_PATTERN.matcher(what).matches()
                 || !SAFE_PARAM_PATTERN.matcher(decorators).matches()) {
             throw new BadRequestException(
