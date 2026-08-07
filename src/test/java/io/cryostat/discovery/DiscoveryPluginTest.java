@@ -16,6 +16,9 @@
 package io.cryostat.discovery;
 
 import static io.restassured.RestAssured.given;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 
 import java.net.URI;
 import java.util.HashMap;
@@ -28,6 +31,7 @@ import io.cryostat.credentials.Credential;
 
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.test.junit.QuarkusTest;
+import io.quarkus.test.junit.mockito.InjectSpy;
 import io.restassured.http.ContentType;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
@@ -40,6 +44,8 @@ import org.junit.jupiter.params.provider.ValueSource;
 public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
 
     private static final String DISCOVERY_HEADER = "Cryostat-Discovery-Authentication";
+
+    @InjectSpy PluginCallbackFactory callbackFactory;
 
     @ParameterizedTest
     @NullAndEmptySource
@@ -63,7 +69,7 @@ public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
     }
 
     @Test
-    void rejectsAgentCallbackThatDoesNotResolveToClientAddress() {
+    void rejectsAgentCallbackMatchingUntrustedForwardedAddress() {
         given().log()
                 .all()
                 .when()
@@ -73,7 +79,7 @@ public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
                                 "realm",
                                 "mismatched_callback_test_realm",
                                 "callback",
-                                baseUrl + "health/liveness",
+                                "http://192.0.2.1",
                                 "credential",
                                 Map.of(
                                         "matchExpression", "true",
@@ -93,10 +99,12 @@ public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
                 .and()
                 .assertThat()
                 .statusCode(400);
+
+        verify(callbackFactory, never()).create(any(URI.class), any(Credential.class));
     }
 
     @Test
-    void rejectsPluginCallbackThatDoesNotResolveToClientAddress() {
+    void rejectsPluginCallbackMatchingUntrustedForwardedAddress() {
         given().log()
                 .all()
                 .when()
@@ -106,7 +114,7 @@ public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
                                 "realm",
                                 "mismatched_plugin_callback_test_realm",
                                 "callback",
-                                baseUrl + "health/liveness"))
+                                "http://192.0.2.1"))
                 .contentType(ContentType.JSON)
                 .post("/api/v4/discovery")
                 .then()

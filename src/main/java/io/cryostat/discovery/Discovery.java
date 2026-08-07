@@ -1463,11 +1463,6 @@ public class Discovery {
         if (ctx.request() != null && ctx.request().remoteAddress() != null) {
             addr = jwtValidator.tryResolveAddress(addr, ctx.request().remoteAddress().host());
         }
-        if (ctx.request() != null && ctx.request().headers() != null) {
-            addr =
-                    jwtValidator.tryResolveAddress(
-                            addr, ctx.request().headers().get(X_FORWARDED_FOR));
-        }
         return addr;
     }
 

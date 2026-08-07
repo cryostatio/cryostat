@@ -31,7 +31,6 @@ import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jwt.JWT;
 import com.nimbusds.jwt.proc.BadJWTException;
 import io.quarkus.security.UnauthorizedException;
-import io.vertx.core.MultiMap;
 import io.vertx.core.http.HttpServerRequest;
 import io.vertx.ext.web.RoutingContext;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -74,8 +73,6 @@ public class DiscoveryJwtValidator {
         if (req.remoteAddress() != null) {
             addr = tryResolveAddress(addr, req.remoteAddress().host());
         }
-        MultiMap headers = req.headers();
-        addr = tryResolveAddress(addr, headers.get(Discovery.X_FORWARDED_FOR));
 
         URI hostUri =
                 new URI(
