@@ -62,6 +62,61 @@ public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
                 .statusCode(400);
     }
 
+    @Test
+    void rejectsAgentCallbackThatDoesNotResolveToClientAddress() {
+        given().log()
+                .all()
+                .when()
+                .header(Discovery.X_FORWARDED_FOR, "192.0.2.1")
+                .body(
+                        Map.of(
+                                "realm",
+                                "mismatched_callback_test_realm",
+                                "callback",
+                                baseUrl + "health/liveness",
+                                "credential",
+                                Map.of(
+                                        "matchExpression", "true",
+                                        "username", "user",
+                                        "password", "pass"),
+                                "nodes",
+                                List.of(),
+                                "fillStrategy",
+                                "NONE",
+                                "context",
+                                Map.of()))
+                .contentType(ContentType.JSON)
+                .post("/api/v4.3/discovery/agents")
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(400);
+    }
+
+    @Test
+    void rejectsPluginCallbackThatDoesNotResolveToClientAddress() {
+        given().log()
+                .all()
+                .when()
+                .header(Discovery.X_FORWARDED_FOR, "192.0.2.1")
+                .body(
+                        Map.of(
+                                "realm",
+                                "mismatched_plugin_callback_test_realm",
+                                "callback",
+                                baseUrl + "health/liveness"))
+                .contentType(ContentType.JSON)
+                .post("/api/v4/discovery")
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(400);
+    }
+
     @ParameterizedTest
     @NullAndEmptySource
     void rejectsInvalidRealmName(String realm) {
