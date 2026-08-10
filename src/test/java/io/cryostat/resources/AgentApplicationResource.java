@@ -54,7 +54,7 @@ public class AgentApplicationResource implements QuarkusTestResourceLifecycleMan
                         "CRYOSTAT_AGENT_WEBCLIENT_TLS_REQUIRED",
                         "false",
                         "CRYOSTAT_AGENT_WEBSERVER_HOST",
-                        "0.0.0.0",
+                        "127.0.0.1",
                         "CRYOSTAT_AGENT_WEBSERVER_PORT",
                         Integer.toString(PORT),
                         "CRYOSTAT_AGENT_BASEURI_RANGE",
@@ -74,8 +74,8 @@ public class AgentApplicationResource implements QuarkusTestResourceLifecycleMan
         Map<String, String> env = getEnvMap();
         env.put("QUARKUS_HTTP_PORT", Integer.toString(agentAppPort));
         env.put("CRYOSTAT_AGENT_WEBSERVER_PORT", Integer.toString(hostAgentPort));
-        env.put("CRYOSTAT_AGENT_BASEURI", String.format("http://localhost:%d/", cryostatPort));
-        env.put("CRYOSTAT_AGENT_CALLBACK", String.format("http://localhost:%d/", hostAgentPort));
+        env.put("CRYOSTAT_AGENT_BASEURI", String.format("http://127.0.0.1:%d/", cryostatPort));
+        env.put("CRYOSTAT_AGENT_CALLBACK", String.format("http://127.0.0.1:%d/", hostAgentPort));
 
         String img =
                 Optional.ofNullable(System.getenv("QUARKUS_TEST_IMAGE"))
