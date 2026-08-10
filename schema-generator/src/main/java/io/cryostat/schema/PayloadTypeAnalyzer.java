@@ -322,7 +322,7 @@ public class PayloadTypeAnalyzer {
                         param -> {
                             String fieldName = param.getNameAsString();
                             String fieldType = param.getTypeAsString();
-                            properties.put(fieldName, analyzeFieldType(fieldType));
+                            properties.put(fieldName, analyzeFieldType(fieldType, param));
                         });
 
         if (!properties.isEmpty()) {
@@ -381,7 +381,8 @@ public class PayloadTypeAnalyzer {
                                                     String fieldName = var.getNameAsString();
                                                     String fieldType = var.getTypeAsString();
                                                     properties.put(
-                                                            fieldName, analyzeFieldType(fieldType));
+                                                            fieldName,
+                                                            analyzeFieldType(fieldType, var));
                                                 });
                             }
                         });
@@ -393,7 +394,8 @@ public class PayloadTypeAnalyzer {
         return schema;
     }
 
-    private Map<String, Object> analyzeFieldType(String fieldType) {
+    private Map<String, Object> analyzeFieldType(
+            String fieldType, com.github.javaparser.ast.Node context) {
         // Remove generic type parameters for analysis
         String baseType = fieldType.replaceAll("<.*>", "");
 
@@ -422,6 +424,28 @@ public class PayloadTypeAnalyzer {
             default:
                 // For complex types, try to analyze them inline (avoid circular references)
                 if (!analyzedTypes.contains(baseType)) {
+                    // Prefer a declaration in the same source file. Simple nested type names can
+                    // occur in multiple files, and selecting the first global match makes schema
+                    // generation depend on filesystem traversal order.
+                    Optional<RecordDeclaration> contextualRecord =
+                            context.findCompilationUnit()
+                                    .flatMap(
+                                            cu ->
+                                                    cu.findAll(RecordDeclaration.class).stream()
+                                                            .filter(
+                                                                    record ->
+                                                                            matchesTypeName(
+                                                                                    record
+                                                                                            .getNameAsString(),
+                                                                                    record.getFullyQualifiedName()
+                                                                                            .orElse(
+                                                                                                    ""),
+                                                                                    baseType))
+                                                            .findFirst());
+                    if (contextualRecord.isPresent()) {
+                        analyzedTypes.add(baseType);
+                        return analyzeRecord(contextualRecord.get());
+                    }
                     return analyzeType(baseType);
                 }
                 // If already analyzed (circular reference), just describe it

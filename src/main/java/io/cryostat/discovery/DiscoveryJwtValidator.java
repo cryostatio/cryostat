@@ -73,6 +73,9 @@ public class DiscoveryJwtValidator {
         if (req.remoteAddress() != null) {
             addr = tryResolveAddress(addr, req.remoteAddress().host());
         }
+        if (addr == null) {
+            throw new UnauthorizedException("Could not determine request address");
+        }
 
         URI hostUri =
                 new URI(
