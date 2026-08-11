@@ -105,14 +105,14 @@ public class Rules {
     }
 
     @GET
-    @PermissionsAllowed("rules:read")
+    @PermissionsAllowed(value = "rules:read", inclusive = true)
     @Operation(summary = "List all Automated Rules")
     public List<Rule> list() {
         return Rule.listAll();
     }
 
     @GET
-    @PermissionsAllowed("rules:read")
+    @PermissionsAllowed(value = "rules:read", inclusive = true)
     @Path("/{name}")
     @Operation(summary = "Get an Automated Rule by name")
     public Rule get(@RestPath String name) {
@@ -121,7 +121,7 @@ public class Rules {
 
     @Transactional
     @POST
-    @PermissionsAllowed("rules:write")
+    @PermissionsAllowed(value = "rules:write", inclusive = true)
     @Consumes(MediaType.APPLICATION_JSON)
     @Operation(summary = "Create a new Automated Rule")
     public RestResponse<Rule> create(@Context UriInfo uriInfo, Rule rule) {
@@ -146,7 +146,7 @@ public class Rules {
 
     @Transactional
     @PATCH
-    @PermissionsAllowed("rules:write")
+    @PermissionsAllowed(value = "rules:write", inclusive = true)
     @Path("/{name}")
     @Consumes(MediaType.APPLICATION_JSON)
     @Operation(
@@ -215,7 +215,7 @@ public class Rules {
 
     @Transactional
     @POST
-    @PermissionsAllowed("rules:write")
+    @PermissionsAllowed(value = "rules:write", inclusive = true)
     @Consumes({MediaType.MULTIPART_FORM_DATA, MediaType.APPLICATION_FORM_URLENCODED})
     public RestResponse<Rule> create(
             @Context UriInfo uriInfo,
@@ -262,7 +262,7 @@ public class Rules {
 
     @Transactional
     @DELETE
-    @PermissionsAllowed("rules:delete")
+    @PermissionsAllowed(value = "rules:delete", inclusive = true)
     @Path("/{name}")
     @Operation(summary = "Delete an Automated Rule by name")
     public void delete(

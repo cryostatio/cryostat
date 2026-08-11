@@ -57,7 +57,9 @@ public class TargetEventTemplates {
 
     @GET
     @Blocking
-    @PermissionsAllowed({"targets:read", "eventtemplates:read"})
+    @PermissionsAllowed(
+            value = {"targets:read", "eventtemplates:read"},
+            inclusive = true)
     @Operation(
             summary = "Retrieve a list of event templates available on the given target",
             description =
@@ -84,7 +86,9 @@ public class TargetEventTemplates {
     @GET
     @Blocking
     @Path("/{templateType}/{templateName}")
-    @PermissionsAllowed({"targets:read", "eventtemplates:read"})
+    @PermissionsAllowed(
+            value = {"targets:read", "eventtemplates:read"},
+            inclusive = true)
     @Produces(MediaType.APPLICATION_XML)
     @Operation(
             summary = "Get a specific event template",

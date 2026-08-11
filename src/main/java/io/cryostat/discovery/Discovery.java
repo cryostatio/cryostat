@@ -157,7 +157,7 @@ public class Discovery {
 
     @GET
     @Path("/api/v4/discovery")
-    @PermissionsAllowed("discoverynodes:read")
+    @PermissionsAllowed(value = "discoverynodes:read", inclusive = true)
     @Operation(summary = "Retrieve the entire discovery tree.")
     public DiscoveryNode get(
             @QueryParam("mergeRealms") @DefaultValue("false") boolean mergeRealms) {
@@ -169,7 +169,7 @@ public class Discovery {
 
     @GET
     @Path("/api/v4/discovery/{id}")
-    @PermissionsAllowed("discoverynodes:read")
+    @PermissionsAllowed(value = "discoverynodes:read", inclusive = true)
     @Tag(ref = "Discovery")
     @Operation(
             summary = "Endpoint for discovery plugins to check their own registration status",
@@ -197,7 +197,7 @@ public class Discovery {
 
     @POST
     @Blocking
-    @PermissionsAllowed("discoverynodes:read")
+    @PermissionsAllowed(value = "discoverynodes:read", inclusive = true)
     @Consumes({MediaType.MULTIPART_FORM_DATA, MediaType.APPLICATION_FORM_URLENCODED})
     @Path("/api/beta/discovery/credential_exists")
     @Operation(
@@ -221,7 +221,7 @@ public class Discovery {
     @Path("/api/v4/discovery")
     @Produces(MediaType.APPLICATION_JSON)
     @Consumes(MediaType.APPLICATION_JSON)
-    @PermissionsAllowed("discoverynodes:write")
+    @PermissionsAllowed(value = "discoverynodes:write", inclusive = true)
     @Tag(
             name = "Discovery",
             description =
@@ -322,7 +322,7 @@ public class Discovery {
     @Path("/api/v4.3/discovery/agents")
     @Produces(MediaType.APPLICATION_JSON)
     @Consumes(MediaType.APPLICATION_JSON)
-    @PermissionsAllowed("discoverynodes:write")
+    @PermissionsAllowed(value = "discoverynodes:write", inclusive = true)
     @Tag(ref = "Discovery")
     @Operation(
             summary = "Register and publish a Cryostat Agent",
@@ -710,7 +710,7 @@ public class Discovery {
     @GET
     @JsonView(DiscoveryNode.Views.Flat.class)
     @Path("/api/v4/discovery_plugins")
-    @PermissionsAllowed("discoverynodes:read")
+    @PermissionsAllowed(value = "discoverynodes:read", inclusive = true)
     @Tag(ref = "Discovery")
     @Operation(
             summary = "List currently registered discovery plugins",
@@ -727,7 +727,7 @@ public class Discovery {
 
     @GET
     @Path("/api/v4/discovery_plugins/{id}")
-    @PermissionsAllowed("discoverynodes:read")
+    @PermissionsAllowed(value = "discoverynodes:read", inclusive = true)
     @Tag(ref = "Discovery")
     @Operation(
             summary = "Retrieve a specific discovery plugin",

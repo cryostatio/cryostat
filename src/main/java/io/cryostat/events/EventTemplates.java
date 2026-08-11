@@ -70,7 +70,7 @@ public class EventTemplates {
 
     @GET
     @Blocking
-    @PermissionsAllowed("eventtemplates:read")
+    @PermissionsAllowed(value = "eventtemplates:read", inclusive = true)
     @Operation(
             summary = "List server event templates",
             description =
@@ -90,7 +90,7 @@ public class EventTemplates {
     @GET
     @Path("/{templateType}")
     @Blocking
-    @PermissionsAllowed("eventtemplates:read")
+    @PermissionsAllowed(value = "eventtemplates:read", inclusive = true)
     @Operation(summary = "List server event templates of the given type")
     public List<Template> getTemplates(@RestPath String templateType)
             throws IOException, FlightRecorderException {
@@ -108,7 +108,7 @@ public class EventTemplates {
     @GET
     @Path("/{templateType}/{templateName}")
     @Blocking
-    @PermissionsAllowed("eventtemplates:read")
+    @PermissionsAllowed(value = "eventtemplates:read", inclusive = true)
     @Produces(MediaType.APPLICATION_XML)
     @Operation(
             summary = "Get a specific event template",
@@ -135,7 +135,7 @@ public class EventTemplates {
     }
 
     @POST
-    @PermissionsAllowed("eventtemplates:write")
+    @PermissionsAllowed(value = "eventtemplates:write", inclusive = true)
     @Operation(
             summary = "Upload a custom event template",
             description =
@@ -164,7 +164,7 @@ public class EventTemplates {
     @DELETE
     @Blocking
     @Path("/{templateName}")
-    @PermissionsAllowed("eventtemplates:delete")
+    @PermissionsAllowed(value = "eventtemplates:delete", inclusive = true)
     @Operation(
             summary = "Delete a custom event template",
             description =

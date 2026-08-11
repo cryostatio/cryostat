@@ -96,7 +96,7 @@ public class JfrAnalytics {
     @jakarta.ws.rs.Path("/api/beta/recording_analytics/{jvmId}/{filename}")
     @POST
     @Blocking
-    @PermissionsAllowed("archivedrecordings:read")
+    @PermissionsAllowed(value = "archivedrecordings:read", inclusive = true)
     public Uni<List<List<String>>> executeQuery(
             @PathParam("jvmId") String jvmId,
             @PathParam("filename") String filename,

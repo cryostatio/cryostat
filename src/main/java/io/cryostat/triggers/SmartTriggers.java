@@ -66,7 +66,9 @@ public class SmartTriggers {
     @Inject ObjectMapper mapper;
 
     @Path("api/beta/targets/{targetId}/smart_triggers")
-    @PermissionsAllowed({"targets:read", "smarttriggers:read"})
+    @PermissionsAllowed(
+            value = {"targets:read", "smarttriggers:read"},
+            inclusive = true)
     @Transactional
     @Produces({MediaType.APPLICATION_JSON})
     @GET
@@ -86,7 +88,9 @@ public class SmartTriggers {
     }
 
     @Path("api/beta/targets/{targetId}/smart_triggers")
-    @PermissionsAllowed({"targets:read", "smarttriggers:write"})
+    @PermissionsAllowed(
+            value = {"targets:read", "smarttriggers:write"},
+            inclusive = true)
     @Transactional
     @POST
     @Operation(
@@ -120,7 +124,9 @@ public class SmartTriggers {
     }
 
     @Path("api/beta/targets/{targetId}/smart_triggers/{uuid}")
-    @PermissionsAllowed({"targets:read", "smarttriggers:delete"})
+    @PermissionsAllowed(
+            value = {"targets:read", "smarttriggers:delete"},
+            inclusive = true)
     @Transactional
     @DELETE
     @Operation(
@@ -153,7 +159,9 @@ public class SmartTriggers {
     }
 
     @Path("api/beta/targets/{jvmId}/smart_triggers/sync/")
-    @PermissionsAllowed({"targets:read", "smarttriggers:write"})
+    @PermissionsAllowed(
+            value = {"targets:read", "smarttriggers:write"},
+            inclusive = true)
     @Transactional
     @POST
     public void syncRecordings(@RestPath String jvmId, String body) {
