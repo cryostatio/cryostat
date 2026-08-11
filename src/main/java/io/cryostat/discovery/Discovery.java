@@ -56,13 +56,13 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.panache.common.Parameters;
 import io.quarkus.runtime.ShutdownEvent;
+import io.quarkus.security.PermissionsAllowed;
 import io.smallrye.common.annotation.Blocking;
 import io.smallrye.faulttolerance.api.RateLimit;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.annotation.security.PermitAll;
-import jakarta.annotation.security.RolesAllowed;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
@@ -157,7 +157,7 @@ public class Discovery {
 
     @GET
     @Path("/api/v4/discovery")
-    @RolesAllowed("read")
+    @PermissionsAllowed("discoverynodes:read")
     @Operation(summary = "Retrieve the entire discovery tree.")
     public DiscoveryNode get(
             @QueryParam("mergeRealms") @DefaultValue("false") boolean mergeRealms) {
@@ -169,7 +169,7 @@ public class Discovery {
 
     @GET
     @Path("/api/v4/discovery/{id}")
-    @RolesAllowed("read")
+    @PermissionsAllowed("discoverynodes:read")
     @Tag(ref = "Discovery")
     @Operation(
             summary = "Endpoint for discovery plugins to check their own registration status",
@@ -197,7 +197,7 @@ public class Discovery {
 
     @POST
     @Blocking
-    @RolesAllowed("read")
+    @PermissionsAllowed("discoverynodes:read")
     @Consumes({MediaType.MULTIPART_FORM_DATA, MediaType.APPLICATION_FORM_URLENCODED})
     @Path("/api/beta/discovery/credential_exists")
     @Operation(
@@ -221,7 +221,7 @@ public class Discovery {
     @Path("/api/v4/discovery")
     @Produces(MediaType.APPLICATION_JSON)
     @Consumes(MediaType.APPLICATION_JSON)
-    @RolesAllowed("write")
+    @PermissionsAllowed("discoverynodes:write")
     @Tag(
             name = "Discovery",
             description =
@@ -322,7 +322,7 @@ public class Discovery {
     @Path("/api/v4.3/discovery/agents")
     @Produces(MediaType.APPLICATION_JSON)
     @Consumes(MediaType.APPLICATION_JSON)
-    @RolesAllowed("write")
+    @PermissionsAllowed("discoverynodes:write")
     @Tag(ref = "Discovery")
     @Operation(
             summary = "Register and publish a Cryostat Agent",
@@ -710,7 +710,7 @@ public class Discovery {
     @GET
     @JsonView(DiscoveryNode.Views.Flat.class)
     @Path("/api/v4/discovery_plugins")
-    @RolesAllowed("read")
+    @PermissionsAllowed("discoverynodes:read")
     @Tag(ref = "Discovery")
     @Operation(
             summary = "List currently registered discovery plugins",
@@ -727,7 +727,7 @@ public class Discovery {
 
     @GET
     @Path("/api/v4/discovery_plugins/{id}")
-    @RolesAllowed("read")
+    @PermissionsAllowed("discoverynodes:read")
     @Tag(ref = "Discovery")
     @Operation(
             summary = "Retrieve a specific discovery plugin",

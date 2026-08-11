@@ -30,8 +30,8 @@ import io.cryostat.targets.Target;
 import io.cryostat.targets.TargetConnectionManager;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import io.quarkus.security.PermissionsAllowed;
 import io.smallrye.common.annotation.Blocking;
-import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.GET;
@@ -53,7 +53,7 @@ public class RecordingOptions {
 
     @GET
     @Blocking
-    @RolesAllowed("read")
+    @PermissionsAllowed({"targets:read", "activerecordings:read"})
     @Operation(
             summary = "Get the current set of options for the specified target",
             description =
@@ -72,7 +72,7 @@ public class RecordingOptions {
 
     @PATCH
     @Blocking
-    @RolesAllowed("read")
+    @PermissionsAllowed({"targets:read", "activerecordings:write"})
     @Operation(
             summary = "Update the recording options for the specified target",
             description =
