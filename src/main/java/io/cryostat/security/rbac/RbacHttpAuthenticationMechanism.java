@@ -15,9 +15,12 @@
  */
 package io.cryostat.security.rbac;
 
+import java.security.Permission;
 import java.util.Collections;
 import java.util.Set;
 
+import io.fabric8.kubernetes.api.model.authorization.v1.ResourceAttributesBuilder;
+import io.fabric8.kubernetes.api.model.authorization.v1.SelfSubjectAccessReviewBuilder;
 import io.quarkus.security.identity.IdentityProviderManager;
 import io.quarkus.security.identity.SecurityIdentity;
 import io.quarkus.security.identity.request.AuthenticationRequest;
@@ -26,6 +29,7 @@ import io.quarkus.security.runtime.QuarkusSecurityIdentity;
 import io.quarkus.vertx.http.runtime.security.ChallengeData;
 import io.quarkus.vertx.http.runtime.security.HttpAuthenticationMechanism;
 import io.smallrye.mutiny.Uni;
+import io.smallrye.mutiny.infrastructure.Infrastructure;
 import io.vertx.ext.web.RoutingContext;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -47,8 +51,8 @@ import org.jboss.logging.Logger;
  *   <li>{@code BASIC}: reads {@code X-Forwarded-User}; returns an authenticated identity if
  *       present, or {@code null} (unauthenticated) otherwise — Quarkus then challenges with 401.
  *   <li>{@code OPENSHIFT}: reads both {@code X-Forwarded-User} and {@code
- *       X-Forwarded-Access-Token}; stores the raw token in identity attributes for use by {@link
- *       RbacSecurityIdentityAugmentor}; returns {@code null} if either header is absent.
+ *       X-Forwarded-Access-Token}; attaches a per-permission SSAR checker using the token; returns
+ *       {@code null} if either header is absent.
  * </ul>
  */
 @ApplicationScoped
@@ -56,58 +60,12 @@ public class RbacHttpAuthenticationMechanism implements HttpAuthenticationMechan
 
     static final String HEADER_FORWARDED_USER = "X-Forwarded-User";
     static final String HEADER_FORWARDED_TOKEN = "X-Forwarded-Access-Token";
+    static final String ATTR_RAW_ACCESS_TOKEN = "raw_access_token";
 
-    /**
-     * All fine-grained permission names declared via {@code @PermissionsAllowed} across all REST
-     * resources. Used to pre-populate PERMISSIVE-mode identities so that the built-in Quarkus
-     * permission check passes without needing an augmentor.
-     */
-    static final Set<String> ALL_PERMISSIONS =
-            Set.of(
-                    "targets:read",
-                    "targets:write",
-                    "targets:delete",
-                    "discoverynodes:read",
-                    "discoverynodes:write",
-                    "activerecordings:read",
-                    "activerecordings:write",
-                    "activerecordings:delete",
-                    "archivedrecordings:read",
-                    "archivedrecordings:write",
-                    "archivedrecordings:delete",
-                    "reports:read",
-                    "reports:write",
-                    "credentials:read",
-                    "credentials:write",
-                    "credentials:delete",
-                    "rules:read",
-                    "rules:write",
-                    "rules:delete",
-                    "eventtemplates:read",
-                    "eventtemplates:write",
-                    "eventtemplates:delete",
-                    "events:read",
-                    "matchexpressions:read",
-                    "smarttriggers:read",
-                    "smarttriggers:write",
-                    "smarttriggers:delete",
-                    "asyncprofiler:read",
-                    "asyncprofiler:write",
-                    "asyncprofiler:delete",
-                    "diagnostics:write",
-                    "heapdumps:read",
-                    "heapdumps:write",
-                    "heapdumps:delete",
-                    "threaddumps:read",
-                    "threaddumps:write",
-                    "threaddumps:delete",
-                    "unifiedlogs:read",
-                    "unifiedlogs:write",
-                    "unifiedlogs:delete");
-
-    private static final Logger LOG = Logger.getLogger(RbacHttpAuthenticationMechanism.class);
-
+    @Inject Logger log;
     @Inject RbacConfig config;
+    @Inject SsarClientCache ssarClientCache;
+    @Inject PermissionMapper permissionMapper;
 
     @Override
     public Uni<SecurityIdentity> authenticate(
@@ -121,23 +79,23 @@ public class RbacHttpAuthenticationMechanism implements HttpAuthenticationMechan
             case BASIC -> {
                 String user = context.request().getHeader(HEADER_FORWARDED_USER);
                 if (StringUtils.isBlank(user)) {
-                    LOG.debug("BASIC mode: no X-Forwarded-User header, returning null");
+                    log.debug("BASIC mode: no X-Forwarded-User header, returning null");
                     yield Uni.createFrom().nullItem();
                 }
-                LOG.debugf("BASIC mode: authenticated user %s", user);
-                yield Uni.createFrom().item(buildIdentity(user, null));
+                log.debugf("BASIC mode: authenticated user %s", user);
+                yield Uni.createFrom().item(buildPermissiveIdentity(user));
             }
             case OPENSHIFT -> {
                 String user = context.request().getHeader(HEADER_FORWARDED_USER);
                 String token = context.request().getHeader(HEADER_FORWARDED_TOKEN);
                 if (StringUtils.isBlank(user) || StringUtils.isBlank(token)) {
-                    LOG.debug(
+                    log.debug(
                             "OPENSHIFT mode: missing X-Forwarded-User or X-Forwarded-Access-Token,"
                                     + " returning null");
                     yield Uni.createFrom().nullItem();
                 }
-                LOG.debugf("OPENSHIFT mode: authenticated user %s", user);
-                yield Uni.createFrom().item(buildIdentity(user, token));
+                log.debugf("OPENSHIFT mode: authenticated user %s", user);
+                yield Uni.createFrom().item(buildOpenshiftIdentity(user, token));
             }
         };
     }
@@ -158,26 +116,104 @@ public class RbacHttpAuthenticationMechanism implements HttpAuthenticationMechan
     }
 
     /**
-     * Builds an identity with all known permissions pre-granted. Used in PERMISSIVE mode where no
-     * real authorization check is desired.
+     * Builds an identity with a permission checker that grants every request unconditionally. Used
+     * in PERMISSIVE and BASIC modes where no per-permission authorization check is desired: if the
+     * auth proxy has passed the request to Cryostat, then the request has already been
+     * authenticated and authorized.
      */
     private static SecurityIdentity buildPermissiveIdentity(String user) {
         return QuarkusSecurityIdentity.builder()
                 .setPrincipal(new QuarkusPrincipal(user))
                 .setAnonymous(false)
-                .addPermissionsAsString(ALL_PERMISSIONS)
+                .addPermissionChecker(permission -> Uni.createFrom().item(true))
                 .build();
     }
 
-    private static SecurityIdentity buildIdentity(String user, String rawToken) {
-        var builder =
-                QuarkusSecurityIdentity.builder()
-                        .setPrincipal(new QuarkusPrincipal(user))
-                        .setAnonymous(false);
-        if (StringUtils.isNotBlank(rawToken)) {
-            builder.addAttribute(
-                    RbacSecurityIdentityAugmentor.RAW_ACCESS_TOKEN_ATTRIBUTE, rawToken);
+    /**
+     * Builds an identity carrying a permission checker that performs a SelfSubjectAccessReview for
+     * each required permission. Used in OPENSHIFT mode.
+     */
+    private SecurityIdentity buildOpenshiftIdentity(String user, String rawToken) {
+        return QuarkusSecurityIdentity.builder()
+                .setPrincipal(new QuarkusPrincipal(user))
+                .setAnonymous(false)
+                .addAttribute(ATTR_RAW_ACCESS_TOKEN, rawToken)
+                .addPermissionChecker(
+                        (Permission permission) ->
+                                checkSsarPermission(rawToken, permission.getName()))
+                .build();
+    }
+
+    /**
+     * Performs a {@code SelfSubjectAccessReview} for {@code permissionName} using the caller's
+     * bearer token. The Fabric8 HTTP call is dispatched to a worker thread so that it never blocks
+     * the Vert.x event-loop thread.
+     *
+     * <p>Returns {@code false} (deny) when:
+     *
+     * <ul>
+     *   <li>no mapping is configured for {@code permissionName},
+     *   <li>the SSAR response returns {@code allowed=false}, or
+     *   <li>the SSAR call throws (network error, TLS failure, API server unavailable, etc.).
+     * </ul>
+     */
+    private Uni<Boolean> checkSsarPermission(String rawToken, String permissionName) {
+        var mapping = permissionMapper.resolve(permissionName);
+        if (mapping.isEmpty()) {
+            log.debugf(
+                    "OPENSHIFT mode: no permission mapping configured for '%s', denying",
+                    permissionName);
+            return Uni.createFrom().item(false);
         }
-        return builder.build();
+        var k8s = mapping.get();
+        log.debugf(
+                "OPENSHIFT mode: checking SSAR for permission '%s' → %s/%s:%s",
+                permissionName, k8s.resource(), k8s.subresource(), k8s.verb());
+        return Uni.createFrom()
+                .<Boolean>emitter(
+                        em -> {
+                            try {
+                                var client = ssarClientCache.getOrCreate(rawToken);
+                                var spec =
+                                        new ResourceAttributesBuilder()
+                                                .withResource(k8s.resource())
+                                                .withSubresource(k8s.subresource())
+                                                .withVerb(k8s.verb())
+                                                .build();
+                                var review =
+                                        new SelfSubjectAccessReviewBuilder()
+                                                .withNewSpec()
+                                                .withResourceAttributes(spec)
+                                                .endSpec()
+                                                .build();
+                                var result =
+                                        client.authorization()
+                                                .v1()
+                                                .selfSubjectAccessReview()
+                                                .create(review);
+                                boolean allowed =
+                                        Boolean.TRUE.equals(result.getStatus().getAllowed());
+                                log.debugf(
+                                        "OPENSHIFT mode: SSAR result for permission '%s'"
+                                                + " (%s/%s:%s) → allowed=%b",
+                                        permissionName,
+                                        k8s.resource(),
+                                        k8s.subresource(),
+                                        k8s.verb(),
+                                        allowed);
+                                em.complete(allowed);
+                            } catch (Exception e) {
+                                log.warnf(
+                                        e,
+                                        "OPENSHIFT mode: SSAR call failed for permission '%s'"
+                                                + " (%s/%s:%s), denying",
+                                        permissionName,
+                                        k8s.resource(),
+                                        k8s.subresource(),
+                                        k8s.verb());
+                                em.complete(false);
+                            }
+                        })
+                .runSubscriptionOn(Infrastructure.getDefaultExecutor());
     }
 }
