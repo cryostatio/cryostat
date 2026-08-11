@@ -47,7 +47,9 @@ public class Snapshots {
     @POST
     @Blocking
     @Transactional
-    @PermissionsAllowed({"targets:read", "activerecordings:write"})
+    @PermissionsAllowed(
+            value = {"targets:read", "activerecordings:write"},
+            inclusive = true)
     @Operation(summary = "Create a JFR Snapshot on the specified target")
     public RestResponse<LinkedRecordingDescriptor> createSnapshotUsingTargetId(
             @RestPath long targetId) throws Exception {

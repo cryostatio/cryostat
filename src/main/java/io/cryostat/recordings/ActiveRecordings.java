@@ -79,7 +79,9 @@ public class ActiveRecordings {
     @GET
     @Blocking
     @Transactional
-    @PermissionsAllowed({"targets:read", "discoverynodes:read", "activerecordings:read"})
+    @PermissionsAllowed(
+            value = {"targets:read", "discoverynodes:read", "activerecordings:read"},
+            inclusive = true)
     @Operation(
             summary = "List active recordings on the specified target",
             description =
@@ -97,7 +99,7 @@ public class ActiveRecordings {
     @GET
     @Blocking
     @Path("/{remoteId}")
-    @PermissionsAllowed("activerecordings:read")
+    @PermissionsAllowed(value = "activerecordings:read", inclusive = true)
     @Operation(
             summary = "Download a Flight Recording binary file",
             description =
@@ -124,7 +126,9 @@ public class ActiveRecordings {
     @Transactional
     @Blocking
     @Path("/{remoteId}")
-    @PermissionsAllowed({"targets:read", "activerecordings:write"})
+    @PermissionsAllowed(
+            value = {"targets:read", "activerecordings:write"},
+            inclusive = true)
     @Operation(
             summary = "Update a remote recording on the specified target",
             description =
@@ -173,7 +177,9 @@ public class ActiveRecordings {
     @POST
     @Transactional
     @Blocking
-    @PermissionsAllowed({"targets:read", "activerecordings:write"})
+    @PermissionsAllowed(
+            value = {"targets:read", "activerecordings:write"},
+            inclusive = true)
     @Operation(
             summary = "Start a new recording on the specified target",
             description =
@@ -254,7 +260,7 @@ public class ActiveRecordings {
     @Transactional
     @Blocking
     @Path("/{remoteId}")
-    @PermissionsAllowed("activerecordings:delete")
+    @PermissionsAllowed(value = "activerecordings:delete", inclusive = true)
     @Operation(
             summary = "Delete a recording from the specified target",
             description =
@@ -274,7 +280,7 @@ public class ActiveRecordings {
     @POST
     @Blocking
     @Path("/{remoteId}/upload")
-    @PermissionsAllowed("activerecordings:write")
+    @PermissionsAllowed(value = "activerecordings:write", inclusive = true)
     @Operation(
             summary = "Upload a recording for analysis in Grafana dashboard",
             description =

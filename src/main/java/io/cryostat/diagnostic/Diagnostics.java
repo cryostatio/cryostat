@@ -105,7 +105,7 @@ public class Diagnostics {
     @Inject DiagnosticsHelper helper;
 
     @Path("fs/threaddumps")
-    @PermissionsAllowed("threaddumps:read")
+    @PermissionsAllowed(value = "threaddumps:read", inclusive = true)
     @GET
     public Collection<ArchivedThreadDumpDirectory> listFsThreadDumps() {
         var map = new HashMap<String, ArchivedThreadDumpDirectory>();
@@ -138,7 +138,9 @@ public class Diagnostics {
     }
 
     @Path("targets/{targetId}/threaddump")
-    @PermissionsAllowed({"targets:read", "threaddumps:write"})
+    @PermissionsAllowed(
+            value = {"targets:read", "threaddumps:write"},
+            inclusive = true)
     @Blocking
     @Transactional
     @POST
@@ -159,7 +161,9 @@ public class Diagnostics {
     }
 
     @Path("targets/{targetId}/threaddump")
-    @PermissionsAllowed({"targets:read", "threaddumps:read"})
+    @PermissionsAllowed(
+            value = {"targets:read", "threaddumps:read"},
+            inclusive = true)
     @Blocking
     @Transactional
     @GET
@@ -169,7 +173,7 @@ public class Diagnostics {
     }
 
     @Path("targets/{jvmId}/heapdump/{heapDumpId}/analyze")
-    @PermissionsAllowed("heapdumps:read")
+    @PermissionsAllowed(value = "heapdumps:read", inclusive = true)
     @Blocking
     @Transactional
     @POST
@@ -209,7 +213,7 @@ public class Diagnostics {
     @Blocking
     @Transactional
     @Path("targets/{targetId}/threaddump/{threadDumpId}")
-    @PermissionsAllowed("threaddumps:delete")
+    @PermissionsAllowed(value = "threaddumps:delete", inclusive = true)
     public void deleteThreadDump(@RestPath long targetId, @RestPath String threadDumpId) {
         log.tracev("Deleting thread dump with ID: {0}", threadDumpId);
         helper.deleteThreadDump(Target.getTargetById(targetId).jvmId, threadDumpId);
@@ -219,7 +223,7 @@ public class Diagnostics {
     @Blocking
     @Transactional
     @Path("targets/{jvmId}/threaddump/{threadDumpId}/analyze")
-    @PermissionsAllowed("threaddumps:write")
+    @PermissionsAllowed(value = "threaddumps:write", inclusive = true)
     public ThreadDumpAnalysis analyzeThreadDump(
             @RestPath String jvmId, @RestPath String threadDumpId) throws IOException {
         return helper.analyzeThreadDump(jvmId, threadDumpId);
@@ -228,14 +232,14 @@ public class Diagnostics {
     @DELETE
     @Blocking
     @Path("fs/threaddumps/{jvmId}/{threadDumpId}")
-    @PermissionsAllowed("threaddumps:delete")
+    @PermissionsAllowed(value = "threaddumps:delete", inclusive = true)
     public void deleteThreadDump(@RestPath String jvmId, @RestPath String threadDumpId) {
         log.tracev("Deleting thread dump with ID: {0}", threadDumpId);
         helper.deleteThreadDump(jvmId, threadDumpId);
     }
 
     @Path("/threaddump/download/{encodedKey}")
-    @PermissionsAllowed("threaddumps:read")
+    @PermissionsAllowed(value = "threaddumps:read", inclusive = true)
     @Blocking
     @GET
     public RestResponse<Object> handleThreadDumpsStorageDownload(
@@ -296,7 +300,9 @@ public class Diagnostics {
     }
 
     @Path("targets/{targetId}/gc")
-    @PermissionsAllowed({"targets:read", "diagnostics:write"})
+    @PermissionsAllowed(
+            value = {"targets:read", "diagnostics:write"},
+            inclusive = true)
     @Blocking
     @POST
     @Operation(
@@ -326,7 +332,7 @@ public class Diagnostics {
     }
 
     @Path("fs/heapdumps")
-    @PermissionsAllowed("heapdumps:read")
+    @PermissionsAllowed(value = "heapdumps:read", inclusive = true)
     @GET
     public Collection<ArchivedHeapDumpDirectory> listFsHeapDumps() {
         var map = new HashMap<String, ArchivedHeapDumpDirectory>();
@@ -359,7 +365,9 @@ public class Diagnostics {
     }
 
     @Path("targets/{targetId}/heapdump")
-    @PermissionsAllowed({"targets:read", "heapdumps:write"})
+    @PermissionsAllowed(
+            value = {"targets:read", "heapdumps:write"},
+            inclusive = true)
     @POST
     @Blocking
     @Transactional
@@ -388,7 +396,7 @@ public class Diagnostics {
     }
 
     @Path("heapdump/upload/{jvmId}")
-    @PermissionsAllowed("heapdumps:read")
+    @PermissionsAllowed(value = "heapdumps:read", inclusive = true)
     @Blocking
     @POST
     public void uploadHeapDump(
@@ -420,7 +428,9 @@ public class Diagnostics {
     }
 
     @Path("targets/{targetId}/heapdump")
-    @PermissionsAllowed({"targets:read", "heapdumps:read"})
+    @PermissionsAllowed(
+            value = {"targets:read", "heapdumps:read"},
+            inclusive = true)
     @Blocking
     @Transactional
     @GET
@@ -432,7 +442,7 @@ public class Diagnostics {
     @DELETE
     @Blocking
     @Path("targets/{targetId}/heapdump/{heapDumpId}")
-    @PermissionsAllowed("heapdumps:delete")
+    @PermissionsAllowed(value = "heapdumps:delete", inclusive = true)
     public void deleteHeapDump(@RestPath String heapDumpId, @RestPath long targetId) {
         log.tracev("Deleting heap dump with ID: {0}", heapDumpId);
         helper.deleteHeapDump(
@@ -444,14 +454,14 @@ public class Diagnostics {
     @DELETE
     @Blocking
     @Path("fs/heapdumps/{jvmId}/{heapDumpId}")
-    @PermissionsAllowed("heapdumps:delete")
+    @PermissionsAllowed(value = "heapdumps:delete", inclusive = true)
     public void deleteHeapDumpByPath(@RestPath String jvmId, @RestPath String heapDumpId) {
         log.tracev("Deleting heap dump with ID: {0}", heapDumpId);
         helper.deleteHeapDump(jvmId, heapDumpId);
     }
 
     @Path("/heapdump/download/{encodedKey}")
-    @PermissionsAllowed("heapdumps:read")
+    @PermissionsAllowed(value = "heapdumps:read", inclusive = true)
     @Blocking
     @GET
     public RestResponse<Object> handleHeapDumpsStorageDownload(

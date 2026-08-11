@@ -91,7 +91,7 @@ public class CustomDiscovery {
     @POST
     @Path("/api/v4/targets")
     @Consumes(MediaType.APPLICATION_JSON)
-    @PermissionsAllowed("targets:write")
+    @PermissionsAllowed(value = "targets:write", inclusive = true)
     @Operation(
             summary = "Create a target definition",
             description =
@@ -113,7 +113,7 @@ public class CustomDiscovery {
     @POST
     @Path("/api/v4/targets")
     @Consumes({MediaType.MULTIPART_FORM_DATA, MediaType.APPLICATION_FORM_URLENCODED})
-    @PermissionsAllowed("targets:write")
+    @PermissionsAllowed(value = "targets:write", inclusive = true)
     @Operation(
             summary = "Create a target definition",
             description =
@@ -235,7 +235,7 @@ public class CustomDiscovery {
     @Transactional
     @DELETE
     @Path("/api/v4/targets/{id}")
-    @PermissionsAllowed("targets:delete")
+    @PermissionsAllowed(value = "targets:delete", inclusive = true)
     @Operation(
             summary = "Delete the specified target",
             description =

@@ -134,11 +134,11 @@ public class RbacHttpAuthenticationMechanism implements HttpAuthenticationMechan
      * Builds an identity carrying a permission checker that performs a SelfSubjectAccessReview for
      * each required permission. Used in OPENSHIFT mode.
      *
-     * <p>Quarkus processes {@code @PermissionsAllowed("resource:verb")} by constructing a {@link
-     * io.quarkus.security.StringPermission} with {@code name="resource"} and {@code
-     * actions="verb"}. If multiple actions are present, they are comma-separated. The permission
-     * name and each action are recombined here into individual {@code "resource:verb"} values that
-     * {@link PermissionMapper} expects for config-key lookup.
+     * <p>Quarkus processes {@code @PermissionsAllowed(value = "resource:verb", inclusive = true)}
+     * by constructing a {@link io.quarkus.security.StringPermission} with {@code name="resource"}
+     * and {@code actions="verb"}. If multiple actions are present, they are comma-separated. The
+     * permission name and each action are recombined here into individual {@code "resource:verb"}
+     * values that {@link PermissionMapper} expects for config-key lookup.
      */
     private SecurityIdentity buildOpenshiftIdentity(String user, String rawToken) {
         return QuarkusSecurityIdentity.builder()
