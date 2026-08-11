@@ -151,20 +151,24 @@ public class RbacHttpAuthenticationMechanism implements HttpAuthenticationMechan
                             if (StringUtils.isBlank(actions)) {
                                 return checkSsarPermission(rawToken, permission.getName());
                             }
+                            var checks =
+                                    Arrays.stream(actions.split(","))
+                                            .map(StringUtils::strip)
+                                            .filter(StringUtils::isNotBlank)
+                                            .map(
+                                                    action ->
+                                                            checkSsarPermission(
+                                                                    rawToken,
+                                                                    permission.getName()
+                                                                            + ":"
+                                                                            + action))
+                                            .toList();
+                            if (checks.isEmpty()) {
+                                return checkSsarPermission(rawToken, permission.getName());
+                            }
                             return Uni.combine()
                                     .all()
-                                    .unis(
-                                            Arrays.stream(actions.split(","))
-                                                    .map(StringUtils::strip)
-                                                    .filter(StringUtils::isNotBlank)
-                                                    .map(
-                                                            action ->
-                                                                    checkSsarPermission(
-                                                                            rawToken,
-                                                                            permission.getName()
-                                                                                    + ":"
-                                                                                    + action))
-                                                    .toList())
+                                    .unis(checks)
                                     .with(
                                             results ->
                                                     results.stream()
