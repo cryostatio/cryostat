@@ -77,7 +77,6 @@ class SsarClientCacheTest {
 
         cache.getOrCreate("token-close");
         cache.invalidate("token-close");
-        cache.shutdown();
 
         verify(mockClient).close();
     }
