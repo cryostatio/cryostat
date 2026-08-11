@@ -35,8 +35,8 @@ import io.cryostat.util.HttpMimeType;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.quarkus.narayana.jta.QuarkusTransaction;
+import io.quarkus.security.PermissionsAllowed;
 import io.smallrye.common.annotation.Blocking;
-import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.ClientErrorException;
@@ -86,7 +86,7 @@ public class UnifiedLogs {
     Optional<String> externalStorageUrl;
 
     @Path("targets/{targetId}/unified-logging")
-    @RolesAllowed("write")
+    @PermissionsAllowed({"targets:read", "unifiedlogs:write"})
     @Blocking
     @POST
     public UnifiedLog enableUnifiedLogging(
@@ -127,7 +127,7 @@ public class UnifiedLogs {
     }
 
     @Path("targets/{targetId}/unified-logging")
-    @RolesAllowed("write")
+    @PermissionsAllowed({"targets:read", "unifiedlogs:write"})
     @Blocking
     @PATCH
     public UnifiedLog reconfigureUnifiedLogging(
@@ -179,7 +179,7 @@ public class UnifiedLogs {
     }
 
     @Path("targets/{targetId}/unified-logging")
-    @RolesAllowed("write")
+    @PermissionsAllowed({"targets:read", "unifiedlogs:write"})
     @Blocking
     @DELETE
     public void disableUnifiedLogging(@RestPath long targetId) {
@@ -204,7 +204,7 @@ public class UnifiedLogs {
     }
 
     @Path("targets/{targetId}/unified-logging")
-    @RolesAllowed("read")
+    @PermissionsAllowed({"targets:read", "unifiedlogs:read"})
     @Blocking
     @GET
     public AgentClient.UnifiedLogStatus unifiedLoggingStatus(@RestPath long targetId) {
@@ -214,7 +214,7 @@ public class UnifiedLogs {
     }
 
     @Path("targets/{targetId}/unified-logging/pull")
-    @RolesAllowed("write")
+    @PermissionsAllowed({"targets:read", "unifiedlogs:write"})
     @Blocking
     @POST
     public RestResponse<UnifiedLog> pullUnifiedLog(@RestPath long targetId) {
@@ -248,7 +248,7 @@ public class UnifiedLogs {
     }
 
     @Path("targets/{targetId}/unified-logs")
-    @RolesAllowed("read")
+    @PermissionsAllowed({"targets:read", "unifiedlogs:read"})
     @Blocking
     @GET
     public List<UnifiedLog> listUnifiedLogs(@RestPath long targetId) {
@@ -275,7 +275,7 @@ public class UnifiedLogs {
     }
 
     @Path("targets/{targetId}/unified-logs/{logId}")
-    @RolesAllowed("read")
+    @PermissionsAllowed({"targets:read", "unifiedlogs:read"})
     @Blocking
     @GET
     public RestResponse<Object> downloadUnifiedLog(
@@ -292,7 +292,7 @@ public class UnifiedLogs {
     }
 
     @Path("targets/{targetId}/unified-logs/{logId}")
-    @RolesAllowed("write")
+    @PermissionsAllowed({"targets:read", "unifiedlogs:delete"})
     @Blocking
     @DELETE
     public void deleteUnifiedLog(@RestPath long targetId, @RestPath String logId) {
@@ -302,7 +302,7 @@ public class UnifiedLogs {
     }
 
     @Path("fs/unified-logs")
-    @RolesAllowed("read")
+    @PermissionsAllowed("unifiedlogs:read")
     @Blocking
     @GET
     public Collection<ArchivedUnifiedLogDirectory> listFsUnifiedLogs() {
@@ -338,7 +338,7 @@ public class UnifiedLogs {
     }
 
     @Path("fs/unified-logs/{jvmId}/{logId}")
-    @RolesAllowed("write")
+    @PermissionsAllowed("unifiedlogs:delete")
     @Blocking
     @DELETE
     public void deleteUnifiedLogByPath(@RestPath String jvmId, @RestPath String logId) {
@@ -346,7 +346,7 @@ public class UnifiedLogs {
     }
 
     @Path("targets/{targetId}/unified-logs/{logId}")
-    @RolesAllowed("write")
+    @PermissionsAllowed({"targets:read", "unifiedlogs:write"})
     @Blocking
     @PATCH
     @Consumes("application/json")
@@ -358,7 +358,7 @@ public class UnifiedLogs {
     }
 
     @Path("fs/unified-logs/{jvmId}/{logId}")
-    @RolesAllowed("write")
+    @PermissionsAllowed("unifiedlogs:write")
     @Blocking
     @PATCH
     @Consumes("application/json")
@@ -368,7 +368,7 @@ public class UnifiedLogs {
     }
 
     @Path("/unified-logs/download/{encodedKey}")
-    @RolesAllowed("read")
+    @PermissionsAllowed("unifiedlogs:read")
     @Blocking
     @GET
     public RestResponse<Object> handleUnifiedLogStorageDownload(

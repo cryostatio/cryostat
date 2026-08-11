@@ -25,8 +25,8 @@ import io.cryostat.libcryostat.templates.Template;
 import io.cryostat.libcryostat.templates.TemplateType;
 import io.cryostat.targets.Target;
 
+import io.quarkus.security.PermissionsAllowed;
 import io.smallrye.common.annotation.Blocking;
-import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.GET;
@@ -57,7 +57,7 @@ public class TargetEventTemplates {
 
     @GET
     @Blocking
-    @RolesAllowed("read")
+    @PermissionsAllowed({"targets:read", "eventtemplates:read"})
     @Operation(
             summary = "Retrieve a list of event templates available on the given target",
             description =
@@ -84,7 +84,7 @@ public class TargetEventTemplates {
     @GET
     @Blocking
     @Path("/{templateType}/{templateName}")
-    @RolesAllowed("read")
+    @PermissionsAllowed({"targets:read", "eventtemplates:read"})
     @Produces(MediaType.APPLICATION_XML)
     @Operation(
             summary = "Get a specific event template",

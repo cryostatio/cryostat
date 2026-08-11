@@ -38,10 +38,10 @@ import io.cryostat.util.ResponseDispatch;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import io.quarkus.security.PermissionsAllowed;
 import io.smallrye.common.annotation.Blocking;
 import io.vertx.core.http.HttpServerResponse;
 import io.vertx.mutiny.core.eventbus.EventBus;
-import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.BadRequestException;
@@ -80,7 +80,7 @@ public class ActiveRecordings {
     @GET
     @Blocking
     @Transactional
-    @RolesAllowed("read")
+    @PermissionsAllowed({"targets:read", "discoverynodes:read", "activerecordings:read"})
     @Operation(
             summary = "List active recordings on the specified target",
             description =
@@ -98,7 +98,7 @@ public class ActiveRecordings {
     @GET
     @Blocking
     @Path("/{remoteId}")
-    @RolesAllowed("read")
+    @PermissionsAllowed("activerecordings:read")
     @Operation(
             summary = "Download a Flight Recording binary file",
             description =
@@ -125,7 +125,7 @@ public class ActiveRecordings {
     @Transactional
     @Blocking
     @Path("/{remoteId}")
-    @RolesAllowed("write")
+    @PermissionsAllowed({"targets:read", "activerecordings:write"})
     @Operation(
             summary = "Update a remote recording on the specified target",
             description =
@@ -175,7 +175,7 @@ public class ActiveRecordings {
     @POST
     @Transactional
     @Blocking
-    @RolesAllowed("write")
+    @PermissionsAllowed({"targets:read", "activerecordings:write"})
     @Operation(
             summary = "Start a new recording on the specified target",
             description =
@@ -256,7 +256,7 @@ public class ActiveRecordings {
     @Transactional
     @Blocking
     @Path("/{remoteId}")
-    @RolesAllowed("write")
+    @PermissionsAllowed("activerecordings:delete")
     @Operation(
             summary = "Delete a recording from the specified target",
             description =
@@ -276,7 +276,7 @@ public class ActiveRecordings {
     @POST
     @Blocking
     @Path("/{remoteId}/upload")
-    @RolesAllowed("write")
+    @PermissionsAllowed("activerecordings:write")
     @Operation(
             summary = "Upload a recording for analysis in Grafana dashboard",
             description =
