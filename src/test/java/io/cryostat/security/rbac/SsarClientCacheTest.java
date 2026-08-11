@@ -111,15 +111,15 @@ class SsarClientCacheTest {
     }
 
     @Test
-    void testHashingConsistency() {
+    void testNonAsciiTokenIsHashedAndCached() {
         KubernetesClient mockClient = mock(KubernetesClient.class);
         when(clientFactory.createClientForToken(anyString())).thenReturn(mockClient);
 
-        KubernetesClient a = cache.getOrCreate("same-token");
-        KubernetesClient b = cache.getOrCreate("same-token");
+        KubernetesClient result = cache.getOrCreate("tëst-ünïcödé-tökën");
 
-        assertSame(a, b);
-        verify(clientFactory, times(1)).createClientForToken("same-token");
+        assertNotNull(result);
+        assertSame(mockClient, result);
+        verify(clientFactory, times(1)).createClientForToken("tëst-ünïcödé-tökën");
     }
 
     @Test
