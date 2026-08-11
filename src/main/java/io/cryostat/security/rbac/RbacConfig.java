@@ -57,4 +57,20 @@ public interface RbacConfig {
         @WithDefault("1000")
         long maximumSize();
     }
+
+    DecisionCacheConfig decisionCache();
+
+    interface DecisionCacheConfig {
+        /**
+         * How long a SSAR decision is retained before expiry. The TTL is measured from the time the
+         * entry was written; reads do not reset it. Defaults to 1 minute.
+         */
+        @WithName("ttl")
+        @WithDefault("1m")
+        Duration ttl();
+
+        @WithName("maximum-size")
+        @WithDefault("10000")
+        long maximumSize();
+    }
 }
