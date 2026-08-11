@@ -45,9 +45,9 @@ import com.github.benmanes.caffeine.cache.RemovalCause;
 import com.github.benmanes.caffeine.cache.Scheduler;
 import com.github.benmanes.caffeine.cache.Weigher;
 import io.quarkus.runtime.StartupEvent;
+import io.quarkus.security.PermissionsAllowed;
 import io.smallrye.common.annotation.Blocking;
 import io.smallrye.mutiny.Uni;
-import jakarta.annotation.security.RolesAllowed;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.BadRequestException;
@@ -96,7 +96,7 @@ public class JfrAnalytics {
     @jakarta.ws.rs.Path("/api/beta/recording_analytics/{jvmId}/{filename}")
     @POST
     @Blocking
-    @RolesAllowed("read")
+    @PermissionsAllowed("archivedrecordings:read")
     public Uni<List<List<String>>> executeQuery(
             @PathParam("jvmId") String jvmId,
             @PathParam("filename") String filename,

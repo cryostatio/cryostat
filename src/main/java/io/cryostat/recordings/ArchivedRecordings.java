@@ -40,11 +40,11 @@ import io.cryostat.util.HttpMimeType;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.quarkus.narayana.jta.QuarkusTransaction;
+import io.quarkus.security.PermissionsAllowed;
 import io.smallrye.common.annotation.Blocking;
 import io.vertx.core.http.HttpServerResponse;
 import io.vertx.core.json.JsonObject;
 import io.vertx.mutiny.core.eventbus.EventBus;
-import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
@@ -92,7 +92,7 @@ public class ArchivedRecordings {
     @GET
     @Blocking
     @Path("/api/v4/recordings")
-    @RolesAllowed("read")
+    @PermissionsAllowed("archivedrecordings:read")
     @Operation(
             summary = "List all archived recordings",
             description =
@@ -106,7 +106,7 @@ public class ArchivedRecordings {
     @POST
     @Blocking
     @Path("/api/v4/recordings")
-    @RolesAllowed("write")
+    @PermissionsAllowed("archivedrecordings:write")
     @Operation(
             summary = "Upload a JFR binary file to archives",
             description =
@@ -133,7 +133,7 @@ public class ArchivedRecordings {
     @POST
     @Blocking
     @Path("/api/beta/recordings/{jvmId}")
-    @RolesAllowed("write")
+    @PermissionsAllowed("archivedrecordings:write")
     @Operation(
             summary = "Upload a JFR binary file to archives, associated with a particular target",
             description =
@@ -252,7 +252,7 @@ public class ArchivedRecordings {
     @GET
     @Blocking
     @Path("/api/beta/recordings/{jvmId}")
-    @RolesAllowed("read")
+    @PermissionsAllowed("archivedrecordings:read")
     @Operation(summary = "List archived recordings belonging to the specified target")
     public List<ArchivedRecording> agentGet(@Parameter(required = true) @RestPath String jvmId) {
         var result = new ArrayList<ArchivedRecording>();
@@ -282,7 +282,7 @@ public class ArchivedRecordings {
     @DELETE
     @Blocking
     @Path("/api/beta/recordings/{connectUrl}/{filename}")
-    @RolesAllowed("write")
+    @PermissionsAllowed("archivedrecordings:delete")
     @Operation(summary = "Delete an archived recording belonging to the specified target")
     public void agentDelete(
             @Parameter(
@@ -331,7 +331,7 @@ public class ArchivedRecordings {
     @DELETE
     @Blocking
     @Path("/api/v4/recordings/{filename}")
-    @RolesAllowed("write")
+    @PermissionsAllowed("archivedrecordings:delete")
     @Operation(deprecated = true, summary = "Delete an archived recording by filename")
     public void delete(@RestPath String filename) throws Exception {
         // TODO scan all prefixes for matching filename? This is an old v1 API problem.
@@ -341,7 +341,7 @@ public class ArchivedRecordings {
     @GET
     @Blocking
     @Path("/api/beta/fs/recordings")
-    @RolesAllowed("read")
+    @PermissionsAllowed("archivedrecordings:read")
     @Operation(summary = "List all archived recordings grouped by target")
     public Collection<ArchivedRecordingDirectory> listFsArchives() {
         var map = new HashMap<String, ArchivedRecordingDirectory>();
@@ -383,7 +383,7 @@ public class ArchivedRecordings {
     @GET
     @Blocking
     @Path("/api/beta/fs/recordings/{jvmId}")
-    @RolesAllowed("read")
+    @PermissionsAllowed("archivedrecordings:read")
     @Operation(summary = "List all archived recordings belonging to the specified target")
     public Collection<ArchivedRecordingDirectory> listFsArchives(@RestPath String jvmId) {
         var map = new HashMap<String, ArchivedRecordingDirectory>();
@@ -422,7 +422,7 @@ public class ArchivedRecordings {
     @DELETE
     @Blocking
     @Path("/api/beta/fs/recordings/{jvmId}/{filename}")
-    @RolesAllowed("write")
+    @PermissionsAllowed("archivedrecordings:delete")
     @Operation(summary = "Delete an archived recording by name belonging to the specified target")
     public void deleteArchivedRecording(@RestPath String jvmId, @RestPath String filename)
             throws Exception {
@@ -432,7 +432,7 @@ public class ArchivedRecordings {
     @POST
     @Blocking
     @Path("/api/v4/grafana/{encodedKey}")
-    @RolesAllowed("write")
+    @PermissionsAllowed("archivedrecordings:write")
     @Operation(
             summary = "Upload an archived recording to Grafana for online analysis",
             description =
@@ -461,7 +461,7 @@ public class ArchivedRecordings {
     @GET
     @Blocking
     @Path("/api/v4/download/{encodedKey}")
-    @RolesAllowed("read")
+    @PermissionsAllowed("archivedrecordings:read")
     @Operation(
             summary = "Get a download URL for an archived recording",
             description =

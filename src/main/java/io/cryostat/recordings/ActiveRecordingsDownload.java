@@ -20,9 +20,9 @@ import java.io.InputStream;
 import io.cryostat.Producers;
 import io.cryostat.util.HttpMimeType;
 
+import io.quarkus.security.PermissionsAllowed;
 import io.smallrye.common.annotation.Blocking;
 import io.smallrye.common.annotation.Identifier;
-import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
@@ -46,7 +46,7 @@ public class ActiveRecordingsDownload {
 
     @GET
     @Blocking
-    @RolesAllowed("read")
+    @PermissionsAllowed("activerecordings:read")
     @Operation(
             summary = "Download a Flight Recording binary file",
             description =
