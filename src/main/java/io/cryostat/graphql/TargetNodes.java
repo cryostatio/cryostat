@@ -15,6 +15,7 @@
  */
 package io.cryostat.graphql;
 
+import java.security.BasicPermission;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -45,6 +46,8 @@ import io.cryostat.recordings.ActiveRecording;
 import io.cryostat.recordings.ArchivedRecordings.ArchivedRecording;
 import io.cryostat.recordings.RecordingHelper;
 import io.cryostat.reports.AnalysisReportAggregator;
+import io.cryostat.security.rbac.RbacConfig;
+import io.cryostat.security.rbac.RbacMode;
 import io.cryostat.security.rbac.graphql.RequiresPermission;
 import io.cryostat.targets.AgentClient.AsyncProfile;
 import io.cryostat.targets.Target;
@@ -52,6 +55,7 @@ import io.cryostat.targets.TargetConnectionManager;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import graphql.schema.DataFetchingEnvironment;
+import io.quarkus.security.identity.SecurityIdentity;
 import io.smallrye.graphql.api.Context;
 import io.smallrye.graphql.api.Nullable;
 import io.smallrye.mutiny.Uni;
@@ -62,6 +66,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.eclipse.microprofile.graphql.DefaultValue;
 import org.eclipse.microprofile.graphql.Description;
 import org.eclipse.microprofile.graphql.GraphQLApi;
+import org.eclipse.microprofile.graphql.GraphQLException;
 import org.eclipse.microprofile.graphql.Ignore;
 import org.eclipse.microprofile.graphql.NonNull;
 import org.eclipse.microprofile.graphql.Query;
@@ -81,6 +86,8 @@ public class TargetNodes {
     @Inject AsyncProfilerHelper asyncProfilerHelper;
     @Inject EntityManager em;
     @Inject Logger logger;
+    @Inject SecurityIdentity securityIdentity;
+    @Inject RbacConfig rbacConfig;
 
     @Query("targetNodes")
     @RequiresPermission({"targets:read", "discoverynodes:read"})
@@ -224,9 +231,9 @@ public class TargetNodes {
     }
 
     @Transactional
-    @RequiresPermission({"targets:read", "activerecordings:read", "archivedrecordings:read"})
+    @RequiresPermission({"targets:read", "activerecordings:read"})
     @Description("Get the active and archived recordings belonging to this target")
-    public Recordings recordings(@Source Target target, Context context) {
+    public Recordings recordings(@Source Target target, Context context) throws Exception {
         var fTarget = Target.getTargetById(target.id);
         var recordings = new Recordings();
         if (StringUtils.isBlank(fTarget.jvmId)) {
@@ -243,6 +250,21 @@ public class TargetNodes {
         }
 
         if (requestedFields.contains("archived")) {
+            if (rbacConfig.mode() != RbacMode.PERMISSIVE) {
+                boolean allowed =
+                        securityIdentity
+                                .checkPermission(
+                                        new BasicPermission("archivedrecordings:read") {
+                                            private static final long serialVersionUID = 1L;
+                                        })
+                                .await()
+                                .indefinitely();
+                if (!allowed) {
+                    throw new GraphQLException(
+                            "Forbidden: insufficient permissions",
+                            GraphQLException.ExceptionType.ExecutionAborted);
+                }
+            }
             recordings.archived = new ArchivedRecordings();
             recordings.archived.data = recordingHelper.listArchivedRecordings(fTarget);
             recordings.archived.aggregate =

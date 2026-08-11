@@ -33,12 +33,15 @@ import io.cryostat.recordings.LongRunningRequestGenerator.ArchiveRequest;
 import io.cryostat.recordings.LongRunningRequestGenerator.GrafanaActiveUploadRequest;
 import io.cryostat.recordings.RecordingHelper.RecordingOptions;
 import io.cryostat.recordings.RecordingHelper.RecordingReplace;
+import io.cryostat.security.rbac.RbacConfig;
+import io.cryostat.security.rbac.RbacMode;
 import io.cryostat.targets.Target;
 import io.cryostat.util.ResponseDispatch;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.quarkus.security.PermissionsAllowed;
+import io.quarkus.security.identity.SecurityIdentity;
 import io.smallrye.common.annotation.Blocking;
 import io.vertx.core.http.HttpServerResponse;
 import io.vertx.mutiny.core.eventbus.EventBus;
@@ -46,6 +49,7 @@ import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.DELETE;
+import jakarta.ws.rs.ForbiddenException;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.PATCH;
@@ -73,6 +77,8 @@ public class ActiveRecordings {
     @Inject LongRunningRequestGenerator generator;
     @Inject EventBus bus;
     @Inject Logger logger;
+    @Inject SecurityIdentity securityIdentity;
+    @Inject RbacConfig rbacConfig;
 
     @ConfigProperty(name = ConfigProperties.CONNECTIONS_FAILED_TIMEOUT)
     Duration connectionFailedTimeout;
@@ -160,6 +166,20 @@ public class ActiveRecordings {
                         .atMost(connectionFailedTimeout);
                 return null;
             case "save":
+                if (rbacConfig.mode() != RbacMode.PERMISSIVE) {
+                    boolean allowed =
+                            securityIdentity
+                                    .checkPermission(
+                                            new java.security.BasicPermission(
+                                                    "archivedrecordings:write") {
+                                                private static final long serialVersionUID = 1L;
+                                            })
+                                    .await()
+                                    .indefinitely();
+                    if (!allowed) {
+                        throw new ForbiddenException("archivedrecordings:write");
+                    }
+                }
                 ArchiveRequest request =
                         new ArchiveRequest(UUID.randomUUID().toString(), activeRecording);
                 logger.tracev(
