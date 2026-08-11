@@ -102,7 +102,9 @@ public class Credentials {
 
     @POST
     @Blocking
-    @PermissionsAllowed(value = "credentials:read", inclusive = true)
+    @PermissionsAllowed(
+            value = {"targets:read", "credentials:read"},
+            inclusive = true)
     @Path("/test/{targetId}")
     @Operation(
             summary =
