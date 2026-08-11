@@ -17,6 +17,7 @@ package io.cryostat.graphql;
 
 import io.cryostat.recordings.ActiveRecording;
 import io.cryostat.recordings.RecordingHelper;
+import io.cryostat.security.rbac.graphql.RequiresPermission;
 
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.graphql.Description;
@@ -28,11 +29,13 @@ public class RecordingLinks {
 
     @Inject RecordingHelper recordingHelper;
 
+    @RequiresPermission("activerecordings:read")
     @Description("URL for GET request to retrieve the JFR binary file content of this recording")
     public String downloadUrl(@Source ActiveRecording recording) {
         return recordingHelper.downloadUrl(recording);
     }
 
+    @RequiresPermission({"activerecordings:read", "reports:read"})
     @Description(
             "URL for GET request to retrieve a JSON formatted Automated Analysis Report of this"
                     + " recording")
