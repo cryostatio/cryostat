@@ -25,6 +25,7 @@ import io.cryostat.ConfigProperties;
 import io.cryostat.asyncprofiler.AsyncProfilerHelper;
 import io.cryostat.discovery.DiscoveryNode;
 import io.cryostat.graphql.RootNode.DiscoveryNodeFilter;
+import io.cryostat.security.rbac.graphql.RequiresPermission;
 import io.cryostat.targets.AgentClient.AsyncProfile;
 
 import io.smallrye.graphql.api.Nullable;
@@ -46,6 +47,7 @@ public class AsyncProfilerGraphQL {
 
     @Transactional
     @Mutation
+    @RequiresPermission({"targets:read", "discoverynodes:read", "asyncprofiler:write"})
     @Description(
             "Trigger an async profiler request on all Targets under the subtrees of the discovery"
                     + " nodes matching the given filter")
@@ -75,6 +77,7 @@ public class AsyncProfilerGraphQL {
 
     @Transactional
     @Mutation
+    @RequiresPermission({"targets:read", "discoverynodes:read", "asyncprofiler:delete"})
     @Description(
             "Delete an existing Async Profile matching the given filter, on all Targets under"
                     + " the subtrees of the discovery nodes matching the given filter")

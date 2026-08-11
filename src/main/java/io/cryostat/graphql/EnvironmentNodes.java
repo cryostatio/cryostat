@@ -19,6 +19,7 @@ import java.util.List;
 
 import io.cryostat.discovery.DiscoveryNode;
 import io.cryostat.graphql.RootNode.DiscoveryNodeFilter;
+import io.cryostat.security.rbac.graphql.RequiresPermission;
 
 import io.smallrye.graphql.api.Nullable;
 import org.eclipse.microprofile.graphql.Description;
@@ -29,6 +30,7 @@ import org.eclipse.microprofile.graphql.Query;
 public class EnvironmentNodes {
 
     @Query("environmentNodes")
+    @RequiresPermission("discoverynodes:read")
     @Description("Get all environment nodes in the discovery tree with optional filtering")
     public List<DiscoveryNode> environmentNodes(@Nullable DiscoveryNodeFilter filter) {
         return RootNode.recurseChildren(DiscoveryNode.getUniverse(), node -> node.target == null)
