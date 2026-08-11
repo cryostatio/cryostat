@@ -36,10 +36,10 @@ import io.cryostat.targets.TargetConnectionManager;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.runtime.StartupEvent;
+import io.quarkus.security.PermissionsAllowed;
 import io.smallrye.common.annotation.Blocking;
 import io.smallrye.faulttolerance.api.RateLimit;
 import io.smallrye.mutiny.Uni;
-import jakarta.annotation.security.RolesAllowed;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
 import jakarta.persistence.PersistenceException;
@@ -102,7 +102,7 @@ public class Credentials {
 
     @POST
     @Blocking
-    @RolesAllowed("read")
+    @PermissionsAllowed("credentials:read")
     @Path("/test/{targetId}")
     @Operation(
             summary =
@@ -146,7 +146,7 @@ public class Credentials {
     @Blocking
     @Bulkhead
     @GET
-    @RolesAllowed("read")
+    @PermissionsAllowed("credentials:read")
     @Operation(
             summary = "List information about all of the available Stored Credentials.",
             description =
@@ -178,7 +178,7 @@ public class Credentials {
     @Blocking
     @Bulkhead
     @GET
-    @RolesAllowed("read")
+    @PermissionsAllowed("credentials:read")
     @Path("/{id}")
     @Operation(
             summary = "Get information about a Stored Credential",
@@ -204,7 +204,7 @@ public class Credentials {
     @Retry(retryOn = {SQLException.class, PersistenceException.class})
     @RateLimit
     @POST
-    @RolesAllowed("write")
+    @PermissionsAllowed("credentials:write")
     @Operation(
             summary = "Define a new Stored Credential",
             description =
@@ -237,7 +237,7 @@ public class Credentials {
     @Timeout
     @RateLimit
     @DELETE
-    @RolesAllowed("write")
+    @PermissionsAllowed("credentials:delete")
     @Path("/{id}")
     @Operation(summary = "Delete a Stored Credential")
     public void delete(@RestPath long id) {

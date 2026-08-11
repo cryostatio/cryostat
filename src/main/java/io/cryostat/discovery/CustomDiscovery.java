@@ -34,9 +34,9 @@ import io.cryostat.targets.TargetConnectionManager;
 import io.cryostat.util.URIUtil;
 
 import io.quarkus.narayana.jta.QuarkusTransaction;
+import io.quarkus.security.PermissionsAllowed;
 import io.smallrye.common.annotation.Blocking;
 import io.vertx.mutiny.core.eventbus.EventBus;
-import jakarta.annotation.security.RolesAllowed;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
@@ -91,7 +91,7 @@ public class CustomDiscovery {
     @POST
     @Path("/api/v4/targets")
     @Consumes(MediaType.APPLICATION_JSON)
-    @RolesAllowed("write")
+    @PermissionsAllowed("targets:write")
     @Operation(
             summary = "Create a target definition",
             description =
@@ -113,7 +113,7 @@ public class CustomDiscovery {
     @POST
     @Path("/api/v4/targets")
     @Consumes({MediaType.MULTIPART_FORM_DATA, MediaType.APPLICATION_FORM_URLENCODED})
-    @RolesAllowed("write")
+    @PermissionsAllowed("targets:write")
     @Operation(
             summary = "Create a target definition",
             description =
@@ -235,7 +235,7 @@ public class CustomDiscovery {
     @Transactional
     @DELETE
     @Path("/api/v4/targets/{id}")
-    @RolesAllowed("write")
+    @PermissionsAllowed("targets:delete")
     @Operation(
             summary = "Delete the specified target",
             description =

@@ -41,11 +41,11 @@ import io.cryostat.util.ResponseDispatch;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.quarkus.narayana.jta.QuarkusTransaction;
+import io.quarkus.security.PermissionsAllowed;
 import io.smallrye.common.annotation.Blocking;
 import io.vertx.core.http.HttpServerResponse;
 import io.vertx.core.json.JsonObject;
 import io.vertx.mutiny.core.eventbus.EventBus;
-import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.BadRequestException;
@@ -106,7 +106,7 @@ public class Diagnostics {
     @Inject DiagnosticsHelper helper;
 
     @Path("fs/threaddumps")
-    @RolesAllowed("read")
+    @PermissionsAllowed("threaddumps:read")
     @GET
     public Collection<ArchivedThreadDumpDirectory> listFsThreadDumps() {
         var map = new HashMap<String, ArchivedThreadDumpDirectory>();
@@ -139,7 +139,7 @@ public class Diagnostics {
     }
 
     @Path("targets/{targetId}/threaddump")
-    @RolesAllowed("write")
+    @PermissionsAllowed({"targets:read", "threaddumps:write"})
     @Blocking
     @Transactional
     @POST
@@ -161,7 +161,7 @@ public class Diagnostics {
     }
 
     @Path("targets/{targetId}/threaddump")
-    @RolesAllowed("read")
+    @PermissionsAllowed({"targets:read", "threaddumps:read"})
     @Blocking
     @Transactional
     @GET
@@ -171,7 +171,7 @@ public class Diagnostics {
     }
 
     @Path("targets/{jvmId}/heapdump/{heapDumpId}/analyze")
-    @RolesAllowed("read")
+    @PermissionsAllowed("heapdumps:read")
     @Blocking
     @Transactional
     @POST
@@ -212,7 +212,7 @@ public class Diagnostics {
     @Blocking
     @Transactional
     @Path("targets/{targetId}/threaddump/{threadDumpId}")
-    @RolesAllowed("write")
+    @PermissionsAllowed("threaddumps:delete")
     public void deleteThreadDump(@RestPath long targetId, @RestPath String threadDumpId) {
         log.tracev("Deleting thread dump with ID: {0}", threadDumpId);
         helper.deleteThreadDump(Target.getTargetById(targetId).jvmId, threadDumpId);
@@ -222,7 +222,7 @@ public class Diagnostics {
     @Blocking
     @Transactional
     @Path("targets/{jvmId}/threaddump/{threadDumpId}/analyze")
-    @RolesAllowed("write")
+    @PermissionsAllowed("threaddumps:write")
     public ThreadDumpAnalysis analyzeThreadDump(
             @RestPath String jvmId, @RestPath String threadDumpId) throws IOException {
         return helper.analyzeThreadDump(jvmId, threadDumpId);
@@ -231,14 +231,14 @@ public class Diagnostics {
     @DELETE
     @Blocking
     @Path("fs/threaddumps/{jvmId}/{threadDumpId}")
-    @RolesAllowed("write")
+    @PermissionsAllowed("threaddumps:delete")
     public void deleteThreadDump(@RestPath String jvmId, @RestPath String threadDumpId) {
         log.tracev("Deleting thread dump with ID: {0}", threadDumpId);
         helper.deleteThreadDump(jvmId, threadDumpId);
     }
 
     @Path("/threaddump/download/{encodedKey}")
-    @RolesAllowed("read")
+    @PermissionsAllowed("threaddumps:read")
     @Blocking
     @GET
     public RestResponse<Object> handleThreadDumpsStorageDownload(
@@ -299,7 +299,7 @@ public class Diagnostics {
     }
 
     @Path("targets/{targetId}/gc")
-    @RolesAllowed("write")
+    @PermissionsAllowed({"targets:read", "diagnostics:write"})
     @Blocking
     @POST
     @Operation(
@@ -329,7 +329,7 @@ public class Diagnostics {
     }
 
     @Path("fs/heapdumps")
-    @RolesAllowed("read")
+    @PermissionsAllowed("heapdumps:read")
     @GET
     public Collection<ArchivedHeapDumpDirectory> listFsHeapDumps() {
         var map = new HashMap<String, ArchivedHeapDumpDirectory>();
@@ -362,7 +362,7 @@ public class Diagnostics {
     }
 
     @Path("targets/{targetId}/heapdump")
-    @RolesAllowed("write")
+    @PermissionsAllowed({"targets:read", "heapdumps:write"})
     @POST
     @Blocking
     @Transactional
@@ -392,7 +392,7 @@ public class Diagnostics {
     }
 
     @Path("heapdump/upload/{jvmId}")
-    @RolesAllowed("read")
+    @PermissionsAllowed("heapdumps:read")
     @Blocking
     @POST
     public void uploadHeapDump(
@@ -424,7 +424,7 @@ public class Diagnostics {
     }
 
     @Path("targets/{targetId}/heapdump")
-    @RolesAllowed("read")
+    @PermissionsAllowed({"targets:read", "heapdumps:read"})
     @Blocking
     @Transactional
     @GET
@@ -436,7 +436,7 @@ public class Diagnostics {
     @DELETE
     @Blocking
     @Path("targets/{targetId}/heapdump/{heapDumpId}")
-    @RolesAllowed("write")
+    @PermissionsAllowed("heapdumps:delete")
     public void deleteHeapDump(@RestPath String heapDumpId, @RestPath long targetId) {
         log.tracev("Deleting heap dump with ID: {0}", heapDumpId);
         helper.deleteHeapDump(
@@ -448,14 +448,14 @@ public class Diagnostics {
     @DELETE
     @Blocking
     @Path("fs/heapdumps/{jvmId}/{heapDumpId}")
-    @RolesAllowed("write")
+    @PermissionsAllowed("heapdumps:delete")
     public void deleteHeapDumpByPath(@RestPath String jvmId, @RestPath String heapDumpId) {
         log.tracev("Deleting heap dump with ID: {0}", heapDumpId);
         helper.deleteHeapDump(jvmId, heapDumpId);
     }
 
     @Path("/heapdump/download/{encodedKey}")
-    @RolesAllowed("read")
+    @PermissionsAllowed("heapdumps:read")
     @Blocking
     @GET
     public RestResponse<Object> handleHeapDumpsStorageDownload(

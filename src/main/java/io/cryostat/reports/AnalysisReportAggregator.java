@@ -44,11 +44,11 @@ import io.quarkus.cache.Cache;
 import io.quarkus.cache.CacheName;
 import io.quarkus.cache.CaffeineCache;
 import io.quarkus.narayana.jta.QuarkusTransaction;
+import io.quarkus.security.PermissionsAllowed;
 import io.quarkus.vertx.ConsumeEvent;
 import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;
 import io.vertx.mutiny.core.eventbus.EventBus;
-import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.DefaultValue;
@@ -209,7 +209,7 @@ public class AnalysisReportAggregator {
 
     @GET
     @Produces(MediaType.TEXT_PLAIN)
-    @RolesAllowed("read")
+    @PermissionsAllowed("reports:read")
     @Operation(
             summary = "Retrieve the latest aggregate report data",
             description =
@@ -242,7 +242,7 @@ public class AnalysisReportAggregator {
     @GET
     @Path("/{jvmId}")
     @Produces(MediaType.TEXT_PLAIN)
-    @RolesAllowed("read")
+    @PermissionsAllowed("reports:read")
     @Operation(
             summary = "Retrieve the latest aggregate report data for the specified target",
             description =

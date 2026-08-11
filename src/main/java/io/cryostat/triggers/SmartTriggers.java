@@ -30,8 +30,8 @@ import io.cryostat.ws.Notification;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import io.quarkus.security.PermissionsAllowed;
 import io.vertx.mutiny.core.eventbus.EventBus;
-import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.BadRequestException;
@@ -66,7 +66,7 @@ public class SmartTriggers {
     @Inject ObjectMapper mapper;
 
     @Path("api/beta/targets/{targetId}/smart_triggers")
-    @RolesAllowed("read")
+    @PermissionsAllowed({"targets:read", "smarttriggers:read"})
     @Transactional
     @Produces({MediaType.APPLICATION_JSON})
     @GET
@@ -86,7 +86,7 @@ public class SmartTriggers {
     }
 
     @Path("api/beta/targets/{targetId}/smart_triggers")
-    @RolesAllowed("write")
+    @PermissionsAllowed({"targets:read", "smarttriggers:write"})
     @Transactional
     @POST
     @Operation(
@@ -120,7 +120,7 @@ public class SmartTriggers {
     }
 
     @Path("api/beta/targets/{targetId}/smart_triggers/{uuid}")
-    @RolesAllowed("write")
+    @PermissionsAllowed({"targets:read", "smarttriggers:delete"})
     @Transactional
     @DELETE
     @Operation(
@@ -153,7 +153,7 @@ public class SmartTriggers {
     }
 
     @Path("api/beta/targets/{jvmId}/smart_triggers/sync/")
-    @RolesAllowed("write")
+    @PermissionsAllowed({"targets:read", "smarttriggers:write"})
     @Transactional
     @POST
     public void syncRecordings(@RestPath String jvmId, String body) {
