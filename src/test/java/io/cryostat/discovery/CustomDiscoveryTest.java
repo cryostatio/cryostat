@@ -94,6 +94,92 @@ public class CustomDiscoveryTest extends AbstractTransactionalTestBase {
     }
 
     @Test
+    public void testCreateTargetOnlyNoCredentials() {
+        int id =
+                given().log()
+                        .all()
+                        .contentType(ContentType.URLENC)
+                        .formParam("connectUrl", "service:jmx:rmi:///jndi/rmi://localhost:0/jmxrmi")
+                        .formParam("alias", "CustomDiscoveryTestTargetOnly")
+                        .when()
+                        .post("/api/v4/targets")
+                        .then()
+                        .log()
+                        .all()
+                        .assertThat()
+                        .statusCode(201)
+                        .and()
+                        .contentType(ContentType.JSON)
+                        .and()
+                        .body("id", Matchers.greaterThanOrEqualTo(1))
+                        .extract()
+                        .jsonPath()
+                        .getInt("id");
+
+        given().log()
+                .all()
+                .when()
+                .delete("/api/v4/targets/{id}", id)
+                .then()
+                .assertThat()
+                .statusCode(204);
+    }
+
+    @Test
+    public void testCreateWithCredentialsAndStoreCredentials() {
+        int id =
+                given().log()
+                        .all()
+                        .contentType(ContentType.URLENC)
+                        .formParam("connectUrl", "service:jmx:rmi:///jndi/rmi://localhost:0/jmxrmi")
+                        .formParam("alias", "CustomDiscoveryTestWithCreds")
+                        .formParam("username", "user")
+                        .formParam("password", "pass")
+                        .queryParam("storeCredentials", true)
+                        .when()
+                        .post("/api/v4/targets")
+                        .then()
+                        .log()
+                        .all()
+                        .assertThat()
+                        .statusCode(201)
+                        .and()
+                        .contentType(ContentType.JSON)
+                        .and()
+                        .body("id", Matchers.greaterThanOrEqualTo(1))
+                        .extract()
+                        .jsonPath()
+                        .getInt("id");
+
+        given().log()
+                .all()
+                .when()
+                .delete("/api/v4/targets/{id}", id)
+                .then()
+                .assertThat()
+                .statusCode(204);
+    }
+
+    @Test
+    public void testCreateDryRunNoCredentials() {
+        given().log()
+                .all()
+                .contentType(ContentType.URLENC)
+                .formParam("connectUrl", "service:jmx:rmi:///jndi/rmi://localhost:0/jmxrmi")
+                .formParam("alias", "CustomDiscoveryTestDryRunNoCreds")
+                .queryParam("dryrun", true)
+                .when()
+                .post("/api/v4/targets")
+                .then()
+                .log()
+                .all()
+                .assertThat()
+                .statusCode(202)
+                .and()
+                .header("Location", Matchers.emptyOrNullString());
+    }
+
+    @Test
     public void testCreateInvalid() {
         given().log()
                 .all()

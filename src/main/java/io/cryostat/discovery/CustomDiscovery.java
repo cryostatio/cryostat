@@ -28,6 +28,9 @@ import java.util.regex.Pattern;
 import io.cryostat.ConfigProperties;
 import io.cryostat.credentials.Credential;
 import io.cryostat.expressions.MatchExpression;
+import io.cryostat.security.rbac.PermissionMapper;
+import io.cryostat.security.rbac.RbacConfig;
+import io.cryostat.security.rbac.RbacMode;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.Target.Annotations;
 import io.cryostat.targets.TargetConnectionManager;
@@ -35,6 +38,7 @@ import io.cryostat.util.URIUtil;
 
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.security.PermissionsAllowed;
+import io.quarkus.security.identity.SecurityIdentity;
 import io.smallrye.common.annotation.Blocking;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -45,6 +49,7 @@ import jakarta.transaction.Transactional;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.DELETE;
+import jakarta.ws.rs.ForbiddenException;
 import jakarta.ws.rs.InternalServerErrorException;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
@@ -83,6 +88,8 @@ public class CustomDiscovery {
     @Inject EntityManager entityManager;
     @Inject TargetConnectionManager connectionManager;
     @Inject URIUtil uriUtil;
+    @Inject SecurityIdentity securityIdentity;
+    @Inject RbacConfig rbacConfig;
 
     @ConfigProperty(name = ConfigProperties.CONNECTIONS_FAILED_TIMEOUT)
     Duration timeout;
@@ -91,9 +98,7 @@ public class CustomDiscovery {
     @POST
     @Path("/api/v4/targets")
     @Consumes(MediaType.APPLICATION_JSON)
-    @PermissionsAllowed(
-            value = {"targets:write", "credentials:write"},
-            inclusive = true)
+    @PermissionsAllowed(value = "targets:write", inclusive = true)
     @Operation(
             summary = "Create a target definition",
             description =
@@ -115,9 +120,7 @@ public class CustomDiscovery {
     @POST
     @Path("/api/v4/targets")
     @Consumes({MediaType.MULTIPART_FORM_DATA, MediaType.APPLICATION_FORM_URLENCODED})
-    @PermissionsAllowed(
-            value = {"targets:write", "credentials:write"},
-            inclusive = true)
+    @PermissionsAllowed(value = "targets:write", inclusive = true)
     @Operation(
             summary = "Create a target definition",
             description =
@@ -194,11 +197,27 @@ public class CustomDiscovery {
                 return ResponseBuilder.accepted(target).build();
             }
 
+            if (storeCredentials && credential.isPresent()) {
+                if (rbacConfig.mode() != RbacMode.PERMISSIVE) {
+                    boolean allowed =
+                            securityIdentity
+                                    .checkPermission(
+                                            PermissionMapper.toPermission("credentials", "write"))
+                                    .await()
+                                    .indefinitely();
+                    if (!allowed) {
+                        throw new ForbiddenException("credentials:write");
+                    }
+                }
+            }
+
             return QuarkusTransaction.joiningExisting()
                     .call(
                             () -> {
                                 target.persist();
-                                credential.ifPresent(c -> c.persist());
+                                if (storeCredentials) {
+                                    credential.ifPresent(c -> c.persist());
+                                }
 
                                 target.activeRecordings = new ArrayList<>();
                                 target.annotations = new Annotations(null, Map.of("REALM", REALM));

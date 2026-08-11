@@ -405,4 +405,41 @@ public class ActiveRecordingsTest extends AbstractTransactionalTestBase {
                 .assertThat()
                 .statusCode(204);
     }
+
+    @Test
+    void testCreateWithArchiveOnStopPermissiveMode() {
+        int targetId = defineSelfCustomTarget();
+        int recordingId =
+                given().log()
+                        .all()
+                        .when()
+                        .pathParams(Map.of("targetId", targetId))
+                        .formParam("recordingName", "archiveOnStopTest")
+                        .formParam("events", "template=Continuous")
+                        .formParam("archiveOnStop", true)
+                        .post()
+                        .then()
+                        .log()
+                        .all()
+                        .and()
+                        .assertThat()
+                        .statusCode(201)
+                        .body("archiveOnStop", Matchers.equalTo(true))
+                        .extract()
+                        .body()
+                        .jsonPath()
+                        .getInt("remoteId");
+
+        given().log()
+                .all()
+                .when()
+                .pathParams(Map.of("targetId", targetId))
+                .delete(Integer.toString(recordingId))
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(204);
+    }
 }
