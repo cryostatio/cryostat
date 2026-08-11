@@ -33,6 +33,7 @@ import io.cryostat.recordings.LongRunningRequestGenerator.ArchiveRequest;
 import io.cryostat.recordings.LongRunningRequestGenerator.GrafanaActiveUploadRequest;
 import io.cryostat.recordings.RecordingHelper.RecordingOptions;
 import io.cryostat.recordings.RecordingHelper.RecordingReplace;
+import io.cryostat.security.rbac.PermissionMapper;
 import io.cryostat.security.rbac.RbacConfig;
 import io.cryostat.security.rbac.RbacMode;
 import io.cryostat.targets.Target;
@@ -159,6 +160,18 @@ public class ActiveRecordings {
         ActiveRecording activeRecording = recording.get();
         switch (body.strip().toLowerCase()) {
             case "stop":
+                if (activeRecording.archiveOnStop && rbacConfig.mode() != RbacMode.PERMISSIVE) {
+                    boolean allowed =
+                            securityIdentity
+                                    .checkPermission(
+                                            PermissionMapper.toPermission(
+                                                    "archivedrecordings", "write"))
+                                    .await()
+                                    .indefinitely();
+                    if (!allowed) {
+                        throw new ForbiddenException("archivedrecordings:write");
+                    }
+                }
                 recordingHelper
                         .stopRecording(activeRecording)
                         .await()
@@ -169,10 +182,8 @@ public class ActiveRecordings {
                     boolean allowed =
                             securityIdentity
                                     .checkPermission(
-                                            new java.security.BasicPermission(
-                                                    "archivedrecordings:write") {
-                                                private static final long serialVersionUID = 1L;
-                                            })
+                                            PermissionMapper.toPermission(
+                                                    "archivedrecordings", "write"))
                                     .await()
                                     .indefinitely();
                     if (!allowed) {
@@ -235,6 +246,18 @@ public class ActiveRecordings {
         }
         if (StringUtils.isBlank(events)) {
             throw new BadRequestException("\"events\" form parameter must be provided");
+        }
+
+        if (archiveOnStop.orElse(false) && rbacConfig.mode() != RbacMode.PERMISSIVE) {
+            boolean allowed =
+                    securityIdentity
+                            .checkPermission(
+                                    PermissionMapper.toPermission("archivedrecordings", "write"))
+                            .await()
+                            .indefinitely();
+            if (!allowed) {
+                throw new ForbiddenException("archivedrecordings:write");
+            }
         }
 
         Target target = Target.find("id", targetId).singleResult();

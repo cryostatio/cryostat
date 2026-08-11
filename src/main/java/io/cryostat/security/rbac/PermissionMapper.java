@@ -15,8 +15,10 @@
  */
 package io.cryostat.security.rbac;
 
+import java.security.Permission;
 import java.util.Optional;
 
+import io.quarkus.security.StringPermission;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.apache.commons.lang3.StringUtils;
@@ -87,6 +89,38 @@ public class PermissionMapper {
             subresource = "";
         }
         return new K8sResourceVerb(resource, subresource, verb);
+    }
+
+    /**
+     * Returns a {@link Permission} for {@code resource} and {@code action}, suitable for passing to
+     * {@link io.quarkus.security.identity.SecurityIdentity#checkPermission}. The assembled
+     * permission name follows the {@code resource:action} convention used throughout Cryostat.
+     *
+     * @param resource the resource part of the permission, e.g. {@code archivedrecordings}
+     * @param action the action part of the permission, e.g. {@code write}
+     * @return a {@code Permission} whose name is {@code resource:action}
+     */
+    public static Permission toPermission(String resource, String action) {
+        return new StringPermission(resource, action);
+    }
+
+    /**
+     * Parses a {@code resource:action} permission name and returns the corresponding {@link
+     * Permission}, suitable for passing to {@link
+     * io.quarkus.security.identity.SecurityIdentity#checkPermission}.
+     *
+     * @param permissionName colon-separated permission name, e.g. {@code archivedrecordings:write}
+     * @return a {@code Permission} equivalent to {@code toPermission(resource, action)}
+     * @throws IllegalArgumentException if {@code permissionName} does not contain a colon
+     */
+    public static Permission toPermission(String permissionName) {
+        int colon = permissionName.indexOf(':');
+        if (colon < 0) {
+            throw new IllegalArgumentException(
+                    "Permission must follow resource:action format: " + permissionName);
+        }
+        return toPermission(
+                permissionName.substring(0, colon), permissionName.substring(colon + 1));
     }
 
     /**
