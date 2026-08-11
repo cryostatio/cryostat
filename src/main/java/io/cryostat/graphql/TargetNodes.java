@@ -15,7 +15,6 @@
  */
 package io.cryostat.graphql;
 
-import java.security.BasicPermission;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -46,6 +45,7 @@ import io.cryostat.recordings.ActiveRecording;
 import io.cryostat.recordings.ArchivedRecordings.ArchivedRecording;
 import io.cryostat.recordings.RecordingHelper;
 import io.cryostat.reports.AnalysisReportAggregator;
+import io.cryostat.security.rbac.PermissionMapper;
 import io.cryostat.security.rbac.RbacConfig;
 import io.cryostat.security.rbac.RbacMode;
 import io.cryostat.security.rbac.graphql.RequiresPermission;
@@ -254,9 +254,7 @@ public class TargetNodes {
                 boolean allowed =
                         securityIdentity
                                 .checkPermission(
-                                        new BasicPermission("archivedrecordings:read") {
-                                            private static final long serialVersionUID = 1L;
-                                        })
+                                        PermissionMapper.toPermission("archivedrecordings", "read"))
                                 .await()
                                 .indefinitely();
                 if (!allowed) {
