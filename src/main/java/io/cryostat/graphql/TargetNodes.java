@@ -45,9 +45,7 @@ import io.cryostat.recordings.ActiveRecording;
 import io.cryostat.recordings.ArchivedRecordings.ArchivedRecording;
 import io.cryostat.recordings.RecordingHelper;
 import io.cryostat.reports.AnalysisReportAggregator;
-import io.cryostat.security.rbac.PermissionMapper;
-import io.cryostat.security.rbac.RbacConfig;
-import io.cryostat.security.rbac.RbacMode;
+import io.cryostat.security.rbac.UserAuthorizer;
 import io.cryostat.security.rbac.graphql.RequiresPermission;
 import io.cryostat.targets.AgentClient.AsyncProfile;
 import io.cryostat.targets.Target;
@@ -55,13 +53,13 @@ import io.cryostat.targets.TargetConnectionManager;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import graphql.schema.DataFetchingEnvironment;
-import io.quarkus.security.identity.SecurityIdentity;
 import io.smallrye.graphql.api.Context;
 import io.smallrye.graphql.api.Nullable;
 import io.smallrye.mutiny.Uni;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
 import jakarta.transaction.Transactional;
+import jakarta.ws.rs.ForbiddenException;
 import org.apache.commons.lang3.StringUtils;
 import org.eclipse.microprofile.graphql.DefaultValue;
 import org.eclipse.microprofile.graphql.Description;
@@ -86,8 +84,7 @@ public class TargetNodes {
     @Inject AsyncProfilerHelper asyncProfilerHelper;
     @Inject EntityManager em;
     @Inject Logger logger;
-    @Inject SecurityIdentity securityIdentity;
-    @Inject RbacConfig rbacConfig;
+    @Inject UserAuthorizer userAuthorizer;
 
     @Query("targetNodes")
     @RequiresPermission({"targets:read", "discoverynodes:read"})
@@ -250,18 +247,12 @@ public class TargetNodes {
         }
 
         if (requestedFields.contains("archived")) {
-            if (rbacConfig.mode() != RbacMode.PERMISSIVE) {
-                boolean allowed =
-                        securityIdentity
-                                .checkPermission(
-                                        PermissionMapper.toPermission("archivedrecordings", "read"))
-                                .await()
-                                .indefinitely();
-                if (!allowed) {
-                    throw new GraphQLException(
-                            "Forbidden: insufficient permissions",
-                            GraphQLException.ExceptionType.ExecutionAborted);
-                }
+            try {
+                userAuthorizer.assertAuthorized("archivedrecordings", "read");
+            } catch (ForbiddenException e) {
+                throw new GraphQLException(
+                        "Forbidden: insufficient permissions",
+                        GraphQLException.ExceptionType.ExecutionAborted);
             }
             recordings.archived = new ArchivedRecordings();
             recordings.archived.data = recordingHelper.listArchivedRecordings(fTarget);
