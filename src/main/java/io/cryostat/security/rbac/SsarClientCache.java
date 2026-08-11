@@ -23,6 +23,7 @@ import java.util.HexFormat;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.github.benmanes.caffeine.cache.RemovalCause;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import jakarta.annotation.PreDestroy;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -47,6 +48,9 @@ public class SsarClientCache {
     private final SsarClientFactory clientFactory;
     private final Logger logger;
 
+    @SuppressFBWarnings(
+            value = "EI_EXPOSE_REP2",
+            justification = "SpotBugs thinks Logger instance is externally modifiable")
     @Inject
     public SsarClientCache(Logger logger, RbacConfig config, SsarClientFactory clientFactory) {
         this.logger = logger;
