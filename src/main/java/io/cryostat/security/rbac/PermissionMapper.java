@@ -42,6 +42,14 @@ public class PermissionMapper {
     /**
      * Resolve the Kubernetes resource/subresource/verb for a given Cryostat permission name.
      *
+     * <p>Resolution order:
+     *
+     * <ol>
+     *   <li>Explicit entry in {@code cryostat.security.rbac.permissions} for this name.
+     *   <li>The value of {@code cryostat.security.rbac.default-permission}, if set.
+     *   <li>{@code Optional.empty()} — caller treats this as deny.
+     * </ol>
+     *
      * @param permissionName colon-separated permission, e.g. {@code activerecordings:read}
      * @return the resolved K8s mapping, or empty if no mapping is configured for this permission
      */
@@ -52,7 +60,7 @@ public class PermissionMapper {
         String configKey = permissionName.replace(':', '.');
         String value = config.permissions().get(configKey);
         if (StringUtils.isBlank(value)) {
-            return Optional.empty();
+            return config.defaultPermission().map(this::parse);
         }
         return Optional.of(parse(value));
     }

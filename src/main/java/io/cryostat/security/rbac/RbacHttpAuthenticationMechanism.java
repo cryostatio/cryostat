@@ -161,7 +161,8 @@ public class RbacHttpAuthenticationMechanism implements HttpAuthenticationMechan
         var mapping = permissionMapper.resolve(permissionName);
         if (mapping.isEmpty()) {
             log.debugf(
-                    "OPENSHIFT mode: no permission mapping configured for '%s', denying",
+                    "OPENSHIFT mode: no mapping and no default-permission configured for '%s',"
+                            + " denying",
                     permissionName);
             return Uni.createFrom().item(false);
         }

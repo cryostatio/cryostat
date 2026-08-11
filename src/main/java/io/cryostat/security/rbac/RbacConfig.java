@@ -17,6 +17,7 @@ package io.cryostat.security.rbac;
 
 import java.time.Duration;
 import java.util.Map;
+import java.util.Optional;
 
 import io.smallrye.config.ConfigMapping;
 import io.smallrye.config.WithDefault;
@@ -36,6 +37,14 @@ public interface RbacConfig {
      */
     @WithName("permissions")
     Map<String, String> permissions();
+
+    /**
+     * Fallback Kubernetes resource/verb applied when a requested permission name has no explicit
+     * entry in the {@code permissions} map. Follows the same {@code [resource(/subresource)]:verb}
+     * format, e.g. {@code pods/exec:create}. When absent, an unmapped permission is denied.
+     */
+    @WithName("default-permission")
+    Optional<String> defaultPermission();
 
     CacheConfig cache();
 
