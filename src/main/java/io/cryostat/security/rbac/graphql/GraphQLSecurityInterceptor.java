@@ -45,10 +45,9 @@ import org.jboss.logging.Logger;
 @ApplicationScoped
 public class GraphQLSecurityInterceptor implements EventingService {
 
-    private static final Logger LOG = Logger.getLogger(GraphQLSecurityInterceptor.class);
-
     @Inject RbacConfig rbacConfig;
     @Inject SecurityIdentity securityIdentity;
+    @Inject Logger logger;
 
     @Override
     public String getConfigKey() {
@@ -75,7 +74,7 @@ public class GraphQLSecurityInterceptor implements EventingService {
                     };
             boolean allowed = securityIdentity.checkPermission(permission).await().indefinitely();
             if (!allowed) {
-                LOG.debugf(
+                logger.debugf(
                         "GraphQL permission check failed: %s for method %s",
                         permissionName, method.getName());
                 throw new GraphQLException(
