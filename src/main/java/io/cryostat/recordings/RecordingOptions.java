@@ -53,7 +53,9 @@ public class RecordingOptions {
 
     @GET
     @Blocking
-    @PermissionsAllowed({"targets:read", "activerecordings:read"})
+    @PermissionsAllowed(
+            value = {"targets:read", "activerecordings:read"},
+            inclusive = true)
     @Operation(
             summary = "Get the current set of options for the specified target",
             description =
@@ -72,7 +74,9 @@ public class RecordingOptions {
 
     @PATCH
     @Blocking
-    @PermissionsAllowed({"targets:read", "activerecordings:write"})
+    @PermissionsAllowed(
+            value = {"targets:read", "activerecordings:write"},
+            inclusive = true)
     @Operation(
             summary = "Update the recording options for the specified target",
             description =

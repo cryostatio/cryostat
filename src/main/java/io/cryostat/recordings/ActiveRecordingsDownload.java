@@ -46,7 +46,7 @@ public class ActiveRecordingsDownload {
 
     @GET
     @Blocking
-    @PermissionsAllowed("activerecordings:read")
+    @PermissionsAllowed(value = "activerecordings:read", inclusive = true)
     @Operation(
             summary = "Download a Flight Recording binary file",
             description =

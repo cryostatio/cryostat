@@ -97,7 +97,7 @@ public class Reports {
     @GET
     @Blocking
     @Path("/api/v4/reports/{encodedKey}")
-    @PermissionsAllowed("reports:read")
+    @PermissionsAllowed(value = "reports:read", inclusive = true)
     @Operation(
             summary = "Get an automated analysis report",
             description =
@@ -150,7 +150,7 @@ public class Reports {
 
     @GET
     @Path("/api/v4.1/reports_rules")
-    @PermissionsAllowed("reports:read")
+    @PermissionsAllowed(value = "reports:read", inclusive = true)
     public Stream<ReportRule> listReportRules() {
         return RuleRegistry.getRules().stream()
                 .map(ReportRule::new)
@@ -161,7 +161,9 @@ public class Reports {
     @Blocking
     @Transactional
     @Path("/api/v4.1/targets/{targetId}/reports")
-    @PermissionsAllowed({"targets:read", "activerecordings:write", "reports:write"})
+    @PermissionsAllowed(
+            value = {"targets:read", "activerecordings:write", "reports:write"},
+            inclusive = true)
     @Operation(
             summary = "Perform \"target analysis\" on the specified target",
             description =
@@ -208,7 +210,7 @@ public class Reports {
     @Blocking
     @Path("/api/v4.1/targets/{targetId}/reports")
     @Produces(MediaType.APPLICATION_JSON)
-    @PermissionsAllowed("reports:read")
+    @PermissionsAllowed(value = "reports:read", inclusive = true)
     @Operation(
             summary = "Retrieve current automated analysis report for a target",
             description =
@@ -239,7 +241,7 @@ public class Reports {
     @GET
     @Blocking
     @Path("/api/v4/targets/{targetId}/reports/{recordingId}")
-    @PermissionsAllowed("reports:read")
+    @PermissionsAllowed(value = "reports:read", inclusive = true)
     @Operation(
             summary =
                     "Get an automated analysis report for a particular recording on the specified"

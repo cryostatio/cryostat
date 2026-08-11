@@ -43,7 +43,7 @@ public class Events {
 
     @GET
     @Path("/api/v4/targets/{id}/events")
-    @PermissionsAllowed("events:read")
+    @PermissionsAllowed(value = "events:read", inclusive = true)
     @Operation(
             summary = "List JFR event types registered within the given target",
             description =

@@ -102,7 +102,7 @@ public class Credentials {
 
     @POST
     @Blocking
-    @PermissionsAllowed("credentials:read")
+    @PermissionsAllowed(value = "credentials:read", inclusive = true)
     @Path("/test/{targetId}")
     @Operation(
             summary =
@@ -146,7 +146,7 @@ public class Credentials {
     @Blocking
     @Bulkhead
     @GET
-    @PermissionsAllowed("credentials:read")
+    @PermissionsAllowed(value = "credentials:read", inclusive = true)
     @Operation(
             summary = "List information about all of the available Stored Credentials.",
             description =
@@ -178,7 +178,7 @@ public class Credentials {
     @Blocking
     @Bulkhead
     @GET
-    @PermissionsAllowed("credentials:read")
+    @PermissionsAllowed(value = "credentials:read", inclusive = true)
     @Path("/{id}")
     @Operation(
             summary = "Get information about a Stored Credential",
@@ -204,7 +204,7 @@ public class Credentials {
     @Retry(retryOn = {SQLException.class, PersistenceException.class})
     @RateLimit
     @POST
-    @PermissionsAllowed("credentials:write")
+    @PermissionsAllowed(value = "credentials:write", inclusive = true)
     @Operation(
             summary = "Define a new Stored Credential",
             description =
@@ -237,7 +237,7 @@ public class Credentials {
     @Timeout
     @RateLimit
     @DELETE
-    @PermissionsAllowed("credentials:delete")
+    @PermissionsAllowed(value = "credentials:delete", inclusive = true)
     @Path("/{id}")
     @Operation(summary = "Delete a Stored Credential")
     public void delete(@RestPath long id) {
