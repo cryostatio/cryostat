@@ -18,20 +18,16 @@ package io.cryostat.resources;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import io.quarkus.test.common.DevServicesContext;
 import io.quarkus.test.common.QuarkusTestResourceLifecycleManager;
 import org.apache.commons.lang3.StringUtils;
 import org.testcontainers.containers.GenericContainer;
-import org.testcontainers.containers.Network;
-import org.testcontainers.containers.wait.strategy.HostPortWaitStrategy;
+import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.utility.DockerImageName;
 
-public class AgentApplicationResource
-        implements QuarkusTestResourceLifecycleManager, DevServicesContext.ContextAware {
+public class AgentApplicationResource implements QuarkusTestResourceLifecycleManager {
 
     private static final String DEFAULT_IMAGE =
             "quay.io/redhat-java-monitoring/quarkus-cryostat-agent:latest";
@@ -58,7 +54,7 @@ public class AgentApplicationResource
                         "CRYOSTAT_AGENT_WEBCLIENT_TLS_REQUIRED",
                         "false",
                         "CRYOSTAT_AGENT_WEBSERVER_HOST",
-                        "0.0.0.0",
+                        "127.0.0.1",
                         "CRYOSTAT_AGENT_WEBSERVER_PORT",
                         Integer.toString(PORT),
                         "CRYOSTAT_AGENT_BASEURI_RANGE",
@@ -67,7 +63,6 @@ public class AgentApplicationResource
                         "true"));
     }
 
-    private Optional<String> containerNetworkId;
     private GenericContainer<?> container;
 
     @SuppressWarnings("resource")
@@ -75,46 +70,30 @@ public class AgentApplicationResource
     public Map<String, String> start() {
         int cryostatPort = findFreePort();
         int hostAgentPort = findFreePort();
-
-        Optional<Network> network =
-                containerNetworkId.map(
-                        id ->
-                                new Network() {
-                                    @Override
-                                    public String getId() {
-                                        return id;
-                                    }
-
-                                    @Override
-                                    public void close() {}
-                                });
+        int agentAppPort = findFreePort();
+        Map<String, String> env = getEnvMap();
+        env.put("QUARKUS_HTTP_PORT", Integer.toString(agentAppPort));
+        env.put("CRYOSTAT_AGENT_WEBSERVER_PORT", Integer.toString(hostAgentPort));
+        env.put("CRYOSTAT_AGENT_BASEURI", String.format("http://127.0.0.1:%d/", cryostatPort));
+        env.put("CRYOSTAT_AGENT_CALLBACK", String.format("http://127.0.0.1:%d/", hostAgentPort));
 
         String img =
                 Optional.ofNullable(System.getenv("QUARKUS_TEST_IMAGE"))
                         .filter(StringUtils::isNotBlank)
                         .orElse(DEFAULT_IMAGE);
+        // Keep registration and callback traffic on the same loopback address. The discovery JWT
+        // and callback validation both bind the Agent to the address observed by Cryostat.
         this.container =
                 new GenericContainer<>(DockerImageName.parse(img))
-                        .withExposedPorts(PORT)
-                        .withEnv(getEnvMap())
-                        .withNetworkAliases(ALIAS)
-                        .withExtraHost("host.docker.internal", "host-gateway")
-                        .waitingFor(new HostPortWaitStrategy().forPorts(PORT))
+                        .withEnv(env)
+                        .withNetworkMode("host")
+                        .waitingFor(Wait.forLogMessage(".*Listening on:.*", 1))
                         .withStartupAttempts(3)
                         .withCreateContainerCmdModifier(
                                 cmd ->
                                         cmd.getHostConfig()
                                                 .withCpuShares(512)
                                                 .withMemory(256L * 1024L * 1024L));
-        network.ifPresent(container::withNetwork);
-
-        container.setPortBindings(List.of(String.format("%d:%d", hostAgentPort, PORT)));
-        container.addEnv(
-                "CRYOSTAT_AGENT_BASEURI",
-                String.format("http://host.docker.internal:%d/", cryostatPort));
-        container.addEnv(
-                "CRYOSTAT_AGENT_CALLBACK", String.format("http://localhost:%d/", hostAgentPort));
-
         container.start();
 
         return Map.of(
@@ -132,11 +111,6 @@ public class AgentApplicationResource
             container.stop();
             container.close();
         }
-    }
-
-    @Override
-    public void setIntegrationTestContext(DevServicesContext context) {
-        containerNetworkId = context.containerNetworkId();
     }
 
     private static int findFreePort() {

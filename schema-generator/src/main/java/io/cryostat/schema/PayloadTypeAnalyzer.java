@@ -28,8 +28,10 @@ import java.util.stream.Stream;
 
 import com.github.javaparser.StaticJavaParser;
 import com.github.javaparser.ast.CompilationUnit;
+import com.github.javaparser.ast.Node;
 import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
 import com.github.javaparser.ast.body.RecordDeclaration;
+import com.github.javaparser.ast.body.TypeDeclaration;
 import com.github.javaparser.ast.expr.Expression;
 import com.github.javaparser.ast.expr.MethodCallExpr;
 import com.github.javaparser.ast.expr.NameExpr;
@@ -322,7 +324,7 @@ public class PayloadTypeAnalyzer {
                         param -> {
                             String fieldName = param.getNameAsString();
                             String fieldType = param.getTypeAsString();
-                            properties.put(fieldName, analyzeFieldType(fieldType));
+                            properties.put(fieldName, analyzeFieldType(fieldType, param));
                         });
 
         if (!properties.isEmpty()) {
@@ -381,7 +383,8 @@ public class PayloadTypeAnalyzer {
                                                     String fieldName = var.getNameAsString();
                                                     String fieldType = var.getTypeAsString();
                                                     properties.put(
-                                                            fieldName, analyzeFieldType(fieldType));
+                                                            fieldName,
+                                                            analyzeFieldType(fieldType, var));
                                                 });
                             }
                         });
@@ -393,7 +396,8 @@ public class PayloadTypeAnalyzer {
         return schema;
     }
 
-    private Map<String, Object> analyzeFieldType(String fieldType) {
+    private Map<String, Object> analyzeFieldType(
+            String fieldType, com.github.javaparser.ast.Node context) {
         // Remove generic type parameters for analysis
         String baseType = fieldType.replaceAll("<.*>", "");
 
@@ -422,11 +426,64 @@ public class PayloadTypeAnalyzer {
             default:
                 // For complex types, try to analyze them inline (avoid circular references)
                 if (!analyzedTypes.contains(baseType)) {
+                    Optional<RecordDeclaration> contextualRecord =
+                            findContextualRecordDeclaration(context, baseType);
+                    if (contextualRecord.isPresent()) {
+                        analyzedTypes.add(baseType);
+                        return analyzeRecord(contextualRecord.get());
+                    }
                     return analyzeType(baseType);
                 }
                 // If already analyzed (circular reference), just describe it
                 return createObjectSchema(baseType);
         }
+    }
+
+    Optional<RecordDeclaration> findContextualRecordDeclaration(Node context, String typeName) {
+        Node ancestor = context;
+        while ((ancestor = ancestor.getParentNode().orElse(null)) != null) {
+            if (!(ancestor instanceof TypeDeclaration<?> enclosingType)) {
+                continue;
+            }
+
+            if (enclosingType instanceof RecordDeclaration enclosingRecord
+                    && matchesTypeName(
+                            enclosingRecord.getNameAsString(),
+                            enclosingRecord.getFullyQualifiedName().orElse(""),
+                            typeName)) {
+                return Optional.of(enclosingRecord);
+            }
+
+            Optional<RecordDeclaration> memberRecord =
+                    enclosingType.getMembers().stream()
+                            .filter(RecordDeclaration.class::isInstance)
+                            .map(RecordDeclaration.class::cast)
+                            .filter(
+                                    record ->
+                                            matchesTypeName(
+                                                    record.getNameAsString(),
+                                                    record.getFullyQualifiedName().orElse(""),
+                                                    typeName))
+                            .findFirst();
+            if (memberRecord.isPresent()) {
+                return memberRecord;
+            }
+        }
+
+        return context.findCompilationUnit()
+                .flatMap(
+                        cu ->
+                                cu.getTypes().stream()
+                                        .filter(RecordDeclaration.class::isInstance)
+                                        .map(RecordDeclaration.class::cast)
+                                        .filter(
+                                                record ->
+                                                        matchesTypeName(
+                                                                record.getNameAsString(),
+                                                                record.getFullyQualifiedName()
+                                                                        .orElse(""),
+                                                                typeName))
+                                        .findFirst());
     }
 
     private Map<String, Object> createMapSchema() {
