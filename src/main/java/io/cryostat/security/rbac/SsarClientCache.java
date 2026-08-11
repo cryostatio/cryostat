@@ -20,8 +20,8 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
 
+import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
-import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.github.benmanes.caffeine.cache.RemovalCause;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.fabric8.kubernetes.client.KubernetesClient;
@@ -44,7 +44,7 @@ import org.jboss.logging.Logger;
 @ApplicationScoped
 public class SsarClientCache {
 
-    private final LoadingCache<String, KubernetesClient> clientCache;
+    private final Cache<String, KubernetesClient> clientCache;
     private final SsarClientFactory clientFactory;
     private final Logger logger;
 
@@ -79,11 +79,7 @@ public class SsarClientCache {
                                         }
                                     }
                                 })
-                        .build(
-                                tokenHash -> {
-                                    throw new UnsupportedOperationException(
-                                            "Use getOrCreate(rawToken)");
-                                });
+                        .build();
     }
 
     /**
