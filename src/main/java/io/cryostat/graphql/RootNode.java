@@ -22,6 +22,7 @@ import java.util.function.Predicate;
 
 import io.cryostat.discovery.DiscoveryNode;
 import io.cryostat.graphql.matchers.LabelSelectorMatcher;
+import io.cryostat.security.rbac.graphql.RequiresPermission;
 
 import io.smallrye.graphql.api.Nullable;
 import org.eclipse.microprofile.graphql.Description;
@@ -33,11 +34,13 @@ import org.eclipse.microprofile.graphql.Source;
 public class RootNode {
 
     @Query("rootNode")
+    @RequiresPermission("discoverynodes:read")
     @Description("Get the root target discovery node")
     public DiscoveryNode getRootNode() {
         return DiscoveryNode.getUniverse();
     }
 
+    @RequiresPermission("discoverynodes:read")
     @Description(
             "Get target nodes that are descendants of this node. That is, get the set of leaf nodes"
                     + " from anywhere below this node's subtree.")

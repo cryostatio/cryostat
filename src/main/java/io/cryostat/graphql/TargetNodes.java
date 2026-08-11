@@ -45,6 +45,7 @@ import io.cryostat.recordings.ActiveRecording;
 import io.cryostat.recordings.ArchivedRecordings.ArchivedRecording;
 import io.cryostat.recordings.RecordingHelper;
 import io.cryostat.reports.AnalysisReportAggregator;
+import io.cryostat.security.rbac.graphql.RequiresPermission;
 import io.cryostat.targets.AgentClient.AsyncProfile;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.TargetConnectionManager;
@@ -82,6 +83,7 @@ public class TargetNodes {
     @Inject Logger logger;
 
     @Query("targetNodes")
+    @RequiresPermission({"targets:read", "discoverynodes:read"})
     @Description("Get the Target discovery nodes, i.e. the leaf nodes of the discovery tree")
     public List<DiscoveryNode> getTargetNodes(
             DiscoveryNodeFilter filter,
@@ -113,6 +115,7 @@ public class TargetNodes {
     }
 
     @Transactional
+    @RequiresPermission({"targets:read", "activerecordings:read"})
     @Description("Retrieve a list of active recordings currently available on the target")
     public ActiveRecordings activeRecordings(
             @Source Target target, @Nullable ActiveRecordingsFilter filter) {
@@ -128,6 +131,7 @@ public class TargetNodes {
         return recordings;
     }
 
+    @RequiresPermission({"targets:read", "archivedrecordings:read"})
     @Description("Retrieve a list of archived recordings belonging to the target")
     public ArchivedRecordings archivedRecordings(
             @Source Target target, @Nullable ArchivedRecordingsFilter filter) {
@@ -143,6 +147,7 @@ public class TargetNodes {
         return recordings;
     }
 
+    @RequiresPermission({"targets:read", "asyncprofiler:read"})
     @Description("Retrieve a list of async profiles belonging to the target")
     public AsyncProfiles asyncProfiles(
             @Source Target target, @Nullable AsyncProfilerFilter filter) {
@@ -156,6 +161,7 @@ public class TargetNodes {
         return asyncProfiles;
     }
 
+    @RequiresPermission({"targets:read", "threaddumps:read"})
     @Description("Retrieve a list of thread dumps belonging to the target")
     public ThreadDumps threadDumps(@Source Target target, @Nullable ThreadDumpsFilter filter) {
         var fTarget = Target.getTargetById(target.id);
@@ -170,6 +176,7 @@ public class TargetNodes {
         return threadDumps;
     }
 
+    @RequiresPermission({"targets:read", "heapdumps:read"})
     @Description("Retrieve a list of heap dumps belonging to the target")
     public HeapDumps heapDumps(@Source Target target, @Nullable HeapDumpsFilter filter) {
         var fTarget = Target.getTargetById(target.id);
@@ -184,6 +191,7 @@ public class TargetNodes {
         return heapDumps;
     }
 
+    @RequiresPermission({"targets:read", "reports:read"})
     @Description(
             """
             Retrieve an automated analysis report from the selected target(s). If there is no report currently
@@ -216,6 +224,7 @@ public class TargetNodes {
     }
 
     @Transactional
+    @RequiresPermission({"targets:read", "activerecordings:read", "archivedrecordings:read"})
     @Description("Get the active and archived recordings belonging to this target")
     public Recordings recordings(@Source Target target, Context context) {
         var fTarget = Target.getTargetById(target.id);
@@ -243,6 +252,7 @@ public class TargetNodes {
         return recordings;
     }
 
+    @RequiresPermission("targets:read")
     @Description("Get live MBean metrics snapshot from the specified Target")
     public MBeanMetrics mbeanMetrics(@Source Target target) {
         var fTarget = Target.getTargetById(target.id);
