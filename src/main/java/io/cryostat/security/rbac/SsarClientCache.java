@@ -43,13 +43,13 @@ import org.jboss.logging.Logger;
 @ApplicationScoped
 public class SsarClientCache {
 
-    private static final Logger LOG = Logger.getLogger(SsarClientCache.class);
-
     private final LoadingCache<String, KubernetesClient> clientCache;
     private final SsarClientFactory clientFactory;
+    private final Logger logger;
 
     @Inject
-    public SsarClientCache(RbacConfig config, SsarClientFactory clientFactory) {
+    public SsarClientCache(Logger logger, RbacConfig config, SsarClientFactory clientFactory) {
+        this.logger = logger;
         this.clientFactory = clientFactory;
         this.clientCache =
                 Caffeine.newBuilder()
@@ -60,14 +60,14 @@ public class SsarClientCache {
                                     if (client != null
                                             && cause != RemovalCause.EXPLICIT
                                             && cause != RemovalCause.REPLACED) {
-                                        LOG.debugf(
+                                        logger.debugf(
                                                 "Closing cached KubernetesClient for token hash"
                                                         + " %s due to %s",
                                                 keyHash, cause);
                                         try {
                                             client.close();
                                         } catch (Exception e) {
-                                            LOG.warnf(
+                                            logger.warnf(
                                                     e,
                                                     "Error closing KubernetesClient for token"
                                                             + " hash %s",
@@ -100,14 +100,15 @@ public class SsarClientCache {
             try {
                 client.close();
             } catch (Exception e) {
-                LOG.warnf(e, "Error closing KubernetesClient for token hash %s", keyHash);
+                logger.warnf(e, "Error closing KubernetesClient for token hash %s", keyHash);
             }
         }
     }
 
     @PreDestroy
     public void shutdown() {
-        LOG.info("Shutting down SsarClientCache and closing all cached KubernetesClient instances");
+        logger.info(
+                "Shutting down SsarClientCache and closing all cached KubernetesClient instances");
         clientCache
                 .asMap()
                 .values()
@@ -116,7 +117,7 @@ public class SsarClientCache {
                             try {
                                 client.close();
                             } catch (Exception e) {
-                                LOG.warnf(e, "Error closing KubernetesClient during shutdown");
+                                logger.warnf(e, "Error closing KubernetesClient during shutdown");
                             }
                         });
         clientCache.invalidateAll();
