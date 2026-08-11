@@ -20,7 +20,9 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Set;
 
+import io.fabric8.kubernetes.api.model.authorization.v1.ResourceAttributes;
 import io.fabric8.kubernetes.api.model.authorization.v1.ResourceAttributesBuilder;
+import io.fabric8.kubernetes.api.model.authorization.v1.SelfSubjectAccessReview;
 import io.fabric8.kubernetes.api.model.authorization.v1.SelfSubjectAccessReviewBuilder;
 import io.quarkus.security.identity.IdentityProviderManager;
 import io.quarkus.security.identity.SecurityIdentity;
@@ -66,6 +68,7 @@ public class RbacHttpAuthenticationMechanism implements HttpAuthenticationMechan
     @Inject Logger log;
     @Inject RbacConfig config;
     @Inject SsarClientCache ssarClientCache;
+    @Inject SsarDecisionCache ssarDecisionCache;
     @Inject PermissionMapper permissionMapper;
 
     @Override
@@ -204,50 +207,61 @@ public class RbacHttpAuthenticationMechanism implements HttpAuthenticationMechan
                 "OPENSHIFT mode: checking SSAR for permission '%s' → %s/%s:%s",
                 permissionName, k8s.resource(), k8s.subresource(), k8s.verb());
         return Uni.createFrom()
-                .<Boolean>emitter(
-                        em -> {
-                            try {
-                                var client = ssarClientCache.getOrCreate(rawToken);
-                                var spec =
-                                        new ResourceAttributesBuilder()
-                                                .withResource(k8s.resource())
-                                                .withSubresource(k8s.subresource())
-                                                .withVerb(k8s.verb())
-                                                .build();
-                                var review =
-                                        new SelfSubjectAccessReviewBuilder()
-                                                .withNewSpec()
-                                                .withResourceAttributes(spec)
-                                                .endSpec()
-                                                .build();
-                                var result =
-                                        client.authorization()
-                                                .v1()
-                                                .selfSubjectAccessReview()
-                                                .create(review);
-                                boolean allowed =
-                                        Boolean.TRUE.equals(result.getStatus().getAllowed());
-                                log.debugf(
-                                        "OPENSHIFT mode: SSAR result for permission '%s'"
-                                                + " (%s/%s:%s) → allowed=%b",
-                                        permissionName,
-                                        k8s.resource(),
-                                        k8s.subresource(),
-                                        k8s.verb(),
-                                        allowed);
-                                em.complete(allowed);
-                            } catch (Exception e) {
-                                log.warnf(
-                                        e,
-                                        "OPENSHIFT mode: SSAR call failed for permission '%s'"
-                                                + " (%s/%s:%s), denying",
-                                        permissionName,
-                                        k8s.resource(),
-                                        k8s.subresource(),
-                                        k8s.verb());
-                                em.complete(false);
-                            }
-                        })
-                .runSubscriptionOn(Infrastructure.getDefaultExecutor());
+                .<Boolean>item(() -> performSsarCheck(rawToken, permissionName, k8s))
+                .runSubscriptionOn(Infrastructure.getDefaultExecutor())
+                .onFailure()
+                .recoverWithItem(
+                        e -> {
+                            log.warnf(
+                                    e,
+                                    "OPENSHIFT mode: SSAR call failed for permission '%s'"
+                                            + " (%s/%s:%s), denying",
+                                    permissionName,
+                                    k8s.resource(),
+                                    k8s.subresource(),
+                                    k8s.verb());
+                            return false;
+                        });
+    }
+
+    private boolean performSsarCheck(
+            String rawToken, String permissionName, PermissionMapper.K8sResourceVerb k8s) {
+        return ssarDecisionCache.get(
+                rawToken,
+                k8s.resource(),
+                k8s.subresource(),
+                k8s.verb(),
+                key -> {
+                    var client = ssarClientCache.getOrCreate(rawToken);
+                    var result =
+                            client.authorization()
+                                    .v1()
+                                    .selfSubjectAccessReview()
+                                    .create(buildSsar(k8s));
+                    boolean decision = Boolean.TRUE.equals(result.getStatus().getAllowed());
+                    log.debugf(
+                            "OPENSHIFT mode: SSAR result for permission '%s'"
+                                    + " (%s/%s:%s) → allowed=%b",
+                            permissionName,
+                            k8s.resource(),
+                            k8s.subresource(),
+                            k8s.verb(),
+                            decision);
+                    return decision;
+                });
+    }
+
+    private static SelfSubjectAccessReview buildSsar(PermissionMapper.K8sResourceVerb k8s) {
+        ResourceAttributes spec =
+                new ResourceAttributesBuilder()
+                        .withResource(k8s.resource())
+                        .withSubresource(k8s.subresource())
+                        .withVerb(k8s.verb())
+                        .build();
+        return new SelfSubjectAccessReviewBuilder()
+                .withNewSpec()
+                .withResourceAttributes(spec)
+                .endSpec()
+                .build();
     }
 }

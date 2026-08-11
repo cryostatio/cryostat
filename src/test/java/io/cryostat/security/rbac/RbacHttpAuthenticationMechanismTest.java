@@ -42,6 +42,7 @@ import io.vertx.ext.web.RoutingContext;
 import jakarta.inject.Inject;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 
 @QuarkusTest
 @TestProfile(RbacHttpAuthenticationMechanismTest.Profile.class)
@@ -59,6 +60,7 @@ class RbacHttpAuthenticationMechanismTest {
     @Inject RbacHttpAuthenticationMechanism mechanism;
 
     @InjectMock SsarClientCache ssarClientCache;
+    @InjectMock SsarDecisionCache ssarDecisionCache;
 
     private KubernetesClient mockClient;
 
@@ -67,6 +69,13 @@ class RbacHttpAuthenticationMechanismTest {
     void setUp() {
         mockClient = mock(KubernetesClient.class);
         when(ssarClientCache.getOrCreate(any())).thenReturn(mockClient);
+        when(ssarDecisionCache.get(any(), any(), any(), any(), any()))
+                .thenAnswer(
+                        invocation -> {
+                            java.util.function.Function<SsarDecisionCache.DecisionKey, Boolean>
+                                    loader = invocation.getArgument(4);
+                            return loader != null ? loader.apply(null) : false;
+                        });
 
         var authGroup = mock(AuthorizationAPIGroupDSL.class);
         var v1auth = mock(V1AuthorizationAPIGroupDSL.class);
@@ -216,6 +225,62 @@ class RbacHttpAuthenticationMechanismTest {
         boolean allowed = identity.checkPermission(permission).await().indefinitely();
         assertTrue(allowed);
         assertTrue(createCount.get() == 2);
+    }
+
+    @Test
+    void testPermissionCheckerUsesCachedDecisionWithoutSsar() {
+        when(ssarDecisionCache.get(any(), any(), any(), any(), any()))
+                .thenAnswer(invocation -> true);
+
+        var ctx = mock(RoutingContext.class);
+        var req = mock(io.vertx.core.http.HttpServerRequest.class);
+        when(ctx.request()).thenReturn(req);
+        when(req.getHeader(RbacHttpAuthenticationMechanism.HEADER_FORWARDED_USER))
+                .thenReturn("admin");
+        when(req.getHeader(RbacHttpAuthenticationMechanism.HEADER_FORWARDED_TOKEN))
+                .thenReturn("bearer-token");
+
+        SecurityIdentity identity = mechanism.authenticate(ctx, null).await().indefinitely();
+        assertNotNull(identity);
+
+        boolean allowed =
+                identity.checkPermission(new StringPermission("credentials", "read"))
+                        .await()
+                        .indefinitely();
+        assertTrue(allowed);
+
+        var ssarOp =
+                (InOutCreateable<SelfSubjectAccessReview, SelfSubjectAccessReview>)
+                        mockClient.authorization().v1().selfSubjectAccessReview();
+        Mockito.verify(ssarOp, Mockito.never()).create(any());
+    }
+
+    @Test
+    void testCachedDenialSkipsSsar() {
+        when(ssarDecisionCache.get(any(), any(), any(), any(), any()))
+                .thenAnswer(invocation -> false);
+
+        var ctx = mock(RoutingContext.class);
+        var req = mock(io.vertx.core.http.HttpServerRequest.class);
+        when(ctx.request()).thenReturn(req);
+        when(req.getHeader(RbacHttpAuthenticationMechanism.HEADER_FORWARDED_USER))
+                .thenReturn("admin");
+        when(req.getHeader(RbacHttpAuthenticationMechanism.HEADER_FORWARDED_TOKEN))
+                .thenReturn("bearer-token");
+
+        SecurityIdentity identity = mechanism.authenticate(ctx, null).await().indefinitely();
+        assertNotNull(identity);
+
+        boolean allowed =
+                identity.checkPermission(new StringPermission("credentials", "read"))
+                        .await()
+                        .indefinitely();
+        assertFalse(allowed);
+
+        var ssarOp =
+                (InOutCreateable<SelfSubjectAccessReview, SelfSubjectAccessReview>)
+                        mockClient.authorization().v1().selfSubjectAccessReview();
+        Mockito.verify(ssarOp, Mockito.never()).create(any());
     }
 
     static class CommaSeparatedActionPermission extends Permission {
