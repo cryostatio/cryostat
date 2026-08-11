@@ -16,10 +16,10 @@
 package io.cryostat.security.rbac.graphql;
 
 import java.lang.reflect.Method;
-import java.security.BasicPermission;
 import java.util.ArrayList;
 import java.util.List;
 
+import io.cryostat.security.rbac.PermissionMapper;
 import io.cryostat.security.rbac.RbacConfig;
 import io.cryostat.security.rbac.RbacMode;
 
@@ -68,11 +68,11 @@ public class GraphQLSecurityInterceptor implements EventingService {
         }
 
         for (String permissionName : required) {
-            BasicPermission permission =
-                    new BasicPermission(permissionName) {
-                        private static final long serialVersionUID = 1L;
-                    };
-            boolean allowed = securityIdentity.checkPermission(permission).await().indefinitely();
+            boolean allowed =
+                    securityIdentity
+                            .checkPermission(PermissionMapper.toPermission(permissionName))
+                            .await()
+                            .indefinitely();
             if (!allowed) {
                 logger.debugf(
                         "GraphQL permission check failed: %s for method %s",
