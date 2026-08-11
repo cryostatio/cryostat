@@ -36,7 +36,7 @@ public class Targets {
 
     @GET
     @Path("/api/v4/targets")
-    @PermissionsAllowed("targets:read")
+    @PermissionsAllowed(value = "targets:read", inclusive = true)
     @Operation(
             summary = "List currently discovered targets",
             description =
@@ -50,7 +50,7 @@ public class Targets {
 
     @GET
     @Path("/api/v4/targets/{id}")
-    @PermissionsAllowed("targets:read")
+    @PermissionsAllowed(value = "targets:read", inclusive = true)
     @Operation(
             summary = "Get a target by ID",
             description =
