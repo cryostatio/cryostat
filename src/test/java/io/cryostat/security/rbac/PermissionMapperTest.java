@@ -40,7 +40,8 @@ class PermissionMapperTest {
                     "cryostat.security.rbac.permissions.\"activerecordings.read\"",
                             "pods/exec:create",
                     "cryostat.security.rbac.permissions.\"targets.read\"", "pods:get",
-                    "cryostat.security.rbac.permissions.\"credentials.delete\"", "pods:delete");
+                    "cryostat.security.rbac.permissions.\"credentials.delete\"", "pods:delete",
+                    "cryostat.security.rbac.default-permission", "pods/exec:create");
         }
     }
 
@@ -74,9 +75,12 @@ class PermissionMapperTest {
     }
 
     @Test
-    void testReturnsEmptyForUnknownPermission() {
+    void testFallsBackToDefaultPermissionForUnknownPermission() {
         Optional<PermissionMapper.K8sResourceVerb> result = mapper.resolve("unknown:action");
-        assertFalse(result.isPresent());
+        assertTrue(result.isPresent());
+        assertEquals("pods", result.get().resource());
+        assertEquals("exec", result.get().subresource());
+        assertEquals("create", result.get().verb());
     }
 
     @Test
