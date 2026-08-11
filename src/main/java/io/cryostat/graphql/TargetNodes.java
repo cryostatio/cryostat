@@ -228,7 +228,7 @@ public class TargetNodes {
     }
 
     @Transactional
-    @RequiresPermission({"targets:read", "activerecordings:read"})
+    @RequiresPermission("targets:read")
     @Description("Get the active and archived recordings belonging to this target")
     public Recordings recordings(@Source Target target, Context context) throws Exception {
         var fTarget = Target.getTargetById(target.id);
@@ -241,6 +241,13 @@ public class TargetNodes {
                 dfe.getSelectionSet().getFields().stream().map(field -> field.getName()).toList();
 
         if (requestedFields.contains("active")) {
+            try {
+                userAuthorizer.assertAuthorized("activerecordings", "read");
+            } catch (ForbiddenException e) {
+                throw new GraphQLException(
+                        "Forbidden: insufficient permissions",
+                        GraphQLException.ExceptionType.ExecutionAborted);
+            }
             recordings.active = new ActiveRecordings();
             recordings.active.data = recordingHelper.listActiveRecordings(fTarget);
             recordings.active.aggregate = RecordingAggregateInfo.fromActive(recordings.active.data);
