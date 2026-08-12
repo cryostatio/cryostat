@@ -32,7 +32,7 @@ import org.jboss.logging.Logger;
  * Short-lived in-memory cache of SelfSubjectAccessReview (SSAR) decisions.
  *
  * <p>Cache key: SHA-256 hex digest of the caller's raw bearer token plus the Kubernetes
- * resource/subresource/verb triple. Raw tokens are never stored.
+ * resource/subresource/verb triple and the config namespace. Raw tokens are never stored.
  *
  * <p>Eviction policy: expire-after-write (configurable, default 1 minute). Reads do not refresh the
  * TTL, so stale decisions are bounded to the configured window regardless of traffic.
@@ -43,10 +43,15 @@ import org.jboss.logging.Logger;
 @ApplicationScoped
 public class SsarDecisionCache {
 
-    /** Compound cache key: token hash plus Kubernetes resource/subresource/verb. */
-    record DecisionKey(String tokenHash, String resource, String subresource, String verb) {}
+    /**
+     * Compound cache key: token hash, Kubernetes resource/subresource/verb, and the config
+     * namespace (empty string when cluster-scoped).
+     */
+    record DecisionKey(
+            String tokenHash, String resource, String subresource, String verb, String namespace) {}
 
     private final Cache<DecisionKey, Boolean> decisionCache;
+    private final String namespace;
     private final Logger logger;
 
     @SuppressFBWarnings(
@@ -55,6 +60,7 @@ public class SsarDecisionCache {
     @Inject
     public SsarDecisionCache(Logger logger, RbacConfig config) {
         this.logger = logger;
+        this.namespace = config.namespace().orElse("");
         this.decisionCache =
                 Caffeine.newBuilder()
                         .expireAfterWrite(config.decisionCache().ttl())
@@ -82,11 +88,12 @@ public class SsarDecisionCache {
             String subresource,
             String verb,
             Function<DecisionKey, Boolean> loader) {
-        DecisionKey key = new DecisionKey(hashToken(rawToken), resource, subresource, verb);
+        DecisionKey key =
+                new DecisionKey(hashToken(rawToken), resource, subresource, verb, namespace);
         Boolean result = decisionCache.get(key, loader);
         logger.debugf(
-                "SSAR decision cache: allowed=%b for %s/%s:%s",
-                result, resource, subresource, verb);
+                "SSAR decision cache: allowed=%b for %s/%s:%s (namespace: %s)",
+                result, resource, subresource, verb, namespace.isEmpty() ? "<cluster>" : namespace);
         return Boolean.TRUE.equals(result);
     }
 
