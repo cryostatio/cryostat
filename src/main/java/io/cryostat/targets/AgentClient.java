@@ -166,22 +166,16 @@ public class AgentClient {
     }
 
     Uni<List<String>> addSmartTriggers(String definitions) {
-        try {
-            return agentRestClient
-                    .addTriggers(new ByteArrayInputStream(mapper.writeValueAsBytes(definitions)))
-                    .map(
-                            Unchecked.function(
-                                    resp -> {
-                                        try (resp;
-                                                var is = (InputStream) resp.getEntity()) {
-                                            return Arrays.asList(
-                                                    mapper.readValue(is, String[].class));
-                                        }
-                                    }));
-        } catch (JsonProcessingException e) {
-            logger.error("Smart Triggers request failed", e);
-            return Uni.createFrom().failure(e);
-        }
+        return agentRestClient
+                .addTriggers(new ByteArrayInputStream(definitions.getBytes()))
+                .map(
+                        Unchecked.function(
+                                resp -> {
+                                    try (resp;
+                                            var is = (InputStream) resp.getEntity()) {
+                                        return Arrays.asList(mapper.readValue(is, String[].class));
+                                    }
+                                }));
     }
 
     Uni<Void> removeSmartTrigger(String uuid) {
