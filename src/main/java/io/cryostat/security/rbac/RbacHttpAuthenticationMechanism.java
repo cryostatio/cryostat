@@ -18,6 +18,7 @@ package io.cryostat.security.rbac;
 import java.security.Permission;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Optional;
 import java.util.Set;
 
 import io.fabric8.kubernetes.api.model.authorization.v1.ResourceAttributes;
@@ -237,27 +238,36 @@ public class RbacHttpAuthenticationMechanism implements HttpAuthenticationMechan
                             client.authorization()
                                     .v1()
                                     .selfSubjectAccessReview()
-                                    .create(buildSsar(k8s));
+                                    .create(buildSsar(k8s, config.namespace()));
                     boolean decision = Boolean.TRUE.equals(result.getStatus().getAllowed());
+                    String scopeInfo =
+                            config.namespace().isPresent()
+                                    ? String.format("(namespace: %s)", config.namespace().get())
+                                    : "(cluster-scoped)";
                     log.debugf(
                             "OPENSHIFT mode: SSAR result for permission '%s'"
-                                    + " (%s/%s:%s) → allowed=%b",
+                                    + " (%s/%s:%s) %s → allowed=%b",
                             permissionName,
                             k8s.resource(),
                             k8s.subresource(),
                             k8s.verb(),
+                            scopeInfo,
                             decision);
                     return decision;
                 });
     }
 
-    private static SelfSubjectAccessReview buildSsar(PermissionMapper.K8sResourceVerb k8s) {
-        ResourceAttributes spec =
+    private static SelfSubjectAccessReview buildSsar(
+            PermissionMapper.K8sResourceVerb k8s, Optional<String> namespace) {
+        ResourceAttributesBuilder specBuilder =
                 new ResourceAttributesBuilder()
                         .withResource(k8s.resource())
                         .withSubresource(k8s.subresource())
-                        .withVerb(k8s.verb())
-                        .build();
+                        .withVerb(k8s.verb());
+        if (namespace.isPresent()) {
+            specBuilder.withNamespace(namespace.get());
+        }
+        ResourceAttributes spec = specBuilder.build();
         return new SelfSubjectAccessReviewBuilder()
                 .withNewSpec()
                 .withResourceAttributes(spec)

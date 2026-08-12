@@ -46,6 +46,16 @@ public interface RbacConfig {
     @WithName("default-permission")
     Optional<String> defaultPermission();
 
+    /**
+     * Kubernetes namespace in which to perform namespace-scoped access reviews. When set
+     * (non-empty), access reviews are performed as namespace-bound Roles in the specified
+     * namespace. When empty (default), access reviews are performed as cluster-scoped ClusterRoles.
+     * This property should be set by the Operator or Helm chart to the namespace where Cryostat is
+     * installed.
+     */
+    @WithName("namespace")
+    Optional<String> namespace();
+
     CacheConfig cache();
 
     interface CacheConfig {
