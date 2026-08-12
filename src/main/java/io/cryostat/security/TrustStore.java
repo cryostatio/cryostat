@@ -23,6 +23,7 @@ import io.cryostat.ConfigProperties;
 import io.cryostat.DeclarativeConfiguration;
 
 import io.smallrye.common.annotation.Blocking;
+import jakarta.annotation.security.PermitAll;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
@@ -43,6 +44,7 @@ public class TrustStore {
 
     @Blocking
     @GET
+    @PermitAll
     @Produces(MediaType.APPLICATION_JSON)
     @Operation(
             summary = "List additional trusted SSL/TLS certificates",
