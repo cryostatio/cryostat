@@ -92,7 +92,9 @@ public class ArchivedRecordings {
     @GET
     @Blocking
     @Path("/api/v4/recordings")
-    @PermissionsAllowed(value = "archivedrecordings:read", inclusive = true)
+    @PermissionsAllowed(
+            value = {"archivedrecordings:read", "reports:read"},
+            inclusive = true)
     @Operation(
             summary = "List all archived recordings",
             description =
@@ -252,7 +254,9 @@ public class ArchivedRecordings {
     @GET
     @Blocking
     @Path("/api/beta/recordings/{jvmId}")
-    @PermissionsAllowed(value = "archivedrecordings:read", inclusive = true)
+    @PermissionsAllowed(
+            value = {"archivedrecordings:read", "reports:read"},
+            inclusive = true)
     @Operation(summary = "List archived recordings belonging to the specified target")
     public List<ArchivedRecording> agentGet(@Parameter(required = true) @RestPath String jvmId) {
         var result = new ArrayList<ArchivedRecording>();
@@ -341,7 +345,9 @@ public class ArchivedRecordings {
     @GET
     @Blocking
     @Path("/api/beta/fs/recordings")
-    @PermissionsAllowed(value = "archivedrecordings:read", inclusive = true)
+    @PermissionsAllowed(
+            value = {"archivedrecordings:read", "reports:read"},
+            inclusive = true)
     @Operation(summary = "List all archived recordings grouped by target")
     public Collection<ArchivedRecordingDirectory> listFsArchives() {
         var map = new HashMap<String, ArchivedRecordingDirectory>();
@@ -383,7 +389,9 @@ public class ArchivedRecordings {
     @GET
     @Blocking
     @Path("/api/beta/fs/recordings/{jvmId}")
-    @PermissionsAllowed(value = "archivedrecordings:read", inclusive = true)
+    @PermissionsAllowed(
+            value = {"archivedrecordings:read", "reports:read"},
+            inclusive = true)
     @Operation(summary = "List all archived recordings belonging to the specified target")
     public Collection<ArchivedRecordingDirectory> listFsArchives(@RestPath String jvmId) {
         var map = new HashMap<String, ArchivedRecordingDirectory>();
