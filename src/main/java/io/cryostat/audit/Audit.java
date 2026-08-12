@@ -39,6 +39,7 @@ import io.cryostat.targets.Target;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
+import io.quarkus.security.PermissionsAllowed;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
 import jakarta.ws.rs.BadRequestException;
@@ -84,6 +85,7 @@ public class Audit {
     @Inject Logger logger;
 
     @GET
+    @PermissionsAllowed(value = "targets:read", inclusive = true)
     @Path("targets/{jvmId}")
     @Produces(MediaType.APPLICATION_JSON)
     public Target targetByJvmId(@RestPath String jvmId) {
@@ -111,6 +113,7 @@ public class Audit {
     }
 
     @GET
+    @PermissionsAllowed(value = "targets:read", inclusive = true)
     @Path("target_lineage/{jvmId}")
     @Produces(MediaType.APPLICATION_JSON)
     public DiscoveryNode targetLineageByJvmId(@RestPath String jvmId) {
@@ -212,6 +215,26 @@ public class Audit {
     }
 
     @GET
+    @PermissionsAllowed(
+            value = {
+                "targets:read",
+                "automatedrules:read",
+                "activerecordings:read",
+                "matchexpressions:read",
+                "discoverynodes:read",
+                "credentials:read",
+                "threaddumps:read",
+                "heapdumps:read",
+                "eventtemplates:read",
+                "eventtypes:read",
+                "archivedrecordings:read",
+                "jmcagent:read",
+                "asyncprofiler:read",
+                "reports:read",
+                "smarttriggers:read",
+                "unifiedlogs:read"
+            },
+            inclusive = true)
     @Path("revisions")
     @Produces(MediaType.APPLICATION_JSON)
     public RevisionsResponse getRevisions(
@@ -288,6 +311,26 @@ public class Audit {
     }
 
     @GET
+    @PermissionsAllowed(
+            value = {
+                "targets:read",
+                "automatedrules:read",
+                "activerecordings:read",
+                "matchexpressions:read",
+                "discoverynodes:read",
+                "credentials:read",
+                "threaddumps:read",
+                "heapdumps:read",
+                "eventtemplates:read",
+                "eventtypes:read",
+                "archivedrecordings:read",
+                "jmcagent:read",
+                "asyncprofiler:read",
+                "reports:read",
+                "smarttriggers:read",
+                "unifiedlogs:read"
+            },
+            inclusive = true)
     @Path("export")
     @Produces(MediaType.APPLICATION_JSON)
     public Response exportRevisions(
@@ -332,6 +375,26 @@ public class Audit {
     }
 
     @GET
+    @PermissionsAllowed(
+            value = {
+                "targets:read",
+                "automatedrules:read",
+                "activerecordings:read",
+                "matchexpressions:read",
+                "discoverynodes:read",
+                "credentials:read",
+                "threaddumps:read",
+                "heapdumps:read",
+                "eventtemplates:read",
+                "eventtypes:read",
+                "archivedrecordings:read",
+                "jmcagent:read",
+                "asyncprofiler:read",
+                "reports:read",
+                "smarttriggers:read",
+                "unifiedlogs:read"
+            },
+            inclusive = true)
     @Path("revisions/{rev}")
     @Produces(MediaType.APPLICATION_JSON)
     public RevisionDetail getRevisionDetail(@RestPath long rev) throws Exception {
