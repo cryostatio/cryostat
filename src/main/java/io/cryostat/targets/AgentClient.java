@@ -166,10 +166,9 @@ public class AgentClient {
     }
 
     Uni<List<String>> addSmartTriggers(String definitions) {
-        var req = new SmartTriggerRequest(definitions);
         try {
             return agentRestClient
-                    .addTriggers(new ByteArrayInputStream(mapper.writeValueAsBytes(req)))
+                    .addTriggers(new ByteArrayInputStream(mapper.writeValueAsBytes(definitions)))
                     .map(
                             Unchecked.function(
                                     resp -> {
@@ -865,8 +864,6 @@ public class AgentClient {
             Objects.requireNonNull(operation);
         }
     }
-
-    static record SmartTriggerRequest(String definitions) {}
 
     @SuppressFBWarnings("EI_EXPOSE_REP")
     public static record StartProfileRequest(
