@@ -440,7 +440,7 @@ public class ArchivedRecordings {
     @POST
     @Blocking
     @Path("/api/v4/grafana/{encodedKey}")
-    @PermissionsAllowed(value = "archivedrecordings:write", inclusive = true)
+    @PermissionsAllowed(value = "archivedrecordings:read", inclusive = true)
     @Operation(
             summary = "Upload an archived recording to Grafana for online analysis",
             description =

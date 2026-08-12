@@ -290,7 +290,7 @@ public class ActiveRecordings {
     @POST
     @Blocking
     @Path("/{remoteId}/upload")
-    @PermissionsAllowed(value = "activerecordings:write", inclusive = true)
+    @PermissionsAllowed(value = "activerecordings:read", inclusive = true)
     @Operation(
             summary = "Upload a recording for analysis in Grafana dashboard",
             description =
