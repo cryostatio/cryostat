@@ -192,7 +192,7 @@ public class CustomDiscoveryTest extends AbstractTransactionalTestBase {
                 .log()
                 .all()
                 .assertThat()
-                .statusCode(500);
+                .statusCode(400);
     }
 
     @Test
