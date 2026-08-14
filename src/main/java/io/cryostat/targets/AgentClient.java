@@ -20,6 +20,7 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.Collection;
@@ -167,7 +168,7 @@ public class AgentClient {
 
     Uni<List<String>> addSmartTriggers(String definitions) {
         return agentRestClient
-                .addTriggers(new ByteArrayInputStream(definitions.getBytes()))
+                .addTriggers(new ByteArrayInputStream(definitions.getBytes(StandardCharsets.UTF_8)))
                 .map(
                         Unchecked.function(
                                 resp -> {
