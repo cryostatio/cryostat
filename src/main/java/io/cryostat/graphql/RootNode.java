@@ -88,9 +88,9 @@ public class RootNode {
             Predicate<DiscoveryNode> matchesId = n -> id == null || id.equals(n.id);
             Predicate<DiscoveryNode> matchesIds = n -> ids == null || ids.contains(n.id);
             Predicate<DiscoveryNode> matchesJvmId =
-                    n -> jvmId == null || jvmId.equals(n.target.jvmId);
+                    n -> jvmId == null || (n.target != null && jvmId.equals(n.target.jvmId));
             Predicate<DiscoveryNode> matchesJvmIds =
-                    n -> jvmIds == null || jvmIds.contains(n.target.jvmId);
+                    n -> jvmIds == null || (n.target != null && jvmIds.contains(n.target.jvmId));
             Predicate<DiscoveryNode> matchesTargetId =
                     n -> targetId == null || (n.target != null && targetId.equals(n.target.id));
             Predicate<DiscoveryNode> matchesTargetIds =
@@ -112,18 +112,16 @@ public class RootNode {
                                                             LabelSelectorMatcher.parse(label)
                                                                     .test(n.labels));
             Predicate<DiscoveryNode> matchesAnnotations =
-                    n ->
-                            annotations == null
-                                    || (n.target != null
-                                            && annotations.stream()
-                                                    .allMatch(
-                                                            annotation ->
-                                                                    LabelSelectorMatcher.parse(
-                                                                                    annotation)
-                                                                            .test(
-                                                                                    n.target
-                                                                                            .annotations
-                                                                                            .merged())));
+                    n -> {
+                        if (annotations == null) return true;
+                        if (n.target == null || n.target.annotations == null) return false;
+                        var merged = n.target.annotations.merged();
+                        return annotations.stream()
+                                .allMatch(
+                                        annotation ->
+                                                LabelSelectorMatcher.parse(annotation)
+                                                        .test(merged));
+                    };
 
             return List.of(
                             matchesId,
