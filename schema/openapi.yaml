@@ -1181,6 +1181,12 @@ paths:
             application/json:
               schema: {}
           description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
       summary: Export Revisions
       tags:
         - Audit
@@ -1216,6 +1222,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/RevisionsResponse'
           description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
       summary: Get Revisions
       tags:
         - Audit
@@ -1235,6 +1247,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/RevisionDetail'
           description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
       summary: Get Revision Detail
       tags:
         - Audit
@@ -1253,6 +1271,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/DiscoveryNode'
           description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
       summary: Target Lineage By Jvm Id
       tags:
         - Audit
@@ -1271,6 +1295,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/Target'
           description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
       summary: Target By Jvm Id
       tags:
         - Audit
@@ -3518,6 +3548,12 @@ paths:
                   $ref: '#/components/schemas/ProbeTemplateResponse'
                 type: array
           description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
       summary: List defined probe templates
       tags:
         - JMC Agent Templates
@@ -3548,6 +3584,12 @@ paths:
           description: OK
         "400":
           description: Bad Request
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
       summary: Create a probe template
       tags:
         - JMC Agent Templates
@@ -3562,6 +3604,12 @@ paths:
       responses:
         "204":
           description: No Content
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
       summary: Delete the specified probe template
       tags:
         - JMC Agent Templates
@@ -3579,6 +3627,12 @@ paths:
               schema:
                 type: string
           description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
       summary: Get a specific probe template
       tags:
         - JMC Agent Templates
@@ -4154,6 +4208,12 @@ paths:
       responses:
         "204":
           description: No Content
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
       summary: Remove all loaded probes from the specified target
       tags:
         - JMC Agent Probes
@@ -4174,6 +4234,12 @@ paths:
                   $ref: '#/components/schemas/ProbeResponse'
                 type: array
           description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
       summary: List loaded probes on the specified target
       tags:
         - JMC Agent Probes
@@ -4196,6 +4262,12 @@ paths:
       responses:
         "201":
           description: Created
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
       summary: Activate a probe template on the specified target
       tags:
         - JMC Agent Probes
