@@ -32,6 +32,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.regex.Pattern;
 
 import io.cryostat.ConfigProperties;
 import io.cryostat.core.diagnostic.HeapDumpAnalysis;
@@ -468,7 +469,7 @@ public class LongRunningRequestGenerator {
         String isoStart =
                 Instant.ofEpochMilli(minStart).toString().replace(':', '-').replace('.', '-');
         String humanDur = formatDuration(Duration.ofMillis(syntheticDuration));
-        String filename = request.tag() + "_" + isoStart + "_" + humanDur + ".jfr";
+        String filename = sanitizeTag(request.tag()) + "_" + isoStart + "_" + humanDur + ".jfr";
 
         long totalSize = candidates.stream().mapToLong(ArchivedRecording::size).sum();
         long[] offsets = new long[candidates.size()];
@@ -581,6 +582,12 @@ public class LongRunningRequestGenerator {
             }
         }
     }
+
+    static String sanitizeTag(String tag) {
+        return UNSAFE_TAG_CHARS.matcher(tag).replaceAll("_");
+    }
+
+    private static final Pattern UNSAFE_TAG_CHARS = Pattern.compile("[^\\p{L}\\p{N}\\-_]");
 
     private static String formatDuration(Duration d) {
         long seconds = d.getSeconds();
