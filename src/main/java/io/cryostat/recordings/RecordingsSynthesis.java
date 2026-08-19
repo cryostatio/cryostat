@@ -24,6 +24,7 @@ import java.util.UUID;
 import io.cryostat.recordings.ArchivedRecordings.ArchivedRecording;
 import io.cryostat.recordings.LongRunningRequestGenerator.SynthesisRequest;
 import io.cryostat.targets.Target;
+import io.cryostat.util.ResponseDispatch;
 
 import io.smallrye.common.annotation.Blocking;
 import io.vertx.core.http.HttpServerResponse;
@@ -114,8 +115,9 @@ public class RecordingsSynthesis {
         incompleteCandidates.sort(Comparator.comparingLong(r -> startTimeMs(r)));
         SynthesisRequest request =
                 new SynthesisRequest(jobId, jvmId, fromMs, toMs, resolvedTag, incompleteCandidates);
-        response.endHandler(
-                (e) -> bus.publish(LongRunningRequestGenerator.SYNTHESIS_REQUEST_ADDRESS, request));
+        ResponseDispatch.onComplete(
+                response,
+                () -> bus.publish(LongRunningRequestGenerator.SYNTHESIS_REQUEST_ADDRESS, request));
         return Response.accepted(jobId).type(MediaType.TEXT_PLAIN).build();
     }
 

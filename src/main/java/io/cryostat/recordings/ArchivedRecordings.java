@@ -37,6 +37,7 @@ import io.cryostat.recordings.ActiveRecordings.Metadata;
 import io.cryostat.recordings.LongRunningRequestGenerator.GrafanaArchiveUploadRequest;
 import io.cryostat.targets.Target;
 import io.cryostat.util.HttpMimeType;
+import io.cryostat.util.ResponseDispatch;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.quarkus.narayana.jta.QuarkusTransaction;
@@ -450,8 +451,9 @@ public class ArchivedRecordings {
         GrafanaArchiveUploadRequest request =
                 new GrafanaArchiveUploadRequest(UUID.randomUUID().toString(), pair);
         logger.tracev("Request created: ({0}, {1})", request.id(), request.pair());
-        response.endHandler(
-                (e) ->
+        ResponseDispatch.onComplete(
+                response,
+                () ->
                         bus.publish(
                                 LongRunningRequestGenerator.GRAFANA_ARCHIVE_REQUEST_ADDRESS,
                                 request));

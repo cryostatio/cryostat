@@ -34,6 +34,7 @@ import io.cryostat.recordings.LongRunningRequestGenerator.GrafanaActiveUploadReq
 import io.cryostat.recordings.RecordingHelper.RecordingOptions;
 import io.cryostat.recordings.RecordingHelper.RecordingReplace;
 import io.cryostat.targets.Target;
+import io.cryostat.util.ResponseDispatch;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -159,8 +160,9 @@ public class ActiveRecordings {
                         new ArchiveRequest(UUID.randomUUID().toString(), activeRecording);
                 logger.tracev(
                         "Request created: ({0}, {1})", request.id(), request.recording().name);
-                response.endHandler(
-                        (e) ->
+                ResponseDispatch.onComplete(
+                        response,
+                        () ->
                                 bus.publish(
                                         LongRunningRequestGenerator.ARCHIVE_REQUEST_ADDRESS,
                                         request));
@@ -295,8 +297,9 @@ public class ActiveRecordings {
                         + request.id()
                         + request.remoteId()
                         + request.targetId());
-        response.endHandler(
-                (e) ->
+        ResponseDispatch.onComplete(
+                response,
+                () ->
                         bus.publish(
                                 LongRunningRequestGenerator.GRAFANA_ACTIVE_REQUEST_ADDRESS,
                                 request));
