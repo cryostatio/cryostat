@@ -513,8 +513,17 @@ public class LongRunningRequestGenerator {
                                         int read;
                                         long pos = offset;
                                         while ((read = in.read(buf)) != -1) {
-                                            fc.write(ByteBuffer.wrap(buf, 0, read), pos);
-                                            pos += read;
+                                            ByteBuffer bb = ByteBuffer.wrap(buf, 0, read);
+                                            while (bb.hasRemaining()) {
+                                                int n = fc.write(bb, pos);
+                                                if (n <= 0) {
+                                                    throw new IOException(
+                                                            "Failed to write segment '"
+                                                                    + name
+                                                                    + "'");
+                                                }
+                                                pos += n;
+                                            }
                                         }
                                         long written = pos - offset;
                                         if (written != expectedSize) {
