@@ -437,6 +437,11 @@ public class LongRunningRequestGenerator {
 
     @ConsumeEvent(value = SYNTHESIS_REQUEST_ADDRESS, blocking = true)
     @Transactional
+    @SuppressFBWarnings(
+            value = "REC_CATCH_EXCEPTION",
+            justification =
+                    "Catch broad Exception intentionally to ensure any unexpected exception,"
+                            + " including RuntimeExceptions, are handled")
     public void onMessage(SynthesisRequest request) {
         logger.tracev("Synthesis job ID: {0} submitted.", request.id());
         long fromMs = request.fromMs();
