@@ -877,10 +877,6 @@ components:
       properties:
         ID:
           type: string
-        durationConstraint:
-          type: string
-        expression:
-          type: string
         firstMetTime:
           $ref: '#/components/schemas/Date'
         id:

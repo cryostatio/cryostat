@@ -20,6 +20,7 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.Collection;
@@ -166,23 +167,16 @@ public class AgentClient {
     }
 
     Uni<List<String>> addSmartTriggers(String definitions) {
-        var req = new SmartTriggerRequest(definitions);
-        try {
-            return agentRestClient
-                    .addTriggers(new ByteArrayInputStream(mapper.writeValueAsBytes(req)))
-                    .map(
-                            Unchecked.function(
-                                    resp -> {
-                                        try (resp;
-                                                var is = (InputStream) resp.getEntity()) {
-                                            return Arrays.asList(
-                                                    mapper.readValue(is, String[].class));
-                                        }
-                                    }));
-        } catch (JsonProcessingException e) {
-            logger.error("Smart Triggers request failed", e);
-            return Uni.createFrom().failure(e);
-        }
+        return agentRestClient
+                .addTriggers(new ByteArrayInputStream(definitions.getBytes(StandardCharsets.UTF_8)))
+                .map(
+                        Unchecked.function(
+                                resp -> {
+                                    try (resp;
+                                            var is = (InputStream) resp.getEntity()) {
+                                        return Arrays.asList(mapper.readValue(is, String[].class));
+                                    }
+                                }));
     }
 
     Uni<Void> removeSmartTrigger(String uuid) {
@@ -865,8 +859,6 @@ public class AgentClient {
             Objects.requireNonNull(operation);
         }
     }
-
-    static record SmartTriggerRequest(String definitions) {}
 
     @SuppressFBWarnings("EI_EXPOSE_REP")
     public static record StartProfileRequest(
