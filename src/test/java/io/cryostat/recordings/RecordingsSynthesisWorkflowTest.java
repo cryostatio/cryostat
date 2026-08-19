@@ -24,6 +24,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
@@ -93,33 +94,36 @@ public class RecordingsSynthesisWorkflowTest extends AbstractTransactionalTestBa
             Files.deleteIfExists(file2);
         }
 
-        final String[] jobId = new String[1];
+        CompletableFuture<String> jobId1 = new CompletableFuture<>();
 
         var executor1 = Executors.newSingleThreadScheduledExecutor();
         try {
-            executor1.schedule(
-                    () -> {
-                        var body =
-                                given().basePath("/")
-                                        .log()
-                                        .all()
-                                        .queryParam("fromTimestamp", 1000L)
-                                        .queryParam("toTimestamp", 2000L)
-                                        .when()
-                                        .post("/api/beta/recording_synthesis/{jvmId}", selfJvmId)
-                                        .then()
-                                        .log()
-                                        .all()
-                                        .assertThat()
-                                        .statusCode(202)
-                                        .contentType(ContentType.TEXT)
-                                        .extract()
-                                        .body()
-                                        .asString();
-                        jobId[0] = body.strip();
-                    },
-                    1,
-                    TimeUnit.SECONDS);
+            var future1 =
+                    executor1.schedule(
+                            () -> {
+                                var body =
+                                        given().basePath("/")
+                                                .log()
+                                                .all()
+                                                .queryParam("fromTimestamp", 1000L)
+                                                .queryParam("toTimestamp", 2000L)
+                                                .when()
+                                                .post(
+                                                        "/api/beta/recording_synthesis/{jvmId}",
+                                                        selfJvmId)
+                                                .then()
+                                                .log()
+                                                .all()
+                                                .assertThat()
+                                                .statusCode(202)
+                                                .contentType(ContentType.TEXT)
+                                                .extract()
+                                                .body()
+                                                .asString();
+                                jobId1.complete(body.strip());
+                            },
+                            1,
+                            TimeUnit.SECONDS);
 
             var notification =
                     webSocketClient.expectNotification(
@@ -127,7 +131,8 @@ public class RecordingsSynthesisWorkflowTest extends AbstractTransactionalTestBa
                             json ->
                                     Objects.equals(
                                             json.getJsonObject("message").getString("jobId"),
-                                            jobId[0]));
+                                            jobId1.join()));
+            future1.get();
 
             var message = notification.getJsonObject("message");
             assertThat(message.containsKey("recording"), is(true));
@@ -183,29 +188,32 @@ public class RecordingsSynthesisWorkflowTest extends AbstractTransactionalTestBa
             Files.deleteIfExists(file2);
         }
 
-        final String[] jobId = new String[1];
+        CompletableFuture<String> jobId2 = new CompletableFuture<>();
 
         // Issue first synthesis request to get a 202 job
         var executor2 = Executors.newSingleThreadScheduledExecutor();
         try {
-            executor2.schedule(
-                    () -> {
-                        var body =
-                                given().basePath("/")
-                                        .queryParam("fromTimestamp", 1000L)
-                                        .queryParam("toTimestamp", 2000L)
-                                        .when()
-                                        .post("/api/beta/recording_synthesis/{jvmId}", selfJvmId)
-                                        .then()
-                                        .assertThat()
-                                        .statusCode(202)
-                                        .extract()
-                                        .body()
-                                        .asString();
-                        jobId[0] = body.strip();
-                    },
-                    1,
-                    TimeUnit.SECONDS);
+            var future2 =
+                    executor2.schedule(
+                            () -> {
+                                var body =
+                                        given().basePath("/")
+                                                .queryParam("fromTimestamp", 1000L)
+                                                .queryParam("toTimestamp", 2000L)
+                                                .when()
+                                                .post(
+                                                        "/api/beta/recording_synthesis/{jvmId}",
+                                                        selfJvmId)
+                                                .then()
+                                                .assertThat()
+                                                .statusCode(202)
+                                                .extract()
+                                                .body()
+                                                .asString();
+                                jobId2.complete(body.strip());
+                            },
+                            1,
+                            TimeUnit.SECONDS);
 
             // Wait for the synthesis to complete (success notification)
             var notification =
@@ -214,7 +222,8 @@ public class RecordingsSynthesisWorkflowTest extends AbstractTransactionalTestBa
                             json ->
                                     Objects.equals(
                                             json.getJsonObject("message").getString("jobId"),
-                                            jobId[0]));
+                                            jobId2.join()));
+            future2.get();
 
             // Extract the synthesised recording name
             var syntheticName =
