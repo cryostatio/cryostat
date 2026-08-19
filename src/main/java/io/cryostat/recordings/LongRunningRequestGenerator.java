@@ -16,6 +16,7 @@
 package io.cryostat.recordings;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.file.Files;
@@ -32,6 +33,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.atomic.AtomicReferenceArray;
 import java.util.regex.Pattern;
 
 import io.cryostat.ConfigProperties;
@@ -502,6 +504,8 @@ public class LongRunningRequestGenerator {
 
             final FileChannel fc = channel;
             final long[] actualWritten = new long[candidates.size()];
+            final AtomicReferenceArray<InputStream> openStreams =
+                    new AtomicReferenceArray<>(candidates.size());
             List<CompletableFuture<Void>> futures = new ArrayList<>();
             for (int i = 0; i < candidates.size(); i++) {
                 final String name = candidates.get(i).name();
@@ -511,9 +515,11 @@ public class LongRunningRequestGenerator {
                 futures.add(
                         CompletableFuture.runAsync(
                                 () -> {
-                                    try (var in =
+                                    InputStream in =
                                             recordingHelper.getArchivedRecordingStream(
-                                                    request.jvmId(), name)) {
+                                                    request.jvmId(), name);
+                                    openStreams.set(idx, in);
+                                    try {
                                         byte[] buf = new byte[8192];
                                         int read;
                                         long pos = offset;
@@ -543,6 +549,11 @@ public class LongRunningRequestGenerator {
                                         actualWritten[idx] = written;
                                     } catch (IOException ex) {
                                         throw new CompletionException(ex);
+                                    } finally {
+                                        try {
+                                            in.close();
+                                        } catch (IOException ignored) {
+                                        }
                                     }
                                 },
                                 recordingHelper.partUploader));
@@ -553,7 +564,25 @@ public class LongRunningRequestGenerator {
             try {
                 allFutures.join();
             } catch (CompletionException e) {
+                // Close all open sibling streams so blocked reads unblock immediately.
+                for (int i = 0; i < openStreams.length(); i++) {
+                    InputStream s = openStreams.get(i);
+                    if (s != null) {
+                        try {
+                            s.close();
+                        } catch (IOException ignored) {
+                        }
+                    }
+                }
+                // Cancel tasks after streams are closed so the executor threads can finish.
                 futures.forEach(f -> f.cancel(true));
+                // Await termination of all sibling tasks before allowing cleanup to proceed.
+                for (CompletableFuture<Void> f : futures) {
+                    try {
+                        f.join();
+                    } catch (Exception ignored) {
+                    }
+                }
                 throw e;
             }
 
