@@ -570,7 +570,7 @@ public class LongRunningRequestGenerator {
                     MessagingServer.class.getName(),
                     new Notification(
                             SYNTHESIS_SUCCESS, new SynthesisCompletePayload(request.id(), result)));
-        } catch (IOException | CompletionException e) {
+        } catch (Exception e) {
             logger.warnv("Synthesis job {0} failed: {1}", request.id(), e.getMessage());
             bus.publish(
                     MessagingServer.class.getName(),
