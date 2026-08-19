@@ -158,7 +158,9 @@ public class RecordingsSynthesis {
                     Long.parseLong(r.metadata().labels().get(RecordingHelper.START_TIME_LABEL));
             long duration =
                     Long.parseLong(r.metadata().labels().get(RecordingHelper.DURATION_LABEL));
-            return (startTime + duration) <= fromMs || startTime >= toMs;
+            if (startTime < 0 || duration <= 0) return true;
+            long endTime = Math.addExact(startTime, duration);
+            return endTime <= fromMs || startTime >= toMs;
         } catch (Exception e) {
             return true;
         }
@@ -170,7 +172,9 @@ public class RecordingsSynthesis {
                     Long.parseLong(r.metadata().labels().get(RecordingHelper.START_TIME_LABEL));
             long duration =
                     Long.parseLong(r.metadata().labels().get(RecordingHelper.DURATION_LABEL));
-            return startTime <= fromMs && (startTime + duration) >= toMs;
+            if (startTime < 0 || duration <= 0) return false;
+            long endTime = Math.addExact(startTime, duration);
+            return startTime <= fromMs && endTime >= toMs;
         } catch (Exception e) {
             return false;
         }
@@ -180,7 +184,7 @@ public class RecordingsSynthesis {
         try {
             long duration =
                     Long.parseLong(r.metadata().labels().get(RecordingHelper.DURATION_LABEL));
-            if (duration == 0) return 0.0;
+            if (duration <= 0) return 0.0;
             return (double) r.size() / duration;
         } catch (Exception e) {
             return 0.0;
