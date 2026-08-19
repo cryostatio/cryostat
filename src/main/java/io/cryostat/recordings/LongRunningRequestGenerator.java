@@ -439,8 +439,8 @@ public class LongRunningRequestGenerator {
     @Transactional
     public void onMessage(SynthesisRequest request) {
         logger.tracev("Synthesis job ID: {0} submitted.", request.id());
-        long fromMs = request.fromTimestamp() * 1000L;
-        long toMs = request.toTimestamp() * 1000L;
+        long fromMs = request.fromMs();
+        long toMs = request.toMs();
 
         Optional<ArchivedRecording> existing =
                 request.candidates().stream()
@@ -707,14 +707,17 @@ public class LongRunningRequestGenerator {
     public record SynthesisRequest(
             String id,
             String jvmId,
-            long fromTimestamp,
-            long toTimestamp,
+            long fromMs,
+            long toMs,
             String tag,
             List<ArchivedRecording> candidates) {
         public SynthesisRequest {
             Objects.requireNonNull(id);
             Objects.requireNonNull(jvmId);
             Objects.requireNonNull(tag);
+            if (fromMs <= 0 || toMs <= 0 || fromMs >= toMs) {
+                throw new IllegalArgumentException("Invalid millisecond timestamps");
+            }
             candidates = List.copyOf(candidates);
         }
     }

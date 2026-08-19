@@ -15,6 +15,7 @@
  */
 package io.cryostat.recordings;
 
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -64,12 +65,20 @@ public class RecordingsSynthesis {
             @Parameter(required = true) @QueryParam("toTimestamp") long toTimestamp,
             @QueryParam("tag") String tag) {
 
+        // Reject values that are clearly not epoch-seconds (negative, zero, or above year 2106).
+        long MAX_EPOCH_SECONDS = BigInteger.TWO.pow(32).longValueExact();
+        if (fromTimestamp <= 0
+                || toTimestamp <= 0
+                || fromTimestamp > MAX_EPOCH_SECONDS
+                || toTimestamp > MAX_EPOCH_SECONDS) {
+            throw new BadRequestException("Timestamp out of valid epoch-seconds range");
+        }
         if (fromTimestamp >= toTimestamp) {
             throw new BadRequestException();
         }
 
-        long fromMs = fromTimestamp * 1000L;
-        long toMs = toTimestamp * 1000L;
+        long fromMs = Math.multiplyExact(fromTimestamp, 1000L);
+        long toMs = Math.multiplyExact(toTimestamp, 1000L);
 
         List<ArchivedRecording> completeCandidates = new ArrayList<>();
         List<ArchivedRecording> incompleteCandidates = new ArrayList<>();
@@ -104,13 +113,7 @@ public class RecordingsSynthesis {
         String jobId = UUID.randomUUID().toString();
         incompleteCandidates.sort(Comparator.comparingLong(r -> startTimeMs(r)));
         SynthesisRequest request =
-                new SynthesisRequest(
-                        jobId,
-                        jvmId,
-                        fromTimestamp,
-                        toTimestamp,
-                        resolvedTag,
-                        incompleteCandidates);
+                new SynthesisRequest(jobId, jvmId, fromMs, toMs, resolvedTag, incompleteCandidates);
         response.endHandler(
                 (e) -> bus.publish(LongRunningRequestGenerator.SYNTHESIS_REQUEST_ADDRESS, request));
         return Response.accepted(jobId).type(MediaType.TEXT_PLAIN).build();
