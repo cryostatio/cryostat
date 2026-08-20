@@ -35,6 +35,7 @@ import io.cryostat.StorageBuckets;
 import io.cryostat.libcryostat.sys.Clock;
 import io.cryostat.recordings.ActiveRecordings.Metadata;
 import io.cryostat.recordings.LongRunningRequestGenerator.GrafanaArchiveUploadRequest;
+import io.cryostat.security.rbac.UserAuthorizer;
 import io.cryostat.targets.Target;
 import io.cryostat.util.HttpMimeType;
 import io.cryostat.util.ResponseDispatch;
@@ -79,6 +80,7 @@ public class ArchivedRecordings {
     @Inject StorageBuckets storageBuckets;
     @Inject S3Presigner presigner;
     @Inject RecordingHelper recordingHelper;
+    @Inject UserAuthorizer userAuthorizer;
     @Inject Logger logger;
 
     @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_ARCHIVES)
@@ -162,6 +164,7 @@ public class ArchivedRecordings {
         final String id = jvmId.strip();
         int max = Integer.MAX_VALUE;
         if (maxFiles > 0) {
+            userAuthorizer.assertAuthorized("archivedrecordings", "delete");
             max = maxFiles;
         }
         Map<String, String> labels = new HashMap<>();
