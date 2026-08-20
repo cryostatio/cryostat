@@ -4685,6 +4685,12 @@ paths:
                   type: string
                 type: array
           description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
       summary: List additional trusted SSL/TLS certificates
       tags:
         - Trust Store
