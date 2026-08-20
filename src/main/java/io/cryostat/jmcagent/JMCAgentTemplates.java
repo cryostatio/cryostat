@@ -75,7 +75,7 @@ public class JMCAgentTemplates {
 
     @Blocking
     @DELETE
-    @PermissionsAllowed(value = "jmcagent:write", inclusive = true)
+    @PermissionsAllowed(value = "jmcagent:delete", inclusive = true)
     @Path("/{probeTemplateName}")
     @Operation(summary = "Delete the specified probe template")
     public void deleteProbeTemplate(@RestPath String probeTemplateName) {
