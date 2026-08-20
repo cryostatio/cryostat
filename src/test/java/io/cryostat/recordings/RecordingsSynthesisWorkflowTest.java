@@ -101,26 +101,30 @@ public class RecordingsSynthesisWorkflowTest extends AbstractTransactionalTestBa
             var future1 =
                     executor1.schedule(
                             () -> {
-                                var body =
-                                        given().basePath("/")
-                                                .log()
-                                                .all()
-                                                .queryParam("fromTimestamp", 1000L)
-                                                .queryParam("toTimestamp", 2000L)
-                                                .when()
-                                                .post(
-                                                        "/api/beta/recording_synthesis/{jvmId}",
-                                                        selfJvmId)
-                                                .then()
-                                                .log()
-                                                .all()
-                                                .assertThat()
-                                                .statusCode(202)
-                                                .contentType(ContentType.TEXT)
-                                                .extract()
-                                                .body()
-                                                .asString();
-                                jobId1.complete(body.strip());
+                                try {
+                                    var body =
+                                            given().basePath("/")
+                                                    .log()
+                                                    .all()
+                                                    .queryParam("fromTimestamp", 1000L)
+                                                    .queryParam("toTimestamp", 2000L)
+                                                    .when()
+                                                    .post(
+                                                            "/api/beta/recording_synthesis/{jvmId}",
+                                                            selfJvmId)
+                                                    .then()
+                                                    .log()
+                                                    .all()
+                                                    .assertThat()
+                                                    .statusCode(202)
+                                                    .contentType(ContentType.TEXT)
+                                                    .extract()
+                                                    .body()
+                                                    .asString();
+                                    jobId1.complete(body.strip());
+                                } catch (Exception ex) {
+                                    jobId1.completeExceptionally(ex);
+                                }
                             },
                             1,
                             TimeUnit.SECONDS);
@@ -196,21 +200,25 @@ public class RecordingsSynthesisWorkflowTest extends AbstractTransactionalTestBa
             var future2 =
                     executor2.schedule(
                             () -> {
-                                var body =
-                                        given().basePath("/")
-                                                .queryParam("fromTimestamp", 1000L)
-                                                .queryParam("toTimestamp", 2000L)
-                                                .when()
-                                                .post(
-                                                        "/api/beta/recording_synthesis/{jvmId}",
-                                                        selfJvmId)
-                                                .then()
-                                                .assertThat()
-                                                .statusCode(202)
-                                                .extract()
-                                                .body()
-                                                .asString();
-                                jobId2.complete(body.strip());
+                                try {
+                                    var body =
+                                            given().basePath("/")
+                                                    .queryParam("fromTimestamp", 1000L)
+                                                    .queryParam("toTimestamp", 2000L)
+                                                    .when()
+                                                    .post(
+                                                            "/api/beta/recording_synthesis/{jvmId}",
+                                                            selfJvmId)
+                                                    .then()
+                                                    .assertThat()
+                                                    .statusCode(202)
+                                                    .extract()
+                                                    .body()
+                                                    .asString();
+                                    jobId2.complete(body.strip());
+                                } catch (Exception ex) {
+                                    jobId2.completeExceptionally(ex);
+                                }
                             },
                             1,
                             TimeUnit.SECONDS);

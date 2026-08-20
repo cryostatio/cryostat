@@ -462,36 +462,41 @@ public class LongRunningRequestGenerator {
         }
 
         List<ArchivedRecording> candidates = request.candidates();
-        long minStart = Long.MAX_VALUE;
-        long maxEnd = Long.MIN_VALUE;
-        for (ArchivedRecording r : candidates) {
-            long st = Long.parseLong(r.metadata().labels().get(RecordingHelper.START_TIME_LABEL));
-            long dur = Long.parseLong(r.metadata().labels().get(RecordingHelper.DURATION_LABEL));
-            if (st < minStart) minStart = st;
-            if (st + dur > maxEnd) maxEnd = st + dur;
-        }
-        long syntheticDuration = maxEnd - minStart;
-
-        String isoStart =
-                Instant.ofEpochMilli(minStart).toString().replace(':', '-').replace('.', '-');
-        String humanDur = formatDuration(Duration.ofMillis(syntheticDuration));
-        String filename = sanitizeTag(request.tag()) + "_" + isoStart + "_" + humanDur + ".jfr";
-
-        long totalSize = candidates.stream().mapToLong(ArchivedRecording::size).sum();
-        long[] offsets = new long[candidates.size()];
-        offsets[0] = 0;
-        for (int i = 1; i < candidates.size(); i++) {
-            offsets[i] = offsets[i - 1] + candidates.get(i - 1).size();
-        }
-
-        if (totalSize <= 0) {
-            throw new IllegalStateException(
-                    "Cannot synthesise recordings: total candidate size is zero");
-        }
 
         Path tempFile = null;
         FileChannel channel = null;
         try {
+            long minStart = Long.MAX_VALUE;
+            long maxEnd = Long.MIN_VALUE;
+            for (ArchivedRecording r : candidates) {
+                long st =
+                        Long.parseLong(r.metadata().labels().get(RecordingHelper.START_TIME_LABEL));
+                long dur =
+                        Long.parseLong(r.metadata().labels().get(RecordingHelper.DURATION_LABEL));
+                if (st < minStart) minStart = st;
+                if (st + dur > maxEnd) maxEnd = st + dur;
+            }
+            long syntheticDuration = maxEnd - minStart;
+
+            String isoStart =
+                    Instant.ofEpochMilli(minStart).toString().replace(':', '-').replace('.', '-');
+            String humanDur = formatDuration(Duration.ofMillis(syntheticDuration));
+            String filename = sanitizeTag(request.tag()) + "_" + isoStart + "_" + humanDur + ".jfr";
+
+            long totalSize = candidates.stream().mapToLong(ArchivedRecording::size).sum();
+            if (totalSize <= 0) {
+                throw new IllegalStateException(
+                        "Cannot synthesise recordings: total candidate size is zero");
+            }
+
+            long[] offsets = new long[candidates.size()];
+            if (!candidates.isEmpty()) {
+                offsets[0] = 0;
+                for (int i = 1; i < candidates.size(); i++) {
+                    offsets[i] = offsets[i - 1] + candidates.get(i - 1).size();
+                }
+            }
+
             tempFile = Files.createTempFile("synthesis-", ".jfr");
             channel = FileChannel.open(tempFile, StandardOpenOption.READ, StandardOpenOption.WRITE);
 
