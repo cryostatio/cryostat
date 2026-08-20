@@ -20,14 +20,12 @@ import java.util.Map;
 import java.util.Optional;
 
 import io.smallrye.config.ConfigMapping;
-import io.smallrye.config.WithDefault;
 import io.smallrye.config.WithName;
 
 @ConfigMapping(prefix = "cryostat.security.rbac")
 public interface RbacConfig {
 
     @WithName("mode")
-    @WithDefault("PERMISSIVE")
     RbacMode mode();
 
     /**
@@ -39,9 +37,37 @@ public interface RbacConfig {
     Map<String, String> permissions();
 
     /**
-     * Fallback Kubernetes resource/verb applied when a requested permission name has no explicit
-     * entry in the {@code permissions} map. Follows the same {@code [resource(/subresource)]:verb}
-     * format, e.g. {@code pods/exec:create}. When absent, an unmapped permission is denied.
+     * Fallback Kubernetes resource/verb applied when a requested {@code *:read} permission name has
+     * no explicit entry in the {@code permissions} map, and is checked before {@link
+     * #defaultPermission()}. Follows the same {@code [resource(/subresource)]:verb} format, e.g.
+     * {@code pods:get}.
+     */
+    @WithName("default-read-permission")
+    Optional<String> defaultReadPermission();
+
+    /**
+     * Fallback Kubernetes resource/verb applied when a requested {@code *:write} permission name
+     * has no explicit entry in the {@code permissions} map, and is checked before {@link
+     * #defaultPermission()}. Follows the same {@code [resource(/subresource)]:verb} format, e.g.
+     * {@code pods/exec:create}.
+     */
+    @WithName("default-write-permission")
+    Optional<String> defaultWritePermission();
+
+    /**
+     * Fallback Kubernetes resource/verb applied when a requested {@code *:delete} permission name
+     * has no explicit entry in the {@code permissions} map, and is checked before {@link
+     * #defaultPermission()}. Follows the same {@code [resource(/subresource)]:verb} format, e.g.
+     * {@code pods:delete}.
+     */
+    @WithName("default-delete-permission")
+    Optional<String> defaultDeletePermission();
+
+    /**
+     * Global fallback Kubernetes resource/verb applied when a requested permission name has no
+     * explicit entry in the {@code permissions} map and no matching verb-level default. Follows the
+     * same {@code [resource(/subresource)]:verb} format, e.g. {@code pods/exec:create}. When
+     * absent, an unmapped permission is denied.
      */
     @WithName("default-permission")
     Optional<String> defaultPermission();
@@ -60,11 +86,9 @@ public interface RbacConfig {
 
     interface CacheConfig {
         @WithName("expire-after-access")
-        @WithDefault("5m")
         Duration expireAfterAccess();
 
         @WithName("maximum-size")
-        @WithDefault("1000")
         long maximumSize();
     }
 
@@ -76,11 +100,9 @@ public interface RbacConfig {
          * entry was written; reads do not reset it. Defaults to 1 minute.
          */
         @WithName("ttl")
-        @WithDefault("1m")
         Duration ttl();
 
         @WithName("maximum-size")
-        @WithDefault("10000")
         long maximumSize();
     }
 }

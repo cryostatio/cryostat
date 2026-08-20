@@ -48,6 +48,10 @@ public class PermissionMapper {
      *
      * <ol>
      *   <li>Explicit entry in {@code cryostat.security.rbac.permissions} for this name.
+     *   <li>Verb-level default: {@code cryostat.security.rbac.default-read-permission}, {@code
+     *       cryostat.security.rbac.default-write-permission}, or {@code
+     *       cryostat.security.rbac.default-delete-permission}, matched on the action suffix of the
+     *       permission name. Unrecognised verbs skip this step.
      *   <li>The value of {@code cryostat.security.rbac.default-permission}, if set.
      *   <li>{@code Optional.empty()} — caller treats this as deny.
      * </ol>
@@ -62,6 +66,20 @@ public class PermissionMapper {
         String configKey = permissionName.replace(':', '.');
         String value = config.permissions().get(configKey);
         if (StringUtils.isBlank(value)) {
+            int colonIdx = permissionName.lastIndexOf(':');
+            if (colonIdx >= 0) {
+                String verb = permissionName.substring(colonIdx + 1);
+                Optional<String> verbDefault =
+                        switch (verb) {
+                            case "read" -> config.defaultReadPermission();
+                            case "write" -> config.defaultWritePermission();
+                            case "delete" -> config.defaultDeletePermission();
+                            default -> Optional.empty();
+                        };
+                if (verbDefault.isPresent()) {
+                    return verbDefault.map(this::parse);
+                }
+            }
             return config.defaultPermission().map(this::parse);
         }
         return Optional.of(parse(value));
