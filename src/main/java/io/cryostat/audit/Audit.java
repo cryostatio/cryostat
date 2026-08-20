@@ -84,6 +84,7 @@ public class Audit {
     @Inject ObjectMapper mapper;
     @Inject Logger logger;
 
+    // does not return audit log metadata like username, so audit:read permission is not required
     @GET
     @PermissionsAllowed(value = "targets:read", inclusive = true)
     @Path("targets/{jvmId}")
@@ -112,6 +113,7 @@ public class Audit {
         }
     }
 
+    // does not return audit log metadata like username, so audit:read permission is not required
     @GET
     @PermissionsAllowed(value = "targets:read", inclusive = true)
     @Path("target_lineage/{jvmId}")
@@ -217,6 +219,7 @@ public class Audit {
     @GET
     @PermissionsAllowed(
             value = {
+                "audit:read",
                 "targets:read",
                 "automatedrules:read",
                 "activerecordings:read",
@@ -313,6 +316,7 @@ public class Audit {
     @GET
     @PermissionsAllowed(
             value = {
+                "audit:read",
                 "targets:read",
                 "automatedrules:read",
                 "activerecordings:read",
@@ -377,6 +381,7 @@ public class Audit {
     @GET
     @PermissionsAllowed(
             value = {
+                "audit:read",
                 "targets:read",
                 "automatedrules:read",
                 "activerecordings:read",
