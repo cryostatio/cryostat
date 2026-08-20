@@ -44,7 +44,7 @@ public class ArchivedRecordings {
     @Inject RecordingHelper recordingHelper;
 
     @Query("archivedRecordings")
-    @RequiresPermission({"archivedrecordings:read", "reports:read"})
+    @RequiresPermission({"archivedrecordings:read"})
     @Description("List archived recordings")
     public TargetNodes.ArchivedRecordings listArchivedRecordings(ArchivedRecordingsFilter filter) {
         var r = new TargetNodes.ArchivedRecordings();
@@ -58,7 +58,7 @@ public class ArchivedRecordings {
         return r;
     }
 
-    @RequiresPermission({"archivedrecordings:read", "reports:read"})
+    @RequiresPermission({"archivedrecordings:read"})
     @Description("List and optionally filter archived recordings belonging to a Target")
     public TargetNodes.ArchivedRecordings archived(
             @Source Recordings recordings, ArchivedRecordingsFilter filter) {
@@ -85,7 +85,7 @@ public class ArchivedRecordings {
     }
 
     @NonNull
-    @RequiresPermission({"archivedrecordings:write", "reports:read"})
+    @RequiresPermission({"archivedrecordings:write"})
     @Description("Update the metadata associated with an archived recording")
     public ArchivedRecording doPutMetadata(
             @Source ArchivedRecording recording, MetadataLabels metadataInput) throws IOException {
