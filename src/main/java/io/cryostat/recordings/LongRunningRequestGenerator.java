@@ -438,7 +438,6 @@ public class LongRunningRequestGenerator {
     }
 
     @ConsumeEvent(value = SYNTHESIS_REQUEST_ADDRESS, blocking = true)
-    @Transactional
     @SuppressFBWarnings(
             value = "REC_CATCH_EXCEPTION",
             justification =
