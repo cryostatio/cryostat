@@ -28,6 +28,7 @@ import io.cryostat.security.rbac.graphql.RequiresPermission;
 import com.tngtech.archunit.base.DescribedPredicate;
 import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.domain.JavaMethod;
+import com.tngtech.archunit.core.domain.properties.CanBeAnnotated;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
 import com.tngtech.archunit.core.importer.ImportOption;
 import com.tngtech.archunit.junit.AnalyzeClasses;
@@ -77,16 +78,13 @@ public class PermissionAnnotationArchTest {
     @ArchTest
     static final ArchRule GRAPHQL_QUERY_MUTATION_METHODS_HAVE_REQUIRES_PERMISSION =
             methods()
-                    .that()
+                    .that(isQueryOrMutationMethod())
+                    .and()
                     .areDeclaredInClassesThat()
                     .areAnnotatedWith(GraphQLApi.class)
                     .and()
                     .areDeclaredInClassesThat()
                     .doNotHaveFullyQualifiedName(SCHEMA_EXTENSION)
-                    .and()
-                    .areAnnotatedWith(Query.class)
-                    .or()
-                    .areAnnotatedWith(Mutation.class)
                     .should()
                     .beAnnotatedWith(RequiresPermission.class)
                     .as(
@@ -243,6 +241,16 @@ public class PermissionAnnotationArchTest {
                                         method.getFullName())));
             }
         };
+    }
+
+    private static DescribedPredicate<JavaMethod> isQueryOrMutationMethod() {
+        return DescribedPredicate.<JavaMethod>describe(
+                        "annotated with @Query or @Mutation",
+                        m ->
+                                CanBeAnnotated.Predicates.annotatedWith(Query.class).test(m)
+                                        || CanBeAnnotated.Predicates.annotatedWith(Mutation.class)
+                                                .test(m))
+                .as("annotated with @Query or @Mutation");
     }
 
     private static DescribedPredicate<JavaMethod> haveSourceAnnotatedParameterPredicate() {
