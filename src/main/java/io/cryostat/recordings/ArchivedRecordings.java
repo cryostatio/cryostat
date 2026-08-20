@@ -95,7 +95,7 @@ public class ArchivedRecordings {
     @Blocking
     @Path("/api/v4/recordings")
     @PermissionsAllowed(
-            value = {"archivedrecordings:read", "reports:read"},
+            value = {"archivedrecordings:read"},
             inclusive = true)
     @Operation(
             summary = "List all archived recordings",
@@ -258,7 +258,7 @@ public class ArchivedRecordings {
     @Blocking
     @Path("/api/beta/recordings/{jvmId}")
     @PermissionsAllowed(
-            value = {"archivedrecordings:read", "reports:read"},
+            value = {"archivedrecordings:read"},
             inclusive = true)
     @Operation(summary = "List archived recordings belonging to the specified target")
     public List<ArchivedRecording> agentGet(@Parameter(required = true) @RestPath String jvmId) {
@@ -349,7 +349,7 @@ public class ArchivedRecordings {
     @Blocking
     @Path("/api/beta/fs/recordings")
     @PermissionsAllowed(
-            value = {"archivedrecordings:read", "reports:read"},
+            value = {"archivedrecordings:read"},
             inclusive = true)
     @Operation(summary = "List all archived recordings grouped by target")
     public Collection<ArchivedRecordingDirectory> listFsArchives() {
@@ -393,7 +393,7 @@ public class ArchivedRecordings {
     @Blocking
     @Path("/api/beta/fs/recordings/{jvmId}")
     @PermissionsAllowed(
-            value = {"archivedrecordings:read", "reports:read"},
+            value = {"archivedrecordings:read"},
             inclusive = true)
     @Operation(summary = "List all archived recordings belonging to the specified target")
     public Collection<ArchivedRecordingDirectory> listFsArchives(@RestPath String jvmId) {
