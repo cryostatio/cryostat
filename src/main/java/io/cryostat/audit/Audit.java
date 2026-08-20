@@ -387,6 +387,7 @@ public class Audit {
                 "activerecordings:read",
                 "matchexpressions:read",
                 "discoverynodes:read",
+                "certificates:read",
                 "credentials:read",
                 "threaddumps:read",
                 "heapdumps:read",
