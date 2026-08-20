@@ -35,7 +35,7 @@ public class RecordingLinks {
         return recordingHelper.downloadUrl(recording);
     }
 
-    @RequiresPermission({"activerecordings:read", "reports:read"})
+    @RequiresPermission({"activerecordings:read"})
     @Description(
             "URL for GET request to retrieve a JSON formatted Automated Analysis Report of this"
                     + " recording")
