@@ -15,10 +15,26 @@
  */
 package io.cryostat.recordings;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.time.Duration;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.atomic.AtomicReferenceArray;
+import java.util.regex.Pattern;
 
 import io.cryostat.ConfigProperties;
 import io.cryostat.core.diagnostic.HeapDumpAnalysis;
@@ -39,6 +55,7 @@ import io.cryostat.ws.notifications.NotificationPayloads.HeapDumpAnalysisSuccess
 import io.cryostat.ws.notifications.NotificationPayloads.HeapDumpSuccessPayload;
 import io.cryostat.ws.notifications.NotificationPayloads.JobIdPayload;
 import io.cryostat.ws.notifications.NotificationPayloads.ReportSuccessPayload;
+import io.cryostat.ws.notifications.NotificationPayloads.SynthesisCompletePayload;
 import io.cryostat.ws.notifications.NotificationPayloads.ThreadDumpFailurePayload;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -84,6 +101,8 @@ public class LongRunningRequestGenerator {
             "io.cryostat.recordings.LongRunningRequestGenerator.HeapDumpRequest";
     public static final String THREAD_DUMP_ADDRESS =
             "io.cryostat.recordings.LongRunningRequestGenerator.ThreadDump";
+    public static final String SYNTHESIS_REQUEST_ADDRESS =
+            "io.cryostat.recordings.LongRunningRequestGenerator.SynthesisRequest";
 
     private static final String ARCHIVE_RECORDING_SUCCESS = "ArchiveRecordingSuccess";
     private static final String ARCHIVE_RECORDING_FAIL = "ArchiveRecordingFailure";
@@ -96,6 +115,8 @@ public class LongRunningRequestGenerator {
     private static final String HEAP_DUMP_ANALYSIS_SUCCESS = "HeapDumpAnalysisSuccess";
     private static final String HEAP_DUMP_ANALYSIS_FAILURE = "HeapDumpAnalysisFailure";
     private static final String THREAD_DUMP_FAILURE = "ThreadDumpFailure";
+    private static final String SYNTHESIS_SUCCESS = "RecordingSynthesisComplete";
+    private static final String SYNTHESIS_FAILURE = "RecordingSynthesisFailure";
 
     @Inject Logger logger;
     @Inject private EventBus bus;
@@ -416,6 +437,217 @@ public class LongRunningRequestGenerator {
         }
     }
 
+    @ConsumeEvent(value = SYNTHESIS_REQUEST_ADDRESS, blocking = true)
+    @SuppressFBWarnings(
+            value = "REC_CATCH_EXCEPTION",
+            justification =
+                    "Catch broad Exception intentionally to ensure any unexpected exception,"
+                            + " including RuntimeExceptions, are handled")
+    public void onMessage(SynthesisRequest request) {
+        logger.tracev("Synthesis job ID: {0} submitted.", request.id());
+        long fromMs = request.fromMs();
+        long toMs = request.toMs();
+
+        Optional<ArchivedRecording> existing =
+                request.candidates().stream()
+                        .filter(r -> RecordingsSynthesis.isComplete(r, fromMs, toMs))
+                        .max(Comparator.comparingDouble(RecordingsSynthesis::density));
+        if (existing.isPresent()) {
+            bus.publish(
+                    MessagingServer.class.getName(),
+                    new Notification(
+                            SYNTHESIS_SUCCESS,
+                            new SynthesisCompletePayload(request.id(), existing.get())));
+            return;
+        }
+
+        List<ArchivedRecording> candidates = request.candidates();
+
+        Path tempFile = null;
+        FileChannel channel = null;
+        try {
+            long minStart = Long.MAX_VALUE;
+            long maxEnd = Long.MIN_VALUE;
+            for (ArchivedRecording r : candidates) {
+                long st =
+                        Long.parseLong(r.metadata().labels().get(RecordingHelper.START_TIME_LABEL));
+                long dur =
+                        Long.parseLong(r.metadata().labels().get(RecordingHelper.DURATION_LABEL));
+                if (st < minStart) minStart = st;
+                if (st + dur > maxEnd) maxEnd = st + dur;
+            }
+            long syntheticDuration = maxEnd - minStart;
+
+            String isoStart =
+                    Instant.ofEpochMilli(minStart).toString().replace(':', '-').replace('.', '-');
+            String humanDur = formatDuration(Duration.ofMillis(syntheticDuration));
+            String filename = sanitizeTag(request.tag()) + "_" + isoStart + "_" + humanDur + ".jfr";
+
+            long totalSize = candidates.stream().mapToLong(ArchivedRecording::size).sum();
+            if (totalSize <= 0) {
+                throw new IllegalStateException(
+                        "Cannot synthesise recordings: total candidate size is zero");
+            }
+
+            long[] offsets = new long[candidates.size()];
+            if (!candidates.isEmpty()) {
+                offsets[0] = 0;
+                for (int i = 1; i < candidates.size(); i++) {
+                    offsets[i] = offsets[i - 1] + candidates.get(i - 1).size();
+                }
+            }
+
+            tempFile = Files.createTempFile("synthesis-", ".jfr");
+            channel = FileChannel.open(tempFile, StandardOpenOption.READ, StandardOpenOption.WRITE);
+
+            // Best-effort space probe: writing one byte at the last expected offset forces the
+            // filesystem to report ENOSPC immediately if it cannot accommodate totalSize bytes,
+            // before any downloads begin.
+            channel.write(ByteBuffer.allocate(1), totalSize - 1);
+            channel.truncate(0);
+
+            final FileChannel fc = channel;
+            final long[] actualWritten = new long[candidates.size()];
+            final AtomicReferenceArray<InputStream> openStreams =
+                    new AtomicReferenceArray<>(candidates.size());
+            List<CompletableFuture<Void>> futures = new ArrayList<>();
+            for (int i = 0; i < candidates.size(); i++) {
+                final String name = candidates.get(i).name();
+                final long expectedSize = candidates.get(i).size();
+                final long offset = offsets[i];
+                final int idx = i;
+                futures.add(
+                        CompletableFuture.runAsync(
+                                () -> {
+                                    InputStream in =
+                                            recordingHelper.getArchivedRecordingStream(
+                                                    request.jvmId(), name);
+                                    openStreams.set(idx, in);
+                                    try {
+                                        byte[] buf = new byte[8192];
+                                        int read;
+                                        long pos = offset;
+                                        while ((read = in.read(buf)) != -1) {
+                                            ByteBuffer bb = ByteBuffer.wrap(buf, 0, read);
+                                            while (bb.hasRemaining()) {
+                                                int n = fc.write(bb, pos);
+                                                if (n <= 0) {
+                                                    throw new IOException(
+                                                            "Failed to write segment '"
+                                                                    + name
+                                                                    + "'");
+                                                }
+                                                pos += n;
+                                            }
+                                        }
+                                        long written = pos - offset;
+                                        if (written != expectedSize) {
+                                            throw new IOException(
+                                                    "Size mismatch for '"
+                                                            + name
+                                                            + "': expected "
+                                                            + expectedSize
+                                                            + " bytes but transferred "
+                                                            + written);
+                                        }
+                                        actualWritten[idx] = written;
+                                    } catch (IOException ex) {
+                                        throw new CompletionException(ex);
+                                    } finally {
+                                        try {
+                                            in.close();
+                                        } catch (IOException ignored) {
+                                        }
+                                    }
+                                },
+                                recordingHelper.partUploader));
+            }
+
+            CompletableFuture<Void> allFutures =
+                    CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]));
+            try {
+                allFutures.join();
+            } catch (CompletionException e) {
+                // Close all open sibling streams so blocked reads unblock immediately.
+                for (int i = 0; i < openStreams.length(); i++) {
+                    InputStream s = openStreams.get(i);
+                    if (s != null) {
+                        try {
+                            s.close();
+                        } catch (IOException ignored) {
+                        }
+                    }
+                }
+                // Cancel tasks after streams are closed so the executor threads can finish.
+                futures.forEach(f -> f.cancel(true));
+                // Await termination of all sibling tasks before allowing cleanup to proceed.
+                for (CompletableFuture<Void> f : futures) {
+                    try {
+                        f.join();
+                    } catch (Exception ignored) {
+                    }
+                }
+                throw e;
+            }
+
+            channel.close();
+            channel = null;
+
+            Map<String, String> labelsMap = new HashMap<>();
+            labelsMap.put("jvmId", request.jvmId());
+            labelsMap.put(RecordingHelper.START_TIME_LABEL, String.valueOf(minStart));
+            labelsMap.put(RecordingHelper.DURATION_LABEL, String.valueOf(syntheticDuration));
+            labelsMap.put(AnalysisReportAggregator.AUTOANALYZE_LABEL, "true");
+            labelsMap.put("synthetic", "true");
+            ActiveRecordings.Metadata metadata = new ActiveRecordings.Metadata(labelsMap);
+
+            ArchivedRecording result =
+                    recordingHelper.uploadSynthesizedRecording(
+                            request.jvmId(), tempFile, filename, metadata);
+            bus.publish(
+                    MessagingServer.class.getName(),
+                    new Notification(
+                            SYNTHESIS_SUCCESS, new SynthesisCompletePayload(request.id(), result)));
+        } catch (Exception e) {
+            logger.warnv("Synthesis job {0} failed: {1}", request.id(), e.getMessage());
+            bus.publish(
+                    MessagingServer.class.getName(),
+                    new Notification(SYNTHESIS_FAILURE, new JobIdPayload(request.id())));
+            throw new CompletionException(e);
+        } finally {
+            if (channel != null) {
+                try {
+                    channel.close();
+                } catch (Exception ignored) {
+                }
+            }
+            if (tempFile != null) {
+                try {
+                    Files.deleteIfExists(tempFile);
+                } catch (Exception ignored) {
+                }
+            }
+        }
+    }
+
+    static String sanitizeTag(String tag) {
+        return UNSAFE_TAG_CHARS.matcher(tag).replaceAll("_");
+    }
+
+    private static final Pattern UNSAFE_TAG_CHARS = Pattern.compile("[^\\p{L}\\p{N}\\-_]");
+
+    private static String formatDuration(Duration d) {
+        long seconds = d.getSeconds();
+        long hours = seconds / 3600;
+        long minutes = (seconds % 3600) / 60;
+        long secs = seconds % 60;
+        StringBuilder sb = new StringBuilder();
+        if (hours > 0) sb.append(hours).append('h');
+        if (minutes > 0) sb.append(minutes).append('m');
+        if (secs > 0 || sb.length() == 0) sb.append(secs).append('s');
+        return sb.toString();
+    }
+
     @SuppressFBWarnings("EI_EXPOSE_REP")
     public record ArchiveRequest(String id, ActiveRecording recording, boolean deleteOnCompletion) {
         public ArchiveRequest {
@@ -507,6 +739,24 @@ public class LongRunningRequestGenerator {
             Objects.requireNonNull(id);
             Objects.requireNonNull(jvmId);
             Objects.requireNonNull(heapDumpId);
+        }
+    }
+
+    public record SynthesisRequest(
+            String id,
+            String jvmId,
+            long fromMs,
+            long toMs,
+            String tag,
+            List<ArchivedRecording> candidates) {
+        public SynthesisRequest {
+            Objects.requireNonNull(id);
+            Objects.requireNonNull(jvmId);
+            Objects.requireNonNull(tag);
+            if (fromMs <= 0 || toMs <= 0 || fromMs >= toMs) {
+                throw new IllegalArgumentException("Invalid millisecond timestamps");
+            }
+            candidates = List.copyOf(candidates);
         }
     }
 }
