@@ -58,12 +58,19 @@ import org.jboss.logging.Logger;
  *       X-Forwarded-Access-Token}; attaches a per-permission SSAR checker using the token; returns
  *       {@code null} if either header is absent.
  * </ul>
+ *
+ * <p>In {@code BASIC} and {@code OPENSHIFT} modes, requests arriving through the mTLS agent proxy
+ * (identified by the {@code X-Cryostat-Agent-Proxy} header) are granted a permissive identity when
+ * the normal forwarded-user headers are absent. To prevent header injection through the oauth-proxy
+ * path, {@code X-Cryostat-Agent-Proxy} is stripped from any request that also carries {@code
+ * X-Forwarded-User}.
  */
 @ApplicationScoped
 public class RbacHttpAuthenticationMechanism implements HttpAuthenticationMechanism {
 
     static final String HEADER_FORWARDED_USER = "X-Forwarded-User";
     static final String HEADER_FORWARDED_TOKEN = "X-Forwarded-Access-Token";
+    static final String HEADER_AGENT_PROXY = "X-Cryostat-Agent-Proxy";
     static final String ATTR_RAW_ACCESS_TOKEN = "raw_access_token";
 
     @Inject Logger log;
@@ -75,6 +82,7 @@ public class RbacHttpAuthenticationMechanism implements HttpAuthenticationMechan
     @Override
     public Uni<SecurityIdentity> authenticate(
             RoutingContext context, IdentityProviderManager identityProviderManager) {
+        sanitizeAgentProxyHeader(context);
         return switch (config.mode()) {
             case PERMISSIVE -> {
                 String user = context.request().getHeader(HEADER_FORWARDED_USER);
@@ -84,6 +92,10 @@ public class RbacHttpAuthenticationMechanism implements HttpAuthenticationMechan
             case BASIC -> {
                 String user = context.request().getHeader(HEADER_FORWARDED_USER);
                 if (StringUtils.isBlank(user)) {
+                    if (isAgentProxyRequest(context)) {
+                        log.debug("BASIC mode: agent proxy request, granting permissive identity");
+                        yield Uni.createFrom().item(buildPermissiveIdentity("cryostat-agent"));
+                    }
                     log.debug("BASIC mode: no X-Forwarded-User header, returning null");
                     yield Uni.createFrom().nullItem();
                 }
@@ -94,6 +106,12 @@ public class RbacHttpAuthenticationMechanism implements HttpAuthenticationMechan
                 String user = context.request().getHeader(HEADER_FORWARDED_USER);
                 String token = context.request().getHeader(HEADER_FORWARDED_TOKEN);
                 if (StringUtils.isBlank(user) || StringUtils.isBlank(token)) {
+                    if (isAgentProxyRequest(context)) {
+                        log.debug(
+                                "OPENSHIFT mode: agent proxy request, granting permissive"
+                                        + " identity");
+                        yield Uni.createFrom().item(buildPermissiveIdentity("cryostat-agent"));
+                    }
                     log.debug(
                             "OPENSHIFT mode: missing X-Forwarded-User or X-Forwarded-Access-Token,"
                                     + " returning null");
@@ -103,6 +121,24 @@ public class RbacHttpAuthenticationMechanism implements HttpAuthenticationMechan
                 yield Uni.createFrom().item(buildOpenshiftIdentity(user, token));
             }
         };
+    }
+
+    /**
+     * Strips {@code X-Cryostat-Agent-Proxy} from the request whenever {@code X-Forwarded-User} is
+     * present. This prevents a malicious client from injecting the agent proxy header through the
+     * oauth-proxy path (which cannot be configured to strip arbitrary headers) to bypass SSAR
+     * authorization checks.
+     */
+    private void sanitizeAgentProxyHeader(RoutingContext context) {
+        if (StringUtils.isNotBlank(context.request().getHeader(HEADER_FORWARDED_USER))
+                && StringUtils.isNotBlank(context.request().getHeader(HEADER_AGENT_PROXY))) {
+            log.debug("Stripping X-Cryostat-Agent-Proxy header: X-Forwarded-User is present");
+            context.request().headers().remove(HEADER_AGENT_PROXY);
+        }
+    }
+
+    private static boolean isAgentProxyRequest(RoutingContext context) {
+        return StringUtils.isNotBlank(context.request().getHeader(HEADER_AGENT_PROXY));
     }
 
     @Override
