@@ -256,6 +256,53 @@ class RbacHttpAuthenticationMechanismTest {
     }
 
     @Test
+    void testAgentProxyHeaderGrantsPermissiveIdentityWhenNoForwardedUser() {
+        var ctx = mock(RoutingContext.class);
+        var req = mock(io.vertx.core.http.HttpServerRequest.class);
+        var headers = io.vertx.core.http.impl.headers.HeadersMultiMap.headers();
+        headers.add(RbacHttpAuthenticationMechanism.HEADER_AGENT_PROXY, "true");
+        when(ctx.request()).thenReturn(req);
+        when(req.getHeader(RbacHttpAuthenticationMechanism.HEADER_FORWARDED_USER)).thenReturn(null);
+        when(req.getHeader(RbacHttpAuthenticationMechanism.HEADER_FORWARDED_TOKEN))
+                .thenReturn(null);
+        when(req.getHeader(RbacHttpAuthenticationMechanism.HEADER_AGENT_PROXY)).thenReturn("true");
+        when(req.headers()).thenReturn(headers);
+
+        SecurityIdentity identity = mechanism.authenticate(ctx, null).await().indefinitely();
+
+        assertNotNull(identity);
+        assertFalse(identity.isAnonymous());
+        assertTrue(identity.getPrincipal().getName().equals("cryostat-agent"));
+        assertTrue(
+                identity.checkPermission(new StringPermission("discoverynodes", "write"))
+                        .await()
+                        .indefinitely());
+    }
+
+    @Test
+    void testAgentProxyHeaderStrippedWhenForwardedUserPresent() {
+        var ctx = mock(RoutingContext.class);
+        var req = mock(io.vertx.core.http.HttpServerRequest.class);
+        var headers = io.vertx.core.http.impl.headers.HeadersMultiMap.headers();
+        headers.add(RbacHttpAuthenticationMechanism.HEADER_AGENT_PROXY, "true");
+        headers.add(RbacHttpAuthenticationMechanism.HEADER_FORWARDED_USER, "admin");
+        headers.add(RbacHttpAuthenticationMechanism.HEADER_FORWARDED_TOKEN, "my-token");
+        when(ctx.request()).thenReturn(req);
+        when(req.getHeader(RbacHttpAuthenticationMechanism.HEADER_FORWARDED_USER))
+                .thenReturn("admin");
+        when(req.getHeader(RbacHttpAuthenticationMechanism.HEADER_FORWARDED_TOKEN))
+                .thenReturn("my-token");
+        when(req.getHeader(RbacHttpAuthenticationMechanism.HEADER_AGENT_PROXY)).thenReturn("true");
+        when(req.headers()).thenReturn(headers);
+
+        SecurityIdentity identity = mechanism.authenticate(ctx, null).await().indefinitely();
+
+        assertNotNull(identity);
+        assertTrue(identity.getPrincipal().getName().equals("admin"));
+        assertFalse(headers.contains(RbacHttpAuthenticationMechanism.HEADER_AGENT_PROXY));
+    }
+
+    @Test
     void testCachedDenialSkipsSsar() {
         when(ssarDecisionCache.get(any(), any(), any(), any(), any()))
                 .thenAnswer(invocation -> false);
