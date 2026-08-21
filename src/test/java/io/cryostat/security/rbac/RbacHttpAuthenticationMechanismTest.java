@@ -256,6 +256,77 @@ class RbacHttpAuthenticationMechanismTest {
     }
 
     @Test
+    void testAuthenticateUsesAuthorizationBearerWhenForwardedTokenMissing() {
+        var ctx = mock(RoutingContext.class);
+        var req = mock(io.vertx.core.http.HttpServerRequest.class);
+        when(ctx.request()).thenReturn(req);
+        when(req.getHeader(RbacHttpAuthenticationMechanism.HEADER_FORWARDED_USER))
+                .thenReturn("admin");
+        when(req.getHeader(RbacHttpAuthenticationMechanism.HEADER_FORWARDED_TOKEN))
+                .thenReturn(null);
+        when(req.getHeader(RbacHttpAuthenticationMechanism.HEADER_AUTHORIZATION))
+                .thenReturn("Bearer my-bearer-token");
+
+        SecurityIdentity identity = mechanism.authenticate(ctx, null).await().indefinitely();
+
+        assertNotNull(identity);
+        assertFalse(identity.isAnonymous());
+        assertTrue(identity.getPrincipal().getName().equals("admin"));
+    }
+
+    @Test
+    void testAuthenticatePrefersForwardedTokenOverAuthorizationBearer() {
+        var ctx = mock(RoutingContext.class);
+        var req = mock(io.vertx.core.http.HttpServerRequest.class);
+        when(ctx.request()).thenReturn(req);
+        when(req.getHeader(RbacHttpAuthenticationMechanism.HEADER_FORWARDED_USER))
+                .thenReturn("admin");
+        when(req.getHeader(RbacHttpAuthenticationMechanism.HEADER_FORWARDED_TOKEN))
+                .thenReturn("forwarded-token");
+        when(req.getHeader(RbacHttpAuthenticationMechanism.HEADER_AUTHORIZATION))
+                .thenReturn("Bearer bearer-token");
+
+        SecurityIdentity identity = mechanism.authenticate(ctx, null).await().indefinitely();
+
+        assertNotNull(identity);
+        assertFalse(identity.isAnonymous());
+        assertTrue(identity.getPrincipal().getName().equals("admin"));
+    }
+
+    @Test
+    void testAuthenticateReturnsNullWhenBothTokenSourcesMissing() {
+        var ctx = mock(RoutingContext.class);
+        var req = mock(io.vertx.core.http.HttpServerRequest.class);
+        when(ctx.request()).thenReturn(req);
+        when(req.getHeader(RbacHttpAuthenticationMechanism.HEADER_FORWARDED_USER))
+                .thenReturn("admin");
+        when(req.getHeader(RbacHttpAuthenticationMechanism.HEADER_FORWARDED_TOKEN))
+                .thenReturn(null);
+        when(req.getHeader(RbacHttpAuthenticationMechanism.HEADER_AUTHORIZATION)).thenReturn(null);
+
+        SecurityIdentity identity = mechanism.authenticate(ctx, null).await().indefinitely();
+
+        assertFalse(identity != null && !identity.isAnonymous());
+    }
+
+    @Test
+    void testAuthenticateIgnoresNonBearerAuthorizationHeader() {
+        var ctx = mock(RoutingContext.class);
+        var req = mock(io.vertx.core.http.HttpServerRequest.class);
+        when(ctx.request()).thenReturn(req);
+        when(req.getHeader(RbacHttpAuthenticationMechanism.HEADER_FORWARDED_USER))
+                .thenReturn("admin");
+        when(req.getHeader(RbacHttpAuthenticationMechanism.HEADER_FORWARDED_TOKEN))
+                .thenReturn(null);
+        when(req.getHeader(RbacHttpAuthenticationMechanism.HEADER_AUTHORIZATION))
+                .thenReturn("Basic dXNlcjpwYXNz");
+
+        SecurityIdentity identity = mechanism.authenticate(ctx, null).await().indefinitely();
+
+        assertFalse(identity != null && !identity.isAnonymous());
+    }
+
+    @Test
     void testAgentProxyHeaderGrantsPermissiveIdentityWhenNoForwardedUser() {
         var ctx = mock(RoutingContext.class);
         var req = mock(io.vertx.core.http.HttpServerRequest.class);
