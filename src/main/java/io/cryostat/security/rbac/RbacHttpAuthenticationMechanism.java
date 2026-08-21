@@ -70,7 +70,7 @@ public class RbacHttpAuthenticationMechanism implements HttpAuthenticationMechan
 
     static final String HEADER_FORWARDED_USER = "X-Forwarded-User";
     static final String HEADER_FORWARDED_TOKEN = "X-Forwarded-Access-Token";
-    static final String HEADER_AGENT_PROXY = "X-Cryostat-Agent-Proxy";
+    public static final String HEADER_AGENT_PROXY = "X-Cryostat-Agent-Proxy";
     static final String ATTR_RAW_ACCESS_TOKEN = "raw_access_token";
 
     @Inject Logger log;
@@ -137,7 +137,7 @@ public class RbacHttpAuthenticationMechanism implements HttpAuthenticationMechan
         }
     }
 
-    private static boolean isAgentProxyRequest(RoutingContext context) {
+    public static boolean isAgentProxyRequest(RoutingContext context) {
         return StringUtils.isNotBlank(context.request().getHeader(HEADER_AGENT_PROXY));
     }
 
