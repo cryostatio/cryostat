@@ -33,14 +33,15 @@ import io.cryostat.recordings.LongRunningRequestGenerator.ArchiveRequest;
 import io.cryostat.recordings.LongRunningRequestGenerator.GrafanaActiveUploadRequest;
 import io.cryostat.recordings.RecordingHelper.RecordingOptions;
 import io.cryostat.recordings.RecordingHelper.RecordingReplace;
+import io.cryostat.security.rbac.UserAuthorizer;
 import io.cryostat.targets.Target;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import io.quarkus.security.PermissionsAllowed;
 import io.smallrye.common.annotation.Blocking;
 import io.vertx.core.http.HttpServerResponse;
 import io.vertx.mutiny.core.eventbus.EventBus;
-import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.BadRequestException;
@@ -72,6 +73,7 @@ public class ActiveRecordings {
     @Inject LongRunningRequestGenerator generator;
     @Inject EventBus bus;
     @Inject Logger logger;
+    @Inject UserAuthorizer userAuthorizer;
 
     @ConfigProperty(name = ConfigProperties.CONNECTIONS_FAILED_TIMEOUT)
     Duration connectionFailedTimeout;
@@ -79,7 +81,9 @@ public class ActiveRecordings {
     @GET
     @Blocking
     @Transactional
-    @RolesAllowed("read")
+    @PermissionsAllowed(
+            value = {"targets:read", "discoverynodes:read", "activerecordings:read"},
+            inclusive = true)
     @Operation(
             summary = "List active recordings on the specified target",
             description =
@@ -97,7 +101,7 @@ public class ActiveRecordings {
     @GET
     @Blocking
     @Path("/{remoteId}")
-    @RolesAllowed("read")
+    @PermissionsAllowed(value = "activerecordings:read", inclusive = true)
     @Operation(
             summary = "Download a Flight Recording binary file",
             description =
@@ -124,7 +128,9 @@ public class ActiveRecordings {
     @Transactional
     @Blocking
     @Path("/{remoteId}")
-    @RolesAllowed("write")
+    @PermissionsAllowed(
+            value = {"targets:read", "activerecordings:write"},
+            inclusive = true)
     @Operation(
             summary = "Update a remote recording on the specified target",
             description =
@@ -149,12 +155,16 @@ public class ActiveRecordings {
         ActiveRecording activeRecording = recording.get();
         switch (body.strip().toLowerCase()) {
             case "stop":
+                if (activeRecording.archiveOnStop) {
+                    userAuthorizer.assertAuthorized("archivedrecordings", "write");
+                }
                 recordingHelper
                         .stopRecording(activeRecording)
                         .await()
                         .atMost(connectionFailedTimeout);
                 return null;
             case "save":
+                userAuthorizer.assertAuthorized("archivedrecordings", "write");
                 ArchiveRequest request =
                         new ArchiveRequest(UUID.randomUUID().toString(), activeRecording);
                 logger.tracev(
@@ -173,7 +183,9 @@ public class ActiveRecordings {
     @POST
     @Transactional
     @Blocking
-    @RolesAllowed("write")
+    @PermissionsAllowed(
+            value = {"targets:read", "activerecordings:write"},
+            inclusive = true)
     @Operation(
             summary = "Start a new recording on the specified target",
             description =
@@ -209,6 +221,10 @@ public class ActiveRecordings {
         }
         if (StringUtils.isBlank(events)) {
             throw new BadRequestException("\"events\" form parameter must be provided");
+        }
+
+        if (archiveOnStop.orElse(false)) {
+            userAuthorizer.assertAuthorized("archivedrecordings", "write");
         }
 
         Target target = Target.find("id", targetId).singleResult();
@@ -254,7 +270,7 @@ public class ActiveRecordings {
     @Transactional
     @Blocking
     @Path("/{remoteId}")
-    @RolesAllowed("write")
+    @PermissionsAllowed(value = "activerecordings:delete", inclusive = true)
     @Operation(
             summary = "Delete a recording from the specified target",
             description =
@@ -274,7 +290,7 @@ public class ActiveRecordings {
     @POST
     @Blocking
     @Path("/{remoteId}/upload")
-    @RolesAllowed("write")
+    @PermissionsAllowed(value = "activerecordings:read", inclusive = true)
     @Operation(
             summary = "Upload a recording for analysis in Grafana dashboard",
             description =

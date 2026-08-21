@@ -23,9 +23,9 @@ import java.util.Objects;
 import io.cryostat.expressions.MatchExpression.MatchedExpression;
 import io.cryostat.targets.Target;
 
+import io.quarkus.security.PermissionsAllowed;
 import io.smallrye.common.annotation.Blocking;
 import io.smallrye.mutiny.Multi;
-import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.GET;
@@ -43,7 +43,7 @@ public class MatchExpressions {
     @Inject Logger logger;
 
     @POST
-    @RolesAllowed("read")
+    @PermissionsAllowed(value = "matchexpressions:read", inclusive = true)
     @Blocking
     @Transactional
     @Operation(
@@ -66,7 +66,7 @@ public class MatchExpressions {
     }
 
     @GET
-    @RolesAllowed("read")
+    @PermissionsAllowed(value = "matchexpressions:read", inclusive = true)
     @Blocking
     @Operation(
             summary = "Retrieve a list of all currently defined Match Expressions",
@@ -88,7 +88,7 @@ public class MatchExpressions {
 
     @GET
     @Path("/{id}")
-    @RolesAllowed("read")
+    @PermissionsAllowed(value = "matchexpressions:read", inclusive = true)
     @Blocking
     @Operation(summary = "Retrieve a single Match Expression")
     public MatchedExpression get(@RestPath long id) throws ScriptException {

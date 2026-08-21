@@ -35,16 +35,17 @@ import io.cryostat.StorageBuckets;
 import io.cryostat.libcryostat.sys.Clock;
 import io.cryostat.recordings.ActiveRecordings.Metadata;
 import io.cryostat.recordings.LongRunningRequestGenerator.GrafanaArchiveUploadRequest;
+import io.cryostat.security.rbac.UserAuthorizer;
 import io.cryostat.targets.Target;
 import io.cryostat.util.HttpMimeType;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.quarkus.narayana.jta.QuarkusTransaction;
+import io.quarkus.security.PermissionsAllowed;
 import io.smallrye.common.annotation.Blocking;
 import io.vertx.core.http.HttpServerResponse;
 import io.vertx.core.json.JsonObject;
 import io.vertx.mutiny.core.eventbus.EventBus;
-import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
@@ -78,6 +79,7 @@ public class ArchivedRecordings {
     @Inject StorageBuckets storageBuckets;
     @Inject S3Presigner presigner;
     @Inject RecordingHelper recordingHelper;
+    @Inject UserAuthorizer userAuthorizer;
     @Inject Logger logger;
 
     @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_ARCHIVES)
@@ -92,7 +94,9 @@ public class ArchivedRecordings {
     @GET
     @Blocking
     @Path("/api/v4/recordings")
-    @RolesAllowed("read")
+    @PermissionsAllowed(
+            value = {"archivedrecordings:read"},
+            inclusive = true)
     @Operation(
             summary = "List all archived recordings",
             description =
@@ -106,7 +110,7 @@ public class ArchivedRecordings {
     @POST
     @Blocking
     @Path("/api/v4/recordings")
-    @RolesAllowed("write")
+    @PermissionsAllowed(value = "archivedrecordings:write", inclusive = true)
     @Operation(
             summary = "Upload a JFR binary file to archives",
             description =
@@ -133,7 +137,7 @@ public class ArchivedRecordings {
     @POST
     @Blocking
     @Path("/api/beta/recordings/{jvmId}")
-    @RolesAllowed("write")
+    @PermissionsAllowed(value = "archivedrecordings:write", inclusive = true)
     @Operation(
             summary = "Upload a JFR binary file to archives, associated with a particular target",
             description =
@@ -159,6 +163,7 @@ public class ArchivedRecordings {
         final String id = jvmId.strip();
         int max = Integer.MAX_VALUE;
         if (maxFiles > 0) {
+            userAuthorizer.assertAuthorized("archivedrecordings", "delete");
             max = maxFiles;
         }
         Map<String, String> labels = new HashMap<>();
@@ -252,7 +257,9 @@ public class ArchivedRecordings {
     @GET
     @Blocking
     @Path("/api/beta/recordings/{jvmId}")
-    @RolesAllowed("read")
+    @PermissionsAllowed(
+            value = {"archivedrecordings:read"},
+            inclusive = true)
     @Operation(summary = "List archived recordings belonging to the specified target")
     public List<ArchivedRecording> agentGet(@Parameter(required = true) @RestPath String jvmId) {
         var result = new ArrayList<ArchivedRecording>();
@@ -282,7 +289,7 @@ public class ArchivedRecordings {
     @DELETE
     @Blocking
     @Path("/api/beta/recordings/{connectUrl}/{filename}")
-    @RolesAllowed("write")
+    @PermissionsAllowed(value = "archivedrecordings:delete", inclusive = true)
     @Operation(summary = "Delete an archived recording belonging to the specified target")
     public void agentDelete(
             @Parameter(
@@ -331,7 +338,7 @@ public class ArchivedRecordings {
     @DELETE
     @Blocking
     @Path("/api/v4/recordings/{filename}")
-    @RolesAllowed("write")
+    @PermissionsAllowed(value = "archivedrecordings:delete", inclusive = true)
     @Operation(deprecated = true, summary = "Delete an archived recording by filename")
     public void delete(@RestPath String filename) throws Exception {
         // TODO scan all prefixes for matching filename? This is an old v1 API problem.
@@ -341,7 +348,9 @@ public class ArchivedRecordings {
     @GET
     @Blocking
     @Path("/api/beta/fs/recordings")
-    @RolesAllowed("read")
+    @PermissionsAllowed(
+            value = {"archivedrecordings:read"},
+            inclusive = true)
     @Operation(summary = "List all archived recordings grouped by target")
     public Collection<ArchivedRecordingDirectory> listFsArchives() {
         var map = new HashMap<String, ArchivedRecordingDirectory>();
@@ -383,7 +392,9 @@ public class ArchivedRecordings {
     @GET
     @Blocking
     @Path("/api/beta/fs/recordings/{jvmId}")
-    @RolesAllowed("read")
+    @PermissionsAllowed(
+            value = {"archivedrecordings:read"},
+            inclusive = true)
     @Operation(summary = "List all archived recordings belonging to the specified target")
     public Collection<ArchivedRecordingDirectory> listFsArchives(@RestPath String jvmId) {
         var map = new HashMap<String, ArchivedRecordingDirectory>();
@@ -422,7 +433,7 @@ public class ArchivedRecordings {
     @DELETE
     @Blocking
     @Path("/api/beta/fs/recordings/{jvmId}/{filename}")
-    @RolesAllowed("write")
+    @PermissionsAllowed(value = "archivedrecordings:delete", inclusive = true)
     @Operation(summary = "Delete an archived recording by name belonging to the specified target")
     public void deleteArchivedRecording(@RestPath String jvmId, @RestPath String filename)
             throws Exception {
@@ -432,7 +443,7 @@ public class ArchivedRecordings {
     @POST
     @Blocking
     @Path("/api/v4/grafana/{encodedKey}")
-    @RolesAllowed("write")
+    @PermissionsAllowed(value = "archivedrecordings:read", inclusive = true)
     @Operation(
             summary = "Upload an archived recording to Grafana for online analysis",
             description =
@@ -461,7 +472,7 @@ public class ArchivedRecordings {
     @GET
     @Blocking
     @Path("/api/v4/download/{encodedKey}")
-    @RolesAllowed("read")
+    @PermissionsAllowed(value = "archivedrecordings:read", inclusive = true)
     @Operation(
             summary = "Get a download URL for an archived recording",
             description =

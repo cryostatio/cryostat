@@ -28,6 +28,7 @@ import io.cryostat.graphql.matchers.LabelSelectorMatcher;
 import io.cryostat.recordings.ActiveRecordings.Metadata;
 import io.cryostat.recordings.ArchivedRecordings.ArchivedRecording;
 import io.cryostat.recordings.RecordingHelper;
+import io.cryostat.security.rbac.graphql.RequiresPermission;
 
 import io.smallrye.graphql.api.Nullable;
 import jakarta.inject.Inject;
@@ -43,6 +44,7 @@ public class ArchivedRecordings {
     @Inject RecordingHelper recordingHelper;
 
     @Query("archivedRecordings")
+    @RequiresPermission({"archivedrecordings:read"})
     @Description("List archived recordings")
     public TargetNodes.ArchivedRecordings listArchivedRecordings(ArchivedRecordingsFilter filter) {
         var r = new TargetNodes.ArchivedRecordings();
@@ -56,6 +58,7 @@ public class ArchivedRecordings {
         return r;
     }
 
+    @RequiresPermission({"archivedrecordings:read"})
     @Description("List and optionally filter archived recordings belonging to a Target")
     public TargetNodes.ArchivedRecordings archived(
             @Source Recordings recordings, ArchivedRecordingsFilter filter) {
@@ -74,6 +77,7 @@ public class ArchivedRecordings {
     }
 
     @NonNull
+    @RequiresPermission("archivedrecordings:delete")
     @Description("Delete an archived recording")
     public ArchivedRecording doDelete(@Source ArchivedRecording recording) throws IOException {
         recordingHelper.deleteArchivedRecording(recording.jvmId(), recording.name());
@@ -81,6 +85,7 @@ public class ArchivedRecordings {
     }
 
     @NonNull
+    @RequiresPermission({"archivedrecordings:write"})
     @Description("Update the metadata associated with an archived recording")
     public ArchivedRecording doPutMetadata(
             @Source ArchivedRecording recording, MetadataLabels metadataInput) throws IOException {

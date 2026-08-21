@@ -33,6 +33,7 @@ import io.cryostat.graphql.matchers.LabelSelectorMatcher;
 import io.cryostat.recordings.ActiveRecordings.Metadata;
 import io.cryostat.recordings.LongRunningRequestGenerator;
 import io.cryostat.recordings.LongRunningRequestGenerator.ThreadDumpRequest;
+import io.cryostat.security.rbac.graphql.RequiresPermission;
 
 import io.smallrye.graphql.api.Nullable;
 import io.vertx.mutiny.core.eventbus.EventBus;
@@ -55,6 +56,7 @@ public class ThreadDumpGraphQL {
 
     @Transactional
     @Mutation
+    @RequiresPermission({"targets:read", "discoverynodes:read", "threaddumps:write"})
     @Description(
             "Trigger a thread dump on all Targets under the subtrees of the discovery nodes"
                     + " matching the given filter")
@@ -86,6 +88,7 @@ public class ThreadDumpGraphQL {
 
     @Transactional
     @Mutation
+    @RequiresPermission({"targets:read", "discoverynodes:read", "threaddumps:delete"})
     @Description(
             "Delete an existing Thread Dump matching the given filter, on all Targets under"
                     + " the subtrees of the discovery nodes matching the given filter")
@@ -111,6 +114,7 @@ public class ThreadDumpGraphQL {
     }
 
     @Query("threadDumps")
+    @RequiresPermission("threaddumps:read")
     @Description("List archived thread dumps")
     public ThreadDumps listArchivedThreadDumps(ThreadDumpsFilter filter) {
         var r = new TargetNodes.ThreadDumps();
@@ -125,6 +129,7 @@ public class ThreadDumpGraphQL {
     }
 
     @NonNull
+    @RequiresPermission("threaddumps:delete")
     @Description("Delete a thread dump")
     public ThreadDump doDelete(@Source ThreadDump dump) throws IOException {
         diagnosticsHelper.deleteThreadDump(dump.jvmId(), dump.threadDumpId());
@@ -132,6 +137,7 @@ public class ThreadDumpGraphQL {
     }
 
     @NonNull
+    @RequiresPermission("threaddumps:write")
     @Description("Update the metadata for a thread dump")
     public ThreadDump doPutMetadata(@Source ThreadDump threadDump, MetadataLabels metadataInput)
             throws IOException {

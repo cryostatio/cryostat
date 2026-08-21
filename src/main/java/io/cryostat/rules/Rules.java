@@ -32,9 +32,9 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.quarkus.runtime.StartupEvent;
+import io.quarkus.security.PermissionsAllowed;
 import io.vertx.core.json.JsonObject;
 import io.vertx.mutiny.core.eventbus.EventBus;
-import jakarta.annotation.security.RolesAllowed;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
@@ -105,14 +105,14 @@ public class Rules {
     }
 
     @GET
-    @RolesAllowed("read")
+    @PermissionsAllowed(value = "automatedrules:read", inclusive = true)
     @Operation(summary = "List all Automated Rules")
     public List<Rule> list() {
         return Rule.listAll();
     }
 
     @GET
-    @RolesAllowed("read")
+    @PermissionsAllowed(value = "automatedrules:read", inclusive = true)
     @Path("/{name}")
     @Operation(summary = "Get an Automated Rule by name")
     public Rule get(@RestPath String name) {
@@ -121,7 +121,7 @@ public class Rules {
 
     @Transactional
     @POST
-    @RolesAllowed("write")
+    @PermissionsAllowed(value = "automatedrules:write", inclusive = true)
     @Consumes(MediaType.APPLICATION_JSON)
     @Operation(summary = "Create a new Automated Rule")
     public RestResponse<Rule> create(@Context UriInfo uriInfo, Rule rule) {
@@ -146,7 +146,7 @@ public class Rules {
 
     @Transactional
     @PATCH
-    @RolesAllowed("write")
+    @PermissionsAllowed(value = "automatedrules:write", inclusive = true)
     @Path("/{name}")
     @Consumes(MediaType.APPLICATION_JSON)
     @Operation(
@@ -215,7 +215,7 @@ public class Rules {
 
     @Transactional
     @POST
-    @RolesAllowed("write")
+    @PermissionsAllowed(value = "automatedrules:write", inclusive = true)
     @Consumes({MediaType.MULTIPART_FORM_DATA, MediaType.APPLICATION_FORM_URLENCODED})
     public RestResponse<Rule> create(
             @Context UriInfo uriInfo,
@@ -262,7 +262,7 @@ public class Rules {
 
     @Transactional
     @DELETE
-    @RolesAllowed("write")
+    @PermissionsAllowed(value = "automatedrules:delete", inclusive = true)
     @Path("/{name}")
     @Operation(summary = "Delete an Automated Rule by name")
     public void delete(
