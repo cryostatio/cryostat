@@ -889,30 +889,7 @@ public class Discovery {
                             ConfigProperties.AGENT_TLS_REQUIRED));
         }
 
-        // When a proxy (e.g. nginx mTLS) sits between the Agent and Cryostat, the remote
-        // address is the proxy's (typically 127.0.0.1), not the Agent's. The callback hostname
-        // will never resolve to the proxy address, so skip the address-match check. The proxy
-        // header is sanitized by the auth layer to prevent injection through oauth-proxy.
-        if (RbacHttpAuthenticationMechanism.isAgentProxyRequest(ctx)) {
-            return new CallbackValidation(callbackUri, unauthCallback, remoteAddress);
-        }
-
-        try {
-            for (InetAddress callbackAddress : InetAddress.getAllByName(callbackUri.getHost())) {
-                if (remoteAddress.equals(callbackAddress)) {
-                    return new CallbackValidation(callbackUri, unauthCallback, remoteAddress);
-                }
-            }
-        } catch (UnknownHostException e) {
-            throw new BadRequestException(
-                    String.format("%s host could not be resolved: %s", parameterName, callbackUri),
-                    e);
-        }
-
-        throw new BadRequestException(
-                String.format(
-                        "%s host does not resolve to the client address %s: %s",
-                        parameterName, remoteAddress.getHostAddress(), callbackUri));
+        return new CallbackValidation(callbackUri, unauthCallback, remoteAddress);
     }
 
     private DiscoveryPlugin findOrCreatePlugin(
@@ -1484,6 +1461,11 @@ public class Discovery {
         InetAddress addr = null;
         if (ctx.request() != null && ctx.request().remoteAddress() != null) {
             addr = jwtValidator.tryResolveAddress(addr, ctx.request().remoteAddress().host());
+        }
+        if (ctx.request() != null && ctx.request().headers() != null) {
+            addr =
+                    jwtValidator.tryResolveAddress(
+                            addr, ctx.request().headers().get(X_FORWARDED_FOR));
         }
         return addr;
     }
