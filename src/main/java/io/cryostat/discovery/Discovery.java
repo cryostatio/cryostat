@@ -44,6 +44,7 @@ import io.cryostat.discovery.DiscoveryPlugin.PluginCleanupHelper;
 import io.cryostat.discovery.KubeEndpointSlicesDiscovery.KubeDiscoveryNodeType;
 import io.cryostat.discovery.NodeType.BaseNodeType;
 import io.cryostat.expressions.MatchExpression;
+import io.cryostat.security.rbac.RbacHttpAuthenticationMechanism;
 import io.cryostat.targets.Target.Annotations;
 import io.cryostat.targets.TargetConnectionManager;
 import io.cryostat.util.URIUtil;
@@ -886,6 +887,14 @@ public class Discovery {
                     String.format(
                             "TLS for agent connections is required by (%s)",
                             ConfigProperties.AGENT_TLS_REQUIRED));
+        }
+
+        // When a proxy (e.g. nginx mTLS) sits between the Agent and Cryostat, the remote
+        // address is the proxy's (typically 127.0.0.1), not the Agent's. The callback hostname
+        // will never resolve to the proxy address, so skip the address-match check. The proxy
+        // header is sanitized by the auth layer to prevent injection through oauth-proxy.
+        if (RbacHttpAuthenticationMechanism.isAgentProxyRequest(ctx)) {
+            return new CallbackValidation(callbackUri, unauthCallback, remoteAddress);
         }
 
         try {
