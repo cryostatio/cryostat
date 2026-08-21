@@ -119,6 +119,7 @@ public class RbacHttpAuthenticationMechanism implements HttpAuthenticationMechan
                     yield Uni.createFrom().nullItem();
                 }
                 log.debugf("OPENSHIFT mode: authenticated user %s", user);
+                context.put(ATTR_RAW_ACCESS_TOKEN, token);
                 yield Uni.createFrom().item(buildOpenshiftIdentity(user, token));
             }
         };
