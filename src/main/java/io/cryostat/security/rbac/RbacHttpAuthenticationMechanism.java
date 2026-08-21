@@ -54,9 +54,10 @@ import org.jboss.logging.Logger;
  *       every request, using the forwarded user header as the principal if present.
  *   <li>{@code BASIC}: reads {@code X-Forwarded-User}; returns an authenticated identity if
  *       present, or {@code null} (unauthenticated) otherwise — Quarkus then challenges with 401.
- *   <li>{@code OPENSHIFT}: reads both {@code X-Forwarded-User} and {@code
- *       X-Forwarded-Access-Token}; attaches a per-permission SSAR checker using the token; returns
- *       {@code null} if either header is absent.
+ *   <li>{@code OPENSHIFT}: reads {@code X-Forwarded-User} and an access token from either {@code
+ *       X-Forwarded-Access-Token} or the {@code Authorization: Bearer} header (the latter is used
+ *       by oauth-proxy for programmatic API clients); attaches a per-permission SSAR checker using
+ *       the token; returns {@code null} if either value is absent.
  * </ul>
  *
  * <p>In {@code BASIC} and {@code OPENSHIFT} modes, requests arriving through the mTLS agent proxy
@@ -70,6 +71,8 @@ public class RbacHttpAuthenticationMechanism implements HttpAuthenticationMechan
 
     static final String HEADER_FORWARDED_USER = "X-Forwarded-User";
     static final String HEADER_FORWARDED_TOKEN = "X-Forwarded-Access-Token";
+    static final String HEADER_AUTHORIZATION = "Authorization";
+    static final String BEARER_PREFIX = "Bearer ";
     public static final String HEADER_AGENT_PROXY = "X-Cryostat-Agent-Proxy";
     static final String ATTR_RAW_ACCESS_TOKEN = "raw_access_token";
 
@@ -104,7 +107,7 @@ public class RbacHttpAuthenticationMechanism implements HttpAuthenticationMechan
             }
             case OPENSHIFT -> {
                 String user = context.request().getHeader(HEADER_FORWARDED_USER);
-                String token = context.request().getHeader(HEADER_FORWARDED_TOKEN);
+                String token = extractAccessToken(context);
                 if (StringUtils.isBlank(user) || StringUtils.isBlank(token)) {
                     if (isAgentProxyRequest(context)) {
                         log.debug(
@@ -112,9 +115,7 @@ public class RbacHttpAuthenticationMechanism implements HttpAuthenticationMechan
                                         + " identity");
                         yield Uni.createFrom().item(buildPermissiveIdentity("cryostat-agent"));
                     }
-                    log.debug(
-                            "OPENSHIFT mode: missing X-Forwarded-User or X-Forwarded-Access-Token,"
-                                    + " returning null");
+                    log.debug("OPENSHIFT mode: missing user or access token, returning null");
                     yield Uni.createFrom().nullItem();
                 }
                 log.debugf("OPENSHIFT mode: authenticated user %s", user);
@@ -135,6 +136,22 @@ public class RbacHttpAuthenticationMechanism implements HttpAuthenticationMechan
             log.debug("Stripping X-Cryostat-Agent-Proxy header: X-Forwarded-User is present");
             context.request().headers().remove(HEADER_AGENT_PROXY);
         }
+    }
+
+    /**
+     * Extracts the access token from the request, trying {@code X-Forwarded-Access-Token} first and
+     * falling back to a {@code Bearer} token in the {@code Authorization} header.
+     */
+    static String extractAccessToken(RoutingContext context) {
+        String token = context.request().getHeader(HEADER_FORWARDED_TOKEN);
+        if (StringUtils.isNotBlank(token)) {
+            return token;
+        }
+        String authz = context.request().getHeader(HEADER_AUTHORIZATION);
+        if (StringUtils.isNotBlank(authz) && authz.startsWith(BEARER_PREFIX)) {
+            return authz.substring(BEARER_PREFIX.length());
+        }
+        return null;
     }
 
     public static boolean isAgentProxyRequest(RoutingContext context) {
