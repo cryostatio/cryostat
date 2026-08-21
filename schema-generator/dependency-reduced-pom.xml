@@ -16,10 +16,6 @@
         </configuration>
       </plugin>
       <plugin>
-        <artifactId>maven-surefire-plugin</artifactId>
-        <version>3.5.6</version>
-      </plugin>
-      <plugin>
         <artifactId>maven-jar-plugin</artifactId>
         <version>3.5.1</version>
         <configuration>
@@ -105,35 +101,12 @@
       </plugin>
     </plugins>
   </build>
-  <dependencies>
-    <dependency>
-      <groupId>org.junit.jupiter</groupId>
-      <artifactId>junit-jupiter</artifactId>
-      <version>5.13.4</version>
-      <scope>test</scope>
-      <exclusions>
-        <exclusion>
-          <artifactId>junit-jupiter-api</artifactId>
-          <groupId>org.junit.jupiter</groupId>
-        </exclusion>
-        <exclusion>
-          <artifactId>junit-jupiter-params</artifactId>
-          <groupId>org.junit.jupiter</groupId>
-        </exclusion>
-        <exclusion>
-          <artifactId>junit-jupiter-engine</artifactId>
-          <groupId>org.junit.jupiter</groupId>
-        </exclusion>
-      </exclusions>
-    </dependency>
-  </dependencies>
   <properties>
     <maven.compiler.release>21</maven.compiler.release>
     <com.diffplug.spotless.maven.plugin.version>3.7.0</com.diffplug.spotless.maven.plugin.version>
     <maven.compiler.target>21</maven.compiler.target>
     <maven.compiler.source>21</maven.compiler.source>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <junit.jupiter.version>5.13.4</junit.jupiter.version>
     <com.google.java-format.version>1.33.0</com.google.java-format.version>
     <com.mycila.license.maven.plugin.version>5.0.0</com.mycila.license.maven.plugin.version>
   </properties>
