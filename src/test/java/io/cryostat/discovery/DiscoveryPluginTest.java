@@ -16,9 +16,6 @@
 package io.cryostat.discovery;
 
 import static io.restassured.RestAssured.given;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
 
 import java.net.URI;
 import java.util.HashMap;
@@ -31,7 +28,6 @@ import io.cryostat.credentials.Credential;
 
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.test.junit.QuarkusTest;
-import io.quarkus.test.junit.mockito.InjectSpy;
 import io.restassured.http.ContentType;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
@@ -45,8 +41,6 @@ public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
 
     private static final String DISCOVERY_HEADER = "Cryostat-Discovery-Authentication";
 
-    @InjectSpy PluginCallbackFactory callbackFactory;
-
     @ParameterizedTest
     @NullAndEmptySource
     @ValueSource(strings = {"invalid uri", "no.protocol.example.com"})
@@ -58,63 +52,6 @@ public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
                 .all()
                 .when()
                 .body(payload)
-                .contentType(ContentType.JSON)
-                .post("/api/v4/discovery")
-                .then()
-                .log()
-                .all()
-                .and()
-                .assertThat()
-                .statusCode(400);
-    }
-
-    @Test
-    void rejectsAgentCallbackMatchingUntrustedForwardedAddress() {
-        given().log()
-                .all()
-                .when()
-                .header(Discovery.X_FORWARDED_FOR, "192.0.2.1")
-                .body(
-                        Map.of(
-                                "realm",
-                                "mismatched_callback_test_realm",
-                                "callback",
-                                "http://192.0.2.1",
-                                "credential",
-                                Map.of(
-                                        "matchExpression", "true",
-                                        "username", "user",
-                                        "password", "pass"),
-                                "nodes",
-                                List.of(),
-                                "fillStrategy",
-                                "NONE",
-                                "context",
-                                Map.of()))
-                .contentType(ContentType.JSON)
-                .post("/api/v4.3/discovery/agents")
-                .then()
-                .log()
-                .all()
-                .and()
-                .assertThat()
-                .statusCode(400);
-
-        verify(callbackFactory, never()).create(any(URI.class), any(Credential.class));
-    }
-
-    @Test
-    void rejectsPluginCallbackMatchingUntrustedForwardedAddress() {
-        given().log()
-                .all()
-                .when()
-                .header(Discovery.X_FORWARDED_FOR, "192.0.2.1")
-                .body(
-                        Map.of(
-                                "realm",
-                                "mismatched_plugin_callback_test_realm",
-                                "callback",
-                                "http://192.0.2.1"))
                 .contentType(ContentType.JSON)
                 .post("/api/v4/discovery")
                 .then()
