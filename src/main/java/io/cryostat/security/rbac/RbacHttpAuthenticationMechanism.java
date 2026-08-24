@@ -85,7 +85,7 @@ public class RbacHttpAuthenticationMechanism implements HttpAuthenticationMechan
     static final String HEADER_FORWARDED_USER = "X-Forwarded-User";
     static final String HEADER_FORWARDED_TOKEN = "X-Forwarded-Access-Token";
     static final String HEADER_AUTHORIZATION = "Authorization";
-    static final String BEARER_PREFIX = "Bearer ";
+    static final String BEARER_PREFIX = "bearer ";
     public static final String HEADER_AGENT_PROXY = "X-Cryostat-Agent-Proxy";
     static final String ATTR_RAW_ACCESS_TOKEN = "raw_access_token";
 
@@ -195,8 +195,8 @@ public class RbacHttpAuthenticationMechanism implements HttpAuthenticationMechan
             return token;
         }
         String authz = context.request().getHeader(HEADER_AUTHORIZATION);
-        if (StringUtils.isNotBlank(authz) && authz.startsWith(BEARER_PREFIX)) {
-            return authz.substring(BEARER_PREFIX.length());
+        if (StringUtils.isNotBlank(authz) && authz.toLowerCase().startsWith(BEARER_PREFIX)) {
+            return authz.substring(BEARER_PREFIX.length()).strip();
         }
         return null;
     }
