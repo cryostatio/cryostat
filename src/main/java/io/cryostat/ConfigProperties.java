@@ -131,6 +131,9 @@ public class ConfigProperties {
 
     public static final String AGENT_TLS_REQUIRED = "cryostat.agent.tls.required";
 
+    public static final String AGENT_PROXY_MTLS_TRUSTED_HOSTS =
+            "cryostat.http.proxy.mtls.trusted-hosts";
+
     public static final String DECLARATIVE_CONFIG_RESOLVE_SYMLINKS =
             "cryostat.declarative-configuration.symlinks.resolve";
 }

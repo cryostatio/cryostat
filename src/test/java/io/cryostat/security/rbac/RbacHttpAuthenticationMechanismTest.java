@@ -53,7 +53,9 @@ class RbacHttpAuthenticationMechanismTest {
         public Map<String, String> getConfigOverrides() {
             return Map.of(
                     "cryostat.security.rbac.mode", "OPENSHIFT",
-                    "cryostat.security.rbac.default-permission", "pods/exec:create");
+                    "cryostat.security.rbac.default-permission", "pods/exec:create",
+                    "cryostat.http.proxy.mtls.trusted-hosts", "127.0.0.1",
+                    "quarkus.http.proxy.trusted-proxies", "127.0.0.1");
         }
     }
 
@@ -330,6 +332,7 @@ class RbacHttpAuthenticationMechanismTest {
     void testAgentProxyHeaderGrantsPermissiveIdentityWhenNoForwardedUser() {
         var ctx = mock(RoutingContext.class);
         var req = mock(io.vertx.core.http.HttpServerRequest.class);
+        var remoteAddr = mock(io.vertx.core.net.SocketAddress.class);
         var headers = io.vertx.core.http.impl.headers.HeadersMultiMap.headers();
         headers.add(RbacHttpAuthenticationMechanism.HEADER_AGENT_PROXY, "true");
         when(ctx.request()).thenReturn(req);
@@ -338,6 +341,8 @@ class RbacHttpAuthenticationMechanismTest {
                 .thenReturn(null);
         when(req.getHeader(RbacHttpAuthenticationMechanism.HEADER_AGENT_PROXY)).thenReturn("true");
         when(req.headers()).thenReturn(headers);
+        when(req.remoteAddress()).thenReturn(remoteAddr);
+        when(remoteAddr.host()).thenReturn("127.0.0.1");
 
         SecurityIdentity identity = mechanism.authenticate(ctx, null).await().indefinitely();
 
@@ -354,6 +359,7 @@ class RbacHttpAuthenticationMechanismTest {
     void testAgentProxyHeaderStrippedWhenForwardedUserPresent() {
         var ctx = mock(RoutingContext.class);
         var req = mock(io.vertx.core.http.HttpServerRequest.class);
+        var remoteAddr = mock(io.vertx.core.net.SocketAddress.class);
         var headers = io.vertx.core.http.impl.headers.HeadersMultiMap.headers();
         headers.add(RbacHttpAuthenticationMechanism.HEADER_AGENT_PROXY, "true");
         headers.add(RbacHttpAuthenticationMechanism.HEADER_FORWARDED_USER, "admin");
@@ -365,12 +371,35 @@ class RbacHttpAuthenticationMechanismTest {
                 .thenReturn("my-token");
         when(req.getHeader(RbacHttpAuthenticationMechanism.HEADER_AGENT_PROXY)).thenReturn("true");
         when(req.headers()).thenReturn(headers);
+        when(req.remoteAddress()).thenReturn(remoteAddr);
+        when(remoteAddr.host()).thenReturn("127.0.0.1");
 
         SecurityIdentity identity = mechanism.authenticate(ctx, null).await().indefinitely();
 
         assertNotNull(identity);
         assertTrue(identity.getPrincipal().getName().equals("admin"));
         assertFalse(headers.contains(RbacHttpAuthenticationMechanism.HEADER_AGENT_PROXY));
+    }
+
+    @Test
+    void testAgentProxyHeaderRejectedWhenRemoteAddressNotTrusted() {
+        var ctx = mock(RoutingContext.class);
+        var req = mock(io.vertx.core.http.HttpServerRequest.class);
+        var remoteAddr = mock(io.vertx.core.net.SocketAddress.class);
+        var headers = io.vertx.core.http.impl.headers.HeadersMultiMap.headers();
+        headers.add(RbacHttpAuthenticationMechanism.HEADER_AGENT_PROXY, "true");
+        when(ctx.request()).thenReturn(req);
+        when(req.getHeader(RbacHttpAuthenticationMechanism.HEADER_FORWARDED_USER)).thenReturn(null);
+        when(req.getHeader(RbacHttpAuthenticationMechanism.HEADER_FORWARDED_TOKEN))
+                .thenReturn(null);
+        when(req.getHeader(RbacHttpAuthenticationMechanism.HEADER_AGENT_PROXY)).thenReturn("true");
+        when(req.headers()).thenReturn(headers);
+        when(req.remoteAddress()).thenReturn(remoteAddr);
+        when(remoteAddr.host()).thenReturn("10.0.0.99");
+
+        SecurityIdentity identity = mechanism.authenticate(ctx, null).await().indefinitely();
+
+        assertFalse(identity != null && !identity.isAnonymous());
     }
 
     @Test
@@ -434,6 +463,88 @@ class RbacHttpAuthenticationMechanismTest {
         @Override
         public String getActions() {
             return actions;
+        }
+    }
+
+    @QuarkusTest
+    @TestProfile(AgentProxyDisabledTest.NoTrustedHostProfile.class)
+    @SuppressWarnings("unused")
+    static class AgentProxyDisabledTest {
+
+        public static class NoTrustedHostProfile implements QuarkusTestProfile {
+            @Override
+            public Map<String, String> getConfigOverrides() {
+                return Map.of(
+                        "cryostat.security.rbac.mode", "OPENSHIFT",
+                        "cryostat.security.rbac.default-permission", "pods/exec:create");
+            }
+        }
+
+        @Inject RbacHttpAuthenticationMechanism mechanism;
+
+        @Test
+        void testAgentProxyHeaderIgnoredWhenTrustedHostNotConfigured() {
+            var ctx = mock(RoutingContext.class);
+            var req = mock(io.vertx.core.http.HttpServerRequest.class);
+            var remoteAddr = mock(io.vertx.core.net.SocketAddress.class);
+            var headers = io.vertx.core.http.impl.headers.HeadersMultiMap.headers();
+            headers.add(RbacHttpAuthenticationMechanism.HEADER_AGENT_PROXY, "true");
+            when(ctx.request()).thenReturn(req);
+            when(req.getHeader(RbacHttpAuthenticationMechanism.HEADER_FORWARDED_USER))
+                    .thenReturn(null);
+            when(req.getHeader(RbacHttpAuthenticationMechanism.HEADER_FORWARDED_TOKEN))
+                    .thenReturn(null);
+            when(req.getHeader(RbacHttpAuthenticationMechanism.HEADER_AGENT_PROXY))
+                    .thenReturn("true");
+            when(req.headers()).thenReturn(headers);
+            when(req.remoteAddress()).thenReturn(remoteAddr);
+            when(remoteAddr.host()).thenReturn("127.0.0.1");
+
+            SecurityIdentity identity = mechanism.authenticate(ctx, null).await().indefinitely();
+
+            assertFalse(identity != null && !identity.isAnonymous());
+        }
+    }
+
+    @QuarkusTest
+    @TestProfile(AgentProxyNotInTrustedProxiesTest.MismatchedProfile.class)
+    @SuppressWarnings("unused")
+    static class AgentProxyNotInTrustedProxiesTest {
+
+        public static class MismatchedProfile implements QuarkusTestProfile {
+            @Override
+            public Map<String, String> getConfigOverrides() {
+                return Map.of(
+                        "cryostat.security.rbac.mode", "OPENSHIFT",
+                        "cryostat.security.rbac.default-permission", "pods/exec:create",
+                        "cryostat.http.proxy.mtls.trusted-hosts", "127.0.0.1",
+                        "quarkus.http.proxy.trusted-proxies", "some-other-proxy");
+            }
+        }
+
+        @Inject RbacHttpAuthenticationMechanism mechanism;
+
+        @Test
+        void testAgentProxyHeaderIgnoredWhenNotInTrustedProxies() {
+            var ctx = mock(RoutingContext.class);
+            var req = mock(io.vertx.core.http.HttpServerRequest.class);
+            var remoteAddr = mock(io.vertx.core.net.SocketAddress.class);
+            var headers = io.vertx.core.http.impl.headers.HeadersMultiMap.headers();
+            headers.add(RbacHttpAuthenticationMechanism.HEADER_AGENT_PROXY, "true");
+            when(ctx.request()).thenReturn(req);
+            when(req.getHeader(RbacHttpAuthenticationMechanism.HEADER_FORWARDED_USER))
+                    .thenReturn(null);
+            when(req.getHeader(RbacHttpAuthenticationMechanism.HEADER_FORWARDED_TOKEN))
+                    .thenReturn(null);
+            when(req.getHeader(RbacHttpAuthenticationMechanism.HEADER_AGENT_PROXY))
+                    .thenReturn("true");
+            when(req.headers()).thenReturn(headers);
+            when(req.remoteAddress()).thenReturn(remoteAddr);
+            when(remoteAddr.host()).thenReturn("127.0.0.1");
+
+            SecurityIdentity identity = mechanism.authenticate(ctx, null).await().indefinitely();
+
+            assertFalse(identity != null && !identity.isAnonymous());
         }
     }
 }
