@@ -151,6 +151,7 @@ public class Discovery {
     @Inject PluginCallbackFactory callbackFactory;
     @Inject PluginCleanupHelper cleanupHelper;
     @Inject EntityManager entityManager;
+    @Inject RbacHttpAuthenticationMechanism authMechanism;
 
     void onStop(@Observes ShutdownEvent evt) throws SchedulerException {
         scheduler.shutdown();
@@ -889,7 +890,7 @@ public class Discovery {
                             ConfigProperties.AGENT_TLS_REQUIRED));
         }
 
-        if (RbacHttpAuthenticationMechanism.isAgentProxyRequest(ctx)) {
+        if (authMechanism.isAgentProxyRequest(ctx)) {
             return new CallbackValidation(callbackUri, unauthCallback, remoteAddress);
         }
 
