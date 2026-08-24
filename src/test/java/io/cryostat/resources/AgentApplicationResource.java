@@ -112,8 +112,17 @@ public class AgentApplicationResource
         container.addEnv(
                 "CRYOSTAT_AGENT_BASEURI",
                 String.format("http://host.docker.internal:%d/", cryostatPort));
-        container.addEnv(
-                "CRYOSTAT_AGENT_CALLBACK", String.format("http://localhost:%d/", hostAgentPort));
+        containerNetworkId
+                .map(StringUtils::isNotBlank)
+                .ifPresentOrElse(
+                        _ ->
+                                container.addEnv(
+                                        "CRYOSTAT_AGENT_CALLBACK",
+                                        String.format("http://%s:%d/", ALIAS, hostAgentPort)),
+                        () ->
+                                container.addEnv(
+                                        "CRYOSTAT_AGENT_CALLBACK",
+                                        String.format("http://localhost:%d/", hostAgentPort)));
 
         container.start();
 
