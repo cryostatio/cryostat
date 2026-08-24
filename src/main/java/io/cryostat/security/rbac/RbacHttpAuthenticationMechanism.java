@@ -15,11 +15,16 @@
  */
 package io.cryostat.security.rbac;
 
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.security.Permission;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+
+import io.cryostat.ConfigProperties;
 
 import io.fabric8.kubernetes.api.model.authorization.v1.ResourceAttributes;
 import io.fabric8.kubernetes.api.model.authorization.v1.ResourceAttributesBuilder;
@@ -35,9 +40,11 @@ import io.quarkus.vertx.http.runtime.security.HttpAuthenticationMechanism;
 import io.smallrye.mutiny.Uni;
 import io.smallrye.mutiny.infrastructure.Infrastructure;
 import io.vertx.ext.web.RoutingContext;
+import jakarta.annotation.PostConstruct;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.apache.commons.lang3.StringUtils;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
 /**
@@ -62,9 +69,15 @@ import org.jboss.logging.Logger;
  *
  * <p>In {@code BASIC} and {@code OPENSHIFT} modes, requests arriving through the mTLS agent proxy
  * (identified by the {@code X-Cryostat-Agent-Proxy} header) are granted a permissive identity when
- * the normal forwarded-user headers are absent. To prevent header injection through the oauth-proxy
- * path, {@code X-Cryostat-Agent-Proxy} is stripped from any request that also carries {@code
- * X-Forwarded-User}.
+ * the normal forwarded-user headers are absent. This pathway is gated on the {@code
+ * cryostat.http.proxy.mtls.trusted-hosts} config property: the header is only accepted when the
+ * property lists one or more hostnames, every listed hostname also appears in {@code
+ * quarkus.http.proxy.trusted-proxies} (i.e. it acts only as a selector from the already-trusted
+ * proxy list, it cannot grant trust to new proxies on its own), and the request originates from one
+ * of those hosts. Multiple hostnames may be listed for the same physical host (e.g. {@code
+ * localhost,127.0.0.1}). When the property is absent or blank, the header is ignored entirely. To
+ * prevent header injection through the oauth-proxy path, {@code X-Cryostat-Agent-Proxy} is stripped
+ * from any request that also carries {@code X-Forwarded-User}.
  */
 @ApplicationScoped
 public class RbacHttpAuthenticationMechanism implements HttpAuthenticationMechanism {
@@ -81,6 +94,39 @@ public class RbacHttpAuthenticationMechanism implements HttpAuthenticationMechan
     @Inject SsarClientCache ssarClientCache;
     @Inject SsarDecisionCache ssarDecisionCache;
     @Inject PermissionMapper permissionMapper;
+
+    @ConfigProperty(name = ConfigProperties.AGENT_PROXY_MTLS_TRUSTED_HOSTS)
+    Optional<List<String>> trustedAgentProxyHosts;
+
+    @ConfigProperty(name = "quarkus.http.proxy.trusted-proxies")
+    Optional<List<String>> quarkusTrustedProxies;
+
+    private boolean agentProxyConfigValid;
+
+    @PostConstruct
+    void validateAgentProxyConfig() {
+        List<String> hosts =
+                trustedAgentProxyHosts.orElse(List.of()).stream()
+                        .filter(StringUtils::isNotBlank)
+                        .toList();
+        if (hosts.isEmpty()) {
+            agentProxyConfigValid = false;
+            return;
+        }
+        List<String> proxies = quarkusTrustedProxies.orElse(List.of());
+        List<String> untrusted = hosts.stream().filter(h -> !proxies.contains(h)).toList();
+        if (!untrusted.isEmpty()) {
+            log.warnf(
+                    "cryostat.http.proxy.mtls.trusted-hosts %s not listed in"
+                            + " quarkus.http.proxy.trusted-proxies; agent proxy header will be"
+                            + " ignored",
+                    untrusted);
+            agentProxyConfigValid = false;
+            return;
+        }
+        agentProxyConfigValid = true;
+        log.debugf("Agent proxy header will be accepted from trusted hosts %s", hosts);
+    }
 
     @Override
     public Uni<SecurityIdentity> authenticate(
@@ -155,8 +201,43 @@ public class RbacHttpAuthenticationMechanism implements HttpAuthenticationMechan
         return null;
     }
 
-    public static boolean isAgentProxyRequest(RoutingContext context) {
-        return StringUtils.isNotBlank(context.request().getHeader(HEADER_AGENT_PROXY));
+    public boolean isAgentProxyRequest(RoutingContext context) {
+        if (StringUtils.isBlank(context.request().getHeader(HEADER_AGENT_PROXY))) {
+            return false;
+        }
+        if (!agentProxyConfigValid) {
+            log.debug(
+                    "X-Cryostat-Agent-Proxy header present but agent proxy is not configured,"
+                            + " ignoring");
+            return false;
+        }
+        String remoteHost =
+                context.request().remoteAddress() != null
+                        ? context.request().remoteAddress().host()
+                        : null;
+        if (StringUtils.isBlank(remoteHost)) {
+            log.debug(
+                    "X-Cryostat-Agent-Proxy header present but remote address unavailable,"
+                            + " ignoring");
+            return false;
+        }
+        try {
+            InetAddress remoteAddr = InetAddress.getByName(remoteHost);
+            for (String host : trustedAgentProxyHosts.orElse(List.of())) {
+                for (InetAddress trustedAddr : InetAddress.getAllByName(host)) {
+                    if (remoteAddr.equals(trustedAddr)) {
+                        return true;
+                    }
+                }
+            }
+        } catch (UnknownHostException e) {
+            log.warnf(e, "Failed to resolve trusted agent proxy host");
+        }
+        log.debugf(
+                "X-Cryostat-Agent-Proxy header present but remote address '%s' does not match"
+                        + " any trusted host in %s",
+                remoteHost, trustedAgentProxyHosts.orElse(List.of()));
+        return false;
     }
 
     @Override
