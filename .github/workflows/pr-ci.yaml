@@ -145,6 +145,7 @@ jobs:
         ref: ${{ needs.checkout-branch.outputs.PR_head_sha }}
         submodules: false
         fetch-depth: 0
+        persist-credentials: false
     - uses: actions/setup-java@dd06d9cba3e5552c54d9f8ea23572deb30010f7c # v6.0.0
       with:
         java-version: '25'
@@ -260,6 +261,7 @@ jobs:
         ref: ${{ needs.checkout-branch.outputs.PR_head_sha }}
         submodules: true
         fetch-depth: 0
+        persist-credentials: false
     - uses: actions/setup-java@dd06d9cba3e5552c54d9f8ea23572deb30010f7c # v6.0.0
       with:
         java-version: '25'
@@ -405,6 +407,7 @@ jobs:
         ref: ${{ needs.checkout-branch.outputs.PR_head_sha }}
         submodules: true
         fetch-depth: 0
+        persist-credentials: false
     - uses: actions/setup-java@dd06d9cba3e5552c54d9f8ea23572deb30010f7c # v6.0.0
       with:
         java-version: '25'
@@ -455,6 +458,7 @@ jobs:
         ref: ${{ needs.checkout-branch.outputs.PR_head_sha }}
         submodules: true
         fetch-depth: 0
+        persist-credentials: false
     - uses: actions/setup-java@dd06d9cba3e5552c54d9f8ea23572deb30010f7c # v6.0.0
       with:
         java-version: '25'
@@ -479,6 +483,9 @@ jobs:
 
   compare-schemas:
     needs: [update-api-schemas, update-notifications-schema, checkout-branch]
+    # Run even when the schema-generation jobs fail, so the pending schema commit
+    # statuses are always resolved (to failure) rather than left hanging.
+    if: always()
     runs-on: ubuntu-latest
     # No fork code runs here (only downloaded diff artifacts are inspected), so it is safe
     # to hold the write privileges used to report schema-check results.
@@ -487,14 +494,17 @@ jobs:
       pull-requests: write
     steps:
     - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+      continue-on-error: true
       with:
         name: openapi-diff
         path: diffs
     - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+      continue-on-error: true
       with:
         name: graphql-diff
         path: diffs
     - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+      continue-on-error: true
       with:
         name: notifications-diff
         path: diffs
@@ -508,11 +518,17 @@ jobs:
           local status="$1" label="$2" file="$3"
           if [ "${status}" = "0" ]; then
             echo "No ${label} schema changes detected."
-          else
+          elif [ "${status}" = "1" ]; then
             echo "${label} schema change detected:"
-            echo '```diff'
-            cat "diffs/${file}"
-            echo '```'
+            if [ -s "diffs/${file}" ]; then
+              echo '```diff'
+              cat "diffs/${file}"
+              echo '```'
+            else
+              echo "(diff artifact unavailable)"
+            fi
+          else
+            echo "${label} schema check did not complete (schema generation failed)."
           fi
           echo ""
         }
