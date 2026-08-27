@@ -414,12 +414,26 @@ jobs:
         distribution: 'temurin'
         cache: 'maven'
     - run: git submodule init && git submodule update
-    - name: Run Quarkus and fetch API schemas
+    - id: schema-generate
+      name: Run Quarkus and fetch API schemas
       continue-on-error: true
       run: bash /home/runner/work/cryostat/cryostat/schema/update.bash 90 15
     - id: schema-update
       name: Diff API schemas
+      if: always()
       run: |
+        # If the generator did not succeed, the committed schema files may still be
+        # present and unchanged, which would otherwise look like "no changes" (success).
+        # Propagate a distinct non-zero status (2) so compare-schemas reports a failure.
+        if [ "${{ steps.schema-generate.outcome }}" != "success" ]; then
+          echo "Schema generation failed; reporting schema checks as failed." >&2
+          echo "openapi_status=2" >> "$GITHUB_OUTPUT"
+          echo "graphql_status=2" >> "$GITHUB_OUTPUT"
+          : > /home/runner/work/openapi.diff
+          : > /home/runner/work/graphql.diff
+          exit 0
+        fi
+
         test -f /home/runner/work/cryostat/cryostat/schema/openapi.yaml
         test -f /home/runner/work/cryostat/cryostat/schema/schema.graphql
 
