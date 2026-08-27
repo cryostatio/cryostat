@@ -23,20 +23,17 @@ jobs:
     - name: Fail if needs-triage label applied
       if: ${{ contains(github.event.issue.labels.*.name, 'needs-triage') }}
       run: exit 1
-    - name: Show warning if permission is denied
-      if: |
-        !(github.event.comment.author_association == 'MEMBER' || github.event.comment.author_association == 'OWNER')
-        && (!contains(github.event.issue.labels.*.name, 'safe-to-test') || github.event.issue.user.login != github.event.comment.user.login)
-      uses: thollander/actions-comment-pull-request@24bffb9b452ba05a4f3f77933840a6a841d1b32b # v3.0.1
-      with:
-        message: |-
-          You do not have permission to run the /build_test command. Please ask @cryostatio/reviewers
-          to resolve the issue.
-    - name: Fail if command permission is denied
-      if: |
-        !(github.event.comment.author_association == 'MEMBER' || github.event.comment.author_association == 'OWNER')
-        && (!contains(github.event.issue.labels.*.name, 'safe-to-test') || github.event.issue.user.login != github.event.comment.user.login)
-      run: exit 1
+    - name: Require organization membership of the command author
+      if: ${{ github.event.comment.author_association != 'MEMBER' && github.event.comment.author_association != 'OWNER' }}
+      run: |
+        echo "::error::Only organization members or owners may run /build_test (author_association was '${{ github.event.comment.author_association }}')."
+        exit 1
+    - name: Require safe-to-test label
+      if: ${{ !contains(github.event.issue.labels.*.name, 'safe-to-test') }}
+      run: |
+        echo "::error::The 'safe-to-test' label must be applied by @cryostatio/reviewers before running /build_test."
+        echo "::error::The label is removed after every run, so it must be re-applied for each new head commit that should be tested."
+        exit 1
     - name: React to comment
       uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
       with:
@@ -48,12 +45,26 @@ jobs:
               comment_id: context.payload.comment.id,
               content: "+1",
             });
+    - name: Consume safe-to-test label
+      uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+      with:
+        script: |
+          try {
+            await github.rest.issues.removeLabel({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              name: 'safe-to-test',
+            });
+          } catch (e) {
+            // 404 => label already absent (e.g. a concurrent run consumed it); anything else is a real error.
+            if (e.status !== 404) throw e;
+          }
 
   checkout-branch:
     runs-on: ubuntu-latest
     needs: [check-before-build]
     outputs:
-      PR_head_ref: ${{ fromJSON(steps.comment-branch.outputs.result).ref }}
       PR_head_sha: ${{ fromJSON(steps.comment-branch.outputs.result).sha }}
       PR_num: ${{ fromJSON(steps.comment-branch.outputs.result).num }}
       PR_repo: ${{ fromJSON(steps.comment-branch.outputs.result).repo }}
@@ -69,27 +80,49 @@ jobs:
             repo: context.repo.repo,
             pull_number: context.issue.number
           })
-          return { repo: result.data.head.repo.full_name, num: result.data.number, sha: result.data.head.sha, ref: result.data.head.ref }
+          return { repo: result.data.head.repo.full_name, num: result.data.number, sha: result.data.head.sha }
 
-  start-comment:
+  set-pending-status:
     runs-on: ubuntu-latest
-    needs: [check-before-build]
+    needs: [checkout-branch]
     permissions:
-      pull-requests: write
+      statuses: write
     steps:
-    - name: Leave Actions Run Comment
-      uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+    - name: Set pending commit status for unit tests
+      uses: daltonbr/set-commit-status-action@2a09190f6d04d912bca5ede8094b5d5dce303ebb # v3.0.1
       with:
-        script: |
-          const runURL = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${{ github.run_id }}`;
-          const currentTime = new Date().toLocaleString('en-US', { timeZone: 'America/Toronto' });
-          const commentBody = `Workflow started at ${currentTime}. [View Actions Run](${runURL}).`;
-          github.rest.issues.createComment({
-            issue_number: context.issue.number,
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            body: commentBody
-          });
+        context: unit-test
+        sha: ${{ needs.checkout-branch.outputs.PR_head_sha }}
+        token: ${{ secrets.GITHUB_TOKEN }}
+        status: pending
+    - name: Set pending commit status for integration tests
+      uses: daltonbr/set-commit-status-action@2a09190f6d04d912bca5ede8094b5d5dce303ebb # v3.0.1
+      with:
+        context: integration-test
+        sha: ${{ needs.checkout-branch.outputs.PR_head_sha }}
+        token: ${{ secrets.GITHUB_TOKEN }}
+        status: pending
+    - name: Set pending commit status for OpenAPI schema
+      uses: daltonbr/set-commit-status-action@2a09190f6d04d912bca5ede8094b5d5dce303ebb # v3.0.1
+      with:
+        context: openapi-schema-check
+        sha: ${{ needs.checkout-branch.outputs.PR_head_sha }}
+        token: ${{ secrets.GITHUB_TOKEN }}
+        status: pending
+    - name: Set pending commit status for GraphQL schema
+      uses: daltonbr/set-commit-status-action@2a09190f6d04d912bca5ede8094b5d5dce303ebb # v3.0.1
+      with:
+        context: graphql-schema-check
+        sha: ${{ needs.checkout-branch.outputs.PR_head_sha }}
+        token: ${{ secrets.GITHUB_TOKEN }}
+        status: pending
+    - name: Set pending commit status for Notifications schema
+      uses: daltonbr/set-commit-status-action@2a09190f6d04d912bca5ede8094b5d5dce303ebb # v3.0.1
+      with:
+        context: notifications-schema-check
+        sha: ${{ needs.checkout-branch.outputs.PR_head_sha }}
+        token: ${{ secrets.GITHUB_TOKEN }}
+        status: pending
 
   unit-test:
     needs: [checkout-branch]
@@ -99,16 +132,17 @@ jobs:
       deps-cache-name: cache-yarn
       build-cache-name: cache-webpack
     name: Unit test
+    # Untrusted fork code executes in this job, so it holds no write privileges and no
+    # privileged token. Commit statuses are set from the isolated unit-test-status job.
     permissions:
-      packages: write
       contents: read
-      pull-requests: write
-      statuses: write
+    outputs:
+      outcome: ${{ steps.run-tests.outcome }}
     steps:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
         repository: ${{ needs.checkout-branch.outputs.PR_repo }}
-        ref: ${{ needs.checkout-branch.outputs.PR_head_ref }}
+        ref: ${{ needs.checkout-branch.outputs.PR_head_sha }}
         submodules: false
         fetch-depth: 0
     - uses: actions/setup-java@dd06d9cba3e5552c54d9f8ea23572deb30010f7c # v6.0.0
@@ -135,14 +169,6 @@ jobs:
       run: |
         sudo apt-get update
         sudo apt-get install -y colorized-logs
-    - name: Set pending commit status
-      uses: daltonbr/set-commit-status-action@2a09190f6d04d912bca5ede8094b5d5dce303ebb # v3.0.1
-      if: always()
-      with:
-        context: unit-test
-        sha: ${{ needs.checkout-branch.outputs.PR_head_sha}}
-        token: ${{ secrets.GITHUB_TOKEN }}
-        status: pending
     - name: Run unit tests
       id: run-tests
       continue-on-error: true
@@ -162,25 +188,56 @@ jobs:
       with:
         name: cryostat-unittest.log
         path: test.log
-    - name: Add workflow result as comment on PR
+    # This job runs untrusted fork code and has no token, so it only *produces* the comment
+    # body as an artifact. The isolated unit-test-status job posts it. The body is handled
+    # strictly as a file (never interpolated into ${{ }} or shell), so fork-controlled test
+    # output cannot inject into the privileged reporting job.
+    - name: Build unit test results comment
       if: always()
       continue-on-error: true
       run: |
-        > comment.txt
-        echo "${{ github.workflow }}:" >> comment.txt
-        ./parse-test-results.bash test.log "Unit" >> comment.txt
-        echo "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" >> comment.txt
-        gh pr comment ${{ needs.checkout-branch.outputs.PR_num }} --repo ${{ github.repository }} --body-file comment.txt
-      env:
-        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    - name: Set latest commit status
-      uses: daltonbr/set-commit-status-action@2a09190f6d04d912bca5ede8094b5d5dce303ebb # v3.0.1
+        {
+          echo "${{ github.workflow }}:"
+          ./parse-test-results.bash test.log "Unit"
+          echo "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+        } | tee comment.txt
+        cat comment.txt >> "$GITHUB_STEP_SUMMARY"
+    - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
       if: always()
       with:
+        name: unittest-comment
+        path: comment.txt
+
+  unit-test-status:
+    needs: [checkout-branch, unit-test]
+    if: always()
+    runs-on: ubuntu-latest
+    # No fork code runs here, so it is safe to hold the write privileges used to report
+    # results back to the pull request.
+    permissions:
+      statuses: write
+      pull-requests: write
+    steps:
+    - name: Set unit-test commit status
+      uses: daltonbr/set-commit-status-action@2a09190f6d04d912bca5ede8094b5d5dce303ebb # v3.0.1
+      with:
         context: unit-test
-        sha: ${{ needs.checkout-branch.outputs.PR_head_sha}}
+        sha: ${{ needs.checkout-branch.outputs.PR_head_sha }}
         token: ${{ secrets.GITHUB_TOKEN }}
-        status: ${{ steps.run-tests.outcome }}
+        status: ${{ needs.unit-test.outputs.outcome || 'failure' }}
+    - name: Download unit test results comment
+      uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+      continue-on-error: true
+      with:
+        name: unittest-comment
+        path: .
+    - name: Post unit test results comment
+      if: ${{ hashFiles('comment.txt') != '' }}
+      continue-on-error: true
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        PR_NUM: ${{ needs.checkout-branch.outputs.PR_num }}
+      run: gh pr comment "${PR_NUM}" --repo "${{ github.repository }}" --body-file comment.txt
 
   integration-test:
     needs: [checkout-branch]
@@ -190,16 +247,17 @@ jobs:
       deps-cache-name: cache-yarn
       build-cache-name: cache-webpack
     name: Integration test
+    # Untrusted fork code executes in this job, so it holds no write privileges and no
+    # privileged token. Commit statuses are set from the isolated integration-test-status job.
     permissions:
-      packages: write
       contents: read
-      pull-requests: write
-      statuses: write
+    outputs:
+      outcome: ${{ steps.run-tests.outcome }}
     steps:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
         repository: ${{ needs.checkout-branch.outputs.PR_repo }}
-        ref: ${{ needs.checkout-branch.outputs.PR_head_ref }}
+        ref: ${{ needs.checkout-branch.outputs.PR_head_sha }}
         submodules: true
         fetch-depth: 0
     - uses: actions/setup-java@dd06d9cba3e5552c54d9f8ea23572deb30010f7c # v6.0.0
@@ -226,14 +284,6 @@ jobs:
       run: |
         sudo apt-get update
         sudo apt-get install -y colorized-logs
-    - name: Set pending commit status
-      uses: daltonbr/set-commit-status-action@2a09190f6d04d912bca5ede8094b5d5dce303ebb # v3.0.1
-      if: always()
-      with:
-        context: integration-test
-        sha: ${{ needs.checkout-branch.outputs.PR_head_sha}}
-        token: ${{ secrets.GITHUB_TOKEN }}
-        status: pending
     - run: git submodule init && git submodule update
     - name: Cache yarn packages
       uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -285,33 +335,66 @@ jobs:
       with:
         name: cryostat-itest-server.log
         path: target/quarkus.log
-    - name: Add workflow result as comment on PR
+    # This job runs untrusted fork code and has no token, so it only *produces* the comment
+    # body as an artifact. The isolated integration-test-status job posts it. The body is
+    # handled strictly as a file (never interpolated into ${{ }} or shell), so fork-controlled
+    # test output cannot inject into the privileged reporting job.
+    - name: Build integration test results comment
       if: always()
       continue-on-error: true
       run: |
-        > comment.txt
-        echo "${{ github.workflow }}:" >> comment.txt
-        ./parse-test-results.bash test.log "Integration" >> comment.txt
-        echo "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" >> comment.txt
-        gh pr comment ${{ needs.checkout-branch.outputs.PR_num }} --repo ${{ github.repository }} --body-file comment.txt
-      env:
-        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    - name: Set latest commit status
-      uses: daltonbr/set-commit-status-action@2a09190f6d04d912bca5ede8094b5d5dce303ebb # v3.0.1
+        {
+          echo "${{ github.workflow }}:"
+          ./parse-test-results.bash test.log "Integration"
+          echo "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+        } | tee comment.txt
+        cat comment.txt >> "$GITHUB_STEP_SUMMARY"
+    - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
       if: always()
       with:
+        name: itest-comment
+        path: comment.txt
+
+  integration-test-status:
+    needs: [checkout-branch, integration-test]
+    if: always()
+    runs-on: ubuntu-latest
+    # No fork code runs here, so it is safe to hold the write privileges used to report
+    # results back to the pull request.
+    permissions:
+      statuses: write
+      pull-requests: write
+    steps:
+    - name: Set integration-test commit status
+      uses: daltonbr/set-commit-status-action@2a09190f6d04d912bca5ede8094b5d5dce303ebb # v3.0.1
+      with:
         context: integration-test
-        sha: ${{ needs.checkout-branch.outputs.PR_head_sha}}
+        sha: ${{ needs.checkout-branch.outputs.PR_head_sha }}
         token: ${{ secrets.GITHUB_TOKEN }}
-        status: ${{ steps.run-tests.outcome }}
+        status: ${{ needs.integration-test.outputs.outcome || 'failure' }}
+    - name: Download integration test results comment
+      uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+      continue-on-error: true
+      with:
+        name: itest-comment
+        path: .
+    - name: Post integration test results comment
+      if: ${{ hashFiles('comment.txt') != '' }}
+      continue-on-error: true
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        PR_NUM: ${{ needs.checkout-branch.outputs.PR_num }}
+      run: gh pr comment "${PR_NUM}" --repo "${{ github.repository }}" --body-file comment.txt
 
   update-api-schemas:
     needs: [checkout-branch]
     runs-on: ubuntu-latest
     env:
       SEGMENT_DOWNLOAD_TIMEOUT_MINS: '5'
+    # Untrusted fork code executes in this job, so it holds no write privileges and no
+    # privileged token. Commit statuses are set from the isolated compare-schemas job.
     permissions:
-      statuses: write
+      contents: read
     outputs:
       OPENAPI_STATUS: ${{ steps.schema-update.outputs.openapi_status }}
       GRAPHQL_STATUS: ${{ steps.schema-update.outputs.graphql_status }}
@@ -319,7 +402,7 @@ jobs:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
         repository: ${{ needs.checkout-branch.outputs.PR_repo }}
-        ref: ${{ needs.checkout-branch.outputs.PR_head_ref }}
+        ref: ${{ needs.checkout-branch.outputs.PR_head_sha }}
         submodules: true
         fetch-depth: 0
     - uses: actions/setup-java@dd06d9cba3e5552c54d9f8ea23572deb30010f7c # v6.0.0
@@ -327,20 +410,6 @@ jobs:
         java-version: '25'
         distribution: 'temurin'
         cache: 'maven'
-    - name: Set pending commit status for OpenAPI schema
-      uses: daltonbr/set-commit-status-action@2a09190f6d04d912bca5ede8094b5d5dce303ebb # v3.0.1
-      with:
-        context: openapi-schema-check
-        sha: ${{ needs.checkout-branch.outputs.PR_head_sha }}
-        token: ${{ secrets.GITHUB_TOKEN }}
-        status: pending
-    - name: Set pending commit status for GraphQL schema
-      uses: daltonbr/set-commit-status-action@2a09190f6d04d912bca5ede8094b5d5dce303ebb # v3.0.1
-      with:
-        context: graphql-schema-check
-        sha: ${{ needs.checkout-branch.outputs.PR_head_sha }}
-        token: ${{ secrets.GITHUB_TOKEN }}
-        status: pending
     - run: git submodule init && git submodule update
     - name: Run Quarkus and fetch API schemas
       continue-on-error: true
@@ -373,15 +442,17 @@ jobs:
     runs-on: ubuntu-latest
     env:
       SEGMENT_DOWNLOAD_TIMEOUT_MINS: '5'
+    # Untrusted fork code executes in this job, so it holds no write privileges and no
+    # privileged token. Commit statuses are set from the isolated compare-schemas job.
     permissions:
-      statuses: write
+      contents: read
     outputs:
       NOTIFICATIONS_STATUS: ${{ steps.notifications-update.outputs.notifications_status }}
     steps:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
         repository: ${{ needs.checkout-branch.outputs.PR_repo }}
-        ref: ${{ needs.checkout-branch.outputs.PR_head_ref }}
+        ref: ${{ needs.checkout-branch.outputs.PR_head_sha }}
         submodules: true
         fetch-depth: 0
     - uses: actions/setup-java@dd06d9cba3e5552c54d9f8ea23572deb30010f7c # v6.0.0
@@ -389,13 +460,6 @@ jobs:
         java-version: '25'
         distribution: 'temurin'
         cache: 'maven'
-    - name: Set pending commit status for Notifications schema
-      uses: daltonbr/set-commit-status-action@2a09190f6d04d912bca5ede8094b5d5dce303ebb # v3.0.1
-      with:
-        context: notifications-schema-check
-        sha: ${{ needs.checkout-branch.outputs.PR_head_sha }}
-        token: ${{ secrets.GITHUB_TOKEN }}
-        status: pending
     - run: git submodule init && git submodule update
     - id: notifications-update
       name: Update notifications schema
@@ -416,9 +480,11 @@ jobs:
   compare-schemas:
     needs: [update-api-schemas, update-notifications-schema, checkout-branch]
     runs-on: ubuntu-latest
+    # No fork code runs here (only downloaded diff artifacts are inspected), so it is safe
+    # to hold the write privileges used to report schema-check results.
     permissions:
-      pull-requests: write
       statuses: write
+      pull-requests: write
     steps:
     - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
       with:
@@ -432,31 +498,38 @@ jobs:
       with:
         name: notifications-diff
         path: diffs
-    - name: Comment schema check results
-      uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
-      with:
-        script: |
-          const fs = require('fs');
-          const diffFmt = s => "```diff\n" + s + "\n```";
-          const openapiStatus = '${{ needs.update-api-schemas.outputs.OPENAPI_STATUS }}';
-          const graphqlStatus = '${{ needs.update-api-schemas.outputs.GRAPHQL_STATUS }}';
-          const notificationsStatus = '${{ needs.update-notifications-schema.outputs.NOTIFICATIONS_STATUS }}';
-          const lines = [];
-          lines.push(openapiStatus === '0'
-            ? 'No OpenAPI schema changes detected.'
-            : 'OpenAPI schema change detected:\n\n' + diffFmt(fs.readFileSync('diffs/openapi.diff')));
-          lines.push(graphqlStatus === '0'
-            ? 'No GraphQL schema changes detected.'
-            : 'GraphQL schema change detected:\n\n' + diffFmt(fs.readFileSync('diffs/graphql.diff')));
-          lines.push(notificationsStatus === '0'
-            ? 'No WebSocket notifications schema changes detected.'
-            : 'WebSocket notifications schema change detected:\n\n' + diffFmt(fs.readFileSync('diffs/notifications.diff')));
-          github.rest.issues.createComment({
-            issue_number: context.issue.number,
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            body: lines.join('\n\n')
-          });
+    - name: Report schema check results
+      env:
+        OPENAPI_STATUS: ${{ needs.update-api-schemas.outputs.OPENAPI_STATUS }}
+        GRAPHQL_STATUS: ${{ needs.update-api-schemas.outputs.GRAPHQL_STATUS }}
+        NOTIFICATIONS_STATUS: ${{ needs.update-notifications-schema.outputs.NOTIFICATIONS_STATUS }}
+      run: |
+        emit() {
+          local status="$1" label="$2" file="$3"
+          if [ "${status}" = "0" ]; then
+            echo "No ${label} schema changes detected."
+          else
+            echo "${label} schema change detected:"
+            echo '```diff'
+            cat "diffs/${file}"
+            echo '```'
+          fi
+          echo ""
+        }
+        {
+          echo "## ${{ github.workflow }} — Schema check results"
+          emit "${OPENAPI_STATUS}" "OpenAPI" "openapi.diff"
+          emit "${GRAPHQL_STATUS}" "GraphQL" "graphql.diff"
+          emit "${NOTIFICATIONS_STATUS}" "WebSocket notifications" "notifications.diff"
+        } | tee comment.txt
+        cat comment.txt >> "$GITHUB_STEP_SUMMARY"
+    - name: Post schema check results comment
+      if: ${{ hashFiles('comment.txt') != '' }}
+      continue-on-error: true
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        PR_NUM: ${{ needs.checkout-branch.outputs.PR_num }}
+      run: gh pr comment "${PR_NUM}" --repo "${{ github.repository }}" --body-file comment.txt
     - name: Set OpenAPI schema commit status
       uses: daltonbr/set-commit-status-action@2a09190f6d04d912bca5ede8094b5d5dce303ebb # v3.0.1
       if: always()
