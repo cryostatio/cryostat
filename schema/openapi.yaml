@@ -1149,6 +1149,21 @@ components:
         what:
           type: string
       type: object
+    ViewList:
+      properties:
+        app:
+          items:
+            type: string
+          type: array
+        env:
+          items:
+            type: string
+          type: array
+        vm:
+          items:
+            type: string
+          type: array
+      type: object
 info:
   contact:
     email: cryostat-development@googlegroups.com
@@ -2099,6 +2114,63 @@ paths:
       summary: Upload a JFR binary file to archives, associated with a particular target
       tags:
         - Archived Recordings
+  /api/beta/targets/{jvmId}/recordings/{filename}/view:
+    get:
+      parameters:
+        - in: path
+          name: filename
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: jvmId
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: view
+          schema:
+            default: recording
+            type: string
+        - in: query
+          name: width
+          schema:
+            default: "120"
+            format: int32
+            type: integer
+      responses:
+        "200":
+          content:
+            text/plain:
+              schema:
+                type: string
+          description: OK
+      summary: View
+      tags:
+        - Jfr View
+  /api/beta/targets/{jvmId}/recordings/{filename}/views:
+    get:
+      parameters:
+        - in: path
+          name: filename
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: jvmId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ViewList'
+          description: OK
+      summary: Views
+      tags:
+        - Jfr View
   /api/beta/targets/{jvmId}/smart_triggers/sync:
     post:
       parameters:
