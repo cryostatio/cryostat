@@ -238,7 +238,7 @@ function bucketname() {
 
 if [ ! "${DRY_RUN}" = "true" ]; then
     set -xe
-    CRYOSTAT_JAVA_OPTS="-XX:StartFlightRecording=filename=/tmp/onstart.jfr,name=onstart,settings=default,disk=true,maxage=5m -Dcom.sun.management.jmxremote.autodiscovery=true -Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.port=9091 -Dcom.sun.management.jmxremote.rmi.port=9091 -Djava.rmi.server.hostname=127.0.0.1 -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.local.only=false"
+    CRYOSTAT_JAVA_OPTS="-XX:StartFlightRecording=filename=/tmp/onstart.jfr,name=onstart,settings=default,disk=true,maxage=5m -Dcom.sun.management.jmxremote.autodiscovery=true -Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.port=9091 -Dcom.sun.management.jmxremote.rmi.port=9091 -Djava.rmi.server.hostname=127.0.0.1 -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.local.only=false --add-exports jdk.jfr/jdk.jfr.internal.query=ALL-UNNAMED --add-exports jdk.jfr/jdk.jfr.internal.util=ALL-UNNAMED"
     export CRYOSTAT_JAVA_OPTS
 else
     CRYOSTAT_STORAGE_BUCKETS_ARCHIVES_NAME="$(bucketname 'archives')"
