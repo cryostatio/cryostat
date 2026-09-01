@@ -87,7 +87,7 @@ EXPOSE 8181
 LABEL io.cryostat.component=cryostat
 
 ENV QUARKUS_HTTP_HOST=0.0.0.0
-ENV JAVA_OPTS_APPEND="-Djava.util.logging.manager=org.jboss.logmanager.LogManager"
+ENV JAVA_OPTS_APPEND="-Djava.util.logging.manager=org.jboss.logmanager.LogManager --add-exports jdk.jfr/jdk.jfr.internal.query=ALL-UNNAMED --add-exports jdk.jfr/jdk.jfr.internal.util=ALL-UNNAMED"
 ENV JAVA_APP_JAR="/deployments/quarkus-run.jar"
 
 ENTRYPOINT [ "/deployments/app/entrypoint.bash", "/opt/jboss/container/java/run/run-java.sh" ]
