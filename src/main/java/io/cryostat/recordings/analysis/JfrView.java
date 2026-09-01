@@ -21,6 +21,7 @@ import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -196,5 +197,11 @@ public class JfrView {
         return new ViewList(vm, env, app);
     }
 
-    public record ViewList(List<String> vm, List<String> env, List<String> app) {}
+    public record ViewList(List<String> vm, List<String> env, List<String> app) {
+        public ViewList {
+            vm = Collections.unmodifiableList(new ArrayList<>(vm));
+            env = Collections.unmodifiableList(new ArrayList<>(env));
+            app = Collections.unmodifiableList(new ArrayList<>(app));
+        }
+    }
 }
