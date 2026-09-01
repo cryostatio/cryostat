@@ -132,6 +132,112 @@ public abstract class AbstractJfrViewTest {
     }
 
     @Test
+    void testVerboseIncludesQuery() {
+        String plain =
+                given().when()
+                        .pathParams("jvmId", "uploads", "filename", RECORDING_FILENAME)
+                        .queryParam("view", "hot-methods")
+                        .get(VIEW_PATH)
+                        .then()
+                        .assertThat()
+                        .statusCode(200)
+                        .extract()
+                        .body()
+                        .asString();
+
+        String verbose =
+                given().log()
+                        .all()
+                        .when()
+                        .pathParams("jvmId", "uploads", "filename", RECORDING_FILENAME)
+                        .queryParam("view", "hot-methods")
+                        .queryParam("verbose", true)
+                        .get(VIEW_PATH)
+                        .then()
+                        .log()
+                        .all()
+                        .and()
+                        .assertThat()
+                        .statusCode(200)
+                        .contentType(ContentType.TEXT)
+                        .extract()
+                        .body()
+                        .asString();
+
+        // The verbose rendering echoes the query making up the view, so it is strictly longer.
+        MatcherAssert.assertThat(verbose.length(), Matchers.greaterThan(plain.length()));
+    }
+
+    @Test
+    void testTruncateBeginningIsAccepted() {
+        given().log()
+                .all()
+                .when()
+                .pathParams("jvmId", "uploads", "filename", RECORDING_FILENAME)
+                .queryParam("view", "hot-methods")
+                .queryParam("truncate", "beginning")
+                .queryParam("width", 60)
+                .get(VIEW_PATH)
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(200)
+                .contentType(ContentType.TEXT);
+    }
+
+    @Test
+    void testInvalidTruncateReturnsBadRequest() {
+        given().log()
+                .all()
+                .when()
+                .pathParams("jvmId", "uploads", "filename", RECORDING_FILENAME)
+                .queryParam("truncate", "middle")
+                .get(VIEW_PATH)
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(400);
+    }
+
+    @Test
+    void testCellHeightIsAccepted() {
+        given().log()
+                .all()
+                .when()
+                .pathParams("jvmId", "uploads", "filename", RECORDING_FILENAME)
+                .queryParam("view", "hot-methods")
+                .queryParam("cellHeight", 2)
+                .get(VIEW_PATH)
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(200)
+                .contentType(ContentType.TEXT);
+    }
+
+    @Test
+    void testInvalidCellHeightReturnsBadRequest() {
+        given().log()
+                .all()
+                .when()
+                .pathParams("jvmId", "uploads", "filename", RECORDING_FILENAME)
+                .queryParam("cellHeight", 0)
+                .get(VIEW_PATH)
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(400);
+    }
+
+    @Test
     void testUnknownViewReturnsBadRequest() {
         given().log()
                 .all()

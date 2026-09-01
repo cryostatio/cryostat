@@ -105,9 +105,9 @@ public class ConfigProperties {
             "cryostat.services.heap-dump.reports.memory-limit";
     public static final String JFR_DATASOURCE_USE_PRESIGNED_TRANSFER =
             "cryostat.services.jfr-datasource.use-presigned-transfer";
-    public static final String JFR_ANALYTICS_CACHE_MAX_WEIGHT =
-            "cryostat.jfr-analytics.cache.max-weight";
-    public static final String JFR_ANALYTICS_CACHE_TTL = "cryostat.jfr-analytics.cache.ttl";
+    public static final String JFR_ANALYSIS_CACHE_MAX_WEIGHT =
+            "cryostat.jfr-analysis.cache.max-weight";
+    public static final String JFR_ANALYSIS_CACHE_TTL = "cryostat.jfr-analysis.cache.ttl";
 
     public static final String GRAFANA_DASHBOARD_URL = "grafana-dashboard.url";
     public static final String GRAFANA_DASHBOARD_EXT_URL = "grafana-dashboard-ext.url";
