@@ -23,6 +23,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 
 import io.cryostat.recordings.RecordingHelper;
@@ -114,7 +115,7 @@ public class JfrView {
             return Optional.empty();
         }
         return Optional.of(
-                switch (truncate.strip().toLowerCase()) {
+                switch (truncate.strip().toLowerCase(Locale.ROOT)) {
                     case "beginning" -> Truncate.BEGINNING;
                     case "end" -> Truncate.END;
                     default ->
