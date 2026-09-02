@@ -74,6 +74,7 @@ public class JfrView {
      */
     @GET
     @jakarta.ws.rs.Path("view")
+    @Blocking
     @RolesAllowed("read")
     @Produces(MediaType.TEXT_PLAIN)
     public Uni<String> view(
