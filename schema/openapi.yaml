@@ -2441,6 +2441,21 @@ paths:
           schema:
             type: string
         - in: query
+          name: cellHeight
+          required: false
+          schema:
+            format: int32
+            type: integer
+        - in: query
+          name: truncate
+          schema:
+            type: string
+        - in: query
+          name: verbose
+          schema:
+            default: false
+            type: boolean
+        - in: query
           name: view
           schema:
             default: recording
@@ -2448,7 +2463,7 @@ paths:
         - in: query
           name: width
           schema:
-            default: "120"
+            default: 120
             format: int32
             type: integer
       responses:
