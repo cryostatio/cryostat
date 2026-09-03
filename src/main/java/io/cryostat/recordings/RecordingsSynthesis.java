@@ -26,10 +26,10 @@ import io.cryostat.recordings.LongRunningRequestGenerator.SynthesisRequest;
 import io.cryostat.targets.Target;
 import io.cryostat.util.ResponseDispatch;
 
+import io.quarkus.security.PermissionsAllowed;
 import io.smallrye.common.annotation.Blocking;
 import io.vertx.core.http.HttpServerResponse;
 import io.vertx.mutiny.core.eventbus.EventBus;
-import jakarta.annotation.security.RolesAllowed;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
@@ -57,7 +57,9 @@ public class RecordingsSynthesis {
 
     @POST
     @Blocking
-    @RolesAllowed("write")
+    @PermissionsAllowed(
+            value = {"archivedrecordings:read", "archivedrecordings:write"},
+            inclusive = true)
     @Path("/api/beta/recording_synthesis/{jvmId}")
     public Response synthesize(
             HttpServerResponse response,
