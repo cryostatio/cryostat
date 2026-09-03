@@ -19,6 +19,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -649,6 +650,7 @@ public class DiagnosticsHelper {
     }
 
     public HeapDump addHeapDump(String jvmId, FileUpload heapDump, String requestId) {
+        boolean uploadStarted = false;
         try {
             String filename = heapDump.fileName().strip();
             if (StringUtils.isBlank(filename)) {
@@ -686,15 +688,26 @@ public class DiagnosticsHelper {
                     throw new IllegalStateException();
             }
 
+            // Capture the source file size before starting the upload, since the
+            // temp file is deleted once the transfer reaches a terminal state.
+            long fileSize = heapDump.filePath().toFile().length();
+            var uploadFuture =
+                    transferManager
+                            .uploadFile(
+                                    UploadFileRequest.builder()
+                                            .putObjectRequest(req.build())
+                                            .source(heapDump.filePath())
+                                            .build())
+                            .completionFuture();
+            // Delete the temp file only after the transfer reaches a terminal
+            // state (success or failure), even if we stop awaiting below due to
+            // timeout. Deleting the source file while the transfer is still
+            // reading it would race with the in-flight upload.
+            uploadStarted = true;
+            uploadFuture.whenComplete((res, err) -> deleteQuietly(heapDump.filePath()));
+
             Uni.createFrom()
-                    .completionStage(
-                            transferManager
-                                    .uploadFile(
-                                            UploadFileRequest.builder()
-                                                    .putObjectRequest(req.build())
-                                                    .source(heapDump.filePath())
-                                                    .build())
-                                    .completionFuture())
+                    .completionStage(uploadFuture)
                     .runSubscriptionOn(Infrastructure.getDefaultExecutor())
                     .await()
                     .atMost(uploadFailedTimeout);
@@ -704,7 +717,7 @@ public class DiagnosticsHelper {
                             heapDumpDownloadUrl(jvmId, filename),
                             filename,
                             clock.now().getEpochSecond(),
-                            heapDump.filePath().toFile().length(),
+                            fileSize,
                             new Metadata(Map.of()));
             var event =
                     new HeapDumpEvent(
@@ -716,13 +729,20 @@ public class DiagnosticsHelper {
 
             return dump;
         } finally {
-            // Clean up temporary files, whether the upload succeeded or failed,
-            // to avoid leaking temporary files.
-            try {
-                Files.delete(heapDump.filePath());
-            } catch (IOException ioe) {
-                log.warn(ioe);
+            // If the transfer never started (e.g. validation failed), clean up
+            // the temp file here. Otherwise deletion is deferred to the upload's
+            // completion callback registered above.
+            if (!uploadStarted) {
+                deleteQuietly(heapDump.filePath());
             }
+        }
+    }
+
+    private void deleteQuietly(Path path) {
+        try {
+            Files.delete(path);
+        } catch (IOException ioe) {
+            log.warn(ioe);
         }
     }
 

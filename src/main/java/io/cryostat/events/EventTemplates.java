@@ -159,8 +159,13 @@ public class EventTemplates {
         } catch (InvalidEventTemplateException | InvalidXmlException e) {
             throw new BadRequestException(e);
         } finally {
-            // Clean up temporary files
-            Files.delete(body.filePath());
+            // Clean up temporary files, whether processing succeeded or failed,
+            // to avoid leaking temporary files.
+            try {
+                Files.delete(body.filePath());
+            } catch (IOException ioe) {
+                logger.warn(ioe);
+            }
         }
     }
 
