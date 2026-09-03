@@ -35,6 +35,7 @@ import io.cryostat.recordings.LongRunningRequestGenerator.ActiveReportRequest;
 import io.cryostat.recordings.LongRunningRequestGenerator.ArchiveRequest;
 import io.cryostat.recordings.LongRunningRequestGenerator.ArchivedReportRequest;
 import io.cryostat.recordings.RecordingHelper;
+import io.cryostat.security.rbac.UserAuthorizer;
 import io.cryostat.targets.Target;
 
 import io.quarkus.runtime.StartupEvent;
@@ -84,6 +85,7 @@ public class Reports {
     @Inject ReportsService reportsService;
     @Inject AnalysisReportAggregator reportAggregator;
     @Inject EventBus bus;
+    @Inject UserAuthorizer userAuthorizer;
     @Inject Logger logger;
 
     // FIXME this observer cannot be declared on the StorageCachingReportsService decorator.
@@ -183,6 +185,9 @@ public class Reports {
             HttpServerResponse resp,
             @RestPath long targetId,
             @QueryParam("clean") @DefaultValue("true") boolean clean) {
+        if (clean) {
+            userAuthorizer.assertAuthorized("activerecordings", "delete");
+        }
         var target = Target.getTargetById(targetId);
         var jobId = UUID.randomUUID().toString();
         resp.bodyEndHandler(
