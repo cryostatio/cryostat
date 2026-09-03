@@ -89,35 +89,35 @@ jobs:
       statuses: write
     steps:
     - name: Set pending commit status for unit tests
-      uses: daltonbr/set-commit-status-action@2a09190f6d04d912bca5ede8094b5d5dce303ebb # v3.0.1
+      uses: daltonbr/set-commit-status-action@b5ef7ba5279f7953ad1fa44f01f92fca82e65eb4 # v3.0.2
       with:
         context: unit-test
         sha: ${{ needs.checkout-branch.outputs.PR_head_sha }}
         token: ${{ secrets.GITHUB_TOKEN }}
         status: pending
     - name: Set pending commit status for integration tests
-      uses: daltonbr/set-commit-status-action@2a09190f6d04d912bca5ede8094b5d5dce303ebb # v3.0.1
+      uses: daltonbr/set-commit-status-action@b5ef7ba5279f7953ad1fa44f01f92fca82e65eb4 # v3.0.2
       with:
         context: integration-test
         sha: ${{ needs.checkout-branch.outputs.PR_head_sha }}
         token: ${{ secrets.GITHUB_TOKEN }}
         status: pending
     - name: Set pending commit status for OpenAPI schema
-      uses: daltonbr/set-commit-status-action@2a09190f6d04d912bca5ede8094b5d5dce303ebb # v3.0.1
+      uses: daltonbr/set-commit-status-action@b5ef7ba5279f7953ad1fa44f01f92fca82e65eb4 # v3.0.2
       with:
         context: openapi-schema-check
         sha: ${{ needs.checkout-branch.outputs.PR_head_sha }}
         token: ${{ secrets.GITHUB_TOKEN }}
         status: pending
     - name: Set pending commit status for GraphQL schema
-      uses: daltonbr/set-commit-status-action@2a09190f6d04d912bca5ede8094b5d5dce303ebb # v3.0.1
+      uses: daltonbr/set-commit-status-action@b5ef7ba5279f7953ad1fa44f01f92fca82e65eb4 # v3.0.2
       with:
         context: graphql-schema-check
         sha: ${{ needs.checkout-branch.outputs.PR_head_sha }}
         token: ${{ secrets.GITHUB_TOKEN }}
         status: pending
     - name: Set pending commit status for Notifications schema
-      uses: daltonbr/set-commit-status-action@2a09190f6d04d912bca5ede8094b5d5dce303ebb # v3.0.1
+      uses: daltonbr/set-commit-status-action@b5ef7ba5279f7953ad1fa44f01f92fca82e65eb4 # v3.0.2
       with:
         context: notifications-schema-check
         sha: ${{ needs.checkout-branch.outputs.PR_head_sha }}
@@ -220,7 +220,7 @@ jobs:
       pull-requests: write
     steps:
     - name: Set unit-test commit status
-      uses: daltonbr/set-commit-status-action@2a09190f6d04d912bca5ede8094b5d5dce303ebb # v3.0.1
+      uses: daltonbr/set-commit-status-action@b5ef7ba5279f7953ad1fa44f01f92fca82e65eb4 # v3.0.2
       with:
         context: unit-test
         sha: ${{ needs.checkout-branch.outputs.PR_head_sha }}
@@ -368,7 +368,7 @@ jobs:
       pull-requests: write
     steps:
     - name: Set integration-test commit status
-      uses: daltonbr/set-commit-status-action@2a09190f6d04d912bca5ede8094b5d5dce303ebb # v3.0.1
+      uses: daltonbr/set-commit-status-action@b5ef7ba5279f7953ad1fa44f01f92fca82e65eb4 # v3.0.2
       with:
         context: integration-test
         sha: ${{ needs.checkout-branch.outputs.PR_head_sha }}
@@ -561,7 +561,7 @@ jobs:
         PR_NUM: ${{ needs.checkout-branch.outputs.PR_num }}
       run: gh pr comment "${PR_NUM}" --repo "${{ github.repository }}" --body-file comment.txt
     - name: Set OpenAPI schema commit status
-      uses: daltonbr/set-commit-status-action@2a09190f6d04d912bca5ede8094b5d5dce303ebb # v3.0.1
+      uses: daltonbr/set-commit-status-action@b5ef7ba5279f7953ad1fa44f01f92fca82e65eb4 # v3.0.2
       if: always()
       with:
         context: openapi-schema-check
@@ -570,7 +570,7 @@ jobs:
         status: ${{ needs.update-api-schemas.outputs.OPENAPI_STATUS == '0' && 'success' || 'failure' }}
         description: ${{ needs.update-api-schemas.outputs.OPENAPI_STATUS == '0' && 'No schema changes' || 'Schema update required' }}
     - name: Set GraphQL schema commit status
-      uses: daltonbr/set-commit-status-action@2a09190f6d04d912bca5ede8094b5d5dce303ebb # v3.0.1
+      uses: daltonbr/set-commit-status-action@b5ef7ba5279f7953ad1fa44f01f92fca82e65eb4 # v3.0.2
       if: always()
       with:
         context: graphql-schema-check
@@ -579,7 +579,7 @@ jobs:
         status: ${{ needs.update-api-schemas.outputs.GRAPHQL_STATUS == '0' && 'success' || 'failure' }}
         description: ${{ needs.update-api-schemas.outputs.GRAPHQL_STATUS == '0' && 'No schema changes' || 'Schema update required' }}
     - name: Set Notifications schema commit status
-      uses: daltonbr/set-commit-status-action@2a09190f6d04d912bca5ede8094b5d5dce303ebb # v3.0.1
+      uses: daltonbr/set-commit-status-action@b5ef7ba5279f7953ad1fa44f01f92fca82e65eb4 # v3.0.2
       if: always()
       with:
         context: notifications-schema-check
