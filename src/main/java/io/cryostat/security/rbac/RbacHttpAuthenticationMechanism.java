@@ -23,6 +23,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import io.cryostat.ConfigProperties;
 
@@ -68,8 +69,9 @@ import org.jboss.logging.Logger;
  * </ul>
  *
  * <p>In {@code BASIC} and {@code OPENSHIFT} modes, requests arriving through the mTLS agent proxy
- * (identified by the {@code X-Cryostat-Agent-Proxy} header) are granted a permissive identity when
- * the normal forwarded-user headers are absent. This pathway is gated on the {@code
+ * (identified by the {@code X-Cryostat-Agent-Proxy} header) are granted a restricted identity
+ * scoped to the configured {@link RbacConfig#agentPermissions() agent permission set} when the
+ * normal forwarded-user headers are absent. This pathway is gated on the {@code
  * cryostat.http.proxy.mtls.trusted-hosts} config property: the header is only accepted when the
  * property lists one or more hostnames, every listed hostname also appears in {@code
  * quarkus.http.proxy.trusted-proxies} (i.e. it acts only as a selector from the already-trusted
@@ -88,6 +90,7 @@ public class RbacHttpAuthenticationMechanism implements HttpAuthenticationMechan
     static final String BEARER_PREFIX = "bearer ";
     public static final String HEADER_AGENT_PROXY = "X-Cryostat-Agent-Proxy";
     static final String ATTR_RAW_ACCESS_TOKEN = "raw_access_token";
+    static final String AGENT_PRINCIPAL = "cryostat-agent";
 
     @Inject Logger log;
     @Inject RbacConfig config;
@@ -102,9 +105,17 @@ public class RbacHttpAuthenticationMechanism implements HttpAuthenticationMechan
     Optional<List<String>> quarkusTrustedProxies;
 
     private boolean agentProxyConfigValid;
+    private Set<String> agentPermissions;
 
     @PostConstruct
     void validateAgentProxyConfig() {
+        agentPermissions =
+                config.agentPermissions().stream()
+                        .map(StringUtils::strip)
+                        .filter(StringUtils::isNotBlank)
+                        .collect(Collectors.toUnmodifiableSet());
+        log.debugf("Agent proxy requests will be granted permissions %s", agentPermissions);
+
         List<String> hosts =
                 trustedAgentProxyHosts.orElse(List.of()).stream()
                         .filter(StringUtils::isNotBlank)
@@ -142,8 +153,8 @@ public class RbacHttpAuthenticationMechanism implements HttpAuthenticationMechan
                 String user = context.request().getHeader(HEADER_FORWARDED_USER);
                 if (StringUtils.isBlank(user)) {
                     if (isAgentProxyRequest(context)) {
-                        log.debug("BASIC mode: agent proxy request, granting permissive identity");
-                        yield Uni.createFrom().item(buildPermissiveIdentity("cryostat-agent"));
+                        log.debug("BASIC mode: agent proxy request, granting agent identity");
+                        yield Uni.createFrom().item(buildAgentIdentity());
                     }
                     log.debug("BASIC mode: no X-Forwarded-User header, returning null");
                     yield Uni.createFrom().nullItem();
@@ -156,10 +167,8 @@ public class RbacHttpAuthenticationMechanism implements HttpAuthenticationMechan
                 String token = extractAccessToken(context);
                 if (StringUtils.isBlank(user) || StringUtils.isBlank(token)) {
                     if (isAgentProxyRequest(context)) {
-                        log.debug(
-                                "OPENSHIFT mode: agent proxy request, granting permissive"
-                                        + " identity");
-                        yield Uni.createFrom().item(buildPermissiveIdentity("cryostat-agent"));
+                        log.debug("OPENSHIFT mode: agent proxy request, granting agent identity");
+                        yield Uni.createFrom().item(buildAgentIdentity());
                     }
                     log.debug("OPENSHIFT mode: missing user or access token, returning null");
                     yield Uni.createFrom().nullItem();
@@ -266,6 +275,37 @@ public class RbacHttpAuthenticationMechanism implements HttpAuthenticationMechan
                 .setPrincipal(new QuarkusPrincipal(user))
                 .setAnonymous(false)
                 .addPermissionChecker(permission -> Uni.createFrom().item(true))
+                .build();
+    }
+
+    /**
+     * Builds the restricted identity granted to authenticated agent-proxy requests. Unlike {@link
+     * #buildPermissiveIdentity(String)}, its permission checker only grants a request when every
+     * {@code resource:verb} it requires is present in the configured {@link
+     * RbacConfig#agentPermissions() agent permission set}. Blank permissions and any {@code
+     * resource:verb} outside that set are denied.
+     */
+    private SecurityIdentity buildAgentIdentity() {
+        Set<String> allowed = agentPermissions;
+        return QuarkusSecurityIdentity.builder()
+                .setPrincipal(new QuarkusPrincipal(AGENT_PRINCIPAL))
+                .setAnonymous(false)
+                .addPermissionChecker(
+                        (Permission permission) -> {
+                            String resource = permission.getName();
+                            String actions = permission.getActions();
+                            if (StringUtils.isBlank(resource) || StringUtils.isBlank(actions)) {
+                                return Uni.createFrom().item(false);
+                            }
+                            List<String> required =
+                                    Arrays.stream(actions.split(","))
+                                            .map(StringUtils::strip)
+                                            .filter(StringUtils::isNotBlank)
+                                            .map(action -> resource + ":" + action)
+                                            .toList();
+                            boolean granted = !required.isEmpty() && allowed.containsAll(required);
+                            return Uni.createFrom().item(granted);
+                        })
                 .build();
     }
 
