@@ -115,7 +115,9 @@ public class Audit {
 
     // does not return audit log metadata like username, so audit:read permission is not required
     @GET
-    @PermissionsAllowed(value = "targets:read", inclusive = true)
+    @PermissionsAllowed(
+            value = {"targets:read", "discoverynodes:read"},
+            inclusive = true)
     @Path("target_lineage/{jvmId}")
     @Produces(MediaType.APPLICATION_JSON)
     public DiscoveryNode targetLineageByJvmId(@RestPath String jvmId) {
