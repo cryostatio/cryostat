@@ -16,6 +16,7 @@
 package io.cryostat.security.rbac;
 
 import java.time.Duration;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -81,6 +82,19 @@ public interface RbacConfig {
      */
     @WithName("namespace")
     Optional<String> namespace();
+
+    /**
+     * The set of {@code resource:verb} permissions granted to authenticated Cryostat Agent proxy
+     * requests (those carrying a trusted {@code X-Cryostat-Agent-Proxy} header, see {@link
+     * RbacHttpAuthenticationMechanism}). Each entry is a {@code resource:verb} string, e.g. {@code
+     * discoverynodes:write}. Configured as a comma-separated list so that a deployment can widen or
+     * (more commonly) narrow the Agent's effective permissions — for example, dropping {@code
+     * heapdumps:write} to prevent auto-configured Agents from pushing heap dumps. A request is
+     * granted only when every {@code resource:verb} it requires is present in this set; blank or
+     * unrecognised permissions are denied.
+     */
+    @WithName("agent-permissions")
+    List<String> agentPermissions();
 
     CacheConfig cache();
 
