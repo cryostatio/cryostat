@@ -94,22 +94,29 @@ public class JMCAgentTemplates {
             @RestForm("probeTemplate") FileUpload body,
             @RestForm("name") String name)
             throws IOException, SAXException {
-        if (StringUtils.isBlank(name)) {
-            throw new BadRequestException("Request must contain a 'name' form parameter");
-        }
         if (body == null || body.filePath() == null || !"probeTemplate".equals(body.name())) {
             throw new BadRequestException("Request must contain a 'probeTemplate' file upload");
         }
-        var probeTemplate = service.addTemplate(body.filePath(), name);
         try {
-            Files.delete(body.filePath());
-        } catch (IOException ioe) {
-            logger.warn(ioe);
+            if (StringUtils.isBlank(name)) {
+                throw new BadRequestException("Request must contain a 'name' form parameter");
+            }
+            var probeTemplate = service.addTemplate(body.filePath(), name);
+            return ResponseBuilder.<ProbeTemplate>created(
+                            uriInfo.getAbsolutePathBuilder()
+                                    .path(probeTemplate.getFileName())
+                                    .build())
+                    .entity(probeTemplate)
+                    .build();
+        } finally {
+            // Clean up the uploaded file, whether processing succeeded or failed,
+            // to avoid leaking temporary files.
+            try {
+                Files.delete(body.filePath());
+            } catch (IOException ioe) {
+                logger.warn(ioe);
+            }
         }
-        return ResponseBuilder.<ProbeTemplate>created(
-                        uriInfo.getAbsolutePathBuilder().path(probeTemplate.getFileName()).build())
-                .entity(probeTemplate)
-                .build();
     }
 
     static record ProbeTemplateResponse(String name, String xml) {
