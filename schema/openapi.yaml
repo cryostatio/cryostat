@@ -2298,6 +2298,12 @@ paths:
           description: OK
         "400":
           description: Bad Request
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
       summary: Synthesize
       tags:
         - Recordings Synthesis
@@ -2831,6 +2837,12 @@ paths:
           description: Created
         "400":
           description: Bad Request
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
       summary: Publish updated target discovery information
       tags:
         - Discovery
@@ -3135,6 +3147,12 @@ paths:
       responses:
         "204":
           description: No Content
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
       summary: Delete the given plugin's registration
       tags:
         - Discovery
@@ -3193,6 +3211,12 @@ paths:
           description: Created
         "400":
           description: Bad Request
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
       summary: Publish updated target discovery information
       tags:
         - Discovery
