@@ -199,7 +199,9 @@ public class Discovery {
 
     @POST
     @Blocking
-    @PermissionsAllowed(value = "discoverynodes:read", inclusive = true)
+    @PermissionsAllowed(
+            value = {"credentials:read", "matchexpressions:read"},
+            inclusive = true)
     @Consumes({MediaType.MULTIPART_FORM_DATA, MediaType.APPLICATION_FORM_URLENCODED})
     @Path("/api/beta/discovery/credential_exists")
     @Operation(
