@@ -48,6 +48,8 @@ channels:
         - $ref: '#/components/messages/ProbeTemplateUploaded'
         - $ref: '#/components/messages/ProbesRemoved'
         - $ref: '#/components/messages/RecordingMetadataUpdated'
+        - $ref: '#/components/messages/RecordingSynthesisComplete'
+        - $ref: '#/components/messages/RecordingSynthesisFailure'
         - $ref: '#/components/messages/ReportFailure'
         - $ref: '#/components/messages/ReportSuccess'
         - $ref: '#/components/messages/RuleCreated'
@@ -838,6 +840,81 @@ components:
                         type: object
                         additionalProperties: true
               jvmId:
+                type: string
+        required:
+        - meta
+        - message
+    RecordingSynthesisComplete:
+      name: RecordingSynthesisComplete
+      title: Recording Synthesis Complete
+      summary: 'Notification: RecordingSynthesisComplete'
+      description: WebSocket notification for Recording Synthesis Complete events
+      payload:
+        type: object
+        description: WebSocket notification message wrapper
+        properties:
+          meta:
+            type: object
+            description: Notification metadata
+            properties:
+              category:
+                type: string
+                const: RecordingSynthesisComplete
+                description: Notification category identifier
+            required:
+            - category
+          message:
+            type: object
+            properties:
+              jobId:
+                type: string
+              recording:
+                type: object
+                properties:
+                  jvmId:
+                    type: string
+                  name:
+                    type: string
+                  downloadUrl:
+                    type: string
+                  reportUrl:
+                    type: string
+                  metadata:
+                    type: object
+                    properties:
+                      labels:
+                        type: object
+                        additionalProperties: true
+                  size:
+                    type: integer
+                  archivedTime:
+                    type: integer
+        required:
+        - meta
+        - message
+    RecordingSynthesisFailure:
+      name: RecordingSynthesisFailure
+      title: Recording Synthesis Failure
+      summary: 'Notification: RecordingSynthesisFailure'
+      description: WebSocket notification for Recording Synthesis Failure events
+      payload:
+        type: object
+        description: WebSocket notification message wrapper
+        properties:
+          meta:
+            type: object
+            description: Notification metadata
+            properties:
+              category:
+                type: string
+                const: RecordingSynthesisFailure
+                description: Notification category identifier
+            required:
+            - category
+          message:
+            type: object
+            properties:
+              jobId:
                 type: string
         required:
         - meta

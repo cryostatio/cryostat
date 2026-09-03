@@ -37,6 +37,7 @@ import io.cryostat.recordings.LongRunningRequestGenerator.ThreadDumpRequest;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.TargetConnectionManager;
 import io.cryostat.util.HttpMimeType;
+import io.cryostat.util.ResponseDispatch;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.quarkus.narayana.jta.QuarkusTransaction;
@@ -153,8 +154,9 @@ public class Diagnostics {
         io.cryostat.diagnostic.ThreadDump.requested(target, jobId, format).persist();
 
         ThreadDumpRequest request = new ThreadDumpRequest(jobId, targetId, format);
-        response.endHandler(
-                (e) -> bus.publish(LongRunningRequestGenerator.THREAD_DUMP_ADDRESS, request));
+        ResponseDispatch.onComplete(
+                response,
+                () -> bus.publish(LongRunningRequestGenerator.THREAD_DUMP_ADDRESS, request));
         return request.id();
     }
 
@@ -189,8 +191,9 @@ public class Diagnostics {
         log.trace("Cache miss. Creating heap dump reports request");
         var jobId = UUID.randomUUID().toString();
         HeapDumpAnalysisRequest request = new HeapDumpAnalysisRequest(jobId, jvmId, heapDumpId);
-        response.endHandler(
-                (e) ->
+        ResponseDispatch.onComplete(
+                response,
+                () ->
                         bus.publish(
                                 LongRunningRequestGenerator.HEAP_DUMP_ANALYSIS_REQUEST_ADDRESS,
                                 request));
@@ -382,8 +385,9 @@ public class Diagnostics {
         io.cryostat.diagnostic.HeapDump.requested(target, jobId).persist();
 
         HeapDumpRequest request = new HeapDumpRequest(jobId, targetId);
-        response.endHandler(
-                (e) -> bus.publish(LongRunningRequestGenerator.HEAP_DUMP_REQUEST_ADDRESS, request));
+        ResponseDispatch.onComplete(
+                response,
+                () -> bus.publish(LongRunningRequestGenerator.HEAP_DUMP_REQUEST_ADDRESS, request));
         return request.id();
     }
 

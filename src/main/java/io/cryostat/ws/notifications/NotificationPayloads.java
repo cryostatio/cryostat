@@ -18,6 +18,7 @@ package io.cryostat.ws.notifications;
 import java.util.Objects;
 
 import io.cryostat.core.diagnostic.HeapDumpAnalysis;
+import io.cryostat.recordings.ArchivedRecordings.ArchivedRecording;
 
 /**
  * Notification payload record types for WebSocket notifications. These records represent the
@@ -115,6 +116,13 @@ public final class NotificationPayloads {
         public ProbeTemplateUploadedPayload {
             Objects.requireNonNull(probeTemplate);
             Objects.requireNonNull(templateContent);
+        }
+    }
+
+    public record SynthesisCompletePayload(String jobId, ArchivedRecording recording) {
+        public SynthesisCompletePayload {
+            Objects.requireNonNull(jobId);
+            Objects.requireNonNull(recording);
         }
     }
 }
