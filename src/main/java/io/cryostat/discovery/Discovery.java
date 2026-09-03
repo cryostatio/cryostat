@@ -63,7 +63,6 @@ import io.smallrye.faulttolerance.api.RateLimit;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.mutiny.core.eventbus.EventBus;
-import jakarta.annotation.security.PermitAll;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
@@ -225,7 +224,9 @@ public class Discovery {
     @Path("/api/v4/discovery")
     @Produces(MediaType.APPLICATION_JSON)
     @Consumes(MediaType.APPLICATION_JSON)
-    @PermissionsAllowed(value = "discoverynodes:write", inclusive = true)
+    @PermissionsAllowed(
+            value = {"discoveryplugins:write", "discoverynodes:write"},
+            inclusive = true)
     @Tag(
             name = "Discovery",
             description =
@@ -326,7 +327,14 @@ public class Discovery {
     @Path("/api/v4.3/discovery/agents")
     @Produces(MediaType.APPLICATION_JSON)
     @Consumes(MediaType.APPLICATION_JSON)
-    @PermissionsAllowed(value = "discoverynodes:write", inclusive = true)
+    @PermissionsAllowed(
+            value = {
+                "discoveryplugins:write",
+                "discoverynodes:write",
+                "targets:write",
+                "credentials:write"
+            },
+            inclusive = true)
     @Tag(ref = "Discovery")
     @Operation(
             summary = "Register and publish a Cryostat Agent",
@@ -414,7 +422,9 @@ public class Discovery {
     @POST
     @Path("/api/v4/discovery/{id}")
     @Consumes(MediaType.APPLICATION_JSON)
-    @PermitAll
+    @PermissionsAllowed(
+            value = {"targets:write", "discoverynodes:write"},
+            inclusive = true)
     @Tag(ref = "Discovery")
     @Operation(
             summary = "Publish updated target discovery information",
@@ -446,7 +456,9 @@ public class Discovery {
     @POST
     @Path("/api/v4.2/discovery/{id}")
     @Consumes(MediaType.APPLICATION_JSON)
-    @PermitAll
+    @PermissionsAllowed(
+            value = {"targets:write", "discoverynodes:write"},
+            inclusive = true)
     @Tag(ref = "Discovery")
     @Operation(
             summary = "Publish updated target discovery information",
@@ -662,7 +674,9 @@ public class Discovery {
     @Transactional
     @DELETE
     @Path("/api/v4/discovery/{id}")
-    @PermitAll
+    @PermissionsAllowed(
+            value = {"targets:delete", "discoverynodes:delete", "discoveryplugins:delete"},
+            inclusive = true)
     @Tag(ref = "Discovery")
     @Operation(
             summary = "Delete the given plugin's registration",
@@ -714,7 +728,9 @@ public class Discovery {
     @GET
     @JsonView(DiscoveryNode.Views.Flat.class)
     @Path("/api/v4/discovery_plugins")
-    @PermissionsAllowed(value = "discoverynodes:read", inclusive = true)
+    @PermissionsAllowed(
+            value = {"discoveryplugins:read", "discoverynodes:read"},
+            inclusive = true)
     @Tag(ref = "Discovery")
     @Operation(
             summary = "List currently registered discovery plugins",
@@ -731,7 +747,9 @@ public class Discovery {
 
     @GET
     @Path("/api/v4/discovery_plugins/{id}")
-    @PermissionsAllowed(value = "discoverynodes:read", inclusive = true)
+    @PermissionsAllowed(
+            value = {"discoveryplugins:read", "discoverynodes:read"},
+            inclusive = true)
     @Tag(ref = "Discovery")
     @Operation(
             summary = "Retrieve a specific discovery plugin",

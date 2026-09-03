@@ -144,7 +144,12 @@ public class ActiveRecordings {
 
     @Transactional
     @Mutation
-    @RequiresPermission({"targets:read", "discoverynodes:read", "activerecordings:write"})
+    @RequiresPermission({
+        "targets:read",
+        "discoverynodes:read",
+        "activerecordings:read",
+        "activerecordings:write"
+    })
     @Description(
             "Stop an existing Flight Recording matching the given filter, on all Targets under"
                     + " the subtrees of the discovery nodes matching the given filter")
@@ -175,7 +180,12 @@ public class ActiveRecordings {
 
     @Transactional
     @Mutation
-    @RequiresPermission({"targets:read", "discoverynodes:read", "activerecordings:delete"})
+    @RequiresPermission({
+        "targets:read",
+        "discoverynodes:read",
+        "activerecordings:read",
+        "activerecordings:delete"
+    })
     @Description(
             "Delete an existing Flight Recording matching the given filter, on all Targets under"
                     + " the subtrees of the discovery nodes matching the given filter")
