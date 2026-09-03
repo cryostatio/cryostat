@@ -77,17 +77,19 @@ public class AgentApplicationResource
         int hostAgentPort = findFreePort();
 
         Optional<Network> network =
-                containerNetworkId.map(
-                        id ->
-                                new Network() {
-                                    @Override
-                                    public String getId() {
-                                        return id;
-                                    }
+                containerNetworkId
+                        .filter(StringUtils::isNotBlank)
+                        .map(
+                                id ->
+                                        new Network() {
+                                            @Override
+                                            public String getId() {
+                                                return id;
+                                            }
 
-                                    @Override
-                                    public void close() {}
-                                });
+                                            @Override
+                                            public void close() {}
+                                        });
 
         String img =
                 Optional.ofNullable(System.getenv("QUARKUS_TEST_IMAGE"))
@@ -112,14 +114,12 @@ public class AgentApplicationResource
         container.addEnv(
                 "CRYOSTAT_AGENT_BASEURI",
                 String.format("http://host.docker.internal:%d/", cryostatPort));
+        boolean networked = containerNetworkId.filter(StringUtils::isNotBlank).isPresent();
         container.addEnv(
                 "CRYOSTAT_AGENT_CALLBACK",
                 String.format(
                         "http://%s:%d/",
-                        containerNetworkId
-                                .map(cnId -> StringUtils.isBlank(cnId) ? "localhost" : ALIAS)
-                                .orElse("localhost"),
-                        hostAgentPort));
+                        networked ? ALIAS : "localhost", networked ? PORT : hostAgentPort));
 
         container.start();
 
