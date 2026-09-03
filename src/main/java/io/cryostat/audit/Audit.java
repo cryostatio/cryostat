@@ -227,6 +227,7 @@ public class Audit {
                 "certificates:read",
                 "credentials:read",
                 "discoverynodes:read",
+                "discoveryplugins:read",
                 "eventtemplates:read",
                 "eventtypes:read",
                 "heapdumps:read",

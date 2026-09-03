@@ -148,7 +148,9 @@ public class Credentials {
     @Blocking
     @Bulkhead
     @GET
-    @PermissionsAllowed(value = "credentials:read", inclusive = true)
+    @PermissionsAllowed(
+            value = {"targets:read", "credentials:read"},
+            inclusive = true)
     @Operation(
             summary = "List information about all of the available Stored Credentials.",
             description =
@@ -180,7 +182,9 @@ public class Credentials {
     @Blocking
     @Bulkhead
     @GET
-    @PermissionsAllowed(value = "credentials:read", inclusive = true)
+    @PermissionsAllowed(
+            value = {"targets:read", "credentials:read"},
+            inclusive = true)
     @Path("/{id}")
     @Operation(
             summary = "Get information about a Stored Credential",

@@ -175,7 +175,9 @@ public class Diagnostics {
     }
 
     @Path("targets/{jvmId}/heapdump/{heapDumpId}/analyze")
-    @PermissionsAllowed(value = "heapdumps:read", inclusive = true)
+    @PermissionsAllowed(
+            value = {"targets:read", "heapdumps:read"},
+            inclusive = true)
     @Blocking
     @Transactional
     @POST
@@ -216,7 +218,9 @@ public class Diagnostics {
     @Blocking
     @Transactional
     @Path("targets/{targetId}/threaddump/{threadDumpId}")
-    @PermissionsAllowed(value = "threaddumps:delete", inclusive = true)
+    @PermissionsAllowed(
+            value = {"targets:read", "threaddumps:delete"},
+            inclusive = true)
     public void deleteThreadDump(@RestPath long targetId, @RestPath String threadDumpId) {
         log.tracev("Deleting thread dump with ID: {0}", threadDumpId);
         helper.deleteThreadDump(Target.getTargetById(targetId).jvmId, threadDumpId);
@@ -226,7 +230,9 @@ public class Diagnostics {
     @Blocking
     @Transactional
     @Path("targets/{jvmId}/threaddump/{threadDumpId}/analyze")
-    @PermissionsAllowed(value = "threaddumps:write", inclusive = true)
+    @PermissionsAllowed(
+            value = {"targets:read", "threaddumps:write"},
+            inclusive = true)
     public ThreadDumpAnalysis analyzeThreadDump(
             @RestPath String jvmId, @RestPath String threadDumpId) throws IOException {
         return helper.analyzeThreadDump(jvmId, threadDumpId);
@@ -235,7 +241,9 @@ public class Diagnostics {
     @DELETE
     @Blocking
     @Path("fs/threaddumps/{jvmId}/{threadDumpId}")
-    @PermissionsAllowed(value = "threaddumps:delete", inclusive = true)
+    @PermissionsAllowed(
+            value = {"targets:read", "threaddumps:delete"},
+            inclusive = true)
     public void deleteThreadDump(@RestPath String jvmId, @RestPath String threadDumpId) {
         log.tracev("Deleting thread dump with ID: {0}", threadDumpId);
         helper.deleteThreadDump(jvmId, threadDumpId);
@@ -446,7 +454,9 @@ public class Diagnostics {
     @DELETE
     @Blocking
     @Path("targets/{targetId}/heapdump/{heapDumpId}")
-    @PermissionsAllowed(value = "heapdumps:delete", inclusive = true)
+    @PermissionsAllowed(
+            value = {"targets:read", "heapdumps:delete"},
+            inclusive = true)
     public void deleteHeapDump(@RestPath String heapDumpId, @RestPath long targetId) {
         log.tracev("Deleting heap dump with ID: {0}", heapDumpId);
         helper.deleteHeapDump(

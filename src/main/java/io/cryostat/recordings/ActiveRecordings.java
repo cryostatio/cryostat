@@ -102,7 +102,9 @@ public class ActiveRecordings {
     @GET
     @Blocking
     @Path("/{remoteId}")
-    @PermissionsAllowed(value = "activerecordings:read", inclusive = true)
+    @PermissionsAllowed(
+            value = {"targets:read", "activerecordings:read"},
+            inclusive = true)
     @Operation(
             summary = "Download a Flight Recording binary file",
             description =
@@ -272,7 +274,9 @@ public class ActiveRecordings {
     @Transactional
     @Blocking
     @Path("/{remoteId}")
-    @PermissionsAllowed(value = "activerecordings:delete", inclusive = true)
+    @PermissionsAllowed(
+            value = {"targets:read", "activerecordings:delete"},
+            inclusive = true)
     @Operation(
             summary = "Delete a recording from the specified target",
             description =
@@ -292,7 +296,9 @@ public class ActiveRecordings {
     @POST
     @Blocking
     @Path("/{remoteId}/upload")
-    @PermissionsAllowed(value = "activerecordings:read", inclusive = true)
+    @PermissionsAllowed(
+            value = {"targets:read", "activerecordings:read"},
+            inclusive = true)
     @Operation(
             summary = "Upload a recording for analysis in Grafana dashboard",
             description =
