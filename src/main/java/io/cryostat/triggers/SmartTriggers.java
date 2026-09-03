@@ -160,7 +160,7 @@ public class SmartTriggers {
 
     @Path("api/beta/targets/{jvmId}/smart_triggers/sync/")
     @PermissionsAllowed(
-            value = {"targets:read", "smarttriggers:write"},
+            value = {"targets:read", "activerecordings:read", "activerecordings:write"},
             inclusive = true)
     @Transactional
     @POST

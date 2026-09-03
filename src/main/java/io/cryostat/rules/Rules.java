@@ -121,7 +121,9 @@ public class Rules {
 
     @Transactional
     @POST
-    @PermissionsAllowed(value = "automatedrules:write", inclusive = true)
+    @PermissionsAllowed(
+            value = {"automatedrules:write", "matchexpressions:write"},
+            inclusive = true)
     @Consumes(MediaType.APPLICATION_JSON)
     @Operation(summary = "Create a new Automated Rule")
     public RestResponse<Rule> create(@Context UriInfo uriInfo, Rule rule) {
@@ -146,7 +148,9 @@ public class Rules {
 
     @Transactional
     @PATCH
-    @PermissionsAllowed(value = "automatedrules:write", inclusive = true)
+    @PermissionsAllowed(
+            value = {"automatedrules:write", "matchexpressions:write"},
+            inclusive = true)
     @Path("/{name}")
     @Consumes(MediaType.APPLICATION_JSON)
     @Operation(
@@ -215,7 +219,9 @@ public class Rules {
 
     @Transactional
     @POST
-    @PermissionsAllowed(value = "automatedrules:write", inclusive = true)
+    @PermissionsAllowed(
+            value = {"automatedrules:write", "matchexpressions:write"},
+            inclusive = true)
     @Consumes({MediaType.MULTIPART_FORM_DATA, MediaType.APPLICATION_FORM_URLENCODED})
     public RestResponse<Rule> create(
             @Context UriInfo uriInfo,
@@ -262,7 +268,9 @@ public class Rules {
 
     @Transactional
     @DELETE
-    @PermissionsAllowed(value = "automatedrules:delete", inclusive = true)
+    @PermissionsAllowed(
+            value = {"automatedrules:delete", "matchexpressions:delete"},
+            inclusive = true)
     @Path("/{name}")
     @Operation(summary = "Delete an Automated Rule by name")
     public void delete(

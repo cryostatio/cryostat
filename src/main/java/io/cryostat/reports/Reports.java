@@ -162,7 +162,13 @@ public class Reports {
     @Transactional
     @Path("/api/v4.1/targets/{targetId}/reports")
     @PermissionsAllowed(
-            value = {"targets:read", "activerecordings:write", "reports:write"},
+            value = {
+                "targets:read",
+                "activerecordings:read",
+                "activerecordings:write",
+                "archivedrecordings:write",
+                "reports:write"
+            },
             inclusive = true)
     @Operation(
             summary = "Perform \"target analysis\" on the specified target",
