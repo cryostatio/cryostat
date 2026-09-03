@@ -209,7 +209,9 @@ public class AnalysisReportAggregator {
 
     @GET
     @Produces(MediaType.TEXT_PLAIN)
-    @PermissionsAllowed(value = "reports:read", inclusive = true)
+    @PermissionsAllowed(
+            value = {"reports:read", "targets:read"},
+            inclusive = true)
     @Operation(
             summary = "Retrieve the latest aggregate report data",
             description =
@@ -242,7 +244,9 @@ public class AnalysisReportAggregator {
     @GET
     @Path("/{jvmId}")
     @Produces(MediaType.TEXT_PLAIN)
-    @PermissionsAllowed(value = "reports:read", inclusive = true)
+    @PermissionsAllowed(
+            value = {"reports:read", "targets:read"},
+            inclusive = true)
     @Operation(
             summary = "Retrieve the latest aggregate report data for the specified target",
             description =

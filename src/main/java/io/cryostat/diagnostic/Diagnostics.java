@@ -400,7 +400,7 @@ public class Diagnostics {
     }
 
     @Path("heapdump/upload/{jvmId}")
-    @PermissionsAllowed(value = "heapdumps:read", inclusive = true)
+    @PermissionsAllowed(value = "heapdumps:write", inclusive = true)
     @Blocking
     @POST
     public void uploadHeapDump(
