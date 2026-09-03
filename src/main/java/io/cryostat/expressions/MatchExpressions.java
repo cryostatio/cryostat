@@ -43,7 +43,9 @@ public class MatchExpressions {
     @Inject Logger logger;
 
     @POST
-    @PermissionsAllowed(value = "matchexpressions:read", inclusive = true)
+    @PermissionsAllowed(
+            value = {"matchexpressions:read", "targets:read"},
+            inclusive = true)
     @Blocking
     @Transactional
     @Operation(
@@ -88,7 +90,9 @@ public class MatchExpressions {
 
     @GET
     @Path("/{id}")
-    @PermissionsAllowed(value = "matchexpressions:read", inclusive = true)
+    @PermissionsAllowed(
+            value = {"matchexpressions:read", "targets:read"},
+            inclusive = true)
     @Blocking
     @Operation(summary = "Retrieve a single Match Expression")
     public MatchedExpression get(@RestPath long id) throws ScriptException {
