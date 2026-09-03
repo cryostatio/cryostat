@@ -15,6 +15,7 @@
  */
 package io.cryostat.security.rbac;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Map;
@@ -35,7 +36,13 @@ class PermissionMapperNoDefaultTest {
         public Map<String, String> getConfigOverrides() {
             return Map.of(
                     "cryostat.security.rbac.mode", "PERMISSIVE",
-                    "cryostat.security.rbac.permissions.\"targets.read\"", "pods:get");
+                    "cryostat.security.rbac.permissions.\"targets.read\"", "pods:get",
+                    // Clear the defaults set in application.properties so this profile exercises
+                    // explicit-mapping resolution without any fallback.
+                    "cryostat.security.rbac.default-permission", "",
+                    "cryostat.security.rbac.default-read-permission", "",
+                    "cryostat.security.rbac.default-write-permission", "",
+                    "cryostat.security.rbac.default-delete-permission", "");
         }
     }
 
@@ -45,5 +52,14 @@ class PermissionMapperNoDefaultTest {
     void testResolvesKnownPermissionWithoutDefault() {
         Optional<PermissionMapper.K8sResourceVerb> result = mapper.resolve("targets:read");
         assertTrue(result.isPresent());
+        assertEquals("pods", result.get().resource());
+        assertEquals("", result.get().subresource());
+        assertEquals("get", result.get().verb());
+    }
+
+    @Test
+    void testUnknownPermissionResolvesToEmptyWithoutDefault() {
+        assertTrue(mapper.resolve("unknown:action").isEmpty());
+        assertTrue(mapper.resolve("targets:write").isEmpty());
     }
 }
