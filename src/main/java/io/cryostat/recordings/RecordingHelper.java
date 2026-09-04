@@ -103,6 +103,7 @@ import jakarta.ws.rs.core.Response;
 import jdk.jfr.RecordingState;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.commons.validator.routines.UrlValidator;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
@@ -652,16 +653,41 @@ public class RecordingHelper {
 
     public Uni<ActiveRecording> createSnapshot(
             Target target, Map<String, String> additionalLabels) {
-        return connectionManager
-                .executeConnectedTaskUni(
-                        target,
+        return Uni.createFrom()
+                .item(
+                        () ->
+                                QuarkusTransaction.requiringNew()
+                                        .call(() -> createSnapshotImpl(target, additionalLabels)))
+                // the snapshot creation failure is a checked exception, so awaiting the connected
+                // task above rethrows it wrapped. Callers filter on the exception type, so unwrap
+                // it again before the failure escapes.
+                .onFailure()
+                .transform(
+                        t ->
+                                Optional.<Throwable>ofNullable(
+                                                ExceptionUtils.throwableOfType(
+                                                        t, SnapshotCreationException.class))
+                                        .orElse(t));
+    }
+
+    private ActiveRecording createSnapshotImpl(Target target, Map<String, String> additionalLabels)
+            throws SnapshotCreationException {
+        // Acquire pessimistic lock on target to prevent concurrent recording operations
+        Target lockedTarget =
+                Target.<Target>find("id", target.id)
+                        .withLock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+                        .singleResult();
+
+        IRecordingDescriptor desc =
+                connectionManager.executeConnectedTask(
+                        lockedTarget,
                         connection -> {
                             IRecordingDescriptor rec =
                                     connection.getService().getSnapshotRecording();
                             try (InputStream snapshot =
                                     remoteRecordingStreamFactory.openDirect(
-                                            connection, target, rec)) {
-                                if (!snapshotIsReadable(target, snapshot)) {
+                                            connection, lockedTarget, rec)) {
+                                if (!snapshotIsReadable(lockedTarget, snapshot)) {
                                     safeCloseRecording(connection, rec);
                                     throw new SnapshotCreationException(
                                             "Snapshot was not readable - are there any source"
@@ -669,33 +695,22 @@ public class RecordingHelper {
                                 }
                             }
                             return rec;
-                        })
-                .onItem()
-                .transform(
-                        desc -> {
-                            var labels = new HashMap<String, String>(additionalLabels);
-                            labels.putAll(
-                                    Map.of(
-                                            "jvmId",
-                                            target.jvmId,
-                                            "connectUrl",
-                                            target.connectUrl.toString()));
-                            return QuarkusTransaction.joiningExisting()
-                                    .call(
-                                            () -> {
-                                                var fTarget = Target.<Target>findById(target.id);
-                                                ActiveRecording recording =
-                                                        ActiveRecording.from(
-                                                                fTarget,
-                                                                desc,
-                                                                new Metadata(labels));
-                                                recording.persist();
-
-                                                fTarget.activeRecordings.add(recording);
-                                                fTarget.persist();
-                                                return recording;
-                                            });
                         });
+
+        var labels = new HashMap<String, String>(additionalLabels);
+        labels.putAll(
+                Map.of(
+                        "jvmId",
+                        lockedTarget.jvmId,
+                        "connectUrl",
+                        lockedTarget.connectUrl.toString()));
+
+        ActiveRecording recording = ActiveRecording.from(lockedTarget, desc, new Metadata(labels));
+        recording.persist();
+
+        lockedTarget.activeRecordings.add(recording);
+        lockedTarget.persist();
+        return recording;
     }
 
     private boolean snapshotIsReadable(Target target, InputStream snapshot) throws IOException {
