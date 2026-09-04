@@ -39,6 +39,7 @@ import io.cryostat.recordings.ArchivedRecordings.ArchivedRecording;
 import io.cryostat.recordings.RecordingHelper;
 import io.cryostat.recordings.RecordingHelper.RecordingOptions;
 import io.cryostat.recordings.RecordingHelper.RecordingReplace;
+import io.cryostat.security.rbac.graphql.RequiresPermission;
 import io.cryostat.targets.Target;
 
 import io.smallrye.graphql.api.Nullable;
@@ -64,6 +65,7 @@ public class ActiveRecordings {
 
     @Transactional
     @Mutation
+    @RequiresPermission({"targets:read", "discoverynodes:read", "activerecordings:write"})
     @Description(
             "Start a new Flight Recording on all Targets under the subtrees of the discovery nodes"
                     + " matching the given filter")
@@ -105,6 +107,12 @@ public class ActiveRecordings {
 
     @Transactional
     @Mutation
+    @RequiresPermission({
+        "targets:read",
+        "discoverynodes:read",
+        "activerecordings:read",
+        "archivedrecordings:write"
+    })
     @Description(
             "Archive an existing Flight Recording matching the given filter, on all Targets under"
                     + " the subtrees of the discovery nodes matching the given filter")
@@ -136,6 +144,12 @@ public class ActiveRecordings {
 
     @Transactional
     @Mutation
+    @RequiresPermission({
+        "targets:read",
+        "discoverynodes:read",
+        "activerecordings:read",
+        "activerecordings:write"
+    })
     @Description(
             "Stop an existing Flight Recording matching the given filter, on all Targets under"
                     + " the subtrees of the discovery nodes matching the given filter")
@@ -166,6 +180,12 @@ public class ActiveRecordings {
 
     @Transactional
     @Mutation
+    @RequiresPermission({
+        "targets:read",
+        "discoverynodes:read",
+        "activerecordings:read",
+        "activerecordings:delete"
+    })
     @Description(
             "Delete an existing Flight Recording matching the given filter, on all Targets under"
                     + " the subtrees of the discovery nodes matching the given filter")
@@ -195,6 +215,7 @@ public class ActiveRecordings {
 
     @Transactional
     @Mutation
+    @RequiresPermission({"targets:read", "discoverynodes:read", "activerecordings:write"})
     @Description(
             "Create a Flight Recorder Snapshot on all Targets under"
                     + " the subtrees of the discovery nodes matching the given filter")
@@ -217,6 +238,7 @@ public class ActiveRecordings {
     }
 
     @Transactional
+    @RequiresPermission("activerecordings:write")
     @Description("Start a new Flight Recording on the specified Target")
     public ActiveRecording doStartRecording(
             @Source Target target, @NonNull RecordingSettings recording)
@@ -239,6 +261,7 @@ public class ActiveRecordings {
     }
 
     @Transactional
+    @RequiresPermission("activerecordings:write")
     @Description("Create a new Flight Recorder Snapshot on the specified Target")
     public ActiveRecording doSnapshot(@Source Target target) {
         var fTarget = Target.getTargetById(target.id);
@@ -246,6 +269,7 @@ public class ActiveRecordings {
     }
 
     @Transactional
+    @RequiresPermission("activerecordings:write")
     @Description("Stop the specified Flight Recording")
     public ActiveRecording doStop(@Source ActiveRecording recording) throws Exception {
         var ar = ActiveRecording.<ActiveRecording>find("id", recording.id).singleResult();
@@ -253,18 +277,21 @@ public class ActiveRecordings {
     }
 
     @Transactional
+    @RequiresPermission("activerecordings:delete")
     @Description("Delete the specified Flight Recording")
     public ActiveRecording doDelete(@Source ActiveRecording recording) {
         var ar = ActiveRecording.<ActiveRecording>find("id", recording.id).singleResult();
         return recordingHelper.deleteRecording(ar).await().atMost(connectionFailedTimeout);
     }
 
+    @RequiresPermission({"activerecordings:read", "archivedrecordings:write"})
     @Description("Archive the specified Flight Recording")
     public ArchivedRecording doArchive(@Source ActiveRecording recording) throws Exception {
         var ar = ActiveRecording.<ActiveRecording>find("id", recording.id).singleResult();
         return recordingHelper.archiveRecording(ar);
     }
 
+    @RequiresPermission("activerecordings:read")
     @Description("List and optionally filter active recordings belonging to a Target")
     public TargetNodes.ActiveRecordings active(
             @Source Recordings recordings, ActiveRecordingsFilter filter) {
@@ -307,6 +334,7 @@ public class ActiveRecordings {
     }
 
     @Transactional
+    @RequiresPermission("activerecordings:write")
     @Description("Updates the metadata labels for an existing Flight Recording.")
     public ActiveRecording doPutMetadata(
             @Source ActiveRecording recording, MetadataLabels metadataInput) {

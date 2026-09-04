@@ -19,7 +19,7 @@ import java.util.List;
 
 import io.cryostat.expressions.MatchExpressionEvaluator;
 
-import jakarta.annotation.security.RolesAllowed;
+import io.quarkus.security.PermissionsAllowed;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
@@ -36,7 +36,7 @@ public class Targets {
 
     @GET
     @Path("/api/v4/targets")
-    @RolesAllowed("read")
+    @PermissionsAllowed(value = "targets:read", inclusive = true)
     @Operation(
             summary = "List currently discovered targets",
             description =
@@ -50,7 +50,7 @@ public class Targets {
 
     @GET
     @Path("/api/v4/targets/{id}")
-    @RolesAllowed("read")
+    @PermissionsAllowed(value = "targets:read", inclusive = true)
     @Operation(
             summary = "Get a target by ID",
             description =

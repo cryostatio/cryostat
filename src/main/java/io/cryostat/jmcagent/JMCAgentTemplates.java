@@ -22,6 +22,7 @@ import java.util.List;
 import io.cryostat.core.jmcagent.ProbeTemplate;
 import io.cryostat.libcryostat.sys.FileSystem;
 
+import io.quarkus.security.PermissionsAllowed;
 import io.smallrye.common.annotation.Blocking;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.BadRequestException;
@@ -52,6 +53,7 @@ public class JMCAgentTemplates {
 
     @Blocking
     @GET
+    @PermissionsAllowed(value = "jmcagent:read", inclusive = true)
     @Operation(summary = "List defined probe templates")
     public List<ProbeTemplateResponse> getProbeTemplates() {
         return service.getTemplates().stream()
@@ -62,6 +64,7 @@ public class JMCAgentTemplates {
 
     @Blocking
     @GET
+    @PermissionsAllowed(value = "jmcagent:read", inclusive = true)
     @Path("/{probeTemplateName}")
     @Produces(MediaType.APPLICATION_XML)
     @Operation(summary = "Get a specific probe template")
@@ -72,6 +75,7 @@ public class JMCAgentTemplates {
 
     @Blocking
     @DELETE
+    @PermissionsAllowed(value = "jmcagent:delete", inclusive = true)
     @Path("/{probeTemplateName}")
     @Operation(summary = "Delete the specified probe template")
     public void deleteProbeTemplate(@RestPath String probeTemplateName) {
@@ -80,6 +84,7 @@ public class JMCAgentTemplates {
 
     @Blocking
     @POST
+    @PermissionsAllowed(value = "jmcagent:write", inclusive = true)
     @Operation(
             summary = "Create a probe template",
             description =

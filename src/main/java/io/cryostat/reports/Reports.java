@@ -35,15 +35,16 @@ import io.cryostat.recordings.LongRunningRequestGenerator.ActiveReportRequest;
 import io.cryostat.recordings.LongRunningRequestGenerator.ArchiveRequest;
 import io.cryostat.recordings.LongRunningRequestGenerator.ArchivedReportRequest;
 import io.cryostat.recordings.RecordingHelper;
+import io.cryostat.security.rbac.UserAuthorizer;
 import io.cryostat.targets.Target;
 
 import io.quarkus.runtime.StartupEvent;
+import io.quarkus.security.PermissionsAllowed;
 import io.smallrye.common.annotation.Blocking;
 import io.smallrye.mutiny.Uni;
 import io.smallrye.mutiny.infrastructure.Infrastructure;
 import io.vertx.core.http.HttpServerResponse;
 import io.vertx.mutiny.core.eventbus.EventBus;
-import jakarta.annotation.security.RolesAllowed;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
@@ -84,6 +85,7 @@ public class Reports {
     @Inject ReportsService reportsService;
     @Inject AnalysisReportAggregator reportAggregator;
     @Inject EventBus bus;
+    @Inject UserAuthorizer userAuthorizer;
     @Inject Logger logger;
 
     // FIXME this observer cannot be declared on the StorageCachingReportsService decorator.
@@ -97,7 +99,7 @@ public class Reports {
     @GET
     @Blocking
     @Path("/api/v4/reports/{encodedKey}")
-    @RolesAllowed("read")
+    @PermissionsAllowed(value = "reports:read", inclusive = true)
     @Operation(
             summary = "Get an automated analysis report",
             description =
@@ -150,7 +152,7 @@ public class Reports {
 
     @GET
     @Path("/api/v4.1/reports_rules")
-    @RolesAllowed("read")
+    @PermissionsAllowed(value = "reports:read", inclusive = true)
     public Stream<ReportRule> listReportRules() {
         return RuleRegistry.getRules().stream()
                 .map(ReportRule::new)
@@ -161,7 +163,15 @@ public class Reports {
     @Blocking
     @Transactional
     @Path("/api/v4.1/targets/{targetId}/reports")
-    @RolesAllowed("write")
+    @PermissionsAllowed(
+            value = {
+                "targets:read",
+                "activerecordings:read",
+                "activerecordings:write",
+                "archivedrecordings:write",
+                "reports:write"
+            },
+            inclusive = true)
     @Operation(
             summary = "Perform \"target analysis\" on the specified target",
             description =
@@ -175,6 +185,9 @@ public class Reports {
             HttpServerResponse resp,
             @RestPath long targetId,
             @QueryParam("clean") @DefaultValue("true") boolean clean) {
+        if (clean) {
+            userAuthorizer.assertAuthorized("activerecordings", "delete");
+        }
         var target = Target.getTargetById(targetId);
         var jobId = UUID.randomUUID().toString();
         resp.bodyEndHandler(
@@ -208,7 +221,7 @@ public class Reports {
     @Blocking
     @Path("/api/v4.1/targets/{targetId}/reports")
     @Produces(MediaType.APPLICATION_JSON)
-    @RolesAllowed("read")
+    @PermissionsAllowed(value = "reports:read", inclusive = true)
     @Operation(
             summary = "Retrieve current automated analysis report for a target",
             description =
@@ -239,7 +252,7 @@ public class Reports {
     @GET
     @Blocking
     @Path("/api/v4/targets/{targetId}/reports/{recordingId}")
-    @RolesAllowed("read")
+    @PermissionsAllowed(value = "reports:read", inclusive = true)
     @Operation(
             summary =
                     "Get an automated analysis report for a particular recording on the specified"
