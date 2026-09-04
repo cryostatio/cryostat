@@ -105,9 +105,10 @@ public class AgentApplicationResource
                                                 .withMemory(256L * 1024L * 1024L));
 
         if (network.isPresent()) {
-            // Networked setup (integration tests): Cryostat runs in a container on the same network, so the
-            // agent's callback host (its network alias) resolves to the same address the agent's
-            // registration request originates from, satisfying Cryostat's callback validation.
+            // Networked setup (integration tests): Cryostat runs in a container on the same
+            // network, so the agent's callback host (its network alias) resolves to the same
+            // address the agent's registration request originates from, satisfying Cryostat's
+            // callback validation.
             int hostAgentPort = findFreePort();
             container
                     .withExposedPorts(PORT)
