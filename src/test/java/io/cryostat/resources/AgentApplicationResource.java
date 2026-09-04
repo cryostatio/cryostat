@@ -28,6 +28,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
 import org.testcontainers.containers.wait.strategy.HostPortWaitStrategy;
+import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.utility.DockerImageName;
 
 public class AgentApplicationResource
@@ -39,6 +40,9 @@ public class AgentApplicationResource
     public static final String ALIAS = "quarkus-cryostat-agent";
 
     protected Map<String, String> getEnvMap() {
+        // Network- and port-specific settings (QUARKUS_HTTP_PORT,
+        // CRYOSTAT_AGENT_WEBSERVER_PORT, CRYOSTAT_AGENT_BASEURI, CRYOSTAT_AGENT_CALLBACK) are
+        // applied in start() since they differ between the networked and non-networked setups.
         return new HashMap<>(
                 Map.of(
                         "JAVA_OPTS_APPEND",
@@ -51,16 +55,12 @@ public class AgentApplicationResource
                         """
                                 .replace("\n", " ")
                                 .strip(),
-                        "QUARKUS_HTTP_PORT",
-                        "9898",
                         "CRYOSTAT_AGENT_APP_NAME",
                         "quarkus-cryostat-agent",
                         "CRYOSTAT_AGENT_WEBCLIENT_TLS_REQUIRED",
                         "false",
                         "CRYOSTAT_AGENT_WEBSERVER_HOST",
                         "0.0.0.0",
-                        "CRYOSTAT_AGENT_WEBSERVER_PORT",
-                        Integer.toString(PORT),
                         "CRYOSTAT_AGENT_BASEURI_RANGE",
                         "public",
                         "CRYOSTAT_AGENT_API_WRITES_ENABLED",
@@ -74,7 +74,6 @@ public class AgentApplicationResource
     @Override
     public Map<String, String> start() {
         int cryostatPort = findFreePort();
-        int hostAgentPort = findFreePort();
 
         Optional<Network> network =
                 containerNetworkId
@@ -97,29 +96,52 @@ public class AgentApplicationResource
                         .orElse(DEFAULT_IMAGE);
         this.container =
                 new GenericContainer<>(DockerImageName.parse(img))
-                        .withExposedPorts(PORT)
                         .withEnv(getEnvMap())
-                        .withNetworkAliases(ALIAS)
-                        .withExtraHost("host.docker.internal", "host-gateway")
-                        .waitingFor(new HostPortWaitStrategy().forPorts(PORT))
                         .withStartupAttempts(3)
                         .withCreateContainerCmdModifier(
                                 cmd ->
                                         cmd.getHostConfig()
                                                 .withCpuShares(512)
                                                 .withMemory(256L * 1024L * 1024L));
-        network.ifPresent(container::withNetwork);
 
-        container.setPortBindings(List.of(String.format("%d:%d", hostAgentPort, PORT)));
-        container.addEnv(
-                "CRYOSTAT_AGENT_BASEURI",
-                String.format("http://host.docker.internal:%d/", cryostatPort));
-        boolean networked = containerNetworkId.filter(StringUtils::isNotBlank).isPresent();
-        container.addEnv(
-                "CRYOSTAT_AGENT_CALLBACK",
-                String.format(
-                        "http://%s:%d/",
-                        networked ? ALIAS : "localhost", networked ? PORT : hostAgentPort));
+        if (network.isPresent()) {
+            // Networked setup (integration tests): Cryostat runs in a container on the same network, so the
+            // agent's callback host (its network alias) resolves to the same address the agent's
+            // registration request originates from, satisfying Cryostat's callback validation.
+            int hostAgentPort = findFreePort();
+            container
+                    .withExposedPorts(PORT)
+                    .withNetworkAliases(ALIAS)
+                    .withExtraHost("host.docker.internal", "host-gateway")
+                    .waitingFor(new HostPortWaitStrategy().forPorts(PORT))
+                    .withNetwork(network.get());
+            container.setPortBindings(List.of(String.format("%d:%d", hostAgentPort, PORT)));
+            container.addEnv("QUARKUS_HTTP_PORT", "9898");
+            container.addEnv("CRYOSTAT_AGENT_WEBSERVER_PORT", Integer.toString(PORT));
+            container.addEnv(
+                    "CRYOSTAT_AGENT_BASEURI",
+                    String.format("http://host.docker.internal:%d/", cryostatPort));
+            container.addEnv(
+                    "CRYOSTAT_AGENT_CALLBACK", String.format("http://%s:%d/", ALIAS, PORT));
+        } else {
+            // Non-networked setup (unit tests): Cryostat runs on the host, outside any container
+            // network. Use host networking so the agent shares the host's network namespace; its
+            // registration request then originates from a loopback address that matches its
+            // "localhost" callback host, satisfying Cryostat's callback validation, and the
+            // callback remains directly reachable by the host-side Cryostat.
+            int agentWebserverPort = findFreePort();
+            int agentAppPort = findFreePort();
+            container
+                    .withNetworkMode("host")
+                    .waitingFor(Wait.forLogMessage(".*Installed features.*", 1));
+            container.addEnv("QUARKUS_HTTP_PORT", Integer.toString(agentAppPort));
+            container.addEnv("CRYOSTAT_AGENT_WEBSERVER_PORT", Integer.toString(agentWebserverPort));
+            container.addEnv(
+                    "CRYOSTAT_AGENT_BASEURI", String.format("http://localhost:%d/", cryostatPort));
+            container.addEnv(
+                    "CRYOSTAT_AGENT_CALLBACK",
+                    String.format("http://localhost:%d/", agentWebserverPort));
+        }
 
         container.start();
 
