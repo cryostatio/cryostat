@@ -2525,8 +2525,7 @@ paths:
         - Discovery
   /api/v4.3/targets/{targetId}/recordings_sync:
     post:
-      description: Reconcile Cryostat's active recording model with the recordings
-        present on the target.
+      description: Reconcile Cryostat's active recording model with the recordings present on the target.
       parameters:
         - in: path
           name: targetId

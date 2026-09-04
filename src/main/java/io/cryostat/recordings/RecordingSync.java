@@ -33,6 +33,11 @@ public class RecordingSync {
 
     @Inject RecordingHelper recordingHelper;
 
+    /**
+     * Synchronizes Cryostat's active recording model with the specified target.
+     *
+     * @param targetId the database identifier of the target to synchronize
+     */
     @POST
     @Blocking
     @Transactional

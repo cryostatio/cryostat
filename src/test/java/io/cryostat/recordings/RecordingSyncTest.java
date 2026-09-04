@@ -42,12 +42,18 @@ public class RecordingSyncTest extends AbstractTransactionalTestBase {
 
     @InjectMock RecordingHelper recordingHelper;
 
+    /**
+     * Pauses background jobs and supplies an empty recording list for test cleanup.
+     *
+     * @throws SchedulerException if the scheduler cannot be paused or cleared
+     */
     @BeforeEach
     void setup() throws SchedulerException {
         shutdownScheduler();
         when(recordingHelper.listActiveRecordings(any(Target.class))).thenReturn(List.of());
     }
 
+    /** Verifies that a missing target returns 404 without invoking synchronization. */
     @Test
     void testSyncOnMissingTarget() {
         given().pathParam("targetId", Integer.MAX_VALUE).when().post().then().statusCode(404);
@@ -56,6 +62,7 @@ public class RecordingSyncTest extends AbstractTransactionalTestBase {
                 .syncActiveRecordings(any(Target.class));
     }
 
+    /** Verifies that a successful request returns 204 and synchronizes the requested target. */
     @Test
     void testSync() {
         int targetId = defineSelfCustomTarget();
