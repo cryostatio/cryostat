@@ -2523,6 +2523,23 @@ paths:
       summary: Register and publish a Cryostat Agent
       tags:
         - Discovery
+  /api/v4.3/targets/{targetId}/recordings_sync:
+    post:
+      description: Reconcile Cryostat's active recording model with the recordings
+        present on the target.
+      parameters:
+        - in: path
+          name: targetId
+          required: true
+          schema:
+            format: int64
+            type: integer
+      responses:
+        "204":
+          description: Active recordings synchronized
+      summary: Resynchronize active recordings on the specified target
+      tags:
+        - Recording Sync
   /api/v4/activedownload/{id}:
     get:
       description: |
