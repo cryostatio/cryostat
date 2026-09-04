@@ -1,0 +1,33 @@
+/*
+ * Copyright The Cryostat Authors.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package itest.resources;
+
+import io.cryostat.resources.S3StorageResource;
+
+/**
+ * Integration-test variant of {@link S3StorageResource}. When the application under test runs
+ * inside its own container (as with {@code @QuarkusIntegrationTest}), {@code localhost} no longer
+ * resolves to the host that publishes the storage container's mapped port. This variant instead
+ * advertises the storage container's own hostname on the shared container network, reachable from
+ * the app container via the container runtime's embedded DNS, at the internal {@link #S3_PORT}.
+ */
+public class S3StorageITResource extends S3StorageResource {
+    @Override
+    protected String adjustS3Url(String host, int port) {
+        return super.adjustS3Url(
+                container.getCurrentContainerInfo().getConfig().getHostName(), S3_PORT);
+    }
+}
