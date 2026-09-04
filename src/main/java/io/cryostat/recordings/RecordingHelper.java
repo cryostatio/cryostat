@@ -684,15 +684,22 @@ public class RecordingHelper {
                         connection -> {
                             IRecordingDescriptor rec =
                                     connection.getService().getSnapshotRecording();
-                            try (InputStream snapshot =
-                                    remoteRecordingStreamFactory.openDirect(
-                                            connection, lockedTarget, rec)) {
-                                if (!snapshotIsReadable(lockedTarget, snapshot)) {
-                                    safeCloseRecording(connection, rec);
-                                    throw new SnapshotCreationException(
-                                            "Snapshot was not readable - are there any source"
-                                                    + " recordings?");
+                            // if anything goes wrong while checking the snapshot then the
+                            // recording we just created on the remote target would be orphaned,
+                            // so clean it up before the failure escapes
+                            try {
+                                try (InputStream snapshot =
+                                        remoteRecordingStreamFactory.openDirect(
+                                                connection, lockedTarget, rec)) {
+                                    if (!snapshotIsReadable(lockedTarget, snapshot)) {
+                                        throw new SnapshotCreationException(
+                                                "Snapshot was not readable - are there any source"
+                                                        + " recordings?");
+                                    }
                                 }
+                            } catch (Exception e) {
+                                safeCloseRecording(connection, rec);
+                                throw e;
                             }
                             return rec;
                         });
