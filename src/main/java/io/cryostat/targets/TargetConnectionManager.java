@@ -414,7 +414,12 @@ public class TargetConnectionManager {
         final int maxDepth = 10;
         int depth = 0;
         Throwable cause = t;
-        while (l.stream().anyMatch(k -> k.isInstance(t)) && depth++ < maxDepth) {
+        while (depth++ < maxDepth) {
+            final Throwable current = cause;
+            // peel off wrapper exceptions until we reach the meaningful cause
+            if (l.stream().noneMatch(k -> k.isInstance(current))) {
+                break;
+            }
             var c = cause.getCause();
             if (c == null) {
                 break;
