@@ -31,6 +31,7 @@ import java.util.Map;
 import org.openjdk.jmc.flightrecorder.configuration.IRecordingDescriptor;
 
 import io.cryostat.AbstractTransactionalTestBase;
+import io.cryostat.recordings.RecordingHelper.SnapshotCreationException;
 import io.cryostat.resources.S3StorageResource;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.TargetConnectionManager;
@@ -241,7 +242,7 @@ class RecordingHelperTest extends AbstractTransactionalTestBase {
                 .openDirect(Mockito.any(), Mockito.any(), Mockito.any());
 
         assertThrows(
-                Exception.class,
+                SnapshotCreationException.class,
                 () ->
                         recordingHelper
                                 .createSnapshot(target)

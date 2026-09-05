@@ -658,16 +658,25 @@ public class RecordingHelper {
                         () ->
                                 QuarkusTransaction.requiringNew()
                                         .call(() -> createSnapshotImpl(target, additionalLabels)))
-                // the snapshot creation failure is a checked exception, so awaiting the connected
-                // task above rethrows it wrapped. Callers filter on the exception type, so unwrap
-                // it again before the failure escapes.
+                // this Uni's contract is to fail with a SnapshotCreationException, so normalize
+                // whatever the transaction and connection machinery layered on top of the
+                // original failure back down to that type before it escapes
                 .onFailure()
                 .transform(
-                        t ->
-                                Optional.<Throwable>ofNullable(
-                                                ExceptionUtils.throwableOfType(
-                                                        t, SnapshotCreationException.class))
-                                        .orElse(t));
+                        t -> {
+                            var sce =
+                                    ExceptionUtils.throwableOfType(
+                                            t, SnapshotCreationException.class);
+                            if (sce != null) {
+                                return sce;
+                            }
+                            // the connection manager already mapped connection-level failures
+                            // onto specific HTTP responses, so let those through untouched
+                            if (t instanceof HttpException) {
+                                return t;
+                            }
+                            return new SnapshotCreationException(t);
+                        });
     }
 
     private ActiveRecording createSnapshotImpl(Target target, Map<String, String> additionalLabels)
@@ -1745,9 +1754,19 @@ public class RecordingHelper {
         }
     }
 
-    public static class SnapshotCreationException extends Exception {
+    /**
+     * Unchecked so that it survives {@link io.smallrye.mutiny.Uni#await()} intact - Mutiny rethrows
+     * {@link RuntimeException} failures as-is, but wraps checked failures in a {@link
+     * java.util.concurrent.CompletionException}, which would hide this type from callers that
+     * filter on it.
+     */
+    public static class SnapshotCreationException extends RuntimeException {
         public SnapshotCreationException(String message) {
             super(message);
+        }
+
+        public SnapshotCreationException(Throwable cause) {
+            super(cause);
         }
     }
 
