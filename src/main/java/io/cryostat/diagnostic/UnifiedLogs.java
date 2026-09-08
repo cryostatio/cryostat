@@ -35,8 +35,8 @@ import io.cryostat.util.HttpMimeType;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.quarkus.narayana.jta.QuarkusTransaction;
+import io.quarkus.security.PermissionsAllowed;
 import io.smallrye.common.annotation.Blocking;
-import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.ClientErrorException;
@@ -86,7 +86,9 @@ public class UnifiedLogs {
     Optional<String> externalStorageUrl;
 
     @Path("targets/{targetId}/unified-logging")
-    @RolesAllowed("write")
+    @PermissionsAllowed(
+            value = {"targets:read", "unifiedlogs:write"},
+            inclusive = true)
     @Blocking
     @POST
     public UnifiedLog enableUnifiedLogging(
@@ -127,7 +129,9 @@ public class UnifiedLogs {
     }
 
     @Path("targets/{targetId}/unified-logging")
-    @RolesAllowed("write")
+    @PermissionsAllowed(
+            value = {"targets:read", "unifiedlogs:write"},
+            inclusive = true)
     @Blocking
     @PATCH
     public UnifiedLog reconfigureUnifiedLogging(
@@ -179,7 +183,9 @@ public class UnifiedLogs {
     }
 
     @Path("targets/{targetId}/unified-logging")
-    @RolesAllowed("write")
+    @PermissionsAllowed(
+            value = {"targets:read", "unifiedlogs:write"},
+            inclusive = true)
     @Blocking
     @DELETE
     public void disableUnifiedLogging(@RestPath long targetId) {
@@ -204,7 +210,9 @@ public class UnifiedLogs {
     }
 
     @Path("targets/{targetId}/unified-logging")
-    @RolesAllowed("read")
+    @PermissionsAllowed(
+            value = {"targets:read", "unifiedlogs:read"},
+            inclusive = true)
     @Blocking
     @GET
     public AgentClient.UnifiedLogStatus unifiedLoggingStatus(@RestPath long targetId) {
@@ -214,7 +222,9 @@ public class UnifiedLogs {
     }
 
     @Path("targets/{targetId}/unified-logging/pull")
-    @RolesAllowed("write")
+    @PermissionsAllowed(
+            value = {"targets:read", "unifiedlogs:write"},
+            inclusive = true)
     @Blocking
     @POST
     public RestResponse<UnifiedLog> pullUnifiedLog(@RestPath long targetId) {
@@ -248,7 +258,9 @@ public class UnifiedLogs {
     }
 
     @Path("targets/{targetId}/unified-logs")
-    @RolesAllowed("read")
+    @PermissionsAllowed(
+            value = {"targets:read", "unifiedlogs:read"},
+            inclusive = true)
     @Blocking
     @GET
     public List<UnifiedLog> listUnifiedLogs(@RestPath long targetId) {
@@ -275,7 +287,9 @@ public class UnifiedLogs {
     }
 
     @Path("targets/{targetId}/unified-logs/{logId}")
-    @RolesAllowed("read")
+    @PermissionsAllowed(
+            value = {"targets:read", "unifiedlogs:read"},
+            inclusive = true)
     @Blocking
     @GET
     public RestResponse<Object> downloadUnifiedLog(
@@ -292,7 +306,9 @@ public class UnifiedLogs {
     }
 
     @Path("targets/{targetId}/unified-logs/{logId}")
-    @RolesAllowed("write")
+    @PermissionsAllowed(
+            value = {"targets:read", "unifiedlogs:delete"},
+            inclusive = true)
     @Blocking
     @DELETE
     public void deleteUnifiedLog(@RestPath long targetId, @RestPath String logId) {
@@ -302,7 +318,7 @@ public class UnifiedLogs {
     }
 
     @Path("fs/unified-logs")
-    @RolesAllowed("read")
+    @PermissionsAllowed(value = "unifiedlogs:read", inclusive = true)
     @Blocking
     @GET
     public Collection<ArchivedUnifiedLogDirectory> listFsUnifiedLogs() {
@@ -338,7 +354,7 @@ public class UnifiedLogs {
     }
 
     @Path("fs/unified-logs/{jvmId}/{logId}")
-    @RolesAllowed("write")
+    @PermissionsAllowed(value = "unifiedlogs:delete", inclusive = true)
     @Blocking
     @DELETE
     public void deleteUnifiedLogByPath(@RestPath String jvmId, @RestPath String logId) {
@@ -346,7 +362,9 @@ public class UnifiedLogs {
     }
 
     @Path("targets/{targetId}/unified-logs/{logId}")
-    @RolesAllowed("write")
+    @PermissionsAllowed(
+            value = {"targets:read", "unifiedlogs:write"},
+            inclusive = true)
     @Blocking
     @PATCH
     @Consumes("application/json")
@@ -358,7 +376,7 @@ public class UnifiedLogs {
     }
 
     @Path("fs/unified-logs/{jvmId}/{logId}")
-    @RolesAllowed("write")
+    @PermissionsAllowed(value = "unifiedlogs:write", inclusive = true)
     @Blocking
     @PATCH
     @Consumes("application/json")
@@ -368,7 +386,7 @@ public class UnifiedLogs {
     }
 
     @Path("/unified-logs/download/{encodedKey}")
-    @RolesAllowed("read")
+    @PermissionsAllowed(value = "unifiedlogs:read", inclusive = true)
     @Blocking
     @GET
     public RestResponse<Object> handleUnifiedLogStorageDownload(

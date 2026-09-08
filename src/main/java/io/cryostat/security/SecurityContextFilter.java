@@ -39,11 +39,10 @@ import org.jboss.logging.Logger;
 @Priority(1000)
 public class SecurityContextFilter implements ContainerRequestFilter, ContainerResponseFilter {
 
-    private static final Logger logger = Logger.getLogger(SecurityContextFilter.class);
-
     @Context SecurityContext securityContext;
 
     @Inject RoutingContext routingContext;
+    @Inject Logger logger;
 
     @Override
     public void filter(ContainerRequestContext requestContext) throws IOException {
