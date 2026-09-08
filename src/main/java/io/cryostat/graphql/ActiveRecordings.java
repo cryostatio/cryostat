@@ -39,6 +39,7 @@ import io.cryostat.recordings.ArchivedRecordings.ArchivedRecording;
 import io.cryostat.recordings.RecordingHelper;
 import io.cryostat.recordings.RecordingHelper.RecordingOptions;
 import io.cryostat.recordings.RecordingHelper.RecordingReplace;
+import io.cryostat.security.rbac.UserAuthorizer;
 import io.cryostat.security.rbac.graphql.RequiresPermission;
 import io.cryostat.targets.Target;
 
@@ -58,6 +59,7 @@ import org.jboss.logging.Logger;
 public class ActiveRecordings {
 
     @Inject RecordingHelper recordingHelper;
+    @Inject UserAuthorizer userAuthorizer;
     @Inject Logger logger;
 
     @ConfigProperty(name = ConfigProperties.CONNECTIONS_FAILED_TIMEOUT)
@@ -72,6 +74,9 @@ public class ActiveRecordings {
     public List<ActiveRecording> createRecording(
             @NonNull DiscoveryNodeFilter nodes, @NonNull RecordingSettings recording)
             throws QuantityConversionException {
+        if (recording.archiveOnStop) {
+            userAuthorizer.assertAuthorized("archivedrecordings", "write");
+        }
         var list =
                 DiscoveryNode.<DiscoveryNode>listAll().stream()
                         .filter(n -> nodes == null ? true : nodes.test(n))
@@ -243,6 +248,9 @@ public class ActiveRecordings {
     public ActiveRecording doStartRecording(
             @Source Target target, @NonNull RecordingSettings recording)
             throws QuantityConversionException {
+        if (recording.archiveOnStop) {
+            userAuthorizer.assertAuthorized("archivedrecordings", "write");
+        }
         var fTarget = Target.getTargetById(target.id);
         Template template =
                 recordingHelper.getPreferredTemplate(
