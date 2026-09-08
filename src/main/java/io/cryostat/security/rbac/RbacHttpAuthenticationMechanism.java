@@ -408,12 +408,14 @@ public class RbacHttpAuthenticationMechanism implements HttpAuthenticationMechan
                 k8s.subresource(),
                 k8s.verb(),
                 key -> {
-                    var client = ssarClientCache.getOrCreate(rawToken);
                     var result =
-                            client.authorization()
-                                    .v1()
-                                    .selfSubjectAccessReview()
-                                    .create(buildSsar(k8s, config.namespace()));
+                            ssarClientCache.withClient(
+                                    rawToken,
+                                    client ->
+                                            client.authorization()
+                                                    .v1()
+                                                    .selfSubjectAccessReview()
+                                                    .create(buildSsar(k8s, config.namespace())));
                     boolean decision = Boolean.TRUE.equals(result.getStatus().getAllowed());
                     String scopeInfo =
                             config.namespace().isPresent()
