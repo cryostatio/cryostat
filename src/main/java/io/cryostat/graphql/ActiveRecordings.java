@@ -74,7 +74,7 @@ public class ActiveRecordings {
     public List<ActiveRecording> createRecording(
             @NonNull DiscoveryNodeFilter nodes, @NonNull RecordingSettings recording)
             throws QuantityConversionException {
-        if (recording.archiveOnStop) {
+        if (Boolean.TRUE.equals(recording.archiveOnStop)) {
             userAuthorizer.assertAuthorized("archivedrecordings", "write");
         }
         var list =
@@ -248,7 +248,7 @@ public class ActiveRecordings {
     public ActiveRecording doStartRecording(
             @Source Target target, @NonNull RecordingSettings recording)
             throws QuantityConversionException {
-        if (recording.archiveOnStop) {
+        if (Boolean.TRUE.equals(recording.archiveOnStop)) {
             userAuthorizer.assertAuthorized("archivedrecordings", "write");
         }
         var fTarget = Target.getTargetById(target.id);
