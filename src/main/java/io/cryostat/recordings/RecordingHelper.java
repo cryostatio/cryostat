@@ -1382,82 +1382,89 @@ public class RecordingHelper {
 
     public ArchivedRecording uploadArchivedRecording(
             String jvmId, FileUpload recording, Metadata metadata) throws IOException {
-        String filename = recording.fileName().strip();
-        if (StringUtils.isBlank(filename)) {
-            throw new BadRequestException();
-        }
-        if (!filename.endsWith(".jfr")) {
-            filename = filename + ".jfr";
-        }
-        Map<String, String> labels = new HashMap<>(metadata.labels());
-        labels.put("jvmId", jvmId);
-        Long activeRecordingId =
-                Optional.ofNullable(labels.get(ACTIVE_RECORDING_ID_LABEL))
-                        .map(Long::valueOf)
-                        .orElse(null);
-        Metadata resolvedMetadata = new Metadata(labels);
-        String key = archivedRecordingKey(jvmId, filename);
-        Builder requestBuilder =
-                PutObjectRequest.builder()
-                        .bucket(archiveBucket)
-                        .key(key)
-                        .contentType(HttpMimeType.JFR.mime())
-                        .contentDisposition(String.format("attachment; filename=\"%s\"", filename));
-        switch (storageMode()) {
-            case TAGGING:
-                requestBuilder = requestBuilder.tagging(createMetadataTagging(resolvedMetadata));
-                break;
-            case METADATA:
-                requestBuilder = requestBuilder.metadata(labels);
-                break;
-            case BUCKET:
-                metadataService.get().create(jvmId, filename, resolvedMetadata);
-                break;
-            default:
-                throw new IllegalStateException();
-        }
-        transferManager
-                .uploadFile(
-                        UploadFileRequest.builder()
-                                .putObjectRequest(requestBuilder.build())
-                                .source(recording.filePath())
-                                .build())
-                .completionFuture()
-                .join();
-
-        String finalFilename = filename;
-        QuarkusTransaction.joiningExisting()
-                .run(
-                        () ->
-                                ArchivedRecordingInfo.of(jvmId, finalFilename, activeRecordingId)
-                                        .persist());
-
-        var target = Target.getTargetByJvmId(jvmId);
-        ArchivedRecording archivedRecording =
-                new ArchivedRecording(
-                        jvmId,
-                        filename,
-                        downloadUrl(jvmId, filename),
-                        reportUrl(jvmId, filename),
-                        resolvedMetadata,
-                        recording.size(),
-                        clock.now().getEpochSecond());
-        var event =
-                new ArchivedRecordingNotification(
-                        ActiveRecordings.RecordingEventCategory.ARCHIVED_CREATED,
-                        ArchivedRecordingNotification.Payload.of(
-                                target.map(t -> t.connectUrl).orElse(null), archivedRecording));
-        bus.publish(event.category().category(), event.payload().recording());
-        bus.publish(
-                MessagingServer.class.getName(),
-                new Notification(event.category().category(), event.payload()));
-        // Clean up the recording file after uploading
         try {
-            Files.delete(recording.filePath());
-        } catch (IOException ioe) {
-            logger.warn(ioe);
+            String filename = recording.fileName().strip();
+            if (StringUtils.isBlank(filename)) {
+                throw new BadRequestException();
+            }
+            if (!filename.endsWith(".jfr")) {
+                filename = filename + ".jfr";
+            }
+            Map<String, String> labels = new HashMap<>(metadata.labels());
+            labels.put("jvmId", jvmId);
+            Long activeRecordingId =
+                    Optional.ofNullable(labels.get(ACTIVE_RECORDING_ID_LABEL))
+                            .map(Long::valueOf)
+                            .orElse(null);
+            Metadata resolvedMetadata = new Metadata(labels);
+            String key = archivedRecordingKey(jvmId, filename);
+            Builder requestBuilder =
+                    PutObjectRequest.builder()
+                            .bucket(archiveBucket)
+                            .key(key)
+                            .contentType(HttpMimeType.JFR.mime())
+                            .contentDisposition(
+                                    String.format("attachment; filename=\"%s\"", filename));
+            switch (storageMode()) {
+                case TAGGING:
+                    requestBuilder =
+                            requestBuilder.tagging(createMetadataTagging(resolvedMetadata));
+                    break;
+                case METADATA:
+                    requestBuilder = requestBuilder.metadata(labels);
+                    break;
+                case BUCKET:
+                    metadataService.get().create(jvmId, filename, resolvedMetadata);
+                    break;
+                default:
+                    throw new IllegalStateException();
+            }
+            transferManager
+                    .uploadFile(
+                            UploadFileRequest.builder()
+                                    .putObjectRequest(requestBuilder.build())
+                                    .source(recording.filePath())
+                                    .build())
+                    .completionFuture()
+                    .join();
+
+            String finalFilename = filename;
+            QuarkusTransaction.joiningExisting()
+                    .run(
+                            () ->
+                                    ArchivedRecordingInfo.of(
+                                                    jvmId, finalFilename, activeRecordingId)
+                                            .persist());
+
+            var target = Target.getTargetByJvmId(jvmId);
+            ArchivedRecording archivedRecording =
+                    new ArchivedRecording(
+                            jvmId,
+                            filename,
+                            downloadUrl(jvmId, filename),
+                            reportUrl(jvmId, filename),
+                            resolvedMetadata,
+                            recording.size(),
+                            clock.now().getEpochSecond());
+            var event =
+                    new ArchivedRecordingNotification(
+                            ActiveRecordings.RecordingEventCategory.ARCHIVED_CREATED,
+                            ArchivedRecordingNotification.Payload.of(
+                                    target.map(t -> t.connectUrl).orElse(null), archivedRecording));
+            bus.publish(event.category().category(), event.payload().recording());
+            bus.publish(
+                    MessagingServer.class.getName(),
+                    new Notification(event.category().category(), event.payload()));
+            return archivedRecording;
+        } finally {
+            // Clean up the recording file after uploading, whether the upload
+            // succeeded or failed, to avoid leaking temporary files.
+            try {
+                Files.delete(recording.filePath());
+            } catch (IOException ioe) {
+                logger.warn(ioe);
+            }
         }
-        return archivedRecording;
     }
 
     public ArchivedRecording uploadSynthesizedRecording(

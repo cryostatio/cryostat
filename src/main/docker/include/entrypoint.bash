@@ -2,7 +2,10 @@
 
 set -e
 
-FLAGS=()
+FLAGS=(
+    "--add-exports" "jdk.jfr/jdk.jfr.internal.query=ALL-UNNAMED"
+    "--add-exports" "jdk.jfr/jdk.jfr.internal.util=ALL-UNNAMED"
+)
 if [ -z "$CONF_DIR" ]; then
     CONF_DIR="/opt/cryostat.d"
 fi

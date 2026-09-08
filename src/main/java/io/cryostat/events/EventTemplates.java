@@ -144,10 +144,13 @@ public class EventTemplates {
                     """)
     public RestResponse<Template> postTemplates(
             @Context UriInfo uriInfo, @RestForm("template") FileUpload body) throws IOException {
-        if (body == null || body.filePath() == null || !"template".equals(body.name())) {
+        if (body == null || body.filePath() == null) {
             throw new BadRequestException();
         }
         try (var stream = fs.newInputStream(body.filePath())) {
+            if (!"template".equals(body.name())) {
+                throw new BadRequestException();
+            }
             var template = customTemplateService.addTemplate(stream);
             return ResponseBuilder.<Template>created(
                             uriInfo.getAbsolutePathBuilder().path(template.getName()).build())
@@ -156,8 +159,13 @@ public class EventTemplates {
         } catch (InvalidEventTemplateException | InvalidXmlException e) {
             throw new BadRequestException(e);
         } finally {
-            // Clean up temporary files
-            Files.delete(body.filePath());
+            // Clean up temporary files, whether processing succeeded or failed,
+            // to avoid leaking temporary files.
+            try {
+                Files.delete(body.filePath());
+            } catch (IOException ioe) {
+                logger.warn(ioe);
+            }
         }
     }
 

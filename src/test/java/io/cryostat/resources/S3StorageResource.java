@@ -33,7 +33,7 @@ import org.testcontainers.utility.DockerImageName;
 public class S3StorageResource
         implements QuarkusTestResourceLifecycleManager, DevServicesContext.ContextAware {
 
-    protected static final int CONTAINER_PORT = 8333;
+    protected static final int S3_PORT = 8333;
     protected static final String DEFAULT_IMAGE = "quay.io/cryostat/cryostat-storage:latest";
     protected static final Map<String, String> envMap =
             Map.of(
@@ -69,7 +69,7 @@ public class S3StorageResource
         Map<String, String> properties = new HashMap<>();
         properties.put("test.storage.enabled", "true");
         properties.put("quarkus.s3.aws.region", "us-east-1");
-        properties.put("s3.url.override", "http://localhost:" + hostPort);
+        properties.put("s3.url.override", adjustS3Url("localhost", hostPort));
         properties.put("quarkus.s3.endpoint-override", properties.get("s3.url.override"));
         properties.put("quarkus.s3.path-style-access", "true");
         properties.put("quarkus.s3.aws.credentials.type", "static");
@@ -88,6 +88,17 @@ public class S3StorageResource
         return properties;
     }
 
+    /**
+     * Builds the {@code s3.url.override} value the application under test uses to reach the storage
+     * container. For in-JVM {@code @QuarkusTest} the app runs on the host, so the default is {@code
+     * localhost:<mappedPort>}. Integration tests running the app inside a container override this
+     * (see {@code S3StorageITResource}) to address the storage container over the shared container
+     * network instead.
+     */
+    protected String adjustS3Url(String host, int port) {
+        return "http://" + host + ":" + port;
+    }
+
     @SuppressWarnings("resource")
     @Override
     public Map<String, String> start() {
@@ -99,7 +110,7 @@ public class S3StorageResource
                         .orElse(DEFAULT_IMAGE);
         this.container =
                 new GenericContainer<>(DockerImageName.parse(img))
-                        .withExposedPorts(CONTAINER_PORT)
+                        .withExposedPorts(S3_PORT)
                         .withEnv(envMap)
                         .withTmpFs(Map.of("/data", "rw"))
                         .waitingFor(Wait.forListeningPort())
@@ -111,7 +122,7 @@ public class S3StorageResource
                                                 .withMemory(1L * 1024L * 1024L * 1024L));
         containerNetworkId.ifPresent(container::withNetworkMode);
 
-        container.setPortBindings(List.of(String.format("%d:%d", hostPort, CONTAINER_PORT)));
+        container.setPortBindings(List.of(String.format("%d:%d", hostPort, S3_PORT)));
         container.start();
 
         return getProperties(hostPort);
