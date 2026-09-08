@@ -19,6 +19,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
+import java.util.function.Function;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
@@ -40,10 +41,15 @@ import org.jboss.logging.Logger;
  *   <li>Resource safety: evicted clients are automatically closed.
  *   <li>Security: raw tokens are never stored; only their SHA-256 hex digest is used as the key.
  * </ul>
+ *
+ * <p>Setting either the expire-after-access duration or the maximum size to zero disables caching
+ * entirely: {@link #withClient(String, Function)} then creates a fresh client per call and closes
+ * it as soon as the caller is done with it.
  */
 @ApplicationScoped
 public class SsarClientCache {
 
+    // null when caching is disabled by configuration
     private final Cache<String, KubernetesClient> clientCache;
     private final SsarClientFactory clientFactory;
     private final Logger logger;
@@ -55,10 +61,20 @@ public class SsarClientCache {
     public SsarClientCache(Logger logger, RbacConfig config, SsarClientFactory clientFactory) {
         this.logger = logger;
         this.clientFactory = clientFactory;
+        var expireAfterAccess = config.cache().expireAfterAccess();
+        long maximumSize = config.cache().maximumSize();
+        // negative values are rejected by Caffeine below, failing startup as documented
+        if (expireAfterAccess.isZero() || maximumSize == 0) {
+            logger.debugf(
+                    "SsarClientCache disabled (expire-after-access=%s, maximum-size=%d)",
+                    expireAfterAccess, maximumSize);
+            this.clientCache = null;
+            return;
+        }
         this.clientCache =
                 Caffeine.newBuilder()
-                        .expireAfterAccess(config.cache().expireAfterAccess())
-                        .maximumSize(config.cache().maximumSize())
+                        .expireAfterAccess(expireAfterAccess)
+                        .maximumSize(maximumSize)
                         .removalListener(
                                 (String keyHash, KubernetesClient client, RemovalCause cause) -> {
                                     if (client != null
@@ -83,16 +99,34 @@ public class SsarClientCache {
     }
 
     /**
+     * Apply {@code fn} to a client authenticated with the given raw token. When caching is enabled
+     * the client is cached and remains open after this call returns; when caching is disabled a
+     * fresh client is created and closed before returning. Callers must not retain the client
+     * beyond the scope of {@code fn}.
+     */
+    public <T> T withClient(String rawToken, Function<KubernetesClient, T> fn) {
+        if (clientCache == null) {
+            try (KubernetesClient client = clientFactory.createClientForToken(rawToken)) {
+                return fn.apply(client);
+            }
+        }
+        return fn.apply(getOrCreate(rawToken));
+    }
+
+    /**
      * Return a cached client for the given raw token, creating one via {@link SsarClientFactory} if
      * none exists.
      */
-    public KubernetesClient getOrCreate(String rawToken) {
+    private KubernetesClient getOrCreate(String rawToken) {
         String keyHash = hashToken(rawToken);
         return clientCache.get(keyHash, hash -> clientFactory.createClientForToken(rawToken));
     }
 
     /** Evict and close the cached client for the given raw token, if one exists. */
     public void invalidate(String rawToken) {
+        if (clientCache == null) {
+            return;
+        }
         String keyHash = hashToken(rawToken);
         KubernetesClient client = clientCache.getIfPresent(keyHash);
         clientCache.invalidate(keyHash);
@@ -107,6 +141,9 @@ public class SsarClientCache {
 
     @PreDestroy
     public void shutdown() {
+        if (clientCache == null) {
+            return;
+        }
         logger.info(
                 "Shutting down SsarClientCache and closing all cached KubernetesClient instances");
         clientCache

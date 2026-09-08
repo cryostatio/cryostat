@@ -25,6 +25,7 @@ import static org.mockito.Mockito.when;
 import java.security.Permission;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Function;
 
 import io.fabric8.kubernetes.api.model.authorization.v1.SelfSubjectAccessReview;
 import io.fabric8.kubernetes.api.model.authorization.v1.SubjectAccessReviewStatus;
@@ -70,12 +71,17 @@ class RbacHttpAuthenticationMechanismTest {
     @SuppressWarnings("unchecked")
     void setUp() {
         mockClient = mock(KubernetesClient.class);
-        when(ssarClientCache.getOrCreate(any())).thenReturn(mockClient);
+        when(ssarClientCache.withClient(any(), any()))
+                .thenAnswer(
+                        invocation -> {
+                            Function<KubernetesClient, Object> fn = invocation.getArgument(1);
+                            return fn.apply(mockClient);
+                        });
         when(ssarDecisionCache.get(any(), any(), any(), any(), any()))
                 .thenAnswer(
                         invocation -> {
-                            java.util.function.Function<SsarDecisionCache.DecisionKey, Boolean>
-                                    loader = invocation.getArgument(4);
+                            Function<SsarDecisionCache.DecisionKey, Boolean> loader =
+                                    invocation.getArgument(4);
                             return loader != null ? loader.apply(null) : false;
                         });
 

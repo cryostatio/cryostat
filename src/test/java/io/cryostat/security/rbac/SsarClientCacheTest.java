@@ -43,27 +43,31 @@ class SsarClientCacheTest {
         cache.shutdown();
     }
 
+    private KubernetesClient get(String rawToken) {
+        return cache.withClient(rawToken, c -> c);
+    }
+
     @Test
-    void testGetOrCreateReturnsCachedClientForSameToken() {
+    void testWithClientReturnsCachedClientForSameToken() {
         KubernetesClient mockClient = mock(KubernetesClient.class);
         when(clientFactory.createClientForToken(anyString())).thenReturn(mockClient);
 
-        KubernetesClient first = cache.getOrCreate("token-abc");
-        KubernetesClient second = cache.getOrCreate("token-abc");
+        KubernetesClient first = get("token-abc");
+        KubernetesClient second = get("token-abc");
 
         assertSame(first, second);
         verify(clientFactory, times(1)).createClientForToken("token-abc");
     }
 
     @Test
-    void testGetOrCreateReturnsDifferentClientsForDifferentTokens() {
+    void testWithClientReturnsDifferentClientsForDifferentTokens() {
         KubernetesClient clientA = mock(KubernetesClient.class);
         KubernetesClient clientB = mock(KubernetesClient.class);
         when(clientFactory.createClientForToken("token-A")).thenReturn(clientA);
         when(clientFactory.createClientForToken("token-B")).thenReturn(clientB);
 
-        KubernetesClient gotA = cache.getOrCreate("token-A");
-        KubernetesClient gotB = cache.getOrCreate("token-B");
+        KubernetesClient gotA = get("token-A");
+        KubernetesClient gotB = get("token-B");
 
         assertNotSame(gotA, gotB);
         assertSame(clientA, gotA);
@@ -75,7 +79,7 @@ class SsarClientCacheTest {
         KubernetesClient mockClient = mock(KubernetesClient.class);
         when(clientFactory.createClientForToken(anyString())).thenReturn(mockClient);
 
-        cache.getOrCreate("token-close");
+        get("token-close");
         cache.invalidate("token-close");
 
         verify(mockClient).close();
@@ -88,8 +92,8 @@ class SsarClientCacheTest {
         when(clientFactory.createClientForToken("t1")).thenReturn(c1);
         when(clientFactory.createClientForToken("t2")).thenReturn(c2);
 
-        cache.getOrCreate("t1");
-        cache.getOrCreate("t2");
+        get("t1");
+        get("t2");
         cache.shutdown();
 
         verify(c1).close();
@@ -97,14 +101,14 @@ class SsarClientCacheTest {
     }
 
     @Test
-    void testGetOrCreateAfterInvalidateCreatesNewClient() {
+    void testWithClientAfterInvalidateCreatesNewClient() {
         KubernetesClient first = mock(KubernetesClient.class);
         KubernetesClient second = mock(KubernetesClient.class);
         when(clientFactory.createClientForToken("tok")).thenReturn(first, second);
 
-        KubernetesClient got1 = cache.getOrCreate("tok");
+        KubernetesClient got1 = get("tok");
         cache.invalidate("tok");
-        KubernetesClient got2 = cache.getOrCreate("tok");
+        KubernetesClient got2 = get("tok");
 
         assertNotSame(got1, got2);
         verify(clientFactory, times(2)).createClientForToken("tok");
@@ -115,7 +119,7 @@ class SsarClientCacheTest {
         KubernetesClient mockClient = mock(KubernetesClient.class);
         when(clientFactory.createClientForToken(anyString())).thenReturn(mockClient);
 
-        KubernetesClient result = cache.getOrCreate("tëst-ünïcödé-tökën");
+        KubernetesClient result = get("tëst-ünïcödé-tökën");
 
         assertNotNull(result);
         assertSame(mockClient, result);
@@ -123,10 +127,10 @@ class SsarClientCacheTest {
     }
 
     @Test
-    void testGetOrCreateReturnsNotNull() {
+    void testWithClientReturnsNotNull() {
         KubernetesClient mockClient = mock(KubernetesClient.class);
         when(clientFactory.createClientForToken(anyString())).thenReturn(mockClient);
 
-        assertNotNull(cache.getOrCreate("any-token"));
+        assertNotNull(get("any-token"));
     }
 }
