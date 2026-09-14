@@ -17,6 +17,7 @@ package io.cryostat.resources;
 
 import java.io.IOException;
 import java.net.ServerSocket;
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -27,14 +28,26 @@ import io.quarkus.test.common.QuarkusTestResourceLifecycleManager;
 import org.apache.commons.lang3.StringUtils;
 import org.jboss.logging.Logger;
 import org.testcontainers.containers.GenericContainer;
-import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.utility.DockerImageName;
 
 public class S3StorageResource
         implements QuarkusTestResourceLifecycleManager, DevServicesContext.ContextAware {
 
+    protected static final Duration STARTUP_TIMEOUT = Duration.ofMinutes(2);
     protected static final int CONTAINER_PORT = 8333;
     protected static final String DEFAULT_IMAGE = "quay.io/cryostat/cryostat-storage:latest";
+    protected static final String ACCESS_KEY = "access_key";
+    protected static final String SECRET_KEY = "secret_key";
+    protected static final List<String> BUCKETS =
+            List.of(
+                    "metadata",
+                    "archivedrecordings",
+                    "archivedreports",
+                    "eventtemplates",
+                    "probes",
+                    "threaddumps",
+                    "heapdumps",
+                    "logs");
     protected static final Map<String, String> envMap =
             Map.of(
                     "DATA_DIR",
@@ -46,21 +59,11 @@ public class S3StorageResource
                     "REST_ENCRYPTION_ENABLE",
                     "1",
                     "CRYOSTAT_ACCESS_KEY",
-                    "access_key",
+                    ACCESS_KEY,
                     "CRYOSTAT_SECRET_KEY",
-                    "secret_key",
+                    SECRET_KEY,
                     "CRYOSTAT_BUCKETS",
-                    String.join(
-                            ",",
-                            List.of(
-                                    "metadata",
-                                    "archivedrecordings",
-                                    "archivedreports",
-                                    "eventtemplates",
-                                    "probes",
-                                    "threaddumps",
-                                    "heapdumps",
-                                    "logs")));
+                    String.join(",", BUCKETS));
     protected final Logger logger = Logger.getLogger(getClass());
     protected Optional<String> containerNetworkId;
     protected GenericContainer<?> container;
@@ -102,7 +105,12 @@ public class S3StorageResource
                         .withExposedPorts(CONTAINER_PORT)
                         .withEnv(envMap)
                         .withTmpFs(Map.of("/data", "rw"))
-                        .waitingFor(Wait.forListeningPort())
+                        // the port opens before the buckets are created, so waiting on the port
+                        // alone yields storage which answers 404 NoSuchBucket
+                        .waitingFor(
+                                new S3BucketsWaitStrategy(
+                                                CONTAINER_PORT, BUCKETS, ACCESS_KEY, SECRET_KEY)
+                                        .withStartupTimeout(STARTUP_TIMEOUT))
                         .withStartupAttempts(3)
                         .withCreateContainerCmdModifier(
                                 cmd ->

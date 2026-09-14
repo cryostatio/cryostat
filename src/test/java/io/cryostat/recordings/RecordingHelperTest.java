@@ -17,29 +17,40 @@ package io.cryostat.recordings;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.*;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 
+import org.openjdk.jmc.flightrecorder.configuration.IRecordingDescriptor;
+
 import io.cryostat.AbstractTransactionalTestBase;
+import io.cryostat.recordings.RecordingHelper.SnapshotCreationException;
 import io.cryostat.resources.S3StorageResource;
 import io.cryostat.targets.Target;
+import io.cryostat.targets.TargetConnectionManager;
 
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusTest;
+import io.quarkus.test.junit.mockito.InjectSpy;
 import jakarta.inject.Inject;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 
 @QuarkusTest
 @QuarkusTestResource(value = S3StorageResource.class, restrictToAnnotatedClass = true)
 class RecordingHelperTest extends AbstractTransactionalTestBase {
 
     @Inject RecordingHelper recordingHelper;
+    @Inject TargetConnectionManager connectionManager;
+    @InjectSpy RemoteRecordingInputStreamFactory remoteRecordingStreamFactory;
 
     @Test
     void shouldListArchivedRecordingsAcrossJvmIdsWhenSourceTargetIsNull() throws Exception {
@@ -215,5 +226,38 @@ class RecordingHelperTest extends AbstractTransactionalTestBase {
             cleanupSelfRecording();
             Files.deleteIfExists(recordingFile);
         }
+    }
+
+    @Test
+    void shouldCloseRemoteSnapshotWhenStreamCannotBeOpened() throws Exception {
+        int targetId = defineSelfCustomTarget();
+        shutdownScheduler();
+
+        Target target =
+                QuarkusTransaction.requiringNew()
+                        .call(() -> Target.<Target>find("id", (long) targetId).singleResult());
+
+        Mockito.doThrow(new IOException("openDirect failed"))
+                .when(remoteRecordingStreamFactory)
+                .openDirect(Mockito.any(), Mockito.any(), Mockito.any());
+
+        assertThrows(
+                SnapshotCreationException.class,
+                () ->
+                        recordingHelper
+                                .createSnapshot(target)
+                                .await()
+                                .atMost(Duration.ofSeconds(30)));
+
+        // the snapshot recording created on the remote target must not be left behind when the
+        // stream cannot be opened
+        List<String> remoteRecordings =
+                connectionManager.executeConnectedTask(
+                        target,
+                        conn ->
+                                conn.getService().getAvailableRecordings().stream()
+                                        .map(IRecordingDescriptor::getName)
+                                        .toList());
+        assertThat(remoteRecordings, is(empty()));
     }
 }
