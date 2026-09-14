@@ -2890,6 +2890,12 @@ paths:
       responses:
         "204":
           description: Active recordings synchronized
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
       summary: Resynchronize active recordings on the specified target
       tags:
         - Recording Sync
