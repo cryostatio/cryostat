@@ -22,8 +22,8 @@ import io.cryostat.recordings.ActiveRecordings.LinkedRecordingDescriptor;
 import io.cryostat.recordings.RecordingHelper.SnapshotCreationException;
 import io.cryostat.targets.Target;
 
+import io.quarkus.security.PermissionsAllowed;
 import io.smallrye.common.annotation.Blocking;
-import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.POST;
@@ -47,7 +47,9 @@ public class Snapshots {
     @POST
     @Blocking
     @Transactional
-    @RolesAllowed("write")
+    @PermissionsAllowed(
+            value = {"targets:read", "activerecordings:write"},
+            inclusive = true)
     @Operation(summary = "Create a JFR Snapshot on the specified target")
     public RestResponse<LinkedRecordingDescriptor> createSnapshotUsingTargetId(
             @RestPath long targetId) throws Exception {

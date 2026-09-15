@@ -33,6 +33,7 @@ import io.cryostat.graphql.matchers.LabelSelectorMatcher;
 import io.cryostat.recordings.ActiveRecordings.Metadata;
 import io.cryostat.recordings.LongRunningRequestGenerator;
 import io.cryostat.recordings.LongRunningRequestGenerator.HeapDumpRequest;
+import io.cryostat.security.rbac.graphql.RequiresPermission;
 
 import io.smallrye.graphql.api.Nullable;
 import io.vertx.mutiny.core.eventbus.EventBus;
@@ -54,6 +55,7 @@ public class HeapDumpGraphQL {
     @Inject Logger log;
 
     @Query("heapDumps")
+    @RequiresPermission("heapdumps:read")
     @Description("List archived heap dumps")
     public HeapDumps listArchivedHeapDumps(HeapDumpsFilter filter) {
         var r = new TargetNodes.HeapDumps();
@@ -67,6 +69,7 @@ public class HeapDumpGraphQL {
 
     @Transactional
     @Mutation
+    @RequiresPermission({"targets:read", "discoverynodes:read", "heapdumps:write"})
     @Description(
             "Trigger a heap dump on all Targets under the subtrees of the discovery nodes"
                     + " matching the given filter")
@@ -96,6 +99,7 @@ public class HeapDumpGraphQL {
 
     @Transactional
     @Mutation
+    @RequiresPermission({"targets:read", "discoverynodes:read", "heapdumps:delete"})
     @Description(
             "Delete an existing Heap Dump matching the given filter, on all Targets under"
                     + " the subtrees of the discovery nodes matching the given filter")
@@ -121,6 +125,7 @@ public class HeapDumpGraphQL {
     }
 
     @NonNull
+    @RequiresPermission("heapdumps:delete")
     @Description("Delete a heap dump")
     public HeapDump doDelete(@Source HeapDump dump) throws IOException {
         diagnosticsHelper.deleteHeapDump(dump.jvmId(), dump.heapDumpId());
@@ -128,6 +133,7 @@ public class HeapDumpGraphQL {
     }
 
     @NonNull
+    @RequiresPermission("heapdumps:write")
     @Description("Update the metadata for a heap dump")
     public HeapDump doPutMetadata(@Source HeapDump heapDump, MetadataLabels metadataInput)
             throws IOException {

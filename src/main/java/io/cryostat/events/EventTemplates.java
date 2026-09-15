@@ -28,8 +28,8 @@ import io.cryostat.libcryostat.templates.InvalidEventTemplateException;
 import io.cryostat.libcryostat.templates.Template;
 import io.cryostat.libcryostat.templates.TemplateType;
 
+import io.quarkus.security.PermissionsAllowed;
 import io.smallrye.common.annotation.Blocking;
-import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.DELETE;
@@ -70,7 +70,7 @@ public class EventTemplates {
 
     @GET
     @Blocking
-    @RolesAllowed("read")
+    @PermissionsAllowed(value = "eventtemplates:read", inclusive = true)
     @Operation(
             summary = "List server event templates",
             description =
@@ -90,7 +90,7 @@ public class EventTemplates {
     @GET
     @Path("/{templateType}")
     @Blocking
-    @RolesAllowed("read")
+    @PermissionsAllowed(value = "eventtemplates:read", inclusive = true)
     @Operation(summary = "List server event templates of the given type")
     public List<Template> getTemplates(@RestPath String templateType)
             throws IOException, FlightRecorderException {
@@ -108,7 +108,7 @@ public class EventTemplates {
     @GET
     @Path("/{templateType}/{templateName}")
     @Blocking
-    @RolesAllowed("read")
+    @PermissionsAllowed(value = "eventtemplates:read", inclusive = true)
     @Produces(MediaType.APPLICATION_XML)
     @Operation(
             summary = "Get a specific event template",
@@ -135,7 +135,7 @@ public class EventTemplates {
     }
 
     @POST
-    @RolesAllowed("write")
+    @PermissionsAllowed(value = "eventtemplates:write", inclusive = true)
     @Operation(
             summary = "Upload a custom event template",
             description =
@@ -164,7 +164,7 @@ public class EventTemplates {
     @DELETE
     @Blocking
     @Path("/{templateName}")
-    @RolesAllowed("write")
+    @PermissionsAllowed(value = "eventtemplates:delete", inclusive = true)
     @Operation(
             summary = "Delete a custom event template",
             description =

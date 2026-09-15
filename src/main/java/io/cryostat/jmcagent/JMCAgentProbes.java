@@ -33,6 +33,7 @@ import io.cryostat.ws.Notification;
 import io.cryostat.ws.notifications.NotificationPayloads.ProbeTemplateAppliedPayload;
 import io.cryostat.ws.notifications.NotificationPayloads.ProbesRemovedPayload;
 
+import io.quarkus.security.PermissionsAllowed;
 import io.smallrye.common.annotation.Blocking;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.inject.Inject;
@@ -68,6 +69,9 @@ public class JMCAgentProbes {
 
     @Blocking
     @POST
+    @PermissionsAllowed(
+            value = {"targets:read", "jmcagent:write"},
+            inclusive = true)
     @Path("/api/v4/targets/{id}/probes/{probeTemplateName}")
     @Operation(
             summary = "Activate a probe template on the specified target",
@@ -126,6 +130,9 @@ public class JMCAgentProbes {
 
     @Blocking
     @DELETE
+    @PermissionsAllowed(
+            value = {"targets:read", "jmcagent:write"},
+            inclusive = true)
     @Path("/api/v4/targets/{id}/probes")
     @Operation(summary = "Remove all loaded probes from the specified target")
     public void deleteProbe(@RestPath long id) {
@@ -160,6 +167,9 @@ public class JMCAgentProbes {
 
     @Blocking
     @GET
+    @PermissionsAllowed(
+            value = {"targets:read", "jmcagent:read"},
+            inclusive = true)
     @Path("/api/v4/targets/{id}/probes")
     @Operation(summary = "List loaded probes on the specified target")
     public List<ProbeResponse> getProbes(@RestPath long id) {

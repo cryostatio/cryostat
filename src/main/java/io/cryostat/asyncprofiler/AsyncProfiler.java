@@ -34,10 +34,10 @@ import io.cryostat.ws.Notification;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.runtime.ShutdownEvent;
+import io.quarkus.security.PermissionsAllowed;
 import io.smallrye.common.annotation.Blocking;
 import io.smallrye.mutiny.Uni;
 import io.vertx.mutiny.core.eventbus.EventBus;
-import jakarta.annotation.security.RolesAllowed;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
 import jakarta.persistence.NoResultException;
@@ -98,7 +98,9 @@ public class AsyncProfiler {
     @POST
     @Blocking
     @Transactional
-    @RolesAllowed("write")
+    @PermissionsAllowed(
+            value = {"targets:read", "asyncprofiler:write"},
+            inclusive = true)
     @Operation(summary = "Create a new async-profiler profile on the specified target")
     public Uni<String> create(@RestPath long targetId, StartProfileRequest req) {
         Target target = Target.find("id", targetId).singleResult();
@@ -110,7 +112,9 @@ public class AsyncProfiler {
     @GET
     @Path("/{profileId}")
     @Blocking
-    @RolesAllowed("read")
+    @PermissionsAllowed(
+            value = {"targets:read", "asyncprofiler:read"},
+            inclusive = true)
     @Operation(summary = "Download an async-profiler binary file in JFR format")
     public RestResponse<InputStream> get(@RestPath long targetId, @RestPath String profileId)
             throws Exception {
@@ -129,7 +133,9 @@ public class AsyncProfiler {
     @GET
     @Path("/status")
     @Blocking
-    @RolesAllowed("read")
+    @PermissionsAllowed(
+            value = {"targets:read", "asyncprofiler:read"},
+            inclusive = true)
     @Operation(summary = "Get specified target's async-profiler status")
     public Uni<AsyncProfilerStatus> getStatus(@RestPath long targetId) throws Exception {
         Target target = Target.find("id", targetId).singleResult();
@@ -139,7 +145,9 @@ public class AsyncProfiler {
     @GET
     @Blocking
     @Transactional
-    @RolesAllowed("read")
+    @PermissionsAllowed(
+            value = {"targets:read", "asyncprofiler:read"},
+            inclusive = true)
     @Operation(summary = "List existing async-profiler profiles on the specified target")
     public Uni<List<AsyncProfile>> list(@RestPath long targetId) throws Exception {
         Target target = Target.find("id", targetId).singleResult();
@@ -150,7 +158,9 @@ public class AsyncProfiler {
     @Transactional
     @Blocking
     @Path("/{profileId}")
-    @RolesAllowed("write")
+    @PermissionsAllowed(
+            value = {"targets:read", "asyncprofiler:delete"},
+            inclusive = true)
     @Operation(summary = "Delete an async-profiler profile from the specified target")
     public Uni<Void> delete(@RestPath long targetId, @RestPath String profileId) throws Exception {
         Target target = Target.find("id", targetId).singleResult();

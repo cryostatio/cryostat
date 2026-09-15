@@ -18,8 +18,8 @@ package io.cryostat.recordings;
 
 import io.cryostat.targets.Target;
 
+import io.quarkus.security.PermissionsAllowed;
 import io.smallrye.common.annotation.Blocking;
-import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.POST;
@@ -41,7 +41,9 @@ public class RecordingSync {
     @POST
     @Blocking
     @Transactional
-    @RolesAllowed("write")
+    @PermissionsAllowed(
+            value = {"targets:read", "activerecordings:write"},
+            inclusive = true)
     @Operation(
             summary = "Resynchronize active recordings on the specified target",
             description =

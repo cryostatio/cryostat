@@ -25,7 +25,7 @@ import org.openjdk.jmc.flightrecorder.configuration.events.IEventTypeInfo;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.TargetConnectionManager;
 
-import jakarta.annotation.security.RolesAllowed;
+import io.quarkus.security.PermissionsAllowed;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
@@ -43,7 +43,9 @@ public class Events {
 
     @GET
     @Path("/api/v4/targets/{id}/events")
-    @RolesAllowed("read")
+    @PermissionsAllowed(
+            value = {"targets:read", "eventtypes:read"},
+            inclusive = true)
     @Operation(
             summary = "List JFR event types registered within the given target",
             description =

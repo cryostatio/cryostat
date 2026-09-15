@@ -44,6 +44,7 @@ import io.cryostat.discovery.DiscoveryPlugin.PluginCleanupHelper;
 import io.cryostat.discovery.KubeEndpointSlicesDiscovery.KubeDiscoveryNodeType;
 import io.cryostat.discovery.NodeType.BaseNodeType;
 import io.cryostat.expressions.MatchExpression;
+import io.cryostat.security.rbac.RbacHttpAuthenticationMechanism;
 import io.cryostat.targets.Target.Annotations;
 import io.cryostat.targets.TargetConnectionManager;
 import io.cryostat.util.URIUtil;
@@ -56,13 +57,12 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.panache.common.Parameters;
 import io.quarkus.runtime.ShutdownEvent;
+import io.quarkus.security.PermissionsAllowed;
 import io.smallrye.common.annotation.Blocking;
 import io.smallrye.faulttolerance.api.RateLimit;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.mutiny.core.eventbus.EventBus;
-import jakarta.annotation.security.PermitAll;
-import jakarta.annotation.security.RolesAllowed;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
@@ -150,6 +150,7 @@ public class Discovery {
     @Inject PluginCallbackFactory callbackFactory;
     @Inject PluginCleanupHelper cleanupHelper;
     @Inject EntityManager entityManager;
+    @Inject RbacHttpAuthenticationMechanism authMechanism;
 
     void onStop(@Observes ShutdownEvent evt) throws SchedulerException {
         scheduler.shutdown();
@@ -157,7 +158,7 @@ public class Discovery {
 
     @GET
     @Path("/api/v4/discovery")
-    @RolesAllowed("read")
+    @PermissionsAllowed(value = "discoverynodes:read", inclusive = true)
     @Operation(summary = "Retrieve the entire discovery tree.")
     public DiscoveryNode get(
             @QueryParam("mergeRealms") @DefaultValue("false") boolean mergeRealms) {
@@ -169,7 +170,7 @@ public class Discovery {
 
     @GET
     @Path("/api/v4/discovery/{id}")
-    @RolesAllowed("read")
+    @PermissionsAllowed(value = "discoverynodes:read", inclusive = true)
     @Tag(ref = "Discovery")
     @Operation(
             summary = "Endpoint for discovery plugins to check their own registration status",
@@ -197,7 +198,9 @@ public class Discovery {
 
     @POST
     @Blocking
-    @RolesAllowed("read")
+    @PermissionsAllowed(
+            value = {"credentials:read", "matchexpressions:read"},
+            inclusive = true)
     @Consumes({MediaType.MULTIPART_FORM_DATA, MediaType.APPLICATION_FORM_URLENCODED})
     @Path("/api/beta/discovery/credential_exists")
     @Operation(
@@ -221,7 +224,9 @@ public class Discovery {
     @Path("/api/v4/discovery")
     @Produces(MediaType.APPLICATION_JSON)
     @Consumes(MediaType.APPLICATION_JSON)
-    @RolesAllowed("write")
+    @PermissionsAllowed(
+            value = {"discoveryplugins:write", "discoverynodes:write"},
+            inclusive = true)
     @Tag(
             name = "Discovery",
             description =
@@ -322,7 +327,14 @@ public class Discovery {
     @Path("/api/v4.3/discovery/agents")
     @Produces(MediaType.APPLICATION_JSON)
     @Consumes(MediaType.APPLICATION_JSON)
-    @RolesAllowed("write")
+    @PermissionsAllowed(
+            value = {
+                "discoveryplugins:write",
+                "discoverynodes:write",
+                "targets:write",
+                "credentials:write"
+            },
+            inclusive = true)
     @Tag(ref = "Discovery")
     @Operation(
             summary = "Register and publish a Cryostat Agent",
@@ -410,7 +422,9 @@ public class Discovery {
     @POST
     @Path("/api/v4/discovery/{id}")
     @Consumes(MediaType.APPLICATION_JSON)
-    @PermitAll
+    @PermissionsAllowed(
+            value = {"targets:write", "discoverynodes:write"},
+            inclusive = true)
     @Tag(ref = "Discovery")
     @Operation(
             summary = "Publish updated target discovery information",
@@ -442,7 +456,9 @@ public class Discovery {
     @POST
     @Path("/api/v4.2/discovery/{id}")
     @Consumes(MediaType.APPLICATION_JSON)
-    @PermitAll
+    @PermissionsAllowed(
+            value = {"targets:write", "discoverynodes:write"},
+            inclusive = true)
     @Tag(ref = "Discovery")
     @Operation(
             summary = "Publish updated target discovery information",
@@ -658,7 +674,9 @@ public class Discovery {
     @Transactional
     @DELETE
     @Path("/api/v4/discovery/{id}")
-    @PermitAll
+    @PermissionsAllowed(
+            value = {"targets:delete", "discoverynodes:delete", "discoveryplugins:delete"},
+            inclusive = true)
     @Tag(ref = "Discovery")
     @Operation(
             summary = "Delete the given plugin's registration",
@@ -710,7 +728,9 @@ public class Discovery {
     @GET
     @JsonView(DiscoveryNode.Views.Flat.class)
     @Path("/api/v4/discovery_plugins")
-    @RolesAllowed("read")
+    @PermissionsAllowed(
+            value = {"discoveryplugins:read", "discoverynodes:read"},
+            inclusive = true)
     @Tag(ref = "Discovery")
     @Operation(
             summary = "List currently registered discovery plugins",
@@ -727,7 +747,9 @@ public class Discovery {
 
     @GET
     @Path("/api/v4/discovery_plugins/{id}")
-    @RolesAllowed("read")
+    @PermissionsAllowed(
+            value = {"discoveryplugins:read", "discoverynodes:read"},
+            inclusive = true)
     @Tag(ref = "Discovery")
     @Operation(
             summary = "Retrieve a specific discovery plugin",
@@ -886,6 +908,10 @@ public class Discovery {
                     String.format(
                             "TLS for agent connections is required by (%s)",
                             ConfigProperties.AGENT_TLS_REQUIRED));
+        }
+
+        if (authMechanism.isAgentProxyRequest(ctx)) {
+            return new CallbackValidation(callbackUri, unauthCallback, remoteAddress);
         }
 
         try {

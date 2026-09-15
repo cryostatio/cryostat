@@ -28,15 +28,16 @@ import java.util.regex.Pattern;
 import io.cryostat.ConfigProperties;
 import io.cryostat.credentials.Credential;
 import io.cryostat.expressions.MatchExpression;
+import io.cryostat.security.rbac.UserAuthorizer;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.Target.Annotations;
 import io.cryostat.targets.TargetConnectionManager;
 import io.cryostat.util.URIUtil;
 
 import io.quarkus.narayana.jta.QuarkusTransaction;
+import io.quarkus.security.PermissionsAllowed;
 import io.smallrye.common.annotation.Blocking;
 import io.vertx.mutiny.core.eventbus.EventBus;
-import jakarta.annotation.security.RolesAllowed;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
@@ -48,6 +49,7 @@ import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.InternalServerErrorException;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
+import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.UriInfo;
@@ -83,6 +85,7 @@ public class CustomDiscovery {
     @Inject EntityManager entityManager;
     @Inject TargetConnectionManager connectionManager;
     @Inject URIUtil uriUtil;
+    @Inject UserAuthorizer userAuthorizer;
 
     @ConfigProperty(name = ConfigProperties.CONNECTIONS_FAILED_TIMEOUT)
     Duration timeout;
@@ -91,7 +94,9 @@ public class CustomDiscovery {
     @POST
     @Path("/api/v4/targets")
     @Consumes(MediaType.APPLICATION_JSON)
-    @RolesAllowed("write")
+    @PermissionsAllowed(
+            value = {"targets:read", "targets:write"},
+            inclusive = true)
     @Operation(
             summary = "Create a target definition",
             description =
@@ -113,7 +118,9 @@ public class CustomDiscovery {
     @POST
     @Path("/api/v4/targets")
     @Consumes({MediaType.MULTIPART_FORM_DATA, MediaType.APPLICATION_FORM_URLENCODED})
-    @RolesAllowed("write")
+    @PermissionsAllowed(
+            value = {"targets:read", "targets:write"},
+            inclusive = true)
     @Operation(
             summary = "Create a target definition",
             description =
@@ -190,11 +197,17 @@ public class CustomDiscovery {
                 return ResponseBuilder.accepted(target).build();
             }
 
+            if (storeCredentials && credential.isPresent()) {
+                userAuthorizer.assertAuthorized("credentials", "write");
+            }
+
             return QuarkusTransaction.joiningExisting()
                     .call(
                             () -> {
                                 target.persist();
-                                credential.ifPresent(c -> c.persist());
+                                if (storeCredentials) {
+                                    credential.ifPresent(c -> c.persist());
+                                }
 
                                 target.activeRecordings = new ArrayList<>();
                                 target.annotations = new Annotations(null, Map.of("REALM", REALM));
@@ -222,6 +235,8 @@ public class CustomDiscovery {
                                         .entity(target)
                                         .build();
                             });
+        } catch (WebApplicationException e) {
+            throw e;
         } catch (Exception e) {
             if (ExceptionUtils.indexOfType(e, ConstraintViolationException.class) >= 0) {
                 logger.warn("Invalid target definition", e);
@@ -235,7 +250,7 @@ public class CustomDiscovery {
     @Transactional
     @DELETE
     @Path("/api/v4/targets/{id}")
-    @RolesAllowed("write")
+    @PermissionsAllowed(value = "targets:delete", inclusive = true)
     @Operation(
             summary = "Delete the specified target",
             description =
