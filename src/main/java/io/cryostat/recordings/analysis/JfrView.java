@@ -28,9 +28,9 @@ import java.util.Optional;
 
 import io.cryostat.recordings.RecordingHelper;
 
+import io.quarkus.security.PermissionsAllowed;
 import io.smallrye.common.annotation.Blocking;
 import io.smallrye.mutiny.Uni;
-import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.DefaultValue;
@@ -76,7 +76,9 @@ public class JfrView {
     @GET
     @jakarta.ws.rs.Path("view")
     @Blocking
-    @RolesAllowed("read")
+    @PermissionsAllowed(
+            value = {"archivedrecordings:read"},
+            inclusive = true)
     @Produces(MediaType.TEXT_PLAIN)
     public Uni<String> view(
             @RestPath String jvmId,
@@ -132,7 +134,9 @@ public class JfrView {
     @GET
     @jakarta.ws.rs.Path("views")
     @Blocking
-    @RolesAllowed("read")
+    @PermissionsAllowed(
+            value = {"archivedrecordings:read"},
+            inclusive = true)
     @Produces(MediaType.APPLICATION_JSON)
     public ViewList views(@RestPath String jvmId, @RestPath String filename) {
         recordings.assertArchivedRecordingExists(jvmId, filename);
