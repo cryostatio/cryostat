@@ -148,7 +148,7 @@ jobs:
         persist-credentials: false
     - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
       with:
-        java-version: '25'
+        java-version: '25.0.4+101.0.LTS'
         distribution: 'temurin'
         cache: 'maven'
     - uses: DamianReeves/write-file-action@6929a9a6d1807689191dcc8bbe62b54d70a32b42 # v1.3
@@ -264,7 +264,7 @@ jobs:
         persist-credentials: false
     - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
       with:
-        java-version: '25'
+        java-version: '25.0.4+101.0.LTS'
         distribution: 'temurin'
         cache: 'maven'
     - uses: DamianReeves/write-file-action@6929a9a6d1807689191dcc8bbe62b54d70a32b42 # v1.3
@@ -410,7 +410,7 @@ jobs:
         persist-credentials: false
     - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
       with:
-        java-version: '25'
+        java-version: '25.0.4+101.0.LTS'
         distribution: 'temurin'
         cache: 'maven'
     - run: git submodule init && git submodule update
@@ -475,7 +475,7 @@ jobs:
         persist-credentials: false
     - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
       with:
-        java-version: '25'
+        java-version: '25.0.4+101.0.LTS'
         distribution: 'temurin'
         cache: 'maven'
     - run: git submodule init && git submodule update
