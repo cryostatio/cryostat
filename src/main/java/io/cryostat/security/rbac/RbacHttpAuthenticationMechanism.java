@@ -15,8 +15,8 @@
  */
 package io.cryostat.security.rbac;
 
-import java.net.InetAddress;
-import java.net.UnknownHostException;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.security.Permission;
 import java.util.Arrays;
 import java.util.Collections;
@@ -68,18 +68,26 @@ import org.jboss.logging.Logger;
  *       the token; returns {@code null} if either value is absent.
  * </ul>
  *
- * <p>In {@code BASIC} and {@code OPENSHIFT} modes, requests arriving through the mTLS agent proxy
- * (identified by the {@code X-Cryostat-Agent-Proxy} header) are granted a restricted identity
- * scoped to the configured {@link RbacConfig#agentPermissions() agent permission set} when the
- * normal forwarded-user headers are absent. This pathway is gated on the {@code
- * cryostat.http.proxy.mtls.trusted-hosts} config property: the header is only accepted when the
- * property lists one or more hostnames, every listed hostname also appears in {@code
- * quarkus.http.proxy.trusted-proxies} (i.e. it acts only as a selector from the already-trusted
- * proxy list, it cannot grant trust to new proxies on its own), and the request originates from one
- * of those hosts. Multiple hostnames may be listed for the same physical host (e.g. {@code
- * localhost,127.0.0.1}). When the property is absent or blank, the header is ignored entirely. To
- * prevent header injection through the oauth-proxy path, {@code X-Cryostat-Agent-Proxy} is stripped
- * from any request that also carries {@code X-Forwarded-User}.
+ * <p>Each of the two inbound paths proves itself by <em>possession</em> of a shared secret rather
+ * than by the presence of a header or by its peer address, neither of which can distinguish the two
+ * proxies from each other or from any other in-pod caller:
+ *
+ * <ul>
+ *   <li>the agent gateway stamps {@code X-Cryostat-Agent-Auth} with the value of {@link
+ *       ConfigProperties#AGENT_GATEWAY_SECRET}. A request presenting it is granted a restricted
+ *       identity scoped to the configured {@link RbacConfig#agentPermissions() agent permission
+ *       set}. When the secret is unconfigured the Agent principal is never granted.
+ *   <li>the proxy on the user path stamps {@code X-Cryostat-User-Proxy-Auth} with the value of
+ *       {@link ConfigProperties#USER_PROXY_SECRET}. When that secret is configured, a request
+ *       bearing neither stamp is rejected rather than defaulting into the user path. When it is
+ *       unconfigured, user-path provenance falls back to inference: fail open, selected by
+ *       configuration rather than by anything on the request. This is the case for development
+ *       environments, Docker/Podman, etc. where there is only one expected entrypoint for traffic
+ *       and this entrypoint is expected to be guarded by a single auth proxy as needed.
+ * </ul>
+ *
+ * <p>Stamps are compared in constant time. Each proxy should clear the other's stamp, so a stamp
+ * presented on the wrong path is inert.
  */
 @ApplicationScoped
 public class RbacHttpAuthenticationMechanism implements HttpAuthenticationMechanism {
@@ -88,7 +96,8 @@ public class RbacHttpAuthenticationMechanism implements HttpAuthenticationMechan
     static final String HEADER_FORWARDED_TOKEN = "X-Forwarded-Access-Token";
     static final String HEADER_AUTHORIZATION = "Authorization";
     static final String BEARER_PREFIX = "bearer ";
-    public static final String HEADER_AGENT_PROXY = "X-Cryostat-Agent-Proxy";
+    public static final String HEADER_AGENT_AUTH = "X-Cryostat-Agent-Auth";
+    public static final String HEADER_USER_PROXY_AUTH = "X-Cryostat-User-Proxy-Auth";
     static final String ATTR_RAW_ACCESS_TOKEN = "raw_access_token";
     static final String AGENT_PRINCIPAL = "cryostat-agent";
 
@@ -98,64 +107,73 @@ public class RbacHttpAuthenticationMechanism implements HttpAuthenticationMechan
     @Inject SsarDecisionCache ssarDecisionCache;
     @Inject PermissionMapper permissionMapper;
 
-    @ConfigProperty(name = ConfigProperties.AGENT_PROXY_MTLS_TRUSTED_HOSTS)
-    Optional<List<String>> trustedAgentProxyHosts;
+    @ConfigProperty(name = ConfigProperties.AGENT_GATEWAY_SECRET)
+    Optional<String> agentGatewaySecret;
 
-    @ConfigProperty(name = "quarkus.http.proxy.trusted-proxies")
-    Optional<List<String>> quarkusTrustedProxies;
+    @ConfigProperty(name = ConfigProperties.USER_PROXY_SECRET)
+    Optional<String> userProxySecret;
 
-    private boolean agentProxyConfigValid;
+    private byte[] gatewaySecretBytes;
+    private byte[] userProxySecretBytes;
     private Set<String> agentPermissions;
 
     @PostConstruct
-    void validateAgentProxyConfig() {
+    void validateProvenanceConfig() {
         agentPermissions =
-                config.agentPermissions().stream()
+                config.agentPermissions().orElse(List.of()).stream()
                         .map(StringUtils::strip)
                         .filter(StringUtils::isNotBlank)
                         .collect(Collectors.toUnmodifiableSet());
-        log.debugf("Agent proxy requests will be granted permissions %s", agentPermissions);
+        log.debugf("Agent gateway requests will be granted permissions %s", agentPermissions);
 
-        List<String> hosts =
-                trustedAgentProxyHosts.orElse(List.of()).stream()
-                        .filter(StringUtils::isNotBlank)
-                        .toList();
-        if (hosts.isEmpty()) {
-            agentProxyConfigValid = false;
-            return;
+        gatewaySecretBytes = toBytesOrNull(agentGatewaySecret);
+        userProxySecretBytes = toBytesOrNull(userProxySecret);
+        if (gatewaySecretBytes == null) {
+            log.warn("No agent gateway secret configured; Agent principal will not be granted");
         }
-        List<String> proxies = quarkusTrustedProxies.orElse(List.of());
-        List<String> untrusted = hosts.stream().filter(h -> !proxies.contains(h)).toList();
-        if (!untrusted.isEmpty()) {
-            log.warnf(
-                    "cryostat.http.proxy.mtls.trusted-hosts %s not listed in"
-                            + " quarkus.http.proxy.trusted-proxies; agent proxy header will be"
-                            + " ignored",
-                    untrusted);
-            agentProxyConfigValid = false;
-            return;
+        if (userProxySecretBytes == null) {
+            log.warn(
+                    "No user proxy secret configured; user-path provenance will be inferred from"
+                            + " the absence of an agent stamp rather than proven");
         }
-        agentProxyConfigValid = true;
-        log.debugf("Agent proxy header will be accepted from trusted hosts %s", hosts);
+    }
+
+    private static byte[] toBytesOrNull(Optional<String> secret) {
+        return secret.filter(StringUtils::isNotBlank)
+                .map(s -> s.getBytes(StandardCharsets.UTF_8))
+                .orElse(null);
     }
 
     @Override
     public Uni<SecurityIdentity> authenticate(
             RoutingContext context, IdentityProviderManager identityProviderManager) {
-        sanitizeAgentProxyHeader(context);
+        sanitizeAgentHeaders(context);
+
+        // PERMISSIVE grants everything
+        if (config.mode() == RbacMode.PERMISSIVE) {
+            String user = context.request().getHeader(HEADER_FORWARDED_USER);
+            return Uni.createFrom()
+                    .item(buildPermissiveIdentity(StringUtils.isBlank(user) ? "" : user));
+        }
+
+        // Checked next: the stamp is unforgeable, so it is a strong
+        if (isTrustedGatewayRequest(context)) {
+            log.debug("Agent gateway stamp verified, granting agent identity");
+            return Uni.createFrom().item(buildAgentIdentity());
+        }
+
+        // Positively identified as the user path by secret, or inferred to be the user path when no
+        // secret is configured.
+        // If the secret is configured and the request doesn't carry the stamp, reject it.
+        if (!isTrustedUserPathRequest(context)) {
+            log.debug("Request carries neither provenance stamp, returning null");
+            return Uni.createFrom().nullItem();
+        }
+
         return switch (config.mode()) {
-            case PERMISSIVE -> {
-                String user = context.request().getHeader(HEADER_FORWARDED_USER);
-                yield Uni.createFrom()
-                        .item(buildPermissiveIdentity(StringUtils.isBlank(user) ? "" : user));
-            }
             case BASIC -> {
                 String user = context.request().getHeader(HEADER_FORWARDED_USER);
                 if (StringUtils.isBlank(user)) {
-                    if (isAgentProxyRequest(context)) {
-                        log.debug("BASIC mode: agent proxy request, granting agent identity");
-                        yield Uni.createFrom().item(buildAgentIdentity());
-                    }
                     log.debug("BASIC mode: no X-Forwarded-User header, returning null");
                     yield Uni.createFrom().nullItem();
                 }
@@ -166,10 +184,6 @@ public class RbacHttpAuthenticationMechanism implements HttpAuthenticationMechan
                 String user = context.request().getHeader(HEADER_FORWARDED_USER);
                 String token = extractAccessToken(context);
                 if (StringUtils.isBlank(user) || StringUtils.isBlank(token)) {
-                    if (isAgentProxyRequest(context)) {
-                        log.debug("OPENSHIFT mode: agent proxy request, granting agent identity");
-                        yield Uni.createFrom().item(buildAgentIdentity());
-                    }
                     log.debug("OPENSHIFT mode: missing user or access token, returning null");
                     yield Uni.createFrom().nullItem();
                 }
@@ -177,20 +191,55 @@ public class RbacHttpAuthenticationMechanism implements HttpAuthenticationMechan
                 context.put(ATTR_RAW_ACCESS_TOKEN, token);
                 yield Uni.createFrom().item(buildOpenshiftIdentity(user, token));
             }
+            default -> Uni.createFrom().nullItem();
         };
     }
 
     /**
-     * Strips {@code X-Cryostat-Agent-Proxy} from the request whenever {@code X-Forwarded-User} is
-     * present. This prevents a malicious client from injecting the agent proxy header through the
-     * oauth-proxy path (which cannot be configured to strip arbitrary headers) to bypass SSAR
-     * authorization checks.
+     * Constant-time verification that this request was forwarded by the trusted Agent gateway.
+     * Possession of the shared secret is the whole check: a forged, smuggled, or hand-curled header
+     * without it is inert. When no secret is configured the Agent principal is unreachable.
      */
-    private void sanitizeAgentProxyHeader(RoutingContext context) {
+    public boolean isTrustedGatewayRequest(RoutingContext context) {
+        if (gatewaySecretBytes == null) {
+            return false;
+        }
+        String presented = context.request().getHeader(HEADER_AGENT_AUTH);
+        if (StringUtils.isBlank(presented)) {
+            return false;
+        }
+        return MessageDigest.isEqual(
+                presented.getBytes(StandardCharsets.UTF_8), gatewaySecretBytes);
+    }
+
+    /**
+     * True when the request carries the user-path stamp, or when no user-path secret is configured
+     * at all. The fallback is selected by deployment configuration, never by anything on the
+     * request.
+     */
+    private boolean isTrustedUserPathRequest(RoutingContext context) {
+        if (userProxySecretBytes == null) {
+            return true;
+        }
+        String presented = context.request().getHeader(HEADER_USER_PROXY_AUTH);
+        return StringUtils.isNotBlank(presented)
+                && MessageDigest.isEqual(
+                        presented.getBytes(StandardCharsets.UTF_8), userProxySecretBytes);
+    }
+
+    /**
+     * Removes the agent provenance stamp from a request that also carries oauth-proxy identity
+     * headers. The two are mutually exclusive by construction: the gateway clears {@code
+     * X-Forwarded-*} and the auth-strip proxy clears {@code X-Cryostat-Agent-Auth}, so seeing both
+     * means one of those hops was bypassed. Log it as an anomaly.
+     */
+    private void sanitizeAgentHeaders(RoutingContext context) {
         if (StringUtils.isNotBlank(context.request().getHeader(HEADER_FORWARDED_USER))
-                && StringUtils.isNotBlank(context.request().getHeader(HEADER_AGENT_PROXY))) {
-            log.debug("Stripping X-Cryostat-Agent-Proxy header: X-Forwarded-User is present");
-            context.request().headers().remove(HEADER_AGENT_PROXY);
+                && StringUtils.isNotBlank(context.request().getHeader(HEADER_AGENT_AUTH))) {
+            log.warn(
+                    "Request carries both oauth-proxy and agent gateway headers; stripping agent"
+                            + " headers");
+            context.request().headers().remove(HEADER_AGENT_AUTH);
         }
     }
 
@@ -208,45 +257,6 @@ public class RbacHttpAuthenticationMechanism implements HttpAuthenticationMechan
             return authz.substring(BEARER_PREFIX.length()).strip();
         }
         return null;
-    }
-
-    public boolean isAgentProxyRequest(RoutingContext context) {
-        if (StringUtils.isBlank(context.request().getHeader(HEADER_AGENT_PROXY))) {
-            return false;
-        }
-        if (!agentProxyConfigValid) {
-            log.debug(
-                    "X-Cryostat-Agent-Proxy header present but agent proxy is not configured,"
-                            + " ignoring");
-            return false;
-        }
-        String remoteHost =
-                context.request().remoteAddress() != null
-                        ? context.request().remoteAddress().host()
-                        : null;
-        if (StringUtils.isBlank(remoteHost)) {
-            log.debug(
-                    "X-Cryostat-Agent-Proxy header present but remote address unavailable,"
-                            + " ignoring");
-            return false;
-        }
-        try {
-            InetAddress remoteAddr = InetAddress.getByName(remoteHost);
-            for (String host : trustedAgentProxyHosts.orElse(List.of())) {
-                for (InetAddress trustedAddr : InetAddress.getAllByName(host)) {
-                    if (remoteAddr.equals(trustedAddr)) {
-                        return true;
-                    }
-                }
-            }
-        } catch (UnknownHostException e) {
-            log.warnf(e, "Failed to resolve trusted agent proxy host");
-        }
-        log.debugf(
-                "X-Cryostat-Agent-Proxy header present but remote address '%s' does not match"
-                        + " any trusted host in %s",
-                remoteHost, trustedAgentProxyHosts.orElse(List.of()));
-        return false;
     }
 
     @Override
@@ -274,14 +284,14 @@ public class RbacHttpAuthenticationMechanism implements HttpAuthenticationMechan
         return QuarkusSecurityIdentity.builder()
                 .setPrincipal(new QuarkusPrincipal(user))
                 .setAnonymous(false)
-                .addPermissionChecker(permission -> Uni.createFrom().item(true))
+                .addPermissionChecker(_ -> Uni.createFrom().item(true))
                 .build();
     }
 
     /**
-     * Builds the restricted identity granted to authenticated agent-proxy requests. Unlike {@link
-     * #buildPermissiveIdentity(String)}, its permission checker only grants a request when every
-     * {@code resource:verb} it requires is present in the configured {@link
+     * Builds the restricted identity granted to requests bearing a valid agent gateway stamp.
+     * Unlike {@link #buildPermissiveIdentity(String)}, its permission checker only grants a request
+     * when every {@code resource:verb} it requires is present in the configured {@link
      * RbacConfig#agentPermissions() agent permission set}. Blank permissions and any {@code
      * resource:verb} outside that set are denied.
      */
@@ -407,7 +417,7 @@ public class RbacHttpAuthenticationMechanism implements HttpAuthenticationMechan
                 k8s.resource(),
                 k8s.subresource(),
                 k8s.verb(),
-                key -> {
+                _ -> {
                     var result =
                             ssarClientCache.withClient(
                                     rawToken,

@@ -910,7 +910,7 @@ public class Discovery {
                             ConfigProperties.AGENT_TLS_REQUIRED));
         }
 
-        if (authMechanism.isAgentProxyRequest(ctx)) {
+        if (authMechanism.isTrustedGatewayRequest(ctx)) {
             return new CallbackValidation(callbackUri, unauthCallback, remoteAddress);
         }
 
