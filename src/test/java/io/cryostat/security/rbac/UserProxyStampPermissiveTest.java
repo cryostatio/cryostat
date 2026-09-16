@@ -85,6 +85,9 @@ class UserProxyStampPermissiveTest {
         // it.
         assertEquals(
                 RbacHttpAuthenticationMechanism.AGENT_PRINCIPAL, identity.getPrincipal().getName());
+        assertEquals(
+                Boolean.TRUE,
+                identity.getAttribute(RbacHttpAuthenticationMechanism.AGENT_IDENTITY_ATTRIBUTE));
         // Not limited to the agent permission set: credentials:read lies outside it and is
         // granted anyway, which is the documented consequence that spec.agentOptions
         // .agentPermissions has no effect in this mode.
@@ -92,5 +95,23 @@ class UserProxyStampPermissiveTest {
                 identity.checkPermission(new StringPermission("credentials", "read"))
                         .await()
                         .indefinitely());
+    }
+
+    @Test
+    void testForwardedUserNamedLikeAgentIsNotMarkedAsAgent() {
+        var ctx =
+                MockRequests.context(
+                        ProxyHeaders.FORWARDED_USER,
+                        RbacHttpAuthenticationMechanism.AGENT_PRINCIPAL);
+
+        SecurityIdentity identity = mechanism.authenticate(ctx, null).await().indefinitely();
+
+        assertNotNull(identity);
+        // The name is whatever the proxy forwarded, so it alone cannot identify the gateway.
+        assertEquals(
+                RbacHttpAuthenticationMechanism.AGENT_PRINCIPAL, identity.getPrincipal().getName());
+        assertEquals(
+                Boolean.FALSE,
+                identity.getAttribute(RbacHttpAuthenticationMechanism.AGENT_IDENTITY_ATTRIBUTE));
     }
 }
