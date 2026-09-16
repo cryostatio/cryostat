@@ -55,9 +55,7 @@ class AgentPermissionsEmptyTest {
 
     @Test
     void testAgentIdentityGrantedButDeniedEveryPermission() {
-        var ctx =
-                MockRequests.context(
-                        RbacHttpAuthenticationMechanism.HEADER_AGENT_AUTH, GATEWAY_SECRET);
+        var ctx = MockRequests.context(ProxyHeaders.AGENT_AUTH, GATEWAY_SECRET);
 
         SecurityIdentity identity = mechanism.authenticate(ctx, null).await().indefinitely();
 

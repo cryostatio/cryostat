@@ -15,6 +15,7 @@
  */
 package io.cryostat.security.rbac;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -30,9 +31,13 @@ import jakarta.inject.Inject;
 import org.junit.jupiter.api.Test;
 
 /**
- * {@code PERMISSIVE} short-circuits ahead of both stamps: the mode grants everything by definition,
- * so provenance could only narrow an identity already declared unrestricted. Note the consequence —
+ * {@code PERMISSIVE} decides ahead of both stamps: the mode grants everything by definition, so
+ * provenance could only narrow an identity already declared unrestricted. Note the consequence —
  * the agent permission set is inoperative in this mode.
+ *
+ * <p>Provenance is still resolved, so that stamp sanitization is not skipped and so that a
+ * gateway-forwarded request is still attributed to the Agent principal, but it does not restrict
+ * what the resulting identity may do.
  */
 @QuarkusTest
 @TestProfile(UserProxyStampPermissiveTest.PermissiveProfile.class)
@@ -69,16 +74,20 @@ class UserProxyStampPermissiveTest {
 
     @Test
     void testAgentStampedRequestReceivesUnrestrictedIdentity() {
-        var ctx =
-                MockRequests.context(
-                        RbacHttpAuthenticationMechanism.HEADER_AGENT_AUTH, GATEWAY_SECRET);
+        var ctx = MockRequests.context(ProxyHeaders.AGENT_AUTH, GATEWAY_SECRET);
 
         SecurityIdentity identity = mechanism.authenticate(ctx, null).await().indefinitely();
 
         assertNotNull(identity);
         assertFalse(identity.isAnonymous());
-        // not the agent principal, and not limited to the agent permission set
-        assertFalse(identity.getPrincipal().getName().equals("cryostat-agent"));
+        // Attributed to the gateway, because the gateway clears X-Forwarded-User and the request
+        // would otherwise carry no principal at all. This names the caller; it does not restrict
+        // it.
+        assertEquals(
+                RbacHttpAuthenticationMechanism.AGENT_PRINCIPAL, identity.getPrincipal().getName());
+        // Not limited to the agent permission set: credentials:read lies outside it and is
+        // granted anyway, which is the documented consequence that spec.agentOptions
+        // .agentPermissions has no effect in this mode.
         assertTrue(
                 identity.checkPermission(new StringPermission("credentials", "read"))
                         .await()
