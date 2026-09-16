@@ -23,7 +23,9 @@ import java.util.Optional;
 
 import io.cryostat.ConfigProperties;
 
+import io.quarkus.runtime.StartupEvent;
 import io.vertx.ext.web.RoutingContext;
+import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import org.apache.commons.lang3.StringUtils;
@@ -78,6 +80,29 @@ public class RequestProvenance {
             log.warn(
                     "No user proxy secret configured; user-path provenance will be inferred from"
                             + " the absence of an agent stamp rather than proven");
+        }
+    }
+
+    /**
+     * Rejects a deployment that configures both paths with the same secret. The two stamps would
+     * then be interchangeable, and since the agent stamp is tested first, every user-path request
+     * would resolve as {@link ProvenancePath#AGENT}. Nothing on the request can distinguish that
+     * case, so it has to be caught at startup rather than per request.
+     *
+     * <p>Observing {@link StartupEvent} is also what forces this otherwise lazily-created bean to
+     * be instantiated during boot, so a misconfiguration fails startup rather than the first
+     * request.
+     */
+    void onStart(@Observes StartupEvent evt) {
+        if (gatewaySecretDigest != null
+                && userProxySecretDigest != null
+                && MessageDigest.isEqual(gatewaySecretDigest, userProxySecretDigest)) {
+            throw new IllegalStateException(
+                    String.format(
+                            "%s and %s must not be configured with the same value; the two proxy"
+                                    + " paths would be indistinguishable",
+                            ConfigProperties.AGENT_GATEWAY_SECRET,
+                            ConfigProperties.USER_PROXY_SECRET));
         }
     }
 

@@ -15,11 +15,14 @@
  */
 package io.cryostat.security.rbac;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.Optional;
 
+import io.quarkus.runtime.StartupEvent;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
@@ -210,6 +213,41 @@ class RequestProvenanceTest {
             assertEquals(
                     ProvenancePath.USER,
                     provenance.resolve(MockRequests.context(ProxyHeaders.AGENT_AUTH, "   ")));
+        }
+    }
+
+    /**
+     * The startup check, exercised by calling the observer directly. {@code null} stands in for the
+     * {@link StartupEvent}, which the observer does not read.
+     */
+    @Nested
+    class StartupValidation {
+
+        @Test
+        void rejectsIdenticalSecrets() {
+            var provenance =
+                    new RequestProvenance(Optional.of(GATEWAY_SECRET), Optional.of(GATEWAY_SECRET));
+            assertThrows(IllegalStateException.class, () -> provenance.onStart(null));
+        }
+
+        @Test
+        void acceptsDistinctSecrets() {
+            assertDoesNotThrow(() -> bothConfigured().onStart(null));
+        }
+
+        /** Blank is unset, so two blanks are not a collision. */
+        @Test
+        void acceptsBlankOrUnsetSecrets() {
+            assertDoesNotThrow(
+                    () ->
+                            new RequestProvenance(Optional.of("  "), Optional.of("  "))
+                                    .onStart(null));
+            assertDoesNotThrow(
+                    () -> new RequestProvenance(Optional.empty(), Optional.empty()).onStart(null));
+            assertDoesNotThrow(
+                    () ->
+                            new RequestProvenance(Optional.of(GATEWAY_SECRET), Optional.empty())
+                                    .onStart(null));
         }
     }
 }
