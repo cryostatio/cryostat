@@ -57,9 +57,9 @@ class UserProxyStampBasicTest {
     void testStampedUserRequestAccepted() {
         var ctx =
                 MockRequests.context(
-                        RbacHttpAuthenticationMechanism.HEADER_USER_PROXY_AUTH,
+                        ProxyHeaders.USER_PROXY_AUTH,
                         USER_PROXY_SECRET,
-                        RbacHttpAuthenticationMechanism.HEADER_FORWARDED_USER,
+                        ProxyHeaders.FORWARDED_USER,
                         "admin");
 
         SecurityIdentity identity = mechanism.authenticate(ctx, null).await().indefinitely();
@@ -71,9 +71,7 @@ class UserProxyStampBasicTest {
 
     @Test
     void testUnstampedForgedUserRequestRejected() {
-        var ctx =
-                MockRequests.context(
-                        RbacHttpAuthenticationMechanism.HEADER_FORWARDED_USER, "admin");
+        var ctx = MockRequests.context(ProxyHeaders.FORWARDED_USER, "admin");
 
         SecurityIdentity identity = mechanism.authenticate(ctx, null).await().indefinitely();
 
@@ -82,9 +80,7 @@ class UserProxyStampBasicTest {
 
     @Test
     void testAgentStampGrantsAgentIdentity() {
-        var ctx =
-                MockRequests.context(
-                        RbacHttpAuthenticationMechanism.HEADER_AGENT_AUTH, GATEWAY_SECRET);
+        var ctx = MockRequests.context(ProxyHeaders.AGENT_AUTH, GATEWAY_SECRET);
 
         SecurityIdentity identity = mechanism.authenticate(ctx, null).await().indefinitely();
 

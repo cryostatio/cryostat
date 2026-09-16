@@ -61,9 +61,9 @@ class UserProxyStampOpenshiftTest {
     void testStampedUserRequestAccepted() {
         var ctx =
                 MockRequests.context(
-                        RbacHttpAuthenticationMechanism.HEADER_USER_PROXY_AUTH, USER_PROXY_SECRET,
-                        RbacHttpAuthenticationMechanism.HEADER_FORWARDED_USER, "admin",
-                        RbacHttpAuthenticationMechanism.HEADER_FORWARDED_TOKEN, "my-token");
+                        ProxyHeaders.USER_PROXY_AUTH, USER_PROXY_SECRET,
+                        ProxyHeaders.FORWARDED_USER, "admin",
+                        ProxyHeaders.FORWARDED_TOKEN, "my-token");
 
         SecurityIdentity identity = mechanism.authenticate(ctx, null).await().indefinitely();
 
@@ -76,8 +76,8 @@ class UserProxyStampOpenshiftTest {
     void testUnstampedUserRequestRejected() {
         var ctx =
                 MockRequests.context(
-                        RbacHttpAuthenticationMechanism.HEADER_FORWARDED_USER, "admin",
-                        RbacHttpAuthenticationMechanism.HEADER_FORWARDED_TOKEN, "my-token");
+                        ProxyHeaders.FORWARDED_USER, "admin",
+                        ProxyHeaders.FORWARDED_TOKEN, "my-token");
 
         SecurityIdentity identity = mechanism.authenticate(ctx, null).await().indefinitely();
 
@@ -88,9 +88,9 @@ class UserProxyStampOpenshiftTest {
     void testWrongUserStampRejected() {
         var ctx =
                 MockRequests.context(
-                        RbacHttpAuthenticationMechanism.HEADER_USER_PROXY_AUTH, "not-the-secret",
-                        RbacHttpAuthenticationMechanism.HEADER_FORWARDED_USER, "admin",
-                        RbacHttpAuthenticationMechanism.HEADER_FORWARDED_TOKEN, "my-token");
+                        ProxyHeaders.USER_PROXY_AUTH, "not-the-secret",
+                        ProxyHeaders.FORWARDED_USER, "admin",
+                        ProxyHeaders.FORWARDED_TOKEN, "my-token");
 
         SecurityIdentity identity = mechanism.authenticate(ctx, null).await().indefinitely();
 
@@ -99,9 +99,7 @@ class UserProxyStampOpenshiftTest {
 
     @Test
     void testAgentStampAcceptedWithoutUserStamp() {
-        var ctx =
-                MockRequests.context(
-                        RbacHttpAuthenticationMechanism.HEADER_AGENT_AUTH, GATEWAY_SECRET);
+        var ctx = MockRequests.context(ProxyHeaders.AGENT_AUTH, GATEWAY_SECRET);
 
         SecurityIdentity identity = mechanism.authenticate(ctx, null).await().indefinitely();
 
@@ -114,9 +112,9 @@ class UserProxyStampOpenshiftTest {
     void testAgentSecretPresentedOnUserPathGrantsNothing() {
         var ctx =
                 MockRequests.context(
-                        RbacHttpAuthenticationMechanism.HEADER_USER_PROXY_AUTH, GATEWAY_SECRET,
-                        RbacHttpAuthenticationMechanism.HEADER_FORWARDED_USER, "admin",
-                        RbacHttpAuthenticationMechanism.HEADER_FORWARDED_TOKEN, "my-token");
+                        ProxyHeaders.USER_PROXY_AUTH, GATEWAY_SECRET,
+                        ProxyHeaders.FORWARDED_USER, "admin",
+                        ProxyHeaders.FORWARDED_TOKEN, "my-token");
 
         SecurityIdentity identity = mechanism.authenticate(ctx, null).await().indefinitely();
 
@@ -125,9 +123,7 @@ class UserProxyStampOpenshiftTest {
 
     @Test
     void testUserProxySecretPresentedOnAgentPathGrantsNothing() {
-        var ctx =
-                MockRequests.context(
-                        RbacHttpAuthenticationMechanism.HEADER_AGENT_AUTH, USER_PROXY_SECRET);
+        var ctx = MockRequests.context(ProxyHeaders.AGENT_AUTH, USER_PROXY_SECRET);
 
         SecurityIdentity identity = mechanism.authenticate(ctx, null).await().indefinitely();
 

@@ -29,9 +29,8 @@ import jakarta.inject.Inject;
 import org.junit.jupiter.api.Test;
 
 /**
- * Neither provenance secret is configured: the Helm posture. The Agent principal must be
- * unreachable whatever the request carries, and unstamped user-path requests must still be
- * accepted.
+ * Neither provenance secret is configured. The Agent principal must be unreachable whatever the
+ * request carries, and unstamped user-path requests must still be accepted.
  */
 @QuarkusTest
 @TestProfile(AgentGatewaySecretUnconfiguredTest.NoSecretsProfile.class)
@@ -50,9 +49,7 @@ class AgentGatewaySecretUnconfiguredTest {
 
     @Test
     void testAgentStampIgnoredWhenNoGatewaySecretConfigured() {
-        var ctx =
-                MockRequests.context(
-                        RbacHttpAuthenticationMechanism.HEADER_AGENT_AUTH, "any-value-at-all");
+        var ctx = MockRequests.context(ProxyHeaders.AGENT_AUTH, "any-value-at-all");
 
         SecurityIdentity identity = mechanism.authenticate(ctx, null).await().indefinitely();
 
@@ -61,7 +58,7 @@ class AgentGatewaySecretUnconfiguredTest {
 
     @Test
     void testBlankAgentStampIgnoredWhenNoGatewaySecretConfigured() {
-        var ctx = MockRequests.context(RbacHttpAuthenticationMechanism.HEADER_AGENT_AUTH, "");
+        var ctx = MockRequests.context(ProxyHeaders.AGENT_AUTH, "");
 
         SecurityIdentity identity = mechanism.authenticate(ctx, null).await().indefinitely();
 
@@ -72,8 +69,8 @@ class AgentGatewaySecretUnconfiguredTest {
     void testUnstampedUserRequestStillAccepted() {
         var ctx =
                 MockRequests.context(
-                        RbacHttpAuthenticationMechanism.HEADER_FORWARDED_USER, "admin",
-                        RbacHttpAuthenticationMechanism.HEADER_FORWARDED_TOKEN, "my-token");
+                        ProxyHeaders.FORWARDED_USER, "admin",
+                        ProxyHeaders.FORWARDED_TOKEN, "my-token");
 
         SecurityIdentity identity = mechanism.authenticate(ctx, null).await().indefinitely();
 
