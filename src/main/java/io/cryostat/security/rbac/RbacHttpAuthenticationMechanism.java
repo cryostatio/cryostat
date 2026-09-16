@@ -75,6 +75,16 @@ public class RbacHttpAuthenticationMechanism implements HttpAuthenticationMechan
 
     public static final String AGENT_PRINCIPAL = "cryostat-agent";
 
+    /**
+     * {@link SecurityIdentity#getAttribute(String) Identity attribute} set to {@link Boolean#TRUE}
+     * only on identities established from {@link ProvenancePath#AGENT}. Callers that need to know a
+     * request came through the agent gateway must test this rather than compare the principal name
+     * to {@link #AGENT_PRINCIPAL}: in {@code PERMISSIVE} and {@code BASIC} modes the principal name
+     * is taken from {@link ProxyHeaders#FORWARDED_USER}, so a user of that name would otherwise be
+     * indistinguishable from the gateway.
+     */
+    public static final String AGENT_IDENTITY_ATTRIBUTE = "cryostat.agent-gateway";
+
     @Inject Logger log;
     @Inject RbacConfig config;
     @Inject RequestProvenance provenance;
@@ -102,7 +112,10 @@ public class RbacHttpAuthenticationMechanism implements HttpAuthenticationMechan
 
         if (config.mode() == RbacMode.PERMISSIVE) {
             return Uni.createFrom()
-                    .item(buildPermissiveIdentity(permissivePrincipal(context, path)));
+                    .item(
+                            buildPermissiveIdentity(
+                                    permissivePrincipal(context, path),
+                                    path == ProvenancePath.AGENT));
         }
 
         return switch (path) {
@@ -128,7 +141,7 @@ public class RbacHttpAuthenticationMechanism implements HttpAuthenticationMechan
                     yield Uni.createFrom().nullItem();
                 }
                 log.debugf("BASIC mode: authenticated user %s", user);
-                yield Uni.createFrom().item(buildPermissiveIdentity(user));
+                yield Uni.createFrom().item(buildPermissiveIdentity(user, false));
             }
             case OPENSHIFT -> {
                 String user = context.request().getHeader(ProxyHeaders.FORWARDED_USER);
@@ -180,11 +193,16 @@ public class RbacHttpAuthenticationMechanism implements HttpAuthenticationMechan
      * in PERMISSIVE and BASIC modes where no per-permission authorization check is desired: if the
      * auth proxy has passed the request to Cryostat, then the request has already been
      * authenticated and authorized.
+     *
+     * @param agent whether the request was established as {@link ProvenancePath#AGENT}, recorded as
+     *     {@link #AGENT_IDENTITY_ATTRIBUTE} so that the gateway remains distinguishable from a user
+     *     who happens to be named {@link #AGENT_PRINCIPAL}.
      */
-    private static SecurityIdentity buildPermissiveIdentity(String user) {
+    private static SecurityIdentity buildPermissiveIdentity(String user, boolean agent) {
         return QuarkusSecurityIdentity.builder()
                 .setPrincipal(new QuarkusPrincipal(user))
                 .setAnonymous(false)
+                .addAttribute(AGENT_IDENTITY_ATTRIBUTE, agent)
                 .addPermissionChecker(permission -> Uni.createFrom().item(true))
                 .build();
     }
@@ -201,6 +219,7 @@ public class RbacHttpAuthenticationMechanism implements HttpAuthenticationMechan
         return QuarkusSecurityIdentity.builder()
                 .setPrincipal(new QuarkusPrincipal(AGENT_PRINCIPAL))
                 .setAnonymous(false)
+                .addAttribute(AGENT_IDENTITY_ATTRIBUTE, true)
                 .addPermissionChecker(
                         (Permission permission) -> {
                             String resource = permission.getName();

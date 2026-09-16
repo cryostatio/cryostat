@@ -912,11 +912,14 @@ public class Discovery {
         }
 
         // A request forwarded by the agent gateway reaches us from the gateway's own loopback
-        // address rather than the agent's, so the callback host could never resolve to it. The
-        // Agent principal is only established for a request bearing the gateway's provenance
-        // stamp, so trusting it here is trusting the stamp, not the callback.
-        if (RbacHttpAuthenticationMechanism.AGENT_PRINCIPAL.equals(
-                securityIdentity.getPrincipal().getName())) {
+        // address rather than the agent's, so the callback host could never resolve to it. This
+        // attribute is only set for a request bearing the gateway's provenance stamp, so trusting
+        // it here is trusting the stamp, not the callback. The principal name cannot be used for
+        // this: in PERMISSIVE and BASIC modes it comes from a proxy-forwarded header, so a user
+        // named "cryostat-agent" could otherwise claim the exemption.
+        if (Boolean.TRUE.equals(
+                securityIdentity.getAttribute(
+                        RbacHttpAuthenticationMechanism.AGENT_IDENTITY_ATTRIBUTE))) {
             return new CallbackValidation(callbackUri, unauthCallback, remoteAddress);
         }
 
