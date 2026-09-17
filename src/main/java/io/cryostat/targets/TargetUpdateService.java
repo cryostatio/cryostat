@@ -18,6 +18,7 @@ package io.cryostat.targets;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Date;
+import java.util.UUID;
 
 import io.cryostat.ConfigProperties;
 import io.cryostat.credentials.Credential;
@@ -125,12 +126,12 @@ public class TargetUpdateService {
         }
     }
 
-    void fireTargetUpdate(long targetId) throws SchedulerException {
-        JobKey key = new JobKey(Long.toString(targetId), "target-update");
+    void fireTargetUpdate(UUID targetId) throws SchedulerException {
+        JobKey key = new JobKey(targetId.toString(), "target-update");
         JobDetail job =
                 JobBuilder.newJob(TargetUpdateJob.class)
                         .withIdentity(key)
-                        .usingJobData("targetId", targetId)
+                        .usingJobData("targetId", targetId.toString())
                         .build();
         Trigger trigger =
                 TriggerBuilder.newTrigger()
@@ -169,7 +170,7 @@ public class TargetUpdateService {
         JobDetail jobDetail =
                 JobBuilder.newJob(ActiveRecordingUpdateJob.class)
                         .withIdentity(key)
-                        .usingJobData("recordingId", recording.id)
+                        .usingJobData("recordingId", recording.id.toString())
                         .build();
 
         Instant when =

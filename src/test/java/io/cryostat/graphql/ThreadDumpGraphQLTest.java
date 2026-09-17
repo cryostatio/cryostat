@@ -75,7 +75,7 @@ public class ThreadDumpGraphQLTest extends AbstractGraphQLTestBase {
 
     private static final String GRAPHQL_THREAD_DUMP_CLEANUP_QUERY =
             """
-            query ThreadDumpCleanup($targetIds: [ BigInteger! ]) {
+            query ThreadDumpCleanup($targetIds: [ String! ]) {
                 targetNodes(filter: { targetIds: $targetIds }) {
                     descendantTargets {
                         target {

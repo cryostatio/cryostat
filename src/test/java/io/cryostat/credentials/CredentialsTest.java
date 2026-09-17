@@ -18,6 +18,7 @@ package io.cryostat.credentials;
 import static io.restassured.RestAssured.given;
 
 import java.util.List;
+import java.util.UUID;
 
 import io.cryostat.AbstractTransactionalTestBase;
 
@@ -50,7 +51,15 @@ public class CredentialsTest extends AbstractTransactionalTestBase {
 
     @Test
     public void testGetNone() {
-        given().log().all().when().get("1").then().log().all().assertThat().statusCode(404);
+        given().log()
+                .all()
+                .when()
+                .get(UUID.randomUUID().toString())
+                .then()
+                .log()
+                .all()
+                .assertThat()
+                .statusCode(404);
     }
 
     @Test
@@ -72,24 +81,23 @@ public class CredentialsTest extends AbstractTransactionalTestBase {
                 .header(
                         "Location",
                         Matchers.matchesRegex(
-                                "https?://[\\.\\w]+:[\\d]+/api/v4/credentials/[\\d]+"))
+                                "https?://[\\.\\w]+:[\\d]+/api/v4/credentials/[\\w-]+"))
                 .and()
                 .contentType(ContentType.JSON)
                 .and()
-                .body("id", Matchers.instanceOf(Integer.class))
-                .body("id", Matchers.greaterThanOrEqualTo(1))
+                .body("id", Matchers.instanceOf(String.class))
                 .body("matchExpression", Matchers.instanceOf(String.class))
                 .body("matchExpression", Matchers.equalTo("true"));
     }
 
     @Test
     public void testGet() throws InterruptedException {
-        int id = createTestCredential();
+        String id = createTestCredential();
 
         given().log()
                 .all()
                 .when()
-                .get(Integer.toString(id))
+                .get(id)
                 .then()
                 .log()
                 .all()
@@ -98,7 +106,7 @@ public class CredentialsTest extends AbstractTransactionalTestBase {
                 .and()
                 .contentType(ContentType.JSON)
                 .and()
-                .body("id", Matchers.instanceOf(Integer.class))
+                .body("id", Matchers.instanceOf(String.class))
                 .body("id", Matchers.equalTo(id))
                 .body("matchExpression", Matchers.instanceOf(String.class))
                 .body("matchExpression", Matchers.equalTo("true"))
@@ -108,12 +116,12 @@ public class CredentialsTest extends AbstractTransactionalTestBase {
 
     @Test
     public void testDelete() throws InterruptedException {
-        int id = createTestCredential();
+        String id = createTestCredential();
 
         given().log()
                 .all()
                 .when()
-                .get(Integer.toString(id))
+                .get(id)
                 .then()
                 .log()
                 .all()
@@ -122,7 +130,7 @@ public class CredentialsTest extends AbstractTransactionalTestBase {
                 .and()
                 .contentType(ContentType.JSON)
                 .and()
-                .body("id", Matchers.instanceOf(Integer.class))
+                .body("id", Matchers.instanceOf(String.class))
                 .body("id", Matchers.equalTo(id))
                 .body("matchExpression", Matchers.instanceOf(String.class))
                 .body("matchExpression", Matchers.equalTo("true"))
@@ -133,7 +141,7 @@ public class CredentialsTest extends AbstractTransactionalTestBase {
     @Test
     public void testCredentialCheck() {
         // Ensure self target exists
-        if (selfId < 1) {
+        if (selfId == null) {
             defineSelfCustomTarget();
         }
 
@@ -158,7 +166,7 @@ public class CredentialsTest extends AbstractTransactionalTestBase {
                         Matchers.matchesRegex("[\\s]*\"NA\"[\\s]*"));
     }
 
-    private int createTestCredential() {
+    private String createTestCredential() {
         return given().log()
                 .all()
                 .contentType(ContentType.URLENC)
@@ -172,6 +180,6 @@ public class CredentialsTest extends AbstractTransactionalTestBase {
                 .all()
                 .extract()
                 .jsonPath()
-                .getInt("id");
+                .getString("id");
     }
 }

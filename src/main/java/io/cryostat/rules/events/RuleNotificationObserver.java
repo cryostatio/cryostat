@@ -15,6 +15,8 @@
  */
 package io.cryostat.rules.events;
 
+import java.util.UUID;
+
 import io.cryostat.events.EntityNotificationObserver;
 import io.cryostat.recordings.ActiveRecordings.Metadata;
 import io.cryostat.rules.Rule;
@@ -60,10 +62,10 @@ public class RuleNotificationObserver extends EntityNotificationObserver.Simple<
     }
 
     public record RulePayload(
-            long id,
+            UUID id,
             String name,
             String description,
-            long matchExpressionId,
+            UUID matchExpressionId,
             String eventSpecifier,
             int archivalPeriodSeconds,
             int initialDelaySeconds,

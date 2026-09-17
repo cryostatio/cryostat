@@ -17,6 +17,8 @@ package io.cryostat.diagnostics;
 
 import static io.restassured.RestAssured.given;
 
+import java.util.UUID;
+
 import io.cryostat.AbstractTransactionalTestBase;
 import io.cryostat.diagnostic.Diagnostics;
 import io.cryostat.resources.S3StorageResource;
@@ -35,7 +37,7 @@ public class HeapDumpsTest extends AbstractTransactionalTestBase {
 
     @Test
     public void testListNone() {
-        int id = defineSelfCustomTarget();
+        UUID id = defineSelfCustomTarget();
         given().log()
                 .all()
                 .when()
@@ -56,7 +58,7 @@ public class HeapDumpsTest extends AbstractTransactionalTestBase {
         given().log()
                 .all()
                 .when()
-                .pathParam("targetId", Integer.MAX_VALUE)
+                .pathParam("targetId", UUID.randomUUID())
                 .get("targets/{targetId}/heapdump")
                 .then()
                 .log()
@@ -68,7 +70,7 @@ public class HeapDumpsTest extends AbstractTransactionalTestBase {
 
     @Test
     public void testDeleteInvalid() {
-        int id = defineSelfCustomTarget();
+        UUID id = defineSelfCustomTarget();
         given().log()
                 .all()
                 .when()

@@ -19,6 +19,7 @@ package io.cryostat.triggers;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 import io.cryostat.ConfigProperties;
 import io.cryostat.libcryostat.triggers.SmartTrigger;
@@ -73,7 +74,7 @@ public class SmartTriggers {
     @Produces({MediaType.APPLICATION_JSON})
     @GET
     @Operation(summary = "Retrieve all currently active Smart Triggers for a target")
-    public List<SmartTrigger> getSmartTriggers(@RestPath long targetId) {
+    public List<SmartTrigger> getSmartTriggers(@RestPath UUID targetId) {
         log.trace("Smart triggers list request received");
         Target target = Target.getTargetById(targetId);
         if (!target.isAgent()) {
@@ -103,7 +104,7 @@ public class SmartTriggers {
                     with the recording template name specified after a ~. For an example definition:
                     [ProcessCpuLoad > 0.2 ; TargetDuration > duration(\"30s\")]~profile
                     """)
-    public void addSmartTriggers(@RestPath long targetId, @RestForm String definition) {
+    public void addSmartTriggers(@RestPath UUID targetId, @RestForm String definition) {
         log.tracev("Smart Triggers Add request received: {0}", definition);
         Target target = Target.getTargetById(targetId);
         if (!target.isAgent()) {
@@ -139,7 +140,7 @@ public class SmartTriggers {
                     with the recording template name specified after a ~. For an example definition:
                     [ProcessCpuLoad > 0.2 ; TargetDuration > duration(\"30s\")]~profile
                     """)
-    public void removeSmartTriggers(@RestPath long targetId, @RestPath String uuid) {
+    public void removeSmartTriggers(@RestPath UUID targetId, @RestPath String uuid) {
         log.tracev("Smart Triggers Remove request received: {0}", uuid);
         Target target = Target.getTargetById(targetId);
         if (!target.isAgent()) {

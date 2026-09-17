@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 import io.cryostat.PanacheUuidEntity;
@@ -147,10 +148,10 @@ public class Target extends PanacheUuidEntity {
 
     @JsonIgnore
     public boolean isConnectable() {
-        return id != null && id > 0 && StringUtils.isNotBlank(jvmId);
+        return id != null && StringUtils.isNotBlank(jvmId);
     }
 
-    public static Target getTargetById(long targetId) {
+    public static Target getTargetById(UUID targetId) {
         return Target.find("id", targetId).singleResult();
     }
 

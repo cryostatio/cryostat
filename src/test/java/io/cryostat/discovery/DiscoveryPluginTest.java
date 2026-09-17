@@ -190,13 +190,13 @@ public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
                         .contentType(ContentType.JSON)
                         .extract()
                         .jsonPath()
-                        .getLong("id");
+                        .getString("id");
 
         // register
         var realmName = "test_realm";
         var callback =
                 String.format(
-                        "http://storedcredentials:%d@localhost:%d/health/liveness",
+                        "http://storedcredentials:%s@localhost:%d/health/liveness",
                         credentialId, baseUrl.getPort());
         var registration =
                 given().log()
@@ -371,13 +371,13 @@ public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
                         .contentType(ContentType.JSON)
                         .extract()
                         .jsonPath()
-                        .getLong("id");
+                        .getString("id");
 
         // register
         var realmName = "flat_test_realm";
         var callback =
                 String.format(
-                        "http://storedcredentials:%d@localhost:%d/health/liveness",
+                        "http://storedcredentials:%s@localhost:%d/health/liveness",
                         credentialId, baseUrl.getPort());
         var registration =
                 given().log()
@@ -481,13 +481,13 @@ public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
                         .contentType(ContentType.JSON)
                         .extract()
                         .jsonPath()
-                        .getLong("id");
+                        .getString("id");
 
         // register
         var realmName = "hierarchical_test_realm";
         var callback =
                 String.format(
-                        "http://storedcredentials:%d@localhost:%d/health/liveness",
+                        "http://storedcredentials:%s@localhost:%d/health/liveness",
                         credentialId, baseUrl.getPort());
         var registration =
                 given().log()
@@ -578,13 +578,13 @@ public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
                         .contentType(ContentType.JSON)
                         .extract()
                         .jsonPath()
-                        .getLong("id");
+                        .getString("id");
 
         // register first time
         var realmName = "idempotent_test_realm";
         var callback =
                 String.format(
-                        "http://storedcredentials:%d@localhost:%d/health/liveness",
+                        "http://storedcredentials:%s@localhost:%d/health/liveness",
                         credentialId, baseUrl.getPort());
         var registration1 =
                 given().log()
@@ -718,7 +718,7 @@ public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
         MatcherAssert.assertThat(
                 pluginToken, Matchers.is(Matchers.not(Matchers.emptyOrNullString())));
 
-        Long credentialId =
+        UUID credentialId =
                 QuarkusTransaction.requiringNew()
                         .call(
                                 () -> {
@@ -810,7 +810,7 @@ public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
                         .jsonPath();
         var pluginId = firstRegistration.getString("id");
 
-        Long firstCredentialId =
+        UUID firstCredentialId =
                 QuarkusTransaction.requiringNew()
                         .call(
                                 () ->
@@ -946,13 +946,13 @@ public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
                         .jsonPath();
         var pluginId = firstRegistration.getString("id");
 
-        Long firstTargetId =
+        UUID firstTargetId =
                 QuarkusTransaction.requiringNew()
                         .call(
                                 () ->
                                         io.cryostat.targets.Target.getTargetByConnectUrl(connectUrl)
                                                 .id);
-        Long firstCredentialId =
+        UUID firstCredentialId =
                 QuarkusTransaction.requiringNew()
                         .call(
                                 () ->
@@ -980,13 +980,13 @@ public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
                         .jsonPath();
         MatcherAssert.assertThat(secondRegistration.getString("id"), Matchers.equalTo(pluginId));
 
-        Long secondTargetId =
+        UUID secondTargetId =
                 QuarkusTransaction.requiringNew()
                         .call(
                                 () ->
                                         io.cryostat.targets.Target.getTargetByConnectUrl(connectUrl)
                                                 .id);
-        Long secondCredentialId =
+        UUID secondCredentialId =
                 QuarkusTransaction.requiringNew()
                         .call(
                                 () ->

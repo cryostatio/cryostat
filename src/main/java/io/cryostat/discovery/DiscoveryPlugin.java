@@ -304,7 +304,7 @@ public class DiscoveryPlugin extends PanacheUuidEntity {
                                 parts[0]));
             }
 
-            return Credential.find("id", Long.parseLong(parts[1])).singleResult();
+            return Credential.find("id", UUID.fromString(parts[1])).singleResult();
         }
     }
 

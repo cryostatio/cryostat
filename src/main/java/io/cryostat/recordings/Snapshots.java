@@ -16,6 +16,7 @@
 package io.cryostat.recordings;
 
 import java.time.Duration;
+import java.util.UUID;
 
 import io.cryostat.ConfigProperties;
 import io.cryostat.recordings.ActiveRecordings.LinkedRecordingDescriptor;
@@ -52,7 +53,7 @@ public class Snapshots {
             inclusive = true)
     @Operation(summary = "Create a JFR Snapshot on the specified target")
     public RestResponse<LinkedRecordingDescriptor> createSnapshotUsingTargetId(
-            @RestPath long targetId) throws Exception {
+            @RestPath UUID targetId) throws Exception {
         return recordingHelper
                 .createSnapshot(Target.find("id", targetId).singleResult())
                 .onItem()

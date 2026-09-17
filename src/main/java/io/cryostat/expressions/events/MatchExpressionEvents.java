@@ -16,6 +16,7 @@
 package io.cryostat.expressions.events;
 
 import java.util.Objects;
+import java.util.UUID;
 
 import io.cryostat.events.EntityCreatedEvent;
 import io.cryostat.events.EntityDeletedEvent;
@@ -24,7 +25,7 @@ import io.cryostat.expressions.MatchExpression;
 
 public class MatchExpressionEvents {
 
-    public record MatchExpressionSnapshot(long id, String script) {
+    public record MatchExpressionSnapshot(UUID id, String script) {
         public MatchExpressionSnapshot {
             Objects.requireNonNull(script);
         }
@@ -33,7 +34,7 @@ public class MatchExpressionEvents {
     public static class MatchExpressionCreated
             extends EntityCreatedEvent<MatchExpression, MatchExpressionSnapshot> {
 
-        public MatchExpressionCreated(long id, MatchExpressionSnapshot snapshot) {
+        public MatchExpressionCreated(UUID id, MatchExpressionSnapshot snapshot) {
             super(id, snapshot);
         }
 
@@ -51,7 +52,7 @@ public class MatchExpressionEvents {
     public static class MatchExpressionUpdated
             extends EntityUpdatedEvent<MatchExpression, MatchExpressionSnapshot> {
 
-        public MatchExpressionUpdated(long id, MatchExpressionSnapshot snapshot) {
+        public MatchExpressionUpdated(UUID id, MatchExpressionSnapshot snapshot) {
             super(id, snapshot);
         }
 
@@ -69,7 +70,7 @@ public class MatchExpressionEvents {
     public static class MatchExpressionDeleted
             extends EntityDeletedEvent<MatchExpression, MatchExpressionSnapshot> {
 
-        public MatchExpressionDeleted(long id, MatchExpressionSnapshot snapshot) {
+        public MatchExpressionDeleted(UUID id, MatchExpressionSnapshot snapshot) {
             super(id, snapshot);
         }
 

@@ -21,6 +21,7 @@ import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 
 import java.time.Duration;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
@@ -60,7 +61,7 @@ class ActiveRecordingNotificationIntegrationTest extends AbstractTransactionalTe
     void testActiveRecordingCreatedNotificationAfterCommit() throws Exception {
         Target target = createTestTarget();
 
-        Long recordingId = recordingService.createRecording(target.id, "test-recording");
+        UUID recordingId = recordingService.createRecording(target.id, "test-recording");
 
         ActiveRecordingEvents.ActiveRecordingCreated event =
                 eventCapture.awaitCreatedEvent(recordingId, Duration.ofSeconds(5));
@@ -78,7 +79,7 @@ class ActiveRecordingNotificationIntegrationTest extends AbstractTransactionalTe
     @Test
     void testActiveRecordingStoppedNotificationAfterCommit() throws Exception {
         Target target = createTestTarget();
-        Long recordingId = recordingService.createRecording(target.id, "test-stopped-recording");
+        UUID recordingId = recordingService.createRecording(target.id, "test-stopped-recording");
 
         eventCapture.reset();
 
@@ -100,7 +101,7 @@ class ActiveRecordingNotificationIntegrationTest extends AbstractTransactionalTe
     @Test
     void testActiveRecordingDeletedNotificationAfterCommit() throws Exception {
         Target target = createTestTarget();
-        Long recordingId = recordingService.createRecording(target.id, "test-deleted-recording");
+        UUID recordingId = recordingService.createRecording(target.id, "test-deleted-recording");
 
         eventCapture.reset();
 
@@ -131,7 +132,7 @@ class ActiveRecordingNotificationIntegrationTest extends AbstractTransactionalTe
     @Test
     void testActiveRecordingMetadataUpdatedNotificationAfterCommit() throws Exception {
         Target target = createTestTarget();
-        Long recordingId = recordingService.createRecording(target.id, "test-metadata-recording");
+        UUID recordingId = recordingService.createRecording(target.id, "test-metadata-recording");
 
         eventCapture.reset();
 
@@ -207,7 +208,7 @@ class ActiveRecordingNotificationIntegrationTest extends AbstractTransactionalTe
         @Inject RecordingHelper recordingHelper;
 
         @Transactional
-        public Long createRecording(Long targetId, String name) {
+        public UUID createRecording(UUID targetId, String name) {
             Target target = Target.findById(targetId);
             ActiveRecording recording = new ActiveRecording();
             recording.target = target;
@@ -228,26 +229,26 @@ class ActiveRecordingNotificationIntegrationTest extends AbstractTransactionalTe
         }
 
         @Transactional
-        public void stopRecording(Long recordingId) {
+        public void stopRecording(UUID recordingId) {
             ActiveRecording recording = ActiveRecording.findById(recordingId);
             recording.state = RecordingState.STOPPED;
             recording.persist();
         }
 
         @Transactional
-        public void deleteRecording(Long recordingId) {
+        public void deleteRecording(UUID recordingId) {
             ActiveRecording recording = ActiveRecording.findById(recordingId);
             recording.delete();
         }
 
         @Transactional
-        public void updateMetadata(Long recordingId, Metadata metadata) {
+        public void updateMetadata(UUID recordingId, Metadata metadata) {
             ActiveRecording recording = ActiveRecording.findById(recordingId);
             recording.setMetadata(metadata);
             recording.persist();
             metadataUpdatedEvent.fire(
                     new ActiveRecordingEvents.ActiveRecordingMetadataUpdated(
-                            recording.id.longValue(),
+                            recording.id,
                             new ActiveRecordingSnapshot(
                                     recording.target.connectUrl.toString(),
                                     recordingHelper.toExternalForm(recording),
@@ -255,7 +256,7 @@ class ActiveRecordingNotificationIntegrationTest extends AbstractTransactionalTe
         }
 
         @Transactional
-        public void createRecordingAndRollback(Long targetId, String name) {
+        public void createRecordingAndRollback(UUID targetId, String name) {
             Target target = Target.findById(targetId);
             ActiveRecording recording = new ActiveRecording();
             recording.target = target;
@@ -327,52 +328,52 @@ class ActiveRecordingNotificationIntegrationTest extends AbstractTransactionalTe
         }
 
         ActiveRecordingEvents.ActiveRecordingCreated awaitCreatedEvent(
-                Long recordingId, Duration timeout) throws Exception {
+                UUID recordingId, Duration timeout) throws Exception {
             ActiveRecordingEvents.ActiveRecordingCreated event =
                     createdFuture.get(timeout.toMillis(), TimeUnit.MILLISECONDS);
             if (!recordingId.equals(event.getRecordingId())) {
                 throw new AssertionError(
                         String.format(
-                                "Expected recording ID %d but got %d",
+                                "Expected recording ID %s but got %s",
                                 recordingId, event.getRecordingId()));
             }
             return event;
         }
 
         ActiveRecordingEvents.ActiveRecordingStopped awaitStoppedEvent(
-                Long recordingId, Duration timeout) throws Exception {
+                UUID recordingId, Duration timeout) throws Exception {
             ActiveRecordingEvents.ActiveRecordingStopped event =
                     stoppedFuture.get(timeout.toMillis(), TimeUnit.MILLISECONDS);
             if (!recordingId.equals(event.getRecordingId())) {
                 throw new AssertionError(
                         String.format(
-                                "Expected recording ID %d but got %d",
+                                "Expected recording ID %s but got %s",
                                 recordingId, event.getRecordingId()));
             }
             return event;
         }
 
         ActiveRecordingEvents.ActiveRecordingDeleted awaitDeletedEvent(
-                Long recordingId, Duration timeout) throws Exception {
+                UUID recordingId, Duration timeout) throws Exception {
             ActiveRecordingEvents.ActiveRecordingDeleted event =
                     deletedFuture.get(timeout.toMillis(), TimeUnit.MILLISECONDS);
             if (!recordingId.equals(event.getRecordingId())) {
                 throw new AssertionError(
                         String.format(
-                                "Expected recording ID %d but got %d",
+                                "Expected recording ID %s but got %s",
                                 recordingId, event.getRecordingId()));
             }
             return event;
         }
 
         ActiveRecordingEvents.ActiveRecordingMetadataUpdated awaitMetadataUpdatedEvent(
-                Long recordingId, Duration timeout) throws Exception {
+                UUID recordingId, Duration timeout) throws Exception {
             ActiveRecordingEvents.ActiveRecordingMetadataUpdated event =
                     metadataUpdatedFuture.get(timeout.toMillis(), TimeUnit.MILLISECONDS);
             if (!recordingId.equals(event.getRecordingId())) {
                 throw new AssertionError(
                         String.format(
-                                "Expected recording ID %d but got %d",
+                                "Expected recording ID %s but got %s",
                                 recordingId, event.getRecordingId()));
             }
             return event;

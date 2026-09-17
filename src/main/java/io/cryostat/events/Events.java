@@ -19,6 +19,7 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 
 import org.openjdk.jmc.flightrecorder.configuration.events.IEventTypeInfo;
 
@@ -55,7 +56,7 @@ public class Events {
                     target JVM if they are correctly registered. Custom event types, or event types emitted by plugins
                     and extensions, may not always appear in this list.
                     """)
-    public List<SerializableEventTypeInfo> listEvents(@RestPath long id, @RestQuery String q)
+    public List<SerializableEventTypeInfo> listEvents(@RestPath UUID id, @RestQuery String q)
             throws Exception {
         return searchEvents(Target.find("id", id).singleResult(), q);
     }

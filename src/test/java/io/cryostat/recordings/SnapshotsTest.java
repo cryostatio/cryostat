@@ -18,6 +18,7 @@ package io.cryostat.recordings;
 import static io.restassured.RestAssured.given;
 
 import java.util.Map;
+import java.util.UUID;
 
 import io.cryostat.AbstractTransactionalTestBase;
 import io.cryostat.resources.S3StorageResource;
@@ -43,7 +44,7 @@ public class SnapshotsTest extends AbstractTransactionalTestBase {
 
     @Test
     void testNoSource() {
-        int id = defineSelfCustomTarget();
+        UUID id = defineSelfCustomTarget();
         given().log()
                 .all()
                 .when()
@@ -62,7 +63,7 @@ public class SnapshotsTest extends AbstractTransactionalTestBase {
         given().log()
                 .all()
                 .when()
-                .pathParams(Map.of("targetId", Long.MAX_VALUE))
+                .pathParams(Map.of("targetId", UUID.randomUUID()))
                 .post()
                 .then()
                 .log()
@@ -74,7 +75,7 @@ public class SnapshotsTest extends AbstractTransactionalTestBase {
 
     @Test
     void testWithSource() throws SchedulerException {
-        int targetId = defineSelfCustomTarget();
+        UUID targetId = defineSelfCustomTarget();
 
         // defining the target schedules a target-update job which fires one second later and syncs
         // recording state back from the target, mutating the metadata asserted on below. Nothing
@@ -114,7 +115,7 @@ public class SnapshotsTest extends AbstractTransactionalTestBase {
                         .and()
                         .assertThat()
                         .statusCode(201)
-                        .body("id", Matchers.greaterThan(0))
+                        .body("id", Matchers.notNullValue())
                         .body("name", Matchers.equalTo("snapshotsTest"))
                         .body("remoteId", Matchers.greaterThan(0))
                         .body("state", Matchers.equalTo("RUNNING"))
@@ -153,7 +154,7 @@ public class SnapshotsTest extends AbstractTransactionalTestBase {
                         .and()
                         .assertThat()
                         .statusCode(200)
-                        .body("id", Matchers.greaterThan(0))
+                        .body("id", Matchers.notNullValue())
                         .body("name", Matchers.equalTo("Snapshot"))
                         .body("remoteId", Matchers.greaterThan(0))
                         .body("state", Matchers.equalTo("STOPPED"))
@@ -192,7 +193,7 @@ public class SnapshotsTest extends AbstractTransactionalTestBase {
                 .contentType(ContentType.JSON)
                 .statusCode(200)
                 .body("size()", Matchers.equalTo(2))
-                .body("[0].id", Matchers.greaterThan(0))
+                .body("[0].id", Matchers.notNullValue())
                 .body("[0].name", Matchers.equalTo("snapshotsTest"))
                 .body("[0].remoteId", Matchers.greaterThan(0))
                 .body("[0].state", Matchers.equalTo("RUNNING"))
@@ -213,7 +214,7 @@ public class SnapshotsTest extends AbstractTransactionalTestBase {
                 .body("[0].metadata.labels[0].value", Matchers.equalTo("Continuous"))
                 .body("[0].metadata.labels[1].key", Matchers.equalTo("template.type"))
                 .body("[0].metadata.labels[1].value", Matchers.equalTo("TARGET"))
-                .body("[1].id", Matchers.greaterThan(0))
+                .body("[1].id", Matchers.notNullValue())
                 .body("[1].name", Matchers.equalTo("Snapshot"))
                 .body("[1].remoteId", Matchers.greaterThan(0))
                 .body("[1].state", Matchers.equalTo("STOPPED"))

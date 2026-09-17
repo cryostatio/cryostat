@@ -147,7 +147,7 @@ public class Diagnostics {
     @POST
     public String threadDump(
             HttpServerResponse response,
-            @RestPath long targetId,
+            @RestPath UUID targetId,
             @QueryParam("format") @DefaultValue(DiagnosticsHelper.DUMP_THREADS) String format) {
         log.tracev("Creating new thread dump request for target: {0}", targetId);
         Target target = Target.getTargetById(targetId);
@@ -169,7 +169,7 @@ public class Diagnostics {
     @Blocking
     @Transactional
     @GET
-    public List<ThreadDump> getThreadDumps(@RestPath long targetId) {
+    public List<ThreadDump> getThreadDumps(@RestPath UUID targetId) {
         log.tracev("Fetching thread dumps for target: {0}", targetId);
         return helper.getThreadDumps(Target.getTargetById(targetId));
     }
@@ -221,7 +221,7 @@ public class Diagnostics {
     @PermissionsAllowed(
             value = {"targets:read", "threaddumps:delete"},
             inclusive = true)
-    public void deleteThreadDump(@RestPath long targetId, @RestPath String threadDumpId) {
+    public void deleteThreadDump(@RestPath UUID targetId, @RestPath String threadDumpId) {
         log.tracev("Deleting thread dump with ID: {0}", threadDumpId);
         helper.deleteThreadDump(Target.getTargetById(targetId).jvmId, threadDumpId);
     }
@@ -323,7 +323,7 @@ public class Diagnostics {
                     Request the remote target to perform a garbage collection. The target JVM is free to ignore this
                     request. This is generally equivalent to a System.gc() call made within the target JVM.
                     """)
-    public void gc(@RestPath long targetId) {
+    public void gc(@RestPath UUID targetId) {
         Target target =
                 QuarkusTransaction.requiringNew().call(() -> Target.getTargetById(targetId));
         GarbageCollection gc =
@@ -388,7 +388,7 @@ public class Diagnostics {
                     """
                     Request the remote target to perform a heap dump.
                     """)
-    public String heapDump(HttpServerResponse response, @RestPath long targetId) {
+    public String heapDump(HttpServerResponse response, @RestPath UUID targetId) {
         log.tracev("Initiating heap dump for target: {0}", targetId);
         Target target = Target.getTargetById(targetId);
         if (!target.isAgent()) {
@@ -446,7 +446,7 @@ public class Diagnostics {
     @Blocking
     @Transactional
     @GET
-    public List<HeapDump> getHeapDumps(@RestPath long targetId) {
+    public List<HeapDump> getHeapDumps(@RestPath UUID targetId) {
         log.tracev("Fetching heap dumps for target: {0}", targetId);
         return helper.getHeapDumps(Target.getTargetById(targetId));
     }
@@ -457,7 +457,7 @@ public class Diagnostics {
     @PermissionsAllowed(
             value = {"targets:read", "heapdumps:delete"},
             inclusive = true)
-    public void deleteHeapDump(@RestPath String heapDumpId, @RestPath long targetId) {
+    public void deleteHeapDump(@RestPath String heapDumpId, @RestPath UUID targetId) {
         log.tracev("Deleting heap dump with ID: {0}", heapDumpId);
         helper.deleteHeapDump(
                 QuarkusTransaction.joiningExisting()

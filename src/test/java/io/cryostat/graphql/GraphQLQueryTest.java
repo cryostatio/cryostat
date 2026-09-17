@@ -505,10 +505,9 @@ class GraphQLQueryTest extends AbstractGraphQLTestBase {
                 mapper.readValue(response.body().asString(), EnvironmentNodesResponse.class);
 
         // Verify environment nodes have IDs
-        Set<Long> observedIds = new HashSet<>();
+        Set<UUID> observedIds = new HashSet<>();
         for (DiscoveryNode envNode : actual.getData().getEnvironmentNodes()) {
             assertThat("Environment node should have an ID", envNode.id, notNullValue());
-            assertThat("Environment node ID should be positive", envNode.id, greaterThan(0L));
             assertThat(
                     "Environment node ID should be unique",
                     observedIds.contains(envNode.id),
@@ -519,7 +518,6 @@ class GraphQLQueryTest extends AbstractGraphQLTestBase {
             if (envNode.children != null) {
                 for (DiscoveryNode childNode : envNode.children) {
                     assertThat("Child node should have an ID", childNode.id, notNullValue());
-                    assertThat("Child node ID should be positive", childNode.id, greaterThan(0L));
                     assertThat(
                             "Child node ID should be unique",
                             observedIds.contains(childNode.id),

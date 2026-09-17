@@ -22,6 +22,7 @@ import static org.hamcrest.Matchers.*;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 
@@ -48,7 +49,7 @@ public class AgentHeapDumpTest extends AgentTestBase {
 
     private static final String GRAPHQL_HEAP_DUMP_CLEANUP_QUERY =
             """
-            query HeapDumpCleanup($targetIds: [ BigInteger! ]) {
+            query HeapDumpCleanup($targetIds: [ String! ]) {
               targetNodes(filter: { targetIds: $targetIds }) {
                 descendantTargets {
                   target {
@@ -150,7 +151,7 @@ public class AgentHeapDumpTest extends AgentTestBase {
     @Test
     void testCreateListAndDeleteHeapDump()
             throws InterruptedException, ExecutionException, TimeoutException {
-        long targetId = target.id();
+        String targetId = target.id();
 
         String jobId =
                 given().log()
@@ -234,7 +235,7 @@ public class AgentHeapDumpTest extends AgentTestBase {
     @Test
     void testCreateListAndAnalyzeHeapDump()
             throws InterruptedException, ExecutionException, TimeoutException {
-        long targetId = target.id();
+        String targetId = target.id();
 
         String jobId =
                 given().log()
@@ -343,7 +344,7 @@ public class AgentHeapDumpTest extends AgentTestBase {
     @Test
     void testCreateMultipleHeapDumps()
             throws InterruptedException, ExecutionException, TimeoutException {
-        long targetId = target.id();
+        String targetId = target.id();
 
         String jobId1 =
                 given().log()
@@ -448,7 +449,7 @@ public class AgentHeapDumpTest extends AgentTestBase {
     void testListHeapDumpsForNonExistentTarget() {
         given().log()
                 .all()
-                .pathParams("targetId", Integer.MAX_VALUE)
+                .pathParams("targetId", UUID.randomUUID())
                 .when()
                 .get("/api/beta/diagnostics/targets/{targetId}/heapdump")
                 .then()
@@ -463,7 +464,7 @@ public class AgentHeapDumpTest extends AgentTestBase {
     void testCreateHeapDumpForNonExistentTarget() {
         given().log()
                 .all()
-                .pathParams("targetId", Integer.MAX_VALUE)
+                .pathParams("targetId", UUID.randomUUID())
                 .when()
                 .post("/api/beta/diagnostics/targets/{targetId}/heapdump")
                 .then()
@@ -476,7 +477,7 @@ public class AgentHeapDumpTest extends AgentTestBase {
 
     @Test
     void testListAllHeapDumps() throws InterruptedException, ExecutionException, TimeoutException {
-        long targetId = target.id();
+        String targetId = target.id();
 
         String jobId =
                 given().log()
@@ -525,7 +526,7 @@ public class AgentHeapDumpTest extends AgentTestBase {
     @Test
     @Disabled
     void testGraphQLListHeapDumps() throws Exception {
-        long targetId = target.id();
+        String targetId = target.id();
 
         String jobId =
                 given().log()

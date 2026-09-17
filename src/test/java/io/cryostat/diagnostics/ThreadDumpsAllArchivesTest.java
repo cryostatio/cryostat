@@ -19,6 +19,7 @@ import static io.restassured.RestAssured.given;
 
 import java.io.IOException;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -63,7 +64,7 @@ public class ThreadDumpsAllArchivesTest extends AbstractTransactionalTestBase {
     @Test
     public void testCreateListAndDelete()
             throws InterruptedException, IOException, DeploymentException, TimeoutException {
-        int id = defineSelfCustomTarget();
+        UUID id = defineSelfCustomTarget();
         Executors.newSingleThreadScheduledExecutor()
                 .schedule(
                         () -> {

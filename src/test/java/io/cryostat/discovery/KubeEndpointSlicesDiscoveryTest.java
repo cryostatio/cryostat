@@ -23,6 +23,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -698,17 +699,16 @@ class KubeEndpointSlicesDiscoveryTest extends AbstractTransactionalTestBase {
                         + " n.nodeType = :nodeType AND"
                         + " n.labels->>'discovery.cryostat.io/namespace' = :namespace";
 
-        Long foundId =
-                ((Number)
-                                entityManager
-                                        .createNativeQuery(query)
-                                        .setParameter("name", "test-pod")
-                                        .setParameter("nodeType", "Pod")
-                                        .setParameter("namespace", "test-namespace")
-                                        .getResultStream()
-                                        .findFirst()
-                                        .orElse(null))
-                        .longValue();
+        UUID foundId =
+                (UUID)
+                        entityManager
+                                .createNativeQuery(query)
+                                .setParameter("name", "test-pod")
+                                .setParameter("nodeType", "Pod")
+                                .setParameter("namespace", "test-namespace")
+                                .getResultStream()
+                                .findFirst()
+                                .orElse(null);
 
         assertNotNull(foundId, "Should find the node using JSONB operator");
         assertEquals(node.id, foundId, "Found ID should match the created node's ID");
@@ -769,17 +769,16 @@ class KubeEndpointSlicesDiscoveryTest extends AbstractTransactionalTestBase {
                         + " n.nodeType = :nodeType AND"
                         + " n.labels->>'discovery.cryostat.io/namespace' = :namespace";
 
-        Long foundId =
-                ((Number)
-                                entityManager
-                                        .createNativeQuery(query)
-                                        .setParameter("name", "duplicate-pod")
-                                        .setParameter("nodeType", "Pod")
-                                        .setParameter("namespace", "test-namespace")
-                                        .getResultStream()
-                                        .findFirst()
-                                        .orElse(null))
-                        .longValue();
+        UUID foundId =
+                (UUID)
+                        entityManager
+                                .createNativeQuery(query)
+                                .setParameter("name", "duplicate-pod")
+                                .setParameter("nodeType", "Pod")
+                                .setParameter("namespace", "test-namespace")
+                                .getResultStream()
+                                .findFirst()
+                                .orElse(null);
 
         assertNotNull(foundId, "Should find one of the duplicate nodes");
         assertTrue(

@@ -20,6 +20,7 @@ import static io.restassured.RestAssured.given;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.TimeoutException;
 
 import io.cryostat.AbstractTransactionalTestBase;
@@ -122,7 +123,7 @@ public class AnalysisReportAggregatorTest extends AbstractTransactionalTestBase 
     @Test
     void testScrapeSingle()
             throws InterruptedException, IOException, DeploymentException, TimeoutException {
-        int targetId = defineSelfCustomTarget();
+        UUID targetId = defineSelfCustomTarget();
         var recording =
                 startSelfRecording(
                         "analysisReportAggregatorSingle",

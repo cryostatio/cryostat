@@ -49,7 +49,7 @@ public abstract class AbstractRecordingWorkflowTest extends AbstractTransactiona
     @Test
     public void testWorkflow() throws Exception {
         // Ensure self target is defined
-        if (selfId < 1) {
+        if (selfId == null) {
             defineSelfCustomTarget();
         }
 

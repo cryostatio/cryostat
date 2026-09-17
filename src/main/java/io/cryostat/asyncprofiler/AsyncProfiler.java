@@ -19,6 +19,7 @@ import java.io.InputStream;
 import java.time.Duration;
 import java.util.List;
 import java.util.Objects;
+import java.util.UUID;
 
 import io.cryostat.targets.AgentClient.AsyncProfile;
 import io.cryostat.targets.AgentClient.AsyncProfilerStatus;
@@ -102,7 +103,7 @@ public class AsyncProfiler {
             value = {"targets:read", "asyncprofiler:write"},
             inclusive = true)
     @Operation(summary = "Create a new async-profiler profile on the specified target")
-    public Uni<String> create(@RestPath long targetId, StartProfileRequest req) {
+    public Uni<String> create(@RestPath UUID targetId, StartProfileRequest req) {
         Target target = Target.find("id", targetId).singleResult();
         Duration duration = Duration.ofSeconds(req.duration());
 
@@ -116,7 +117,7 @@ public class AsyncProfiler {
             value = {"targets:read", "asyncprofiler:read"},
             inclusive = true)
     @Operation(summary = "Download an async-profiler binary file in JFR format")
-    public RestResponse<InputStream> get(@RestPath long targetId, @RestPath String profileId)
+    public RestResponse<InputStream> get(@RestPath UUID targetId, @RestPath String profileId)
             throws Exception {
         Target target = Target.find("id", targetId).singleResult();
         return ResponseBuilder.<InputStream>ok()
@@ -137,7 +138,7 @@ public class AsyncProfiler {
             value = {"targets:read", "asyncprofiler:read"},
             inclusive = true)
     @Operation(summary = "Get specified target's async-profiler status")
-    public Uni<AsyncProfilerStatus> getStatus(@RestPath long targetId) throws Exception {
+    public Uni<AsyncProfilerStatus> getStatus(@RestPath UUID targetId) throws Exception {
         Target target = Target.find("id", targetId).singleResult();
         return helper.getStatus(target);
     }
@@ -149,7 +150,7 @@ public class AsyncProfiler {
             value = {"targets:read", "asyncprofiler:read"},
             inclusive = true)
     @Operation(summary = "List existing async-profiler profiles on the specified target")
-    public Uni<List<AsyncProfile>> list(@RestPath long targetId) throws Exception {
+    public Uni<List<AsyncProfile>> list(@RestPath UUID targetId) throws Exception {
         Target target = Target.find("id", targetId).singleResult();
         return helper.getProfiles(target);
     }
@@ -162,7 +163,7 @@ public class AsyncProfiler {
             value = {"targets:read", "asyncprofiler:delete"},
             inclusive = true)
     @Operation(summary = "Delete an async-profiler profile from the specified target")
-    public Uni<Void> delete(@RestPath long targetId, @RestPath String profileId) throws Exception {
+    public Uni<Void> delete(@RestPath UUID targetId, @RestPath String profileId) throws Exception {
         Target target = Target.find("id", targetId).singleResult();
         return helper.deleteProfile(target, profileId);
     }
@@ -213,8 +214,9 @@ public class AsyncProfiler {
                                 .call(
                                         () ->
                                                 Target.getTargetById(
-                                                        context.getMergedJobDataMap()
-                                                                .getLong("targetId")));
+                                                        UUID.fromString(
+                                                                context.getMergedJobDataMap()
+                                                                        .getString("targetId"))));
             } catch (NoResultException | ObjectDeletedException e) {
                 // target disappeared in the meantime. No big deal.
                 logger.debug(e);
