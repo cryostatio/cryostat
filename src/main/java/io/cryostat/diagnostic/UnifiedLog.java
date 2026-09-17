@@ -15,9 +15,9 @@
  */
 package io.cryostat.diagnostic;
 
+import io.cryostat.PanacheUuidEntity;
 import io.cryostat.targets.Target;
 
-import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -38,7 +38,7 @@ import org.hibernate.envers.Audited;
 @Audited
 @Entity
 @Table(uniqueConstraints = {@UniqueConstraint(columnNames = {"target_id"})})
-public class UnifiedLog extends PanacheEntity {
+public class UnifiedLog extends PanacheUuidEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "target_id")

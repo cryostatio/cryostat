@@ -18,13 +18,13 @@ package io.cryostat.rules;
 import java.util.Map;
 import java.util.Objects;
 
+import io.cryostat.PanacheUuidEntity;
 import io.cryostat.expressions.MatchExpression;
 import io.cryostat.recordings.ActiveRecordings.Metadata;
 import io.cryostat.rules.events.RuleEvents;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Event;
@@ -63,7 +63,7 @@ import org.hibernate.type.SqlTypes;
 @EntityListeners(Rule.Listener.class)
 @Cacheable
 @Table(indexes = {@Index(columnList = "name")})
-public class Rule extends PanacheEntity {
+public class Rule extends PanacheUuidEntity {
     public static final String RULE_ADDRESS = "io.cryostat.rules.Rule";
 
     @Column(unique = true, updatable = false)

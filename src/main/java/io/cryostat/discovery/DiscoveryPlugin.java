@@ -23,12 +23,12 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Supplier;
 
+import io.cryostat.PanacheUuidEntity;
 import io.cryostat.credentials.Credential;
 import io.cryostat.discovery.KubeEndpointSlicesDiscovery.KubeDiscoveryNodeType;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
 import io.quarkus.rest.client.reactive.QuarkusRestClientBuilder;
 import io.quarkus.rest.client.reactive.ReactiveClientHeadersFactory;
 import io.smallrye.mutiny.Uni;
@@ -44,8 +44,6 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.EntityListeners;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.FetchType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.Id;
 import jakarta.persistence.NamedQueries;
 import jakarta.persistence.NamedQuery;
 import jakarta.persistence.OneToOne;
@@ -63,7 +61,6 @@ import jakarta.ws.rs.core.UriBuilder;
 import org.apache.commons.lang3.StringUtils;
 import org.hibernate.annotations.Cache;
 import org.hibernate.annotations.CacheConcurrencyStrategy;
-import org.hibernate.annotations.UuidGenerator;
 import org.hibernate.envers.Audited;
 import org.jboss.logging.Logger;
 
@@ -87,14 +84,7 @@ import org.jboss.logging.Logger;
                     "SELECT p FROM DiscoveryPlugin p JOIN FETCH p.realm r WHERE p.callback = ?1"
                             + " AND r.name = ?2")
 })
-public class DiscoveryPlugin extends PanacheEntityBase {
-
-    @Id
-    @Column(name = "id")
-    @GeneratedValue
-    @UuidGenerator
-    @NotNull
-    public UUID id;
+public class DiscoveryPlugin extends PanacheUuidEntity {
 
     @OneToOne(
             optional = false,
