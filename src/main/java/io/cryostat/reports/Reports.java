@@ -206,7 +206,7 @@ public class Reports {
                             schema = @Schema(implementation = String.class, format = "uuid")))
     public Response analyze(
             @Context HttpServerResponse response,
-            @RestPath long targetId,
+            @RestPath UUID targetId,
             @QueryParam("clean") @DefaultValue("true") boolean clean) {
         if (clean) {
             userAuthorizer.assertAuthorized("activerecordings", "delete");
@@ -235,7 +235,7 @@ public class Reports {
         return Response.ok(jobId, MediaType.TEXT_PLAIN)
                 .status(Response.Status.ACCEPTED)
                 .location(
-                        UriBuilder.fromUri(String.format("/api/v4.1/targets/%d/reports", targetId))
+                        UriBuilder.fromUri(String.format("/api/v4.1/targets/%s/reports", targetId))
                                 .build())
                 .build();
     }
@@ -253,7 +253,7 @@ public class Reports {
                     report currently exists for the specified target then the response will be an HTTP 404 Not Found,
                     and automated analysis report generation will not be triggered.
                     """)
-    public Uni<RestResponse<Map<String, AnalysisResult>>> getCached(@RestPath long targetId) {
+    public Uni<RestResponse<Map<String, AnalysisResult>>> getCached(@RestPath UUID targetId) {
         var target = Target.getTargetById(targetId);
         return reportAggregator
                 .getEntry(target.jvmId)
@@ -303,7 +303,7 @@ public class Reports {
                             schema = @Schema(implementation = String.class, format = "uuid")))
     public Response getActive(
             @Context HttpServerResponse response,
-            @RestPath long targetId,
+            @RestPath UUID targetId,
             @RestPath long recordingId,
             @QueryParam("filter") @DefaultValue("") String filter)
             throws Exception {
@@ -340,7 +340,7 @@ public class Reports {
                 .location(
                         UriBuilder.fromUri(
                                         String.format(
-                                                "/api/v4/targets/%d/reports/%d",
+                                                "/api/v4/targets/%s/reports/%d",
                                                 target.id, recordingId))
                                 .build())
                 .build();

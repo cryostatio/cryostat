@@ -19,6 +19,7 @@ import static io.restassured.RestAssured.given;
 
 import java.io.IOException;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -42,7 +43,7 @@ public class ThreadDumpsTest extends AbstractTransactionalTestBase {
 
     @Test
     public void testListNone() {
-        int id = defineSelfCustomTarget();
+        UUID id = defineSelfCustomTarget();
         given().log()
                 .all()
                 .when()
@@ -61,7 +62,7 @@ public class ThreadDumpsTest extends AbstractTransactionalTestBase {
     @Test
     public void testCreate()
             throws InterruptedException, IOException, DeploymentException, TimeoutException {
-        final int targetId = defineSelfCustomTarget();
+        final UUID targetId = defineSelfCustomTarget();
         final String[] jobId = new String[1];
         final String[] threadDumpId = new String[1];
         try {
@@ -122,7 +123,7 @@ public class ThreadDumpsTest extends AbstractTransactionalTestBase {
     public void testCreateAndList()
             throws IOException, DeploymentException, InterruptedException, TimeoutException {
         // Check that creating a thread dump works as expected
-        final int targetId = defineSelfCustomTarget();
+        final UUID targetId = defineSelfCustomTarget();
         final String[] jobId = new String[1];
         final String[] threadDumpId = new String[1];
 
@@ -210,7 +211,7 @@ public class ThreadDumpsTest extends AbstractTransactionalTestBase {
     @Test
     public void testCreateAndDelete()
             throws InterruptedException, IOException, DeploymentException, TimeoutException {
-        int id = defineSelfCustomTarget();
+        UUID id = defineSelfCustomTarget();
         Executors.newSingleThreadScheduledExecutor()
                 .schedule(
                         () -> {
@@ -285,7 +286,7 @@ public class ThreadDumpsTest extends AbstractTransactionalTestBase {
 
     @Test
     public void testAnalysis() throws InterruptedException, TimeoutException {
-        int id = defineSelfCustomTarget();
+        UUID id = defineSelfCustomTarget();
 
         given().log()
                 .all()
@@ -357,7 +358,7 @@ public class ThreadDumpsTest extends AbstractTransactionalTestBase {
         given().log()
                 .all()
                 .when()
-                .pathParam("targetId", Integer.MAX_VALUE)
+                .pathParam("targetId", UUID.randomUUID())
                 .get("targets/{targetId}/threaddump")
                 .then()
                 .log()
@@ -369,7 +370,7 @@ public class ThreadDumpsTest extends AbstractTransactionalTestBase {
 
     @Test
     public void testDeleteInvalid() {
-        int id = defineSelfCustomTarget();
+        UUID id = defineSelfCustomTarget();
         given().log()
                 .all()
                 .when()

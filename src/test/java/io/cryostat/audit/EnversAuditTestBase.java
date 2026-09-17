@@ -19,6 +19,7 @@ import static io.restassured.RestAssured.given;
 
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 import io.restassured.http.ContentType;
 import io.vertx.core.json.JsonObject;
@@ -76,7 +77,7 @@ public abstract class EnversAuditTestBase extends AuditTestBase {
     }
 
     @SuppressWarnings("unchecked")
-    protected List<Object[]> queryAuditRecords(Long ruleId) {
+    protected List<Object[]> queryAuditRecords(UUID ruleId) {
         return entityManager
                 .createNativeQuery(
                         "SELECT id, REV, REVTYPE FROM Rule_AUD WHERE id = :id ORDER BY REV")
@@ -85,7 +86,7 @@ public abstract class EnversAuditTestBase extends AuditTestBase {
     }
 
     @SuppressWarnings("unchecked")
-    protected List<Object[]> queryAuditRecordsForMultipleRules(Long... ruleIds) {
+    protected List<Object[]> queryAuditRecordsForMultipleRules(UUID... ruleIds) {
         StringBuilder query =
                 new StringBuilder("SELECT id, REV, REVTYPE FROM Rule_AUD WHERE id IN (");
         for (int i = 0; i < ruleIds.length; i++) {

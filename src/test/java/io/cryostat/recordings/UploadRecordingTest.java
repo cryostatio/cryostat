@@ -53,7 +53,7 @@ public class UploadRecordingTest extends AbstractTransactionalTestBase {
 
     @BeforeEach
     void setupUploadRecordingTest() throws Exception {
-        if (selfId < 1) {
+        if (selfId == null) {
             defineSelfCustomTarget();
         }
     }

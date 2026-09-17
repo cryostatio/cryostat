@@ -15,6 +15,7 @@
  */
 package io.cryostat.targets;
 
+import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -51,10 +52,11 @@ public class TargetUpdateJob implements Job {
 
     @Override
     public void execute(JobExecutionContext context) throws JobExecutionException {
-        long targetId = (long) context.getMergedJobDataMap().get("targetId");
+        String targetIdStr = (String) context.getMergedJobDataMap().get("targetId");
         try {
             Target target =
-                    QuarkusTransaction.joiningExisting().call(() -> Target.getTargetById(targetId));
+                    QuarkusTransaction.joiningExisting()
+                            .call(() -> Target.getTargetById(UUID.fromString(targetIdStr)));
             updateTargetJvmId(target);
             updateTargetRecordings(target);
         } catch (Exception e) {

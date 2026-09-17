@@ -41,7 +41,7 @@ import org.junit.jupiter.api.Test;
 public class CustomTargetsTest extends AbstractTransactionalTestBase {
 
     private String testJvmId;
-    private Integer storedCredentialId;
+    private String storedCredentialId;
 
     @BeforeEach
     void setupCustomTargetsTest() throws Exception {
@@ -69,7 +69,7 @@ public class CustomTargetsTest extends AbstractTransactionalTestBase {
             if (SELF_JMX_URL.equals(target.getString("connectUrl"))) {
                 given().basePath("/")
                         .when()
-                        .delete("/api/v4/targets/" + target.getLong("id"))
+                        .delete("/api/v4/targets/" + target.getString("id"))
                         .then()
                         .statusCode(204);
             }
@@ -148,9 +148,9 @@ public class CustomTargetsTest extends AbstractTransactionalTestBase {
 
         // Verify credentials notification
         JsonObject credentialsMessage = credentialsResult.getJsonObject("message");
-        storedCredentialId = credentialsMessage.getInteger("id");
+        storedCredentialId = credentialsMessage.getString("id");
 
-        MatcherAssert.assertThat(storedCredentialId, Matchers.any(Integer.class));
+        MatcherAssert.assertThat(storedCredentialId, Matchers.any(String.class));
         MatcherAssert.assertThat(
                 credentialsMessage.getString("matchExpression"),
                 equalTo(String.format("target.connectUrl == \"%s\"", SELF_JMX_URL)));
@@ -216,7 +216,7 @@ public class CustomTargetsTest extends AbstractTransactionalTestBase {
                         .response();
 
         JsonObject createBody = new JsonObject(createResponse.body().asString());
-        long targetId = createBody.getLong("id");
+        String targetId = createBody.getString("id");
 
         // Wait for and consume the FOUND notification from target creation
         webSocketClient.expectNotification(

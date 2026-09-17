@@ -18,6 +18,7 @@ package io.cryostat.recordings;
 import static io.restassured.RestAssured.given;
 
 import java.time.Duration;
+import java.util.UUID;
 
 import io.cryostat.AbstractTransactionalTestBase;
 import io.cryostat.resources.S3StorageResource;
@@ -51,8 +52,8 @@ public class TargetRecordingPatchTest extends AbstractTransactionalTestBase {
         cleanupSelfActiveAndArchivedRecordings();
     }
 
-    private long getSelfReferenceTargetId() {
-        if (selfId < 1) {
+    private UUID getSelfReferenceTargetId() {
+        if (selfId == null) {
             defineSelfCustomTarget();
         }
         return selfId;
@@ -60,7 +61,7 @@ public class TargetRecordingPatchTest extends AbstractTransactionalTestBase {
 
     @Test
     void testSaveEmptyRecordingDoesNotArchiveRecordingFile() throws Exception {
-        long targetId = getSelfReferenceTargetId();
+        UUID targetId = getSelfReferenceTargetId();
 
         // Set recording options to create an empty recording (toDisk=false, maxSize=0)
         given().log()

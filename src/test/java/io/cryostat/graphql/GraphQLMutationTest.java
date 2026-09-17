@@ -100,7 +100,7 @@ class GraphQLMutationTest extends AbstractGraphQLTestBase {
                                 .toArray()));
 
         ActiveRecording recording = new ActiveRecording();
-        recording.id = 0;
+        recording.id = null;
         recording.remoteId = 0;
         recording.name = recordingName;
         recording.reportUrl = null;

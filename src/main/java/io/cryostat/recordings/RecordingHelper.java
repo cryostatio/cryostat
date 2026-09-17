@@ -38,6 +38,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -694,7 +695,7 @@ public class RecordingHelper {
                     JobBuilder.newJob(StopRecordingJob.class)
                             .withIdentity(key)
                             .usingJobData(JobInterruptMonitorPlugin.AUTO_INTERRUPTIBLE, "true")
-                            .usingJobData("recordingId", recording.id)
+                            .usingJobData("recordingId", recording.id.toString())
                             .build();
             try {
                 if (!scheduler.checkExists(key)) {
@@ -1315,12 +1316,12 @@ public class RecordingHelper {
         return getActiveInputStream(recording.target.id, recording.remoteId, timeout);
     }
 
-    public InputStream getActiveInputStream(long targetId, long remoteId, Duration timeout)
+    public InputStream getActiveInputStream(UUID targetId, long remoteId, Duration timeout)
             throws Exception {
         return QuarkusTransaction.joiningExisting()
                 .call(
                         () -> {
-                            var target = Target.getTargetById(targetId);
+                            var target = Target.<Target>findById(targetId);
                             var recording = target.getRecordingById(remoteId);
                             return remoteRecordingStreamFactory.open(recording, timeout);
                         });
@@ -1340,7 +1341,7 @@ public class RecordingHelper {
     }
 
     public String downloadUrl(ActiveRecording recording) {
-        return String.format("/api/v4/activedownload/%d", recording.id);
+        return String.format("/api/v4/activedownload/%s", recording.id);
     }
 
     public String downloadUrl(String jvmId, String filename) {
@@ -1349,7 +1350,7 @@ public class RecordingHelper {
 
     public String reportUrl(ActiveRecording recording) {
         return String.format(
-                "/api/v4/targets/%d/reports/%d", recording.target.id, recording.remoteId);
+                "/api/v4/targets/%s/reports/%d", recording.target.id, recording.remoteId);
     }
 
     public String reportUrl(String jvmId, String filename) {
@@ -1497,7 +1498,7 @@ public class RecordingHelper {
     }
 
     public ActiveRecording updateRecordingMetadata(
-            long recordingId, Map<String, String> newLabels) {
+            UUID recordingId, Map<String, String> newLabels) {
         return QuarkusTransaction.joiningExisting()
                 .call(
                         () -> {
@@ -1511,7 +1512,7 @@ public class RecordingHelper {
 
                                 metadataUpdatedEvent.fireAsync(
                                         new ActiveRecordingEvents.ActiveRecordingMetadataUpdated(
-                                                recording.id.longValue(),
+                                                recording.id,
                                                 new ActiveRecordingEvents.ActiveRecordingSnapshot(
                                                         recording.target.connectUrl.toString(),
                                                         toExternalForm(recording),
@@ -1544,9 +1545,9 @@ public class RecordingHelper {
             }
             Map<String, String> labels = new HashMap<>(metadata.labels());
             labels.put("jvmId", jvmId);
-            Long activeRecordingId =
+            UUID activeRecordingId =
                     Optional.ofNullable(labels.get(ACTIVE_RECORDING_ID_LABEL))
-                            .map(Long::valueOf)
+                            .map(UUID::fromString)
                             .orElse(null);
             Metadata resolvedMetadata = new Metadata(labels);
             String key = archivedRecordingKey(jvmId, filename);
@@ -1822,7 +1823,7 @@ public class RecordingHelper {
                 new Notification(event.category().category(), event.payload()));
     }
 
-    public Uni<String> uploadToJFRDatasource(long targetEntityId, long remoteId) throws Exception {
+    public Uni<String> uploadToJFRDatasource(UUID targetEntityId, long remoteId) throws Exception {
         InputStream is =
                 QuarkusTransaction.joiningExisting()
                         .call(
@@ -1945,7 +1946,12 @@ public class RecordingHelper {
         public void execute(JobExecutionContext ctx) throws JobExecutionException {
             try {
                 ActiveRecording recording =
-                        ActiveRecording.find("id", ctx.getMergedJobDataMap().get("recordingId"))
+                        ActiveRecording.find(
+                                        "id",
+                                        UUID.fromString(
+                                                (String)
+                                                        ctx.getMergedJobDataMap()
+                                                                .get("recordingId")))
                                 .singleResult();
                 recordingHelper.stopRecording(recording).await().atMost(connectionFailedTimeout);
             } catch (Exception e) {

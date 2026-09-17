@@ -46,7 +46,7 @@ public abstract class AbstractGraphQLTestBase extends AbstractTransactionalTestB
 
     @BeforeEach
     public void setupGraphQLTest() throws Exception {
-        if (selfId < 1) {
+        if (selfId == null) {
             defineSelfCustomTarget();
         }
     }

@@ -98,7 +98,7 @@ public class ActiveRecordings {
                     Retrieve a list of active recordings currently present on the specified target. This may initiate
                     a new remote connection to the target to update Cryostat's model of available recordings.
                     """)
-    public List<LinkedRecordingDescriptor> list(@RestPath long targetId) throws Exception {
+    public List<LinkedRecordingDescriptor> list(@RestPath UUID targetId) throws Exception {
         Target target = Target.find("id", targetId).singleResult();
         return recordingHelper.listActiveRecordings(target).stream()
                 .map(recordingHelper::toExternalForm)
@@ -120,7 +120,7 @@ public class ActiveRecordings {
                     format for that recording. The client can feed this data to other tooling which ingests the JFR
                     binary file format.
                     """)
-    public RestResponse<InputStream> download(@RestPath long targetId, @RestPath long remoteId)
+    public RestResponse<InputStream> download(@RestPath UUID targetId, @RestPath long remoteId)
             throws Exception {
         Target target = Target.find("id", targetId).singleResult();
         var recording =
@@ -129,7 +129,7 @@ public class ActiveRecordings {
                         .findFirst()
                         .orElseThrow();
         return ResponseBuilder.<InputStream>create(RestResponse.Status.PERMANENT_REDIRECT)
-                .location(URI.create(String.format("/api/v4/activedownload/%d", recording.id)))
+                .location(URI.create(String.format("/api/v4/activedownload/%s", recording.id)))
                 .build();
     }
 
@@ -157,7 +157,7 @@ public class ActiveRecordings {
     @APIResponse(responseCode = "204", description = "Recording stopped; the response has no body")
     public String patch(
             @Context HttpServerResponse response,
-            @RestPath long targetId,
+            @RestPath UUID targetId,
             @RestPath long remoteId,
             String body)
             throws Exception {
@@ -217,7 +217,7 @@ public class ActiveRecordings {
                     """)
     public RestResponse<LinkedRecordingDescriptor> create(
             @Context UriInfo uriInfo,
-            @RestPath long targetId,
+            @RestPath UUID targetId,
             @Parameter(required = true, description = "must be unique within the target") @RestForm
                     String recordingName,
             @Parameter(required = true, description = "ex. template=Profiling,type=TARGET")
@@ -305,7 +305,7 @@ public class ActiveRecordings {
                     Delete a recording from the specified target. This will remove it both from Cryostat's database
                     as well as remove the recording and release all resources in the remote target JVM.
                     """)
-    public void delete(@RestPath long targetId, @RestPath long remoteId) throws Exception {
+    public void delete(@RestPath UUID targetId, @RestPath long remoteId) throws Exception {
         Target target = Target.find("id", targetId).singleResult();
         var recording = target.getRecordingById(remoteId);
         if (recording == null) {
@@ -335,7 +335,7 @@ public class ActiveRecordings {
                             mediaType = MediaType.TEXT_PLAIN,
                             schema = @Schema(implementation = String.class, format = "uuid")))
     public String uploadToGrafana(
-            @Context HttpServerResponse response, @RestPath long targetId, @RestPath long remoteId)
+            @Context HttpServerResponse response, @RestPath UUID targetId, @RestPath long remoteId)
             throws Exception {
         // Send an intermediate response back to the client while another thread handles the upload
         // request
@@ -357,7 +357,7 @@ public class ActiveRecordings {
     }
 
     public record LinkedRecordingDescriptor(
-            @Schema(required = true) long id,
+            @Schema(required = true) UUID id,
             @Schema(required = true) long remoteId,
             @NotNull RecordingState state,
             @Schema(required = true) long duration,

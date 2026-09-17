@@ -18,6 +18,8 @@ package io.cryostat.events;
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.*;
 
+import java.util.UUID;
+
 import io.cryostat.AbstractTransactionalTestBase;
 
 import io.quarkus.test.junit.QuarkusTest;
@@ -37,8 +39,8 @@ public class TargetEventsGetTest extends AbstractTransactionalTestBase {
         getSelfReferenceTargetId();
     }
 
-    private long getSelfReferenceTargetId() {
-        if (selfId < 1) {
+    private UUID getSelfReferenceTargetId() {
+        if (selfId == null) {
             defineSelfCustomTarget();
         }
         return selfId;

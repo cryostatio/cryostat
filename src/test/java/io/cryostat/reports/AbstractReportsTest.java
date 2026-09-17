@@ -19,6 +19,7 @@ import static io.restassured.RestAssured.given;
 
 import java.io.IOException;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.concurrent.TimeoutException;
 
 import io.cryostat.AbstractTransactionalTestBase;
@@ -43,7 +44,7 @@ public abstract class AbstractReportsTest extends AbstractTransactionalTestBase 
 
     @BeforeEach
     void setupReportsTest() {
-        if (selfId < 1) {
+        if (selfId == null) {
             defineSelfCustomTarget();
         }
         archivedRecordingName = null;
@@ -52,7 +53,7 @@ public abstract class AbstractReportsTest extends AbstractTransactionalTestBase 
     @AfterEach
     void cleanupReportsTest() {
         // Clean up active recordings
-        if (selfId > 0 && selfRecordingId > 0) {
+        if (selfId != null && selfRecordingId > 0) {
             try {
                 cleanupSelfRecording();
             } catch (Exception e) {
@@ -122,7 +123,7 @@ public abstract class AbstractReportsTest extends AbstractTransactionalTestBase 
         given().log()
                 .all()
                 .when()
-                .pathParams("targetId", Integer.MAX_VALUE, "recordingName", "foo")
+                .pathParams("targetId", UUID.randomUUID(), "recordingName", "foo")
                 .get("/api/v4/targets/{targetId}/reports/{recordingName}")
                 .then()
                 .log()
@@ -134,7 +135,7 @@ public abstract class AbstractReportsTest extends AbstractTransactionalTestBase 
 
     @Test
     void testGetNonexistentRecordingSource() {
-        int targetId = defineSelfCustomTarget();
+        UUID targetId = defineSelfCustomTarget();
         given().log()
                 .all()
                 .when()
@@ -174,7 +175,7 @@ public abstract class AbstractReportsTest extends AbstractTransactionalTestBase 
                         // Verify we get a location header from a 202.
                         .header(
                                 "Location",
-                                String.format("%sapi/v4.1/targets/%d/reports", baseUrl, selfId))
+                                String.format("%sapi/v4.1/targets/%s/reports", baseUrl, selfId))
                         .and()
                         .extract()
                         .body()

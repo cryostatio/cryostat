@@ -17,6 +17,7 @@ package io.cryostat.credentials;
 
 import java.net.URI;
 import java.util.Optional;
+import java.util.UUID;
 
 import io.cryostat.expressions.MatchExpression;
 import io.cryostat.expressions.MatchExpressionEvaluator;
@@ -42,7 +43,7 @@ public class CredentialsFinder {
     @Inject MatchExpressionEvaluator expressionEvaluator;
     @Inject Logger logger;
 
-    private final BidiMap<Target, Long> cache = new DualHashBidiMap<>();
+    private final BidiMap<Target, UUID> cache = new DualHashBidiMap<>();
 
     @ConsumeEvent(Credential.CREDENTIALS_UPDATED)
     void onCredentialsUpdated(Credential credential) {

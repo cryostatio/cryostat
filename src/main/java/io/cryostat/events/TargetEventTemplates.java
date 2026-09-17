@@ -19,6 +19,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.UUID;
 
 import io.cryostat.core.templates.TemplateService;
 import io.cryostat.libcryostat.templates.Template;
@@ -68,7 +69,7 @@ public class TargetEventTemplates {
                     same target. This includes all of the server's available templates, plus the templates available
                     specifically from the target (ex. within /usr/lib/jvm/java/lib/jfr).
                     """)
-    public List<Template> listTargetTemplates(@RestPath long id) throws Exception {
+    public List<Template> listTargetTemplates(@RestPath UUID id) throws Exception {
         Target target = Target.find("id", id).singleResult();
         var list = new ArrayList<Template>();
         list.add(ALL_EVENTS_TEMPLATE);
@@ -97,7 +98,7 @@ public class TargetEventTemplates {
                     Get the .jfc (XML) file definition for the given target event template.
                     """)
     public String getTargetTemplate(
-            @RestPath long id, @RestPath TemplateType templateType, @RestPath String templateName)
+            @RestPath UUID id, @RestPath TemplateType templateType, @RestPath String templateName)
             throws Exception {
         if (ALL_EVENTS_TEMPLATE.getName().equals(templateName)
                 && ALL_EVENTS_TEMPLATE.getType().equals(templateType)) {

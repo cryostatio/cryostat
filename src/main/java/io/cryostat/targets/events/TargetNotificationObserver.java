@@ -17,6 +17,7 @@ package io.cryostat.targets.events;
 
 import java.net.URI;
 import java.util.Map;
+import java.util.UUID;
 
 import io.cryostat.events.EntityNotificationObserver;
 import io.cryostat.targets.Target;
@@ -95,7 +96,7 @@ public class TargetNotificationObserver extends EntityNotificationObserver<Targe
     public record TargetDiscovery(EventKind kind, ServiceRef serviceRef, String jvmId) {}
 
     public record ServiceRef(
-            long id,
+            UUID id,
             URI connectUrl,
             String alias,
             String jvmId,

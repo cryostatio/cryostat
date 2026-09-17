@@ -15,6 +15,8 @@
  */
 package io.cryostat.expressions.events;
 
+import java.util.UUID;
+
 import io.cryostat.events.EntityNotificationObserver;
 import io.cryostat.expressions.MatchExpression;
 
@@ -65,5 +67,5 @@ public class MatchExpressionNotificationObserver
         return new ExpressionPayload(expressionSnapshot.id(), expressionSnapshot.script());
     }
 
-    public record ExpressionPayload(long id, String script) {}
+    public record ExpressionPayload(UUID id, String script) {}
 }

@@ -63,6 +63,16 @@ ALTER TABLE ThreadDump DROP CONSTRAINT IF EXISTS uk_threaddump_target_jobid;
 ALTER TABLE UnifiedLog DROP CONSTRAINT IF EXISTS fk_log_target;
 ALTER TABLE UnifiedLog DROP CONSTRAINT IF EXISTS uk_log_target;
 
+-- Drop sequence-based defaults on id columns; these cannot be automatically cast to UUID
+ALTER TABLE ArchivedRecording ALTER COLUMN id DROP DEFAULT;
+ALTER TABLE AsyncProfilerRecording ALTER COLUMN id DROP DEFAULT;
+ALTER TABLE EventTemplate ALTER COLUMN id DROP DEFAULT;
+ALTER TABLE GarbageCollection ALTER COLUMN id DROP DEFAULT;
+ALTER TABLE HeapDump ALTER COLUMN id DROP DEFAULT;
+ALTER TABLE ProbeTemplate ALTER COLUMN id DROP DEFAULT;
+ALTER TABLE ThreadDump ALTER COLUMN id DROP DEFAULT;
+ALTER TABLE UnifiedLog ALTER COLUMN id DROP DEFAULT;
+
 -- Change id columns from BIGINT to UUID in main tables
 ALTER TABLE ActiveRecording ALTER COLUMN id TYPE UUID USING gen_random_uuid();
 ALTER TABLE ArchivedRecording ALTER COLUMN id TYPE UUID USING gen_random_uuid();
@@ -146,7 +156,6 @@ DROP SEQUENCE IF EXISTS UnifiedLog_SEQ;
 ALTER TABLE ActiveRecording ADD CONSTRAINT FK2g1pb3osnf0t9g12wnqfjn2a FOREIGN KEY (target_id) REFERENCES Target(id);
 ALTER TABLE ActiveRecording ADD CONSTRAINT UKr8nr64n7i34ipp019xrbbbyeh UNIQUE (target_id, remoteId);
 ALTER TABLE ArchivedRecording ADD CONSTRAINT fk_archivedrecording_activerecording FOREIGN KEY (activeRecordingId) REFERENCES ActiveRecording(id) ON DELETE SET NULL;
-ALTER TABLE ArchivedRecording ADD CONSTRAINT uk_archivedrecording_jvmid_filename UNIQUE (jvmId, filename);
 ALTER TABLE AsyncProfilerRecording ADD CONSTRAINT fk_asyncprofilerrecording_target FOREIGN KEY (target_id) REFERENCES Target(id) ON DELETE CASCADE;
 ALTER TABLE AsyncProfilerRecording ADD CONSTRAINT uk_asyncprofilerrecording_target_profileid UNIQUE (target_id, profileId);
 ALTER TABLE Credential ADD CONSTRAINT FKr2h1f9wrs2kcyfwkbtyiux4dn FOREIGN KEY (matchExpression) REFERENCES MatchExpression(id);
@@ -162,3 +171,43 @@ ALTER TABLE ThreadDump ADD CONSTRAINT fk_threaddump_target FOREIGN KEY (target_i
 ALTER TABLE ThreadDump ADD CONSTRAINT uk_threaddump_target_jobid UNIQUE (target_id, jobId);
 ALTER TABLE UnifiedLog ADD CONSTRAINT fk_log_target FOREIGN KEY (target_id) REFERENCES Target(id) ON DELETE CASCADE;
 ALTER TABLE UnifiedLog ADD CONSTRAINT uk_log_target UNIQUE (target_id);
+
+-- The TRUNCATE of DiscoveryNode above also removed the built-in Universe and Realm seed rows
+-- inserted by V4.0.0; re-seed them here with generated UUIDs so that DiscoveryNode.getUniverse()
+-- and the built-in discovery plugins continue to resolve correctly.
+INSERT INTO DiscoveryNode(id, labels, name, nodeType, parentNode)
+VALUES (gen_random_uuid(), '{}'::jsonb, 'Universe', 'Universe', null);
+
+WITH universe AS (
+    SELECT id FROM DiscoveryNode WHERE nodeType = 'Universe'
+)
+INSERT INTO DiscoveryNode(id, labels, name, nodeType, parentNode)
+VALUES
+    (gen_random_uuid(), '{}'::jsonb, 'Custom Targets', 'Realm', (SELECT id FROM universe)),
+    (gen_random_uuid(), '{}'::jsonb, 'KubernetesApi', 'Realm', (SELECT id FROM universe)),
+    (gen_random_uuid(), '{}'::jsonb, 'JDP', 'Realm', (SELECT id FROM universe)),
+    (gen_random_uuid(), '{}'::jsonb, 'Podman', 'Realm', (SELECT id FROM universe)),
+    (gen_random_uuid(), '{}'::jsonb, 'Docker', 'Realm', (SELECT id FROM universe));
+
+INSERT INTO DiscoveryPlugin(id, builtin, callback, credential_id, realm_id)
+SELECT gen_random_uuid(), true, null, null, DiscoveryNode.id
+FROM DiscoveryNode
+WHERE nodeType = 'Realm';
+
+-- The TRUNCATE of REVINFO/DiscoveryNode_AUD/DiscoveryPlugin_AUD above also removed the synthetic
+-- seed revision that V4.2.0 created for the Universe/Realm/builtin-plugin rows (which are created
+-- directly via SQL and don't go through Hibernate/Envers). Re-create it here for the freshly
+-- re-seeded rows above, so the Envers Validity Strategy continues to work correctly from the start.
+INSERT INTO REVINFO (REV, REVTSTMP, username) VALUES (0, 0, 'system');
+
+INSERT INTO DiscoveryNode_AUD (id, REV, REVTYPE, REVEND, REVEND_TSTMP, name, nodeType, labels, parentNode)
+SELECT id, 0, 0, NULL, NULL, name, nodeType, labels, parentNode
+FROM DiscoveryNode
+WHERE nodeType IN ('Universe', 'Realm');
+
+INSERT INTO DiscoveryPlugin_AUD (id, REV, REVTYPE, REVEND, REVEND_TSTMP, realm_id, callback, credential_id, builtin)
+SELECT id, 0, 0, NULL, NULL, realm_id, callback, credential_id, builtin
+FROM DiscoveryPlugin
+WHERE builtin = true;
+
+SELECT setval('REVINFO_SEQ', 1, false);

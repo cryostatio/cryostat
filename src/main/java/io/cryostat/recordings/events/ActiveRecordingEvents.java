@@ -16,6 +16,7 @@
 package io.cryostat.recordings.events;
 
 import java.util.Objects;
+import java.util.UUID;
 
 import io.cryostat.events.EntityCreatedEvent;
 import io.cryostat.events.EntityDeletedEvent;
@@ -38,12 +39,12 @@ public class ActiveRecordingEvents {
             extends EntityCreatedEvent<ActiveRecording, ActiveRecordingSnapshot> {
         private final ActiveRecordings.RecordingEventCategory category;
 
-        public ActiveRecordingCreated(long recordingId, ActiveRecordingSnapshot snapshot) {
+        public ActiveRecordingCreated(UUID recordingId, ActiveRecordingSnapshot snapshot) {
             super(recordingId, snapshot);
             this.category = ActiveRecordings.RecordingEventCategory.ACTIVE_CREATED;
         }
 
-        public long getRecordingId() {
+        public UUID getRecordingId() {
             return getEntityId();
         }
 
@@ -66,12 +67,12 @@ public class ActiveRecordingEvents {
             extends EntityUpdatedEvent<ActiveRecording, ActiveRecordingSnapshot> {
         private final ActiveRecordings.RecordingEventCategory category;
 
-        public ActiveRecordingStopped(long recordingId, ActiveRecordingSnapshot snapshot) {
+        public ActiveRecordingStopped(UUID recordingId, ActiveRecordingSnapshot snapshot) {
             super(recordingId, snapshot);
             this.category = ActiveRecordings.RecordingEventCategory.ACTIVE_STOPPED;
         }
 
-        public long getRecordingId() {
+        public UUID getRecordingId() {
             return getEntityId();
         }
 
@@ -94,12 +95,12 @@ public class ActiveRecordingEvents {
             extends EntityDeletedEvent<ActiveRecording, ActiveRecordingSnapshot> {
         private final ActiveRecordings.RecordingEventCategory category;
 
-        public ActiveRecordingDeleted(long recordingId, ActiveRecordingSnapshot snapshot) {
+        public ActiveRecordingDeleted(UUID recordingId, ActiveRecordingSnapshot snapshot) {
             super(recordingId, snapshot);
             this.category = ActiveRecordings.RecordingEventCategory.ACTIVE_DELETED;
         }
 
-        public long getRecordingId() {
+        public UUID getRecordingId() {
             return getEntityId();
         }
 
@@ -122,12 +123,12 @@ public class ActiveRecordingEvents {
             extends EntityUpdatedEvent<ActiveRecording, ActiveRecordingSnapshot> {
         private final ActiveRecordings.RecordingEventCategory category;
 
-        public ActiveRecordingMetadataUpdated(long recordingId, ActiveRecordingSnapshot snapshot) {
+        public ActiveRecordingMetadataUpdated(UUID recordingId, ActiveRecordingSnapshot snapshot) {
             super(recordingId, snapshot);
             this.category = ActiveRecordings.RecordingEventCategory.METADATA_UPDATED;
         }
 
-        public long getRecordingId() {
+        public UUID getRecordingId() {
             return getEntityId();
         }
 

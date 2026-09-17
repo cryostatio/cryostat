@@ -125,6 +125,8 @@ import org.quartz.impl.matchers.GroupMatcher;
 public class Discovery {
 
     private static final String SYNTHETIC_REALM_NAME = "Cryostat Discovery";
+    private static final UUID SYNTHETIC_REALM_ID =
+            UUID.fromString("ffffffff-ffff-ffff-ffff-ffffffffffff");
 
     static final String X_FORWARDED_FOR = "X-Forwarded-For";
 
@@ -1187,7 +1189,7 @@ public class Discovery {
         mergedRoot.children = new ArrayList<>();
 
         DiscoveryNode syntheticRealm = new DiscoveryNode();
-        syntheticRealm.id = Long.MAX_VALUE;
+        syntheticRealm.id = SYNTHETIC_REALM_ID;
         syntheticRealm.name = SYNTHETIC_REALM_NAME;
         syntheticRealm.nodeType = BaseNodeType.REALM.getKind();
         syntheticRealm.labels = new HashMap<>();
@@ -1198,7 +1200,7 @@ public class Discovery {
 
         var builtinRealmIds =
                 DiscoveryPlugin.find("#DiscoveryPlugin.getBuiltinRealmIds")
-                        .project(Long.class)
+                        .project(UUID.class)
                         .list();
 
         for (var realm : universe.children) {

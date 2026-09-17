@@ -25,6 +25,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.UUID;
 
 import io.cryostat.ConfigProperties;
 import io.cryostat.DeclarativeConfiguration;
@@ -113,7 +114,7 @@ public class Credentials {
                     "Test if the supplied username/password are valid credentials for the specified"
                             + " target.")
     public Uni<CredentialTestResult> checkCredentialForTarget(
-            @RestPath long targetId, @RestForm String username, @RestForm String password)
+            @RestPath UUID targetId, @RestForm String username, @RestForm String password)
             throws URISyntaxException {
         Target target = Target.getTargetById(targetId);
         return connectionManager
@@ -196,7 +197,7 @@ public class Credentials {
                     Credential's ID, its Match Expression, and a list of currently discovered Targets which match that
                     expression and are therefore candidates for Cryostat to select this Credential.
                     """)
-    public CredentialMatchResult get(@RestPath long id) {
+    public CredentialMatchResult get(@RestPath UUID id) {
         try {
             Credential credential = Credential.find("id", id).singleResult();
             return safeResult(credential, targetMatcher);
@@ -235,7 +236,7 @@ public class Credentials {
         credential.password = password;
         credential.persist();
         return ResponseBuilder.<Credential>created(
-                        uriInfo.getAbsolutePathBuilder().path(Long.toString(credential.id)).build())
+                        uriInfo.getAbsolutePathBuilder().path(credential.id.toString()).build())
                 .entity(credential)
                 .build();
     }
@@ -248,7 +249,7 @@ public class Credentials {
     @PermissionsAllowed(value = "credentials:delete", inclusive = true)
     @Path("/{id}")
     @Operation(summary = "Delete a Stored Credential")
-    public void delete(@RestPath long id) {
+    public void delete(@RestPath UUID id) {
         Credential.find("id", id).singleResult().delete();
     }
 
@@ -267,7 +268,7 @@ public class Credentials {
     }
 
     static record CredentialMatchResult(
-            @Schema(required = true) long id,
+            @Schema(required = true) UUID id,
             @NotNull MatchExpression matchExpression,
             @NotNull Collection<Target> targets) {
         CredentialMatchResult(Credential credential, Collection<Target> targets) {

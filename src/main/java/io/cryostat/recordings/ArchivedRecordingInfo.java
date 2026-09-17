@@ -15,6 +15,8 @@
  */
 package io.cryostat.recordings;
 
+import java.util.UUID;
+
 import io.cryostat.PanacheUuidEntity;
 
 import jakarta.persistence.Column;
@@ -36,11 +38,11 @@ public class ArchivedRecordingInfo extends PanacheUuidEntity {
 
     @NotBlank public String filename;
 
-    @Column public Long activeRecordingId;
+    @Column public UUID activeRecordingId;
 
     @NotNull public Long createdAt;
 
-    public static ArchivedRecordingInfo of(String jvmId, String filename, Long activeRecordingId) {
+    public static ArchivedRecordingInfo of(String jvmId, String filename, UUID activeRecordingId) {
         ArchivedRecordingInfo recording = new ArchivedRecordingInfo();
         recording.jvmId = jvmId;
         recording.filename = filename;

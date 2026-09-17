@@ -24,6 +24,7 @@ import java.io.IOException;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Predicate;
 
@@ -83,7 +84,7 @@ public class RulesArchiverTest extends AbstractTransactionalTestBase {
     @Test
     public void test()
             throws TimeoutException, InterruptedException, IOException, DeploymentException {
-        int id = defineSelfCustomTarget();
+        UUID id = defineSelfCustomTarget();
 
         given().log()
                 .all()
