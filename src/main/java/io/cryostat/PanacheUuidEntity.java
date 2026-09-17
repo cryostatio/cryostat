@@ -13,13 +13,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.cryostat.recordings;
+package io.cryostat;
 
-import io.cryostat.PanacheUuidEntity;
+import java.util.UUID;
 
-import jakarta.persistence.Entity;
+import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
+import jakarta.persistence.Column;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.Id;
+import jakarta.validation.constraints.NotNull;
+import org.hibernate.annotations.UuidGenerator;
 
-@Entity
-public class TransactionObserverMarker extends PanacheUuidEntity {
-    public String marker;
+public abstract class PanacheUuidEntity extends PanacheEntityBase {
+
+    @Id
+    @Column(name = "id")
+    @GeneratedValue
+    @UuidGenerator
+    @NotNull
+    public UUID id;
 }

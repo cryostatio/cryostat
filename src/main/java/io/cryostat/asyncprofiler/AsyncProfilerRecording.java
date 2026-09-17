@@ -17,9 +17,9 @@ package io.cryostat.asyncprofiler;
 
 import java.util.List;
 
+import io.cryostat.PanacheUuidEntity;
 import io.cryostat.targets.Target;
 
-import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -34,7 +34,7 @@ import org.hibernate.envers.Audited;
 @Entity
 @Audited
 @Table(uniqueConstraints = {@UniqueConstraint(columnNames = {"target_id", "profileId"})})
-public class AsyncProfilerRecording extends PanacheEntity {
+public class AsyncProfilerRecording extends PanacheUuidEntity {
 
     @NotNull @ManyToOne public Target target;
 

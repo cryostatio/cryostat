@@ -15,7 +15,8 @@
  */
 package io.cryostat.recordings;
 
-import io.quarkus.hibernate.orm.panache.PanacheEntity;
+import io.cryostat.PanacheUuidEntity;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
@@ -29,7 +30,7 @@ import org.hibernate.envers.Audited;
 @Table(
         name = "ArchivedRecording",
         uniqueConstraints = {@UniqueConstraint(columnNames = {"jvmId", "filename"})})
-public class ArchivedRecordingInfo extends PanacheEntity {
+public class ArchivedRecordingInfo extends PanacheUuidEntity {
 
     @NotBlank public String jvmId;
 
