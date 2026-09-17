@@ -20,6 +20,7 @@ import java.util.HashSet;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 
 import io.cryostat.PanacheUuidEntity;
 import io.cryostat.expressions.events.MatchExpressionEvents;
@@ -125,7 +126,7 @@ public class MatchExpression extends PanacheUuidEntity {
 
     @SuppressFBWarnings("EI_EXPOSE_REP")
     public static record MatchedExpression(
-            @Nullable Long id, String expression, Collection<Target> targets) {
+            @Nullable UUID id, String expression, Collection<Target> targets) {
         public MatchedExpression {
             Objects.requireNonNull(expression);
             Objects.requireNonNull(targets);

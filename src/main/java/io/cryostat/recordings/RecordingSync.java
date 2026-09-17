@@ -16,6 +16,8 @@
 
 package io.cryostat.recordings;
 
+import java.util.UUID;
+
 import io.cryostat.targets.Target;
 
 import io.quarkus.security.PermissionsAllowed;
@@ -50,7 +52,7 @@ public class RecordingSync {
                     "Reconcile Cryostat's active recording model with the recordings present on the"
                             + " target.")
     @APIResponse(responseCode = "204", description = "Active recordings synchronized")
-    public void sync(@RestPath long targetId) {
+    public void sync(@RestPath UUID targetId) {
         recordingHelper.syncActiveRecordings(Target.getTargetById(targetId));
     }
 }

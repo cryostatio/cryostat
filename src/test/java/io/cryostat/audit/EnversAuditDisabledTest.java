@@ -17,6 +17,7 @@ package io.cryostat.audit;
 
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 import io.cryostat.rules.Rules;
 
@@ -46,7 +47,7 @@ public class EnversAuditDisabledTest extends EnversAuditTestBase {
         JsonObject rule = createRuleJson("test-rule-create-no-audit");
 
         var response = createRuleViaApi(rule);
-        Long ruleId = ((Number) response.get("id")).longValue();
+        UUID ruleId = UUID.fromString((String) response.get("id"));
 
         List<Object[]> auditRecords = queryAuditRecords(ruleId);
         MatcherAssert.assertThat(auditRecords, Matchers.empty());
@@ -58,7 +59,7 @@ public class EnversAuditDisabledTest extends EnversAuditTestBase {
         JsonObject rule = createRuleJson(ruleName);
 
         var response = createRuleViaApi(rule);
-        Long ruleId = ((Number) response.get("id")).longValue();
+        UUID ruleId = UUID.fromString((String) response.get("id"));
 
         JsonObject updateRule = createRuleJson(ruleName);
         updateRule.put("enabled", false);
@@ -74,7 +75,7 @@ public class EnversAuditDisabledTest extends EnversAuditTestBase {
         JsonObject rule = createRuleJson(ruleName);
 
         var response = createRuleViaApi(rule);
-        Long ruleId = ((Number) response.get("id")).longValue();
+        UUID ruleId = UUID.fromString((String) response.get("id"));
 
         deleteRuleViaApi(ruleName);
 
@@ -87,13 +88,13 @@ public class EnversAuditDisabledTest extends EnversAuditTestBase {
         String ruleAName = "test-rule-a-no-audit";
         JsonObject ruleA = createRuleJson(ruleAName);
         var responseA = createRuleViaApi(ruleA);
-        Long ruleAId = ((Number) responseA.get("id")).longValue();
+        UUID ruleAId = UUID.fromString((String) responseA.get("id"));
 
         String ruleBName = "test-rule-b-no-audit";
         JsonObject ruleB = createRuleJson(ruleBName);
         ruleB.put("enabled", false);
         var responseB = createRuleViaApi(ruleB);
-        Long ruleBId = ((Number) responseB.get("id")).longValue();
+        UUID ruleBId = UUID.fromString((String) responseB.get("id"));
 
         JsonObject updateRuleA = createRuleJson(ruleAName);
         updateRuleViaApi(ruleAName, updateRuleA);

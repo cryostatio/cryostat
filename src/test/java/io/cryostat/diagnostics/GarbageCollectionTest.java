@@ -18,6 +18,7 @@ package io.cryostat.diagnostics;
 import static io.restassured.RestAssured.given;
 
 import java.util.List;
+import java.util.UUID;
 
 import io.cryostat.audit.AuditTestBase;
 import io.cryostat.diagnostic.Diagnostics;
@@ -44,7 +45,7 @@ public class GarbageCollectionTest extends AuditTestBase {
 
     @Test
     public void testGcTriggerCreatesAuditEntity() {
-        int targetId = defineSelfCustomTarget();
+        UUID targetId = defineSelfCustomTarget();
 
         given().log()
                 .all()
@@ -58,7 +59,7 @@ public class GarbageCollectionTest extends AuditTestBase {
                 .statusCode(204);
 
         // Primary table must be empty — the gc() handler deletes the row after persisting.
-        long primaryCount = GarbageCollection.count("target.id = ?1", Long.valueOf(targetId));
+        long primaryCount = GarbageCollection.count("target.id = ?1", targetId);
         Assertions.assertEquals(
                 0, primaryCount, "GarbageCollection primary table should be empty after gc()");
 
@@ -77,7 +78,7 @@ public class GarbageCollectionTest extends AuditTestBase {
 
     @Test
     public void testGcTriggerCreatesAuditLog() {
-        int targetId = defineSelfCustomTarget();
+        UUID targetId = defineSelfCustomTarget();
 
         given().log()
                 .all()
@@ -112,7 +113,7 @@ public class GarbageCollectionTest extends AuditTestBase {
 
     @Test
     public void testGcEntityHasCorrectTimestamp() {
-        int targetId = defineSelfCustomTarget();
+        UUID targetId = defineSelfCustomTarget();
         long beforeTrigger = System.currentTimeMillis();
 
         given().log()
@@ -149,7 +150,7 @@ public class GarbageCollectionTest extends AuditTestBase {
 
     @Test
     public void testGcEntityHasCorrectTargetReference() {
-        int targetId = defineSelfCustomTarget();
+        UUID targetId = defineSelfCustomTarget();
 
         given().log()
                 .all()
@@ -174,12 +175,12 @@ public class GarbageCollectionTest extends AuditTestBase {
         GarbageCollection audited = (GarbageCollection) results.get(0);
         Assertions.assertNotNull(audited);
         Assertions.assertNotNull(audited.target);
-        Assertions.assertEquals(Long.valueOf(targetId), audited.target.id);
+        Assertions.assertEquals(targetId, audited.target.id);
     }
 
     @Test
     public void testMultipleGcTriggersCreateMultipleEntities() {
-        int targetId = defineSelfCustomTarget();
+        UUID targetId = defineSelfCustomTarget();
 
         for (int i = 0; i < 3; i++) {
             given().log()
@@ -195,7 +196,7 @@ public class GarbageCollectionTest extends AuditTestBase {
         }
 
         // Primary table must be empty — each gc() call deletes its row.
-        long primaryCount = GarbageCollection.count("target.id = ?1", Long.valueOf(targetId));
+        long primaryCount = GarbageCollection.count("target.id = ?1", targetId);
         Assertions.assertEquals(
                 0,
                 primaryCount,
@@ -219,7 +220,7 @@ public class GarbageCollectionTest extends AuditTestBase {
         given().log()
                 .all()
                 .when()
-                .pathParam("targetId", Integer.MAX_VALUE)
+                .pathParam("targetId", UUID.randomUUID())
                 .post("targets/{targetId}/gc")
                 .then()
                 .log()
@@ -234,14 +235,13 @@ public class GarbageCollectionTest extends AuditTestBase {
     @Test
     @Transactional
     public void testGcEntityPersistence() {
-        int targetId = defineSelfCustomTarget();
+        UUID targetId = defineSelfCustomTarget();
         Target target = Target.getTargetById(targetId);
 
         GarbageCollection gc = GarbageCollection.of(target);
         gc.persist();
 
         Assertions.assertNotNull(gc.id);
-        Assertions.assertTrue(gc.id > 0);
 
         GarbageCollection found = GarbageCollection.findById(gc.id);
         Assertions.assertNotNull(found);
@@ -252,7 +252,7 @@ public class GarbageCollectionTest extends AuditTestBase {
 
     @Test
     public void testGcAuditQueryIntegration() {
-        int targetId = defineSelfCustomTarget();
+        UUID targetId = defineSelfCustomTarget();
         long startTime = System.currentTimeMillis();
 
         given().log()

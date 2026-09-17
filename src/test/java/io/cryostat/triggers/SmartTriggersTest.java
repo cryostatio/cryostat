@@ -17,6 +17,8 @@ package io.cryostat.triggers;
 
 import static io.restassured.RestAssured.given;
 
+import java.util.UUID;
+
 import io.cryostat.AbstractTransactionalTestBase;
 
 import io.quarkus.test.common.http.TestHTTPEndpoint;
@@ -32,7 +34,7 @@ public class SmartTriggersTest extends AbstractTransactionalTestBase {
 
     @Test
     public void testList() {
-        int id = defineSelfCustomTarget();
+        UUID id = defineSelfCustomTarget();
         given().log()
                 .all()
                 .when()
@@ -51,7 +53,7 @@ public class SmartTriggersTest extends AbstractTransactionalTestBase {
         given().log()
                 .all()
                 .when()
-                .pathParam("targetId", Integer.MAX_VALUE)
+                .pathParam("targetId", UUID.randomUUID())
                 .get("api/beta/targets/{targetId}/smart_triggers")
                 .then()
                 .log()
@@ -63,7 +65,7 @@ public class SmartTriggersTest extends AbstractTransactionalTestBase {
 
     @Test
     public void testDeleteInvalid() {
-        int id = defineSelfCustomTarget();
+        UUID id = defineSelfCustomTarget();
         given().log()
                 .all()
                 .when()
@@ -80,7 +82,7 @@ public class SmartTriggersTest extends AbstractTransactionalTestBase {
 
     @Test
     public void testPost() {
-        int id = defineSelfCustomTarget();
+        UUID id = defineSelfCustomTarget();
         given().log()
                 .all()
                 .when()

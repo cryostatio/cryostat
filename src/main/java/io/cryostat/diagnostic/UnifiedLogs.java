@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.regex.Pattern;
 
 import io.cryostat.ConfigProperties;
@@ -92,7 +93,7 @@ public class UnifiedLogs {
     @Blocking
     @POST
     public UnifiedLog enableUnifiedLogging(
-            @RestPath long targetId,
+            @RestPath UUID targetId,
             @QueryParam("what") String what,
             @QueryParam("decorators") String decorators) {
         validateLoggingParams(what, decorators);
@@ -135,7 +136,7 @@ public class UnifiedLogs {
     @Blocking
     @PATCH
     public UnifiedLog reconfigureUnifiedLogging(
-            @RestPath long targetId,
+            @RestPath UUID targetId,
             @QueryParam("what") String what,
             @QueryParam("decorators") String decorators) {
         validateLoggingParams(what, decorators);
@@ -148,7 +149,7 @@ public class UnifiedLogs {
         if (!status.enabled()) {
             throw new ClientErrorException(Response.Status.CONFLICT);
         }
-        Long sessionId =
+        UUID sessionId =
                 QuarkusTransaction.requiringNew()
                         .call(
                                 () ->
@@ -188,7 +189,7 @@ public class UnifiedLogs {
             inclusive = true)
     @Blocking
     @DELETE
-    public void disableUnifiedLogging(@RestPath long targetId) {
+    public void disableUnifiedLogging(@RestPath UUID targetId) {
         Target target =
                 QuarkusTransaction.requiringNew().call(() -> Target.getTargetById(targetId));
         if (!target.isAgent()) {
@@ -215,7 +216,7 @@ public class UnifiedLogs {
             inclusive = true)
     @Blocking
     @GET
-    public AgentClient.UnifiedLogStatus unifiedLoggingStatus(@RestPath long targetId) {
+    public AgentClient.UnifiedLogStatus unifiedLoggingStatus(@RestPath UUID targetId) {
         Target target =
                 QuarkusTransaction.requiringNew().call(() -> Target.getTargetById(targetId));
         return helper.unifiedLogStatus(target);
@@ -227,7 +228,7 @@ public class UnifiedLogs {
             inclusive = true)
     @Blocking
     @POST
-    public RestResponse<UnifiedLog> pullUnifiedLog(@RestPath long targetId) {
+    public RestResponse<UnifiedLog> pullUnifiedLog(@RestPath UUID targetId) {
         Target target =
                 QuarkusTransaction.requiringNew().call(() -> Target.getTargetById(targetId));
         if (!target.isAgent()) {
@@ -263,7 +264,7 @@ public class UnifiedLogs {
             inclusive = true)
     @Blocking
     @GET
-    public List<UnifiedLog> listUnifiedLogs(@RestPath long targetId) {
+    public List<UnifiedLog> listUnifiedLogs(@RestPath UUID targetId) {
         String jvmId =
                 QuarkusTransaction.requiringNew().call(() -> Target.getTargetById(targetId).jvmId);
         return helper.listUnifiedLogObjects(jvmId).stream()
@@ -293,7 +294,7 @@ public class UnifiedLogs {
     @Blocking
     @GET
     public RestResponse<Object> downloadUnifiedLog(
-            @RestPath long targetId, @RestPath String logId, @RestQuery String filename)
+            @RestPath UUID targetId, @RestPath String logId, @RestQuery String filename)
             throws URISyntaxException {
         String jvmId =
                 QuarkusTransaction.requiringNew().call(() -> Target.getTargetById(targetId).jvmId);
@@ -311,7 +312,7 @@ public class UnifiedLogs {
             inclusive = true)
     @Blocking
     @DELETE
-    public void deleteUnifiedLog(@RestPath long targetId, @RestPath String logId) {
+    public void deleteUnifiedLog(@RestPath UUID targetId, @RestPath String logId) {
         String jvmId =
                 QuarkusTransaction.requiringNew().call(() -> Target.getTargetById(targetId).jvmId);
         helper.deleteUnifiedLog(jvmId, logId);
@@ -369,7 +370,7 @@ public class UnifiedLogs {
     @PATCH
     @Consumes("application/json")
     public UnifiedLog patchUnifiedLogMetadata(
-            @RestPath long targetId, @RestPath String logId, MetadataBody body) throws Exception {
+            @RestPath UUID targetId, @RestPath String logId, MetadataBody body) throws Exception {
         String jvmId =
                 QuarkusTransaction.requiringNew().call(() -> Target.getTargetById(targetId).jvmId);
         return helper.updateUnifiedLogMetadata(jvmId, logId, body.labels());

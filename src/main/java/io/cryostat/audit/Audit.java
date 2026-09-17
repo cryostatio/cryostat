@@ -21,7 +21,9 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Stack;
+import java.util.UUID;
 
+import io.cryostat.PanacheUuidEntity;
 import io.cryostat.asyncprofiler.AsyncProfilerRecording;
 import io.cryostat.credentials.Credential;
 import io.cryostat.diagnostic.GarbageCollection;
@@ -38,7 +40,6 @@ import io.cryostat.rules.Rule;
 import io.cryostat.targets.Target;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import io.quarkus.security.PermissionsAllowed;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
@@ -147,7 +148,7 @@ public class Audit {
     DiscoveryNode lineage(AuditReader ar, Target target) {
         Stack<DiscoveryNode> nodes = new Stack<>();
         DiscoveryNode node = target.discoveryNode;
-        long leafNodeId = node.id; // Keep ID of the leaf (JVM) node
+        UUID leafNodeId = node.id; // Keep ID of the leaf (JVM) node
 
         // Walk up the parent chain, querying audit history for each parent
         while (node != null) {
@@ -155,7 +156,7 @@ public class Audit {
             nodes.add(node);
 
             if (node.parent == null) {
-                Long parentNodeId = getParentNodeId(node);
+                UUID parentNodeId = getParentNodeId(node);
                 if (parentNodeId != null) {
                     node.parent = findNodeInAuditHistory(ar, parentNodeId);
                 }
@@ -170,7 +171,7 @@ public class Audit {
         parent.target = null;
         while (!nodes.isEmpty()) {
             DiscoveryNode child = nodes.pop();
-            if (child.id == leafNodeId) {
+            if (child.id.equals(leafNodeId)) {
                 child.target = target;
             } else {
                 child.target = null;
@@ -182,7 +183,7 @@ public class Audit {
         return root;
     }
 
-    private Long getParentNodeId(DiscoveryNode node) {
+    private UUID getParentNodeId(DiscoveryNode node) {
         // Query the audit table to get the parentNode foreign key value
         // We need to get it from the same revision as the node
         try {
@@ -193,14 +194,14 @@ public class Audit {
                                         + " = :id)")
                             .setParameter("id", node.id)
                             .getSingleResult();
-            return result != null ? ((Number) result).longValue() : null;
+            return result != null ? (UUID) result : null;
         } catch (Exception e) {
             logger.debugv(e, "Failed to get parent node ID for node {0}", node.id);
         }
         return null;
     }
 
-    private DiscoveryNode findNodeInAuditHistory(AuditReader ar, Long nodeId) {
+    private DiscoveryNode findNodeInAuditHistory(AuditReader ar, UUID nodeId) {
         try {
             var q =
                     ar.createQuery()
@@ -463,7 +464,7 @@ public class Audit {
                         Map<String, Object> entityMap = new HashMap<>();
                         entityMap.put("revtype", revisionType.getRepresentation());
                         if (RevisionType.DEL.equals(revisionType)) {
-                            entityMap.put("id", ((PanacheEntity) entity).id);
+                            entityMap.put("id", ((PanacheUuidEntity) entity).id);
                         } else {
                             @SuppressWarnings("unchecked")
                             Map<String, Object> converted =

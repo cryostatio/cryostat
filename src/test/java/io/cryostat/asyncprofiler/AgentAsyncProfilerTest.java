@@ -22,6 +22,7 @@ import static org.hamcrest.Matchers.*;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 
@@ -146,7 +147,7 @@ public class AgentAsyncProfilerTest extends AgentTestBase {
     @Test
     void testCreateProfileWithCpu()
             throws InterruptedException, ExecutionException, TimeoutException {
-        long targetId = target.id();
+        String targetId = target.id();
 
         Map<String, Object> requestBody = Map.of("events", List.of("cpu"), "duration", 5);
 
@@ -210,7 +211,7 @@ public class AgentAsyncProfilerTest extends AgentTestBase {
     @Test
     void testCreateProfileWithCpuAlloc()
             throws InterruptedException, ExecutionException, TimeoutException {
-        long targetId = target.id();
+        String targetId = target.id();
 
         Map<String, Object> requestBody = Map.of("events", List.of("cpu", "alloc"), "duration", 5);
 
@@ -272,7 +273,7 @@ public class AgentAsyncProfilerTest extends AgentTestBase {
     @Test
     void testCreateProfileWithCpuNativemem()
             throws InterruptedException, ExecutionException, TimeoutException {
-        long targetId = target.id();
+        String targetId = target.id();
 
         Map<String, Object> requestBody =
                 Map.of("events", List.of("cpu", "nativemem"), "duration", 5);
@@ -335,7 +336,7 @@ public class AgentAsyncProfilerTest extends AgentTestBase {
     @Test
     void testCreateListDownloadAndDeleteProfile()
             throws InterruptedException, ExecutionException, TimeoutException {
-        long targetId = target.id();
+        String targetId = target.id();
 
         Map<String, Object> requestBody = Map.of("events", List.of("cpu"), "duration", 5);
 
@@ -474,7 +475,7 @@ public class AgentAsyncProfilerTest extends AgentTestBase {
     void testListProfilesForNonExistentTarget() {
         given().log()
                 .all()
-                .pathParams("targetId", Integer.MAX_VALUE)
+                .pathParams("targetId", UUID.randomUUID())
                 .when()
                 .get("/api/beta/targets/{targetId}/async-profiler")
                 .then()
@@ -489,7 +490,7 @@ public class AgentAsyncProfilerTest extends AgentTestBase {
     void testGetStatusForNonExistentTarget() {
         given().log()
                 .all()
-                .pathParams("targetId", Integer.MAX_VALUE)
+                .pathParams("targetId", UUID.randomUUID())
                 .when()
                 .get("/api/beta/targets/{targetId}/async-profiler/status")
                 .then()
@@ -506,7 +507,7 @@ public class AgentAsyncProfilerTest extends AgentTestBase {
 
         given().log()
                 .all()
-                .pathParams("targetId", Integer.MAX_VALUE)
+                .pathParams("targetId", UUID.randomUUID())
                 .contentType(ContentType.JSON)
                 .body(requestBody)
                 .when()
@@ -578,7 +579,7 @@ public class AgentAsyncProfilerTest extends AgentTestBase {
 
     @Test
     void testCreateProfileWithMultipleEvents() {
-        long targetId = target.id();
+        String targetId = target.id();
 
         Map<String, Object> requestBody =
                 Map.of("events", List.of("cpu", "itimer", "ctimer"), "duration", 5);
@@ -601,7 +602,7 @@ public class AgentAsyncProfilerTest extends AgentTestBase {
     @Test
     void testCreateProfileWithAllocOnly()
             throws InterruptedException, ExecutionException, TimeoutException {
-        long targetId = target.id();
+        String targetId = target.id();
 
         Map<String, Object> requestBody = Map.of("events", List.of("alloc"), "duration", 5);
 
@@ -663,7 +664,7 @@ public class AgentAsyncProfilerTest extends AgentTestBase {
     @Test
     void testCreateMultipleProfilesSequentially()
             throws InterruptedException, ExecutionException, TimeoutException {
-        long targetId = target.id();
+        String targetId = target.id();
 
         Map<String, Object> requestBody1 = Map.of("events", List.of("cpu"), "duration", 3);
 
@@ -744,7 +745,7 @@ public class AgentAsyncProfilerTest extends AgentTestBase {
 
     @Test
     void testGraphQL() throws InterruptedException, TimeoutException {
-        long targetId = target.id();
+        String targetId = target.id();
 
         Map<String, Object> requestBody = Map.of("events", List.of("alloc"), "duration", 5);
 
@@ -777,9 +778,9 @@ public class AgentAsyncProfilerTest extends AgentTestBase {
         JsonObject query = new JsonObject();
         query.put(
                 "query",
-                "query TargetAsyncProfiles {targetNodes(filter: { id: "
+                "query TargetAsyncProfiles {targetNodes(filter: { targetId: \""
                         + targetId
-                        + " }) {target {agent id connectUrl alias jvmId asyncProfiles { data {"
+                        + "\" }) {target {agent id connectUrl alias jvmId asyncProfiles { data {"
                         + " duration id startTime size } aggregate { count } } } } }");
         Response resp =
                 given().basePath("/")
@@ -811,14 +812,14 @@ public class AgentAsyncProfilerTest extends AgentTestBase {
 
     @Test
     void testCreateMutation() throws InterruptedException, TimeoutException {
-        long targetId = target.id();
+        String targetId = target.id();
 
         JsonObject query = new JsonObject();
         query.put(
                 "query",
-                "mutation {createAsyncProfile(nodes:{id:"
+                "mutation {createAsyncProfile(nodes:{targetId:\""
                         + targetId
-                        + "},id: \"profile\",startTime: 1,events: [\"alloc\"],duration: 5)}");
+                        + "\"},id: \"profile\",startTime: 1,events: [\"alloc\"],duration: 5)}");
 
         Response response =
                 given().basePath("/")
@@ -858,7 +859,7 @@ public class AgentAsyncProfilerTest extends AgentTestBase {
 
     @Test
     void testDeleteMutation() throws Exception {
-        long targetId = target.id();
+        String targetId = target.id();
 
         Map<String, Object> requestBody = Map.of("events", List.of("alloc"), "duration", 5);
 
@@ -898,9 +899,9 @@ public class AgentAsyncProfilerTest extends AgentTestBase {
         deleteQuery.put(
                 "query",
                 String.format(
-                        "mutation { deleteAsyncProfiles (nodes: { id:"
+                        "mutation { deleteAsyncProfiles (nodes: { targetId:\""
                                 + targetId
-                                + "}) { id size duration startTime }}",
+                                + "\"}) { id size duration startTime }}",
                         profileId));
 
         Response deleteResponse =

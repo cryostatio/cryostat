@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
@@ -354,7 +355,7 @@ public class TargetNodes {
 
             if (!targetRevisions.isEmpty()) {
                 Object[] latestWithNode = targetRevisions.get(0);
-                Long nodeId = ((Number) latestWithNode[0]).longValue();
+                UUID nodeId = (UUID) latestWithNode[0];
                 // Now get the DiscoveryNode from audit history
                 @SuppressWarnings("unchecked")
                 var q =

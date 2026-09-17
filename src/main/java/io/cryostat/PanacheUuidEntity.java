@@ -18,12 +18,16 @@ package io.cryostat;
 import java.util.UUID;
 
 import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
+import io.smallrye.graphql.api.AdaptToScalar;
+import io.smallrye.graphql.api.Scalar;
 import jakarta.persistence.Column;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.Id;
+import jakarta.persistence.MappedSuperclass;
 import jakarta.validation.constraints.NotNull;
 import org.hibernate.annotations.UuidGenerator;
 
+@MappedSuperclass
 public abstract class PanacheUuidEntity extends PanacheEntityBase {
 
     @Id
@@ -31,5 +35,6 @@ public abstract class PanacheUuidEntity extends PanacheEntityBase {
     @GeneratedValue
     @UuidGenerator
     @NotNull
+    @AdaptToScalar(Scalar.String.class)
     public UUID id;
 }

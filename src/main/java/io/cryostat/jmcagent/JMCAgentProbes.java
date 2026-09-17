@@ -20,6 +20,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
+import java.util.UUID;
 
 import javax.management.InstanceNotFoundException;
 
@@ -79,7 +80,7 @@ public class JMCAgentProbes {
                     """
                     Activate a probe template (specified by template name) on the specified target (specified by ID).
                     """)
-    public void postProbe(@RestPath long id, @RestPath String probeTemplateName) {
+    public void postProbe(@RestPath UUID id, @RestPath String probeTemplateName) {
         Target target = Target.getTargetById(id);
 
         String templateContent;
@@ -135,7 +136,7 @@ public class JMCAgentProbes {
             inclusive = true)
     @Path("/api/v4/targets/{id}/probes")
     @Operation(summary = "Remove all loaded probes from the specified target")
-    public void deleteProbe(@RestPath long id) {
+    public void deleteProbe(@RestPath UUID id) {
         Target target = Target.getTargetById(id);
         connectionManager.executeConnectedTask(
                 target,
@@ -172,7 +173,7 @@ public class JMCAgentProbes {
             inclusive = true)
     @Path("/api/v4/targets/{id}/probes")
     @Operation(summary = "List loaded probes on the specified target")
-    public List<ProbeResponse> getProbes(@RestPath long id) {
+    public List<ProbeResponse> getProbes(@RestPath UUID id) {
         Target target = Target.getTargetById(id);
         return connectionManager.<List<ProbeResponse>>executeConnectedTask(
                 target,

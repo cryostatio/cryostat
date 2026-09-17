@@ -202,7 +202,7 @@ public class ActiveRecording extends PanacheUuidEntity {
             if (!activeRecording.external) {
                 createdEvent.fire(
                         new ActiveRecordingEvents.ActiveRecordingCreated(
-                                activeRecording.id.longValue(),
+                                activeRecording.id,
                                 new ActiveRecordingEvents.ActiveRecordingSnapshot(
                                         activeRecording.target.connectUrl.toString(),
                                         recordingHelper.toExternalForm(activeRecording),
@@ -218,7 +218,7 @@ public class ActiveRecording extends PanacheUuidEntity {
             if (RecordingState.STOPPED.equals(activeRecording.state)) {
                 stoppedEvent.fire(
                         new ActiveRecordingEvents.ActiveRecordingStopped(
-                                activeRecording.id.longValue(),
+                                activeRecording.id,
                                 new ActiveRecordingEvents.ActiveRecordingSnapshot(
                                         activeRecording.target.connectUrl.toString(),
                                         recordingHelper.toExternalForm(activeRecording),
@@ -263,7 +263,7 @@ public class ActiveRecording extends PanacheUuidEntity {
         public void postRemove(ActiveRecording activeRecording) {
             deletedEvent.fire(
                     new ActiveRecordingEvents.ActiveRecordingDeleted(
-                            activeRecording.id.longValue(),
+                            activeRecording.id,
                             new ActiveRecordingEvents.ActiveRecordingSnapshot(
                                     activeRecording.target.connectUrl.toString(),
                                     recordingHelper.toExternalForm(activeRecording),

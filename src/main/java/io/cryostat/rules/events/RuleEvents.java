@@ -17,6 +17,7 @@ package io.cryostat.rules.events;
 
 import java.util.Map;
 import java.util.Objects;
+import java.util.UUID;
 
 import io.cryostat.events.EntityCreatedEvent;
 import io.cryostat.events.EntityDeletedEvent;
@@ -27,10 +28,10 @@ import io.cryostat.rules.Rule;
 public class RuleEvents {
 
     public record RuleSnapshot(
-            long id,
+            UUID id,
             String name,
             String description,
-            long matchExpressionId,
+            UUID matchExpressionId,
             String eventSpecifier,
             int archivalPeriodSeconds,
             int initialDelaySeconds,
@@ -50,7 +51,7 @@ public class RuleEvents {
 
     public static class RuleCreated extends EntityCreatedEvent<Rule, RuleSnapshot> {
 
-        public RuleCreated(long id, RuleSnapshot snapshot) {
+        public RuleCreated(UUID id, RuleSnapshot snapshot) {
             super(id, snapshot);
         }
 
@@ -67,7 +68,7 @@ public class RuleEvents {
 
     public static class RuleUpdated extends EntityUpdatedEvent<Rule, RuleSnapshot> {
 
-        public RuleUpdated(long id, RuleSnapshot snapshot) {
+        public RuleUpdated(UUID id, RuleSnapshot snapshot) {
             super(id, snapshot);
         }
 
@@ -84,7 +85,7 @@ public class RuleEvents {
 
     public static class RuleDeleted extends EntityDeletedEvent<Rule, RuleSnapshot> {
 
-        public RuleDeleted(long id, RuleSnapshot snapshot) {
+        public RuleDeleted(UUID id, RuleSnapshot snapshot) {
             super(id, snapshot);
         }
 

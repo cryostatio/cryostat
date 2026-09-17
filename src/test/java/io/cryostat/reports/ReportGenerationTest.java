@@ -21,6 +21,7 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Map;
+import java.util.UUID;
 
 import io.cryostat.AbstractTransactionalTestBase;
 import io.cryostat.resources.S3StorageResource;
@@ -47,8 +48,8 @@ public class ReportGenerationTest extends AbstractTransactionalTestBase {
         cleanupSelfActiveAndArchivedRecordings();
     }
 
-    private long getSelfReferenceTargetId() {
-        if (selfId < 1) {
+    private UUID getSelfReferenceTargetId() {
+        if (selfId == null) {
             defineSelfCustomTarget();
         }
         return selfId;
@@ -64,7 +65,7 @@ public class ReportGenerationTest extends AbstractTransactionalTestBase {
 
     @Test
     void testGetActiveReport() throws Exception {
-        long targetId = getSelfReferenceTargetId();
+        UUID targetId = getSelfReferenceTargetId();
 
         // Create a recording
         Response postResponse =
@@ -118,7 +119,7 @@ public class ReportGenerationTest extends AbstractTransactionalTestBase {
 
     @Test
     void testGetArchivedReport() throws Exception {
-        long targetId = getSelfReferenceTargetId();
+        UUID targetId = getSelfReferenceTargetId();
 
         // Create a recording
         Response postResponse =
@@ -211,7 +212,7 @@ public class ReportGenerationTest extends AbstractTransactionalTestBase {
     @Test
     @Disabled("TODO query parameter filter is not implemented")
     void testGetFilteredActiveReport() throws Exception {
-        long targetId = getSelfReferenceTargetId();
+        UUID targetId = getSelfReferenceTargetId();
 
         // Create a recording
         Response postResponse =

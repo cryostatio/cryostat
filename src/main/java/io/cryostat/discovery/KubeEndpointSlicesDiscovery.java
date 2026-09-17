@@ -28,6 +28,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Function;
@@ -1453,7 +1454,7 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
         }
 
         // Add to namespace children if not already present
-        final Long topmostId = topmost.id;
+        final UUID topmostId = topmost.id;
         final DiscoveryNode topmostNode = topmost;
         boolean alreadyChild =
                 nsNode.children.stream()

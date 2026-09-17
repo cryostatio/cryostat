@@ -16,6 +16,7 @@
 package io.cryostat.targets;
 
 import java.util.List;
+import java.util.UUID;
 
 import io.cryostat.expressions.MatchExpressionEvaluator;
 
@@ -57,7 +58,7 @@ public class Targets {
                     """
                     Get details about a particular target given its ID.
                     """)
-    public Target getById(@RestPath Long id) {
+    public Target getById(@RestPath UUID id) {
         return Target.find("id", id).singleResult();
     }
 }

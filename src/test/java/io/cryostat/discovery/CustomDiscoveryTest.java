@@ -31,7 +31,7 @@ public class CustomDiscoveryTest extends AbstractTransactionalTestBase {
 
     @Test
     public void testCreate() {
-        int id =
+        String id =
                 given().log()
                         .all()
                         .contentType(ContentType.URLENC)
@@ -48,12 +48,11 @@ public class CustomDiscoveryTest extends AbstractTransactionalTestBase {
                         .header(
                                 "Location",
                                 Matchers.matchesRegex(
-                                        "https?://[\\.\\w]+:[\\d]+/api/v4/targets/[\\d]+"))
+                                        "https?://[\\.\\w]+:[\\d]+/api/v4/targets/[\\w-]+"))
                         .and()
                         .contentType(ContentType.JSON)
                         .and()
-                        .body("id", Matchers.instanceOf(Integer.class))
-                        .body("id", Matchers.greaterThanOrEqualTo(1))
+                        .body("id", Matchers.instanceOf(String.class))
                         .body("connectUrl", Matchers.instanceOf(String.class))
                         .body(
                                 "connectUrl",
@@ -63,7 +62,7 @@ public class CustomDiscoveryTest extends AbstractTransactionalTestBase {
                         .body("alias", Matchers.equalTo("CustomDiscoveryTest"))
                         .extract()
                         .jsonPath()
-                        .getInt("id");
+                        .getString("id");
 
         given().log()
                 .all()
@@ -95,7 +94,7 @@ public class CustomDiscoveryTest extends AbstractTransactionalTestBase {
 
     @Test
     public void testCreateTargetOnlyNoCredentials() {
-        int id =
+        String id =
                 given().log()
                         .all()
                         .contentType(ContentType.URLENC)
@@ -111,10 +110,10 @@ public class CustomDiscoveryTest extends AbstractTransactionalTestBase {
                         .and()
                         .contentType(ContentType.JSON)
                         .and()
-                        .body("id", Matchers.greaterThanOrEqualTo(1))
+                        .body("id", Matchers.instanceOf(String.class))
                         .extract()
                         .jsonPath()
-                        .getInt("id");
+                        .getString("id");
 
         given().log()
                 .all()
@@ -127,7 +126,7 @@ public class CustomDiscoveryTest extends AbstractTransactionalTestBase {
 
     @Test
     public void testCreateWithCredentialsAndStoreCredentials() {
-        int id =
+        String id =
                 given().log()
                         .all()
                         .contentType(ContentType.URLENC)
@@ -146,10 +145,10 @@ public class CustomDiscoveryTest extends AbstractTransactionalTestBase {
                         .and()
                         .contentType(ContentType.JSON)
                         .and()
-                        .body("id", Matchers.greaterThanOrEqualTo(1))
+                        .body("id", Matchers.instanceOf(String.class))
                         .extract()
                         .jsonPath()
-                        .getInt("id");
+                        .getString("id");
 
         given().log()
                 .all()
@@ -197,7 +196,7 @@ public class CustomDiscoveryTest extends AbstractTransactionalTestBase {
 
     @Test
     public void testGet() throws InterruptedException {
-        int id = createTestTarget();
+        String id = createTestTarget();
 
         given().log()
                 .all()
@@ -211,7 +210,7 @@ public class CustomDiscoveryTest extends AbstractTransactionalTestBase {
                 .and()
                 .contentType(ContentType.JSON)
                 .and()
-                .body("id", Matchers.instanceOf(Integer.class))
+                .body("id", Matchers.instanceOf(String.class))
                 .body("id", Matchers.equalTo(id))
                 .body("connectUrl", Matchers.instanceOf(String.class))
                 .body(
@@ -231,7 +230,7 @@ public class CustomDiscoveryTest extends AbstractTransactionalTestBase {
 
     @Test
     public void testDelete() throws InterruptedException {
-        int id = createTestTarget();
+        String id = createTestTarget();
 
         given().log()
                 .all()
@@ -244,7 +243,7 @@ public class CustomDiscoveryTest extends AbstractTransactionalTestBase {
                 .statusCode(204);
     }
 
-    private int createTestTarget() {
+    private String createTestTarget() {
         return given().log()
                 .all()
                 .contentType(ContentType.URLENC)
@@ -257,6 +256,6 @@ public class CustomDiscoveryTest extends AbstractTransactionalTestBase {
                 .all()
                 .extract()
                 .jsonPath()
-                .getInt("id");
+                .getString("id");
     }
 }

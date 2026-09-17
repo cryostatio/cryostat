@@ -17,6 +17,8 @@ package io.cryostat.diagnostics;
 
 import static io.restassured.RestAssured.given;
 
+import java.util.UUID;
+
 import io.cryostat.audit.AuditTestBase;
 import io.cryostat.diagnostic.Diagnostics;
 import io.cryostat.diagnostic.ThreadDump;
@@ -40,7 +42,7 @@ public class ThreadDumpTest extends AuditTestBase {
 
     @Test
     public void testThreadDumpRequestCreatesEntity() {
-        int targetId = defineSelfCustomTarget();
+        UUID targetId = defineSelfCustomTarget();
 
         String jobId =
                 given().log()
@@ -61,7 +63,7 @@ public class ThreadDumpTest extends AuditTestBase {
         ThreadDump dump = ThreadDump.<ThreadDump>find("jobId", jobId).firstResult();
         Assertions.assertNotNull(dump, "ThreadDump entity should be created");
         Assertions.assertEquals(ThreadDump.Status.REQUESTED, dump.status);
-        Assertions.assertEquals(Long.valueOf(targetId), dump.target.id);
+        Assertions.assertEquals(targetId, dump.target.id);
         Assertions.assertNotNull(dump.requestedAt);
         Assertions.assertNull(dump.completedAt);
         Assertions.assertNull(dump.filename);
@@ -69,7 +71,7 @@ public class ThreadDumpTest extends AuditTestBase {
 
     @Test
     public void testThreadDumpEntityHasCorrectFormat() {
-        int targetId = defineSelfCustomTarget();
+        UUID targetId = defineSelfCustomTarget();
 
         String jobId =
                 given().log()
@@ -93,7 +95,7 @@ public class ThreadDumpTest extends AuditTestBase {
 
     @Test
     public void testThreadDumpEntityCreatesAuditLog() {
-        int targetId = defineSelfCustomTarget();
+        UUID targetId = defineSelfCustomTarget();
 
         String jobId =
                 given().log()
@@ -119,7 +121,7 @@ public class ThreadDumpTest extends AuditTestBase {
 
     @Test
     public void testThreadDumpEntityHasCorrectTimestamp() {
-        int targetId = defineSelfCustomTarget();
+        UUID targetId = defineSelfCustomTarget();
         long beforeRequest = System.currentTimeMillis();
 
         String jobId =
@@ -150,7 +152,7 @@ public class ThreadDumpTest extends AuditTestBase {
 
     @Test
     public void testThreadDumpEntityHasCorrectTargetReference() {
-        int targetId = defineSelfCustomTarget();
+        UUID targetId = defineSelfCustomTarget();
 
         String jobId =
                 given().log()
@@ -169,7 +171,7 @@ public class ThreadDumpTest extends AuditTestBase {
         ThreadDump dump = ThreadDump.<ThreadDump>find("jobId", jobId).firstResult();
         Assertions.assertNotNull(dump);
         Assertions.assertNotNull(dump.target);
-        Assertions.assertEquals(Long.valueOf(targetId), dump.target.id);
+        Assertions.assertEquals(targetId, dump.target.id);
     }
 
     @Test
@@ -177,7 +179,7 @@ public class ThreadDumpTest extends AuditTestBase {
         given().log()
                 .all()
                 .when()
-                .pathParam("targetId", Integer.MAX_VALUE)
+                .pathParam("targetId", UUID.randomUUID())
                 .post("targets/{targetId}/threaddump")
                 .then()
                 .log()
@@ -191,7 +193,7 @@ public class ThreadDumpTest extends AuditTestBase {
 
     @Test
     public void testThreadDumpAuditQueryIntegration() {
-        int targetId = defineSelfCustomTarget();
+        UUID targetId = defineSelfCustomTarget();
         long startTime = System.currentTimeMillis();
 
         String jobId =
@@ -251,7 +253,7 @@ public class ThreadDumpTest extends AuditTestBase {
 
     @Test
     public void testMultipleThreadDumpRequestsCreateMultipleEntities() {
-        int targetId = defineSelfCustomTarget();
+        UUID targetId = defineSelfCustomTarget();
 
         for (int i = 0; i < 3; i++) {
             given().log()
@@ -266,7 +268,7 @@ public class ThreadDumpTest extends AuditTestBase {
                     .statusCode(200);
         }
 
-        long count = ThreadDump.count("target.id = ?1", Long.valueOf(targetId));
+        long count = ThreadDump.count("target.id = ?1", targetId);
         Assertions.assertEquals(3, count, "Expected three ThreadDump entities to be created");
     }
 }

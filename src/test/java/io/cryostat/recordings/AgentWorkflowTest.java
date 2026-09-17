@@ -142,7 +142,7 @@ public class AgentWorkflowTest extends AgentTestBase {
                     DeploymentException,
                     ExecutionException,
                     TimeoutException {
-        long targetId = target.id();
+        String targetId = target.id();
         String archivedRecordingName = null;
         long recordingId = -1;
         try {
@@ -173,7 +173,7 @@ public class AgentWorkflowTest extends AgentTestBase {
                                                 .header(
                                                         "Location",
                                                         String.format(
-                                                                "%s/%d/reports",
+                                                                "%s/%s/reports",
                                                                 targetsUrl.toString(), targetId))
                                                 .and()
                                                 .extract()
@@ -231,7 +231,7 @@ public class AgentWorkflowTest extends AgentTestBase {
         }
     }
 
-    private long startRecording(long targetId, String recordingName, String events)
+    private long startRecording(String targetId, String recordingName, String events)
             throws TimeoutException, InterruptedException, ExecutionException {
         MultiMap form = MultiMap.caseInsensitiveMultiMap();
         form.add("recordingName", recordingName);

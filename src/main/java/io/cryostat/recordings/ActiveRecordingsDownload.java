@@ -16,6 +16,7 @@
 package io.cryostat.recordings;
 
 import java.io.InputStream;
+import java.util.UUID;
 
 import io.cryostat.Producers;
 import io.cryostat.util.HttpMimeType;
@@ -56,7 +57,7 @@ public class ActiveRecordingsDownload {
                     format for that recording. The client can feed this data to other tooling which ingests the JFR
                     binary file format.
                     """)
-    public RestResponse<InputStream> handleActiveDownload(@RestPath long id) throws Exception {
+    public RestResponse<InputStream> handleActiveDownload(@RestPath UUID id) throws Exception {
         ActiveRecording recording = ActiveRecording.find("id", id).singleResult();
         return ResponseBuilder.<InputStream>ok()
                 .header(

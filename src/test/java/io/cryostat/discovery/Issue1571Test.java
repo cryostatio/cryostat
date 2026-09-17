@@ -15,20 +15,11 @@
  */
 package io.cryostat.discovery;
 
-import static io.restassured.RestAssured.given;
-
-import java.net.URI;
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 import io.cryostat.discovery.KubeEndpointSlicesDiscovery.KubeDiscoveryNodeType;
-import io.cryostat.targets.Target;
 
 import io.quarkus.test.junit.QuarkusTest;
-import io.restassured.http.ContentType;
-import io.restassured.path.json.JsonPath;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
 import jakarta.transaction.UserTransaction;
@@ -43,25 +34,19 @@ import org.junit.jupiter.api.Test;
  *
  * <p>This test simulates the bug where multiple Namespace nodes with the same name were created in
  * the database, causing GraphQL queries to return incomplete results due to Set deduplication based
- * on equals() method.
+ * on equals() method, and verifies that the V4.2.1 migration's deduplication logic correctly
+ * resolves the duplicates.
+ *
+ * <p>The V4.2.1 migration operates on a schema version where DiscoveryNode/Target ids are still
+ * BIGINT (the numeric->UUID conversion doesn't happen until V5.0.0). The current JPA entity classes
+ * (e.g. {@link DiscoveryNode}, {@link io.cryostat.targets.Target}) map their id fields as UUID to
+ * match the current/head schema, so they cannot be used to read or write rows while the database is
+ * pinned to this older, pre-UUID schema version - doing so would throw a type conversion error.
+ * This test therefore seeds and verifies data using raw SQL (native queries) matching the actual
+ * column types at each schema version under test, rather than going through Hibernate/Panache.
  */
 @QuarkusTest
 public class Issue1571Test {
-
-    private static final String GRAPHQL_QUERY =
-            """
-            query {
-              environmentNodes(filter: { nodeTypes: ["Namespace"]} ) {
-                name
-                nodeType
-                descendantTargets {
-                  target {
-                    alias
-                  }
-                }
-              }
-            }
-            """;
 
     @Inject EntityManager entityManager;
     @Inject Flyway flyway;
@@ -69,379 +54,284 @@ public class Issue1571Test {
 
     @Test
     public void testNamespaceDuplicationAndMigration() throws Exception {
-        // Step 0: Set up database with migrations up to V4.2.0 (before the fix)
+        // Step 0: Set up database with migrations up to V4.2.0 (before the dedup fix), where
+        // DiscoveryNode/Target ids are still BIGINT
         flyway.clean();
-        Flyway targetFlyway =
-                Flyway.configure()
-                        .configuration(flyway.getConfiguration())
-                        .target(MigrationVersion.fromVersion("4.2.0"))
-                        .load();
-        targetFlyway.migrate();
-        entityManager.clear();
+        Flyway.configure()
+                .configuration(flyway.getConfiguration())
+                .target(MigrationVersion.fromVersion("4.2.0"))
+                .load()
+                .migrate();
 
-        // Step 1: Simulate the bug by creating duplicate Namespace nodes
+        // Step 1: Simulate the bug by creating duplicate Namespace nodes via raw SQL, matching
+        // the BIGINT-id schema in effect at this migration version. This mimics what happened
+        // when multiple agents registered with KUBERNETES fill strategy.
         userTransaction.begin();
-        // This mimics what happened when multiple agents registered with KUBERNETES fill strategy
 
-        // Get the Universe node
-        DiscoveryNode universe = DiscoveryNode.getUniverse();
-        Assertions.assertNotNull(universe, "Universe node should exist");
+        long universeId =
+                ((Number)
+                                entityManager
+                                        .createNativeQuery(
+                                                "SELECT id FROM DiscoveryNode WHERE nodeType ="
+                                                        + " 'Universe'")
+                                        .getSingleResult())
+                        .longValue();
 
-        // Create two separate Realm nodes (simulating agent registrations)
-        DiscoveryNode realm1 = new DiscoveryNode();
-        realm1.name = "test-realm-1";
-        realm1.nodeType = "Realm";
-        realm1.labels = new HashMap<>();
-        realm1.children = new ArrayList<>();
-        realm1.parent = universe;
-        realm1.persist();
-
-        DiscoveryNode realm2 = new DiscoveryNode();
-        realm2.name = "test-realm-2";
-        realm2.nodeType = "Realm";
-        realm2.labels = new HashMap<>();
-        realm2.children = new ArrayList<>();
-        realm2.parent = universe;
-        realm2.persist();
+        long realm1Id = insertDiscoveryNode("test-realm-1", "Realm", universeId);
+        long realm2Id = insertDiscoveryNode("test-realm-2", "Realm", universeId);
 
         // Create DUPLICATE Namespace nodes with the same name (this is the bug)
-        DiscoveryNode namespace1 = new DiscoveryNode();
-        namespace1.name = "test-namespace";
-        namespace1.nodeType = KubeDiscoveryNodeType.NAMESPACE.getKind();
-        namespace1.labels = new HashMap<>();
-        namespace1.children = new ArrayList<>();
-        namespace1.parent = realm1;
-        namespace1.persist();
-
-        DiscoveryNode namespace2 = new DiscoveryNode();
-        namespace2.name = namespace1.name; // Same name!
-        namespace2.nodeType = KubeDiscoveryNodeType.NAMESPACE.getKind();
-        namespace2.labels = new HashMap<>();
-        namespace2.children = new ArrayList<>();
-        namespace2.parent = realm2;
-        namespace2.persist();
+        long namespace1Id =
+                insertDiscoveryNode(
+                        "test-namespace", KubeDiscoveryNodeType.NAMESPACE.getKind(), realm1Id);
+        long namespace2Id =
+                insertDiscoveryNode(
+                        "test-namespace", KubeDiscoveryNodeType.NAMESPACE.getKind(), realm2Id);
 
         // Create DUPLICATE Deployment nodes with the same name under each namespace
-        DiscoveryNode deployment1 = new DiscoveryNode();
-        deployment1.name = "test-deployment";
-        deployment1.nodeType = KubeDiscoveryNodeType.DEPLOYMENT.getKind();
-        deployment1.labels = new HashMap<>();
-        deployment1.children = new ArrayList<>();
-        deployment1.parent = namespace1;
-        deployment1.persist();
-
-        DiscoveryNode deployment2 = new DiscoveryNode();
-        deployment2.name = deployment1.name; // Same name!
-        deployment2.nodeType = KubeDiscoveryNodeType.DEPLOYMENT.getKind();
-        deployment2.labels = new HashMap<>();
-        deployment2.children = new ArrayList<>();
-        deployment2.parent = namespace2;
-        deployment2.persist();
+        long deployment1Id =
+                insertDiscoveryNode(
+                        "test-deployment",
+                        KubeDiscoveryNodeType.DEPLOYMENT.getKind(),
+                        namespace1Id);
+        long deployment2Id =
+                insertDiscoveryNode(
+                        "test-deployment",
+                        KubeDiscoveryNodeType.DEPLOYMENT.getKind(),
+                        namespace2Id);
 
         // Create DUPLICATE ReplicaSet nodes with the same name under each deployment
-        DiscoveryNode replicaSet1 = new DiscoveryNode();
-        replicaSet1.name = "test-replicaset";
-        replicaSet1.nodeType = KubeDiscoveryNodeType.REPLICASET.getKind();
-        replicaSet1.labels = new HashMap<>();
-        replicaSet1.children = new ArrayList<>();
-        replicaSet1.parent = deployment1;
-        replicaSet1.persist();
-
-        DiscoveryNode replicaSet2 = new DiscoveryNode();
-        replicaSet2.name = replicaSet1.name; // Same name!
-        replicaSet2.nodeType = KubeDiscoveryNodeType.REPLICASET.getKind();
-        replicaSet2.labels = new HashMap<>();
-        replicaSet2.children = new ArrayList<>();
-        replicaSet2.parent = deployment2;
-        replicaSet2.persist();
+        long replicaSet1Id =
+                insertDiscoveryNode(
+                        "test-replicaset",
+                        KubeDiscoveryNodeType.REPLICASET.getKind(),
+                        deployment1Id);
+        long replicaSet2Id =
+                insertDiscoveryNode(
+                        "test-replicaset",
+                        KubeDiscoveryNodeType.REPLICASET.getKind(),
+                        deployment2Id);
 
         // Create Pod nodes under each replicaset (different names since they're replicas)
-        DiscoveryNode pod1 = new DiscoveryNode();
-        pod1.name = "test-pod-1";
-        pod1.nodeType = KubeDiscoveryNodeType.POD.getKind();
-        pod1.labels = new HashMap<>();
-        pod1.children = new ArrayList<>();
-        pod1.parent = replicaSet1;
-        pod1.persist();
+        long pod1Id =
+                insertDiscoveryNode(
+                        "test-pod-1", KubeDiscoveryNodeType.POD.getKind(), replicaSet1Id);
+        long pod2Id =
+                insertDiscoveryNode(
+                        "test-pod-2", KubeDiscoveryNodeType.POD.getKind(), replicaSet2Id);
 
-        DiscoveryNode pod2 = new DiscoveryNode();
-        pod2.name = "test-pod-2";
-        pod2.nodeType = KubeDiscoveryNodeType.POD.getKind();
-        pod2.labels = new HashMap<>();
-        pod2.children = new ArrayList<>();
-        pod2.parent = replicaSet2;
-        pod2.persist();
+        // Create target nodes under each pod, and the Targets they represent
+        long targetNode1Id = insertDiscoveryNode("target-node-1", "JVM", pod1Id);
+        long targetNode2Id = insertDiscoveryNode("target-node-2", "JVM", pod2Id);
 
-        // Create target nodes under each pod
-        Target target1 = new Target();
-        target1.connectUrl = URI.create("service:jmx:rmi:///jndi/rmi://localhost:9091/jmxrmi");
-        target1.alias = "target1";
-        target1.labels = new HashMap<>();
-        target1.annotations = new Target.Annotations();
-
-        DiscoveryNode targetNode1 = new DiscoveryNode();
-        targetNode1.name = "target-node-1";
-        targetNode1.nodeType = "JVM";
-        targetNode1.labels = new HashMap<>();
-        targetNode1.children = new ArrayList<>();
-        targetNode1.parent = pod1;
-        targetNode1.target = target1;
-        target1.discoveryNode = targetNode1;
-        targetNode1.persist();
-        target1.persist();
-
-        Target target2 = new Target();
-        target2.connectUrl = URI.create("service:jmx:rmi:///jndi/rmi://localhost:9092/jmxrmi");
-        target2.alias = "target2";
-        target2.labels = new HashMap<>();
-        target2.annotations = new Target.Annotations();
-
-        DiscoveryNode targetNode2 = new DiscoveryNode();
-        targetNode2.name = "target-node-2";
-        targetNode2.nodeType = "JVM";
-        targetNode2.labels = new HashMap<>();
-        targetNode2.children = new ArrayList<>();
-        targetNode2.parent = pod2;
-        targetNode2.target = target2;
-        target2.discoveryNode = targetNode2;
-        targetNode2.persist();
-        target2.persist();
+        insertTarget(
+                "service:jmx:rmi:///jndi/rmi://localhost:9091/jmxrmi", "target1", targetNode1Id);
+        insertTarget(
+                "service:jmx:rmi:///jndi/rmi://localhost:9092/jmxrmi", "target2", targetNode2Id);
 
         entityManager.flush();
         userTransaction.commit();
-        entityManager.clear();
 
         // Step 2: Verify the bug exists - we have duplicate Namespace nodes
         userTransaction.begin();
-        List<DiscoveryNode> namespacesBefore =
-                DiscoveryNode.<DiscoveryNode>find(
-                                "nodeType = ?1 and name = ?2",
-                                KubeDiscoveryNodeType.NAMESPACE.getKind(),
-                                "test-namespace")
-                        .list();
 
+        long namespaceCountBefore =
+                ((Number)
+                                entityManager
+                                        .createNativeQuery(
+                                                "SELECT COUNT(*) FROM DiscoveryNode WHERE"
+                                                        + " nodeType = 'Namespace' AND name ="
+                                                        + " 'test-namespace'")
+                                        .getSingleResult())
+                        .longValue();
         Assertions.assertEquals(
                 2,
-                namespacesBefore.size(),
+                namespaceCountBefore,
                 "Should have 2 duplicate Namespace nodes before migration");
 
-        Long namespace1Id = namespace1.id;
-        Long namespace2Id = namespace2.id;
-        Long keepId = Math.min(namespace1Id, namespace2Id);
-        Long deleteId = Math.max(namespace1Id, namespace2Id);
+        long keepId = Math.min(namespace1Id, namespace2Id);
+        long deleteId = Math.max(namespace1Id, namespace2Id);
 
-        // Verify both targets exist
-        List<Target> targetsBefore = Target.listAll();
-        Assertions.assertEquals(2, targetsBefore.size(), "Should have 2 targets before migration");
-
-        // Verify the bug exists via GraphQL - should only return 1 target due to Set deduplication
-        JsonPath responseBefore =
-                given().contentType(ContentType.JSON)
-                        .body(Map.of("query", GRAPHQL_QUERY))
-                        .when()
-                        .post("/api/v4/graphql")
-                        .then()
-                        .statusCode(200)
-                        .extract()
-                        .jsonPath();
-
-        @SuppressWarnings("unchecked")
-        List<Map<String, Object>> environmentNodesBefore =
-                (List<Map<String, Object>>)
-                        (List<?>) responseBefore.getList("data.environmentNodes", Map.class);
-        Assertions.assertEquals(
-                1,
-                environmentNodesBefore.size(),
-                "GraphQL returns only 1 Namespace node before migration due to Set deduplication"
-                        + " (the bug)");
-
-        // Count total targets across all namespace nodes
-        int totalTargetsBefore = 0;
-        for (Map<String, Object> node : environmentNodesBefore) {
-            @SuppressWarnings("unchecked")
-            List<Map<String, Object>> descendants =
-                    (List<Map<String, Object>>) node.get("descendantTargets");
-            if (descendants != null) {
-                totalTargetsBefore += descendants.size();
-            }
-        }
-
-        Assertions.assertEquals(
-                1,
-                totalTargetsBefore,
-                "GraphQL should return only 1 target before migration (bug)");
+        long targetCountBefore =
+                ((Number)
+                                entityManager
+                                        .createNativeQuery("SELECT COUNT(*) FROM Target")
+                                        .getSingleResult())
+                        .longValue();
+        Assertions.assertEquals(2, targetCountBefore, "Should have 2 targets before migration");
 
         userTransaction.commit();
 
-        // Step 3: Run the V4.2.1 migration
-        flyway.migrate();
-        // Clear the EntityManager cache to ensure we're reading fresh data from the database
-        // after the migration has run
-        entityManager.clear();
-        // Also clear the Hibernate second-level cache if it exists
-        entityManager.getEntityManagerFactory().getCache().evictAll();
+        // Step 3: Run the V4.2.1 migration, which deduplicates k8s lineage DiscoveryNodes
+        Flyway.configure()
+                .configuration(flyway.getConfiguration())
+                .target(MigrationVersion.fromVersion("4.2.1"))
+                .load()
+                .migrate();
 
-        // Step 4: Verify the migration worked correctly
+        // Step 4: Verify the migration worked correctly, still using raw SQL since the schema is
+        // still BIGINT-based at V4.2.1 (the UUID conversion happens later, in V5.0.0)
         userTransaction.begin();
 
-        // Should now have only ONE Namespace node
-        List<DiscoveryNode> namespacesAfter =
-                DiscoveryNode.<DiscoveryNode>find(
-                                "nodeType = ?1 and name = ?2",
-                                KubeDiscoveryNodeType.NAMESPACE.getKind(),
-                                "test-namespace")
-                        .list();
-
+        List<Object[]> namespacesAfter =
+                entityManager
+                        .createNativeQuery(
+                                "SELECT id, parentNode FROM DiscoveryNode WHERE nodeType ="
+                                        + " 'Namespace' AND name = 'test-namespace'")
+                        .getResultList();
         Assertions.assertEquals(
                 1, namespacesAfter.size(), "Should have only 1 Namespace node after migration");
 
-        DiscoveryNode keptNamespace = namespacesAfter.get(0);
+        Object[] keptNamespace = namespacesAfter.get(0);
+        long keptNamespaceId = ((Number) keptNamespace[0]).longValue();
+        long keptNamespaceParentId = ((Number) keptNamespace[1]).longValue();
         Assertions.assertEquals(
-                keepId, keptNamespace.id, "Should keep the Namespace with the lowest ID");
+                keepId, keptNamespaceId, "Should keep the Namespace with the lowest ID");
 
-        // Verify the Namespace is now parented to KubernetesApi Realm
-        DiscoveryNode k8sRealm =
-                DiscoveryNode.getRealm(KubeEndpointSlicesDiscovery.REALM)
-                        .orElseThrow(
-                                () ->
-                                        new AssertionError(
-                                                "KubernetesApi realm should exist after"
-                                                        + " migration"));
-        Assertions.assertNotNull(
-                keptNamespace.parent, "Namespace should have a parent after migration");
+        long k8sRealmId =
+                ((Number)
+                                entityManager
+                                        .createNativeQuery(
+                                                "SELECT id FROM DiscoveryNode WHERE nodeType ="
+                                                        + " 'Realm' AND name = 'KubernetesApi'")
+                                        .getSingleResult())
+                        .longValue();
         Assertions.assertEquals(
-                k8sRealm.id,
-                keptNamespace.parent.id,
+                k8sRealmId,
+                keptNamespaceParentId,
                 "Namespace should be parented to KubernetesApi Realm after migration");
 
-        DiscoveryNode deletedNamespace = DiscoveryNode.findById(deleteId);
-        Assertions.assertNull(
-                deletedNamespace, "Duplicate Namespace node should have been deleted");
-
-        List<Target> targetsAfter = Target.listAll();
+        long deletedNamespaceCount =
+                ((Number)
+                                entityManager
+                                        .createNativeQuery(
+                                                "SELECT COUNT(*) FROM DiscoveryNode WHERE id = "
+                                                        + deleteId)
+                                        .getSingleResult())
+                        .longValue();
         Assertions.assertEquals(
-                2, targetsAfter.size(), "Should still have 2 targets after migration");
+                0, deletedNamespaceCount, "Duplicate Namespace node should have been deleted");
 
-        // Verify both target nodes now point to the kept namespace (through their pod parents)
-        DiscoveryNode targetNode1After = DiscoveryNode.findById(targetNode1.id);
-        DiscoveryNode targetNode2After = DiscoveryNode.findById(targetNode2.id);
+        long targetCountAfter =
+                ((Number)
+                                entityManager
+                                        .createNativeQuery("SELECT COUNT(*) FROM Target")
+                                        .getSingleResult())
+                        .longValue();
+        Assertions.assertEquals(2, targetCountAfter, "Should still have 2 targets after migration");
 
-        Assertions.assertNotNull(targetNode1After, "Target node 1 should still exist");
-        Assertions.assertNotNull(targetNode2After, "Target node 2 should still exist");
-
-        // Verify Deployment deduplication
-        List<DiscoveryNode> deploymentsAfter =
-                DiscoveryNode.<DiscoveryNode>find(
-                                "nodeType = ?1 and name = ?2",
-                                KubeDiscoveryNodeType.DEPLOYMENT.getKind(),
-                                "test-deployment")
-                        .list();
+        // Verify Deployment deduplication and re-parenting under the kept Namespace
+        List<Object[]> deploymentsAfter =
+                entityManager
+                        .createNativeQuery(
+                                "SELECT id, parentNode FROM DiscoveryNode WHERE nodeType ="
+                                        + " 'Deployment' AND name = 'test-deployment'")
+                        .getResultList();
         Assertions.assertEquals(
                 1, deploymentsAfter.size(), "Should have only 1 Deployment node after migration");
-        DiscoveryNode keptDeployment = deploymentsAfter.get(0);
+        Object[] keptDeployment = deploymentsAfter.get(0);
+        long keptDeploymentId = ((Number) keptDeployment[0]).longValue();
+        long keptDeploymentParentId = ((Number) keptDeployment[1]).longValue();
         Assertions.assertEquals(
-                keepId, keptDeployment.parent.id, "Deployment should be under the kept namespace");
+                keptNamespaceId,
+                keptDeploymentParentId,
+                "Deployment should be under the kept namespace");
 
-        // Verify ReplicaSet deduplication
-        List<DiscoveryNode> replicaSetsAfter =
-                DiscoveryNode.<DiscoveryNode>find(
-                                "nodeType = ?1 and name = ?2",
-                                KubeDiscoveryNodeType.REPLICASET.getKind(),
-                                "test-replicaset")
-                        .list();
+        // Verify ReplicaSet deduplication and re-parenting under the kept Deployment
+        List<Object[]> replicaSetsAfter =
+                entityManager
+                        .createNativeQuery(
+                                "SELECT id, parentNode FROM DiscoveryNode WHERE nodeType ="
+                                        + " 'ReplicaSet' AND name = 'test-replicaset'")
+                        .getResultList();
         Assertions.assertEquals(
                 1, replicaSetsAfter.size(), "Should have only 1 ReplicaSet node after migration");
-        DiscoveryNode keptReplicaSet = replicaSetsAfter.get(0);
+        Object[] keptReplicaSet = replicaSetsAfter.get(0);
+        long keptReplicaSetId = ((Number) keptReplicaSet[0]).longValue();
+        long keptReplicaSetParentId = ((Number) keptReplicaSet[1]).longValue();
         Assertions.assertEquals(
-                keptDeployment.id,
-                keptReplicaSet.parent.id,
+                keptDeploymentId,
+                keptReplicaSetParentId,
                 "ReplicaSet should be under the kept deployment");
 
         // Both pods should now be children of the kept replicaset
-        DiscoveryNode pod1After = DiscoveryNode.findById(pod1.id);
-        DiscoveryNode pod2After = DiscoveryNode.findById(pod2.id);
+        List<Object[]> podsAfter =
+                entityManager
+                        .createNativeQuery(
+                                "SELECT id, parentNode FROM DiscoveryNode WHERE nodeType = 'Pod'"
+                                        + " AND name IN ('test-pod-1', 'test-pod-2') ORDER BY"
+                                        + " name")
+                        .getResultList();
+        Assertions.assertEquals(2, podsAfter.size(), "Both pods should still exist");
+        for (Object[] pod : podsAfter) {
+            long podParentId = ((Number) pod[1]).longValue();
+            Assertions.assertEquals(
+                    keptReplicaSetId, podParentId, "Pod should now be under the kept replicaset");
+        }
 
-        Assertions.assertNotNull(pod1After, "Pod 1 should still exist");
-        Assertions.assertNotNull(pod2After, "Pod 2 should still exist");
+        // Verify we can still reach both target nodes, unaffected by the dedup (they were never
+        // duplicated), through their respective (now shared) pod->replicaset->deployment->
+        // namespace lineage
+        long targetNode1ParentPodId =
+                ((Number)
+                                entityManager
+                                        .createNativeQuery(
+                                                "SELECT parentNode FROM DiscoveryNode WHERE id = "
+                                                        + targetNode1Id)
+                                        .getSingleResult())
+                        .longValue();
+        long targetNode2ParentPodId =
+                ((Number)
+                                entityManager
+                                        .createNativeQuery(
+                                                "SELECT parentNode FROM DiscoveryNode WHERE id = "
+                                                        + targetNode2Id)
+                                        .getSingleResult())
+                        .longValue();
         Assertions.assertEquals(
-                keptReplicaSet.id,
-                pod1After.parent.id,
-                "Pod 1 should now be under the kept replicaset");
+                pod1Id, targetNode1ParentPodId, "Target node 1 should still be under pod 1");
         Assertions.assertEquals(
-                keptReplicaSet.id,
-                pod2After.parent.id,
-                "Pod 2 should now be under the kept replicaset");
-
-        // Verify the kept replicaset has both pods as children
-        DiscoveryNode keptReplicaSetWithChildren = DiscoveryNode.findById(keptReplicaSet.id);
-        Assertions.assertEquals(
-                2,
-                keptReplicaSetWithChildren.children.size(),
-                "Kept replicaset should have 2 children (both pods)");
-
-        // Verify we can query all descendant targets through the single namespace
-        DiscoveryNode keptNamespaceWithChildren = DiscoveryNode.findById(keepId);
-        List<DiscoveryNode> descendantTargets =
-                keptNamespaceWithChildren.children.stream() // Deployments
-                        .flatMap(deployment -> deployment.children.stream()) // ReplicaSets
-                        .flatMap(replicaSet -> replicaSet.children.stream()) // Pods
-                        .flatMap(pod -> pod.children.stream()) // Target nodes
-                        .filter(node -> node.target != null)
-                        .toList();
-
-        Assertions.assertEquals(
-                2,
-                descendantTargets.size(),
-                "Should be able to find both targets through the single namespace");
-
-        // Step 5: Verify GraphQL API also returns both targets
-        // This tests the actual API that users would call;
-        JsonPath response =
-                given().contentType(ContentType.JSON)
-                        .body(Map.of("query", GRAPHQL_QUERY))
-                        .when()
-                        .post("/api/v4/graphql")
-                        .then()
-                        .statusCode(200)
-                        .extract()
-                        .jsonPath();
-
-        // Verify we get exactly one Namespace node
-        @SuppressWarnings("unchecked")
-        List<Map<String, Object>> environmentNodes =
-                (List<Map<String, Object>>)
-                        (List<?>) response.getList("data.environmentNodes", Map.class);
-        Assertions.assertEquals(
-                1, environmentNodes.size(), "GraphQL should return exactly 1 Namespace node");
-
-        Map<String, Object> namespaceNode = environmentNodes.get(0);
-        Assertions.assertEquals(
-                "test-namespace", namespaceNode.get("name"), "Namespace name should match");
-        Assertions.assertEquals(
-                "Namespace", namespaceNode.get("nodeType"), "Node type should be Namespace");
-
-        // Verify we get both targets through descendantTargets
-        @SuppressWarnings("unchecked")
-        List<Map<String, Object>> descendantTargetsFromGraphQL =
-                (List<Map<String, Object>>) namespaceNode.get("descendantTargets");
-        Assertions.assertEquals(
-                2,
-                descendantTargetsFromGraphQL.size(),
-                "GraphQL should return both targets through descendantTargets");
-
-        // Verify the target aliases
-        List<String> aliases =
-                descendantTargetsFromGraphQL.stream()
-                        .map(dt -> (Map<String, Object>) dt.get("target"))
-                        .map(t -> (String) t.get("alias"))
-                        .sorted()
-                        .toList();
-
-        Assertions.assertEquals(
-                List.of("target1", "target2"),
-                aliases,
-                "Should have both target aliases in GraphQL response");
+                pod2Id, targetNode2ParentPodId, "Target node 2 should still be under pod 2");
 
         userTransaction.commit();
+
+        // Step 5: Migrate the schema the rest of the way to head (including the numeric->UUID
+        // conversion in V5.0.0) so that the shared test database is left in the state that the
+        // rest of the test suite expects. V5.0.0 truncates DiscoveryNode/Target entirely as part
+        // of the id conversion, so there is nothing left to assert about the data seeded above
+        // once this completes - this step exists purely to restore a consistent, current-schema
+        // database for whichever test runs next.
+        flyway.migrate();
+    }
+
+    private long insertDiscoveryNode(String name, String nodeType, long parentId) {
+        return ((Number)
+                        entityManager
+                                .createNativeQuery(
+                                        "INSERT INTO DiscoveryNode(id, labels, name, nodeType,"
+                                            + " parentNode) VALUES (nextval('DiscoveryNode_SEQ'),"
+                                            + " '{}'::jsonb, :name, :nodeType, :parentId) RETURNING"
+                                            + " id")
+                                .setParameter("name", name)
+                                .setParameter("nodeType", nodeType)
+                                .setParameter("parentId", parentId)
+                                .getSingleResult())
+                .longValue();
+    }
+
+    private long insertTarget(String connectUrl, String alias, long discoveryNodeId) {
+        return ((Number)
+                        entityManager
+                                .createNativeQuery(
+                                        "INSERT INTO Target(id, alias, annotations, connectUrl,"
+                                                + " labels, discoveryNode) VALUES"
+                                                + " (nextval('Target_SEQ'), :alias, '{}'::jsonb,"
+                                                + " convert_to(:connectUrl, 'UTF8'), '{}'::jsonb,"
+                                                + " :discoveryNodeId) RETURNING id")
+                                .setParameter("alias", alias)
+                                .setParameter("connectUrl", connectUrl)
+                                .setParameter("discoveryNodeId", discoveryNodeId)
+                                .getSingleResult())
+                .longValue();
     }
 }

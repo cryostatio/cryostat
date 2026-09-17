@@ -17,6 +17,8 @@ package io.cryostat.events;
 
 import static io.restassured.RestAssured.given;
 
+import java.util.UUID;
+
 import io.cryostat.AbstractTransactionalTestBase;
 import io.cryostat.resources.S3StorageResource;
 
@@ -32,7 +34,7 @@ public class TargetEventTemplatesTest extends AbstractTransactionalTestBase {
 
     @Test
     void testList() {
-        int id = defineSelfCustomTarget();
+        UUID id = defineSelfCustomTarget();
         given().log()
                 .all()
                 .when()
@@ -58,7 +60,7 @@ public class TargetEventTemplatesTest extends AbstractTransactionalTestBase {
 
     @Test
     void testGetInvalid() {
-        int id = defineSelfCustomTarget();
+        UUID id = defineSelfCustomTarget();
         given().log()
                 .all()
                 .when()
@@ -77,7 +79,7 @@ public class TargetEventTemplatesTest extends AbstractTransactionalTestBase {
 
     @Test
     void testGetNotFound() {
-        int id = defineSelfCustomTarget();
+        UUID id = defineSelfCustomTarget();
         given().log()
                 .all()
                 .when()
@@ -96,7 +98,7 @@ public class TargetEventTemplatesTest extends AbstractTransactionalTestBase {
 
     @Test
     void testGet() {
-        int id = defineSelfCustomTarget();
+        UUID id = defineSelfCustomTarget();
         given().log()
                 .all()
                 .when()
