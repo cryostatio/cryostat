@@ -15,7 +15,8 @@
  */
 package io.cryostat.jmcagent;
 
-import io.quarkus.hibernate.orm.panache.PanacheEntity;
+import io.cryostat.PanacheUuidEntity;
+
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
@@ -26,7 +27,7 @@ import org.hibernate.envers.Audited;
 @Entity
 @Audited
 @Table(uniqueConstraints = {@UniqueConstraint(columnNames = {"templateName"})})
-public class ProbeTemplate extends PanacheEntity {
+public class ProbeTemplate extends PanacheUuidEntity {
 
     @NotBlank public String templateName;
 
