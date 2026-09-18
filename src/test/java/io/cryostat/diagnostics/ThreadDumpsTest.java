@@ -25,11 +25,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 import io.cryostat.AbstractTransactionalTestBase;
-import io.cryostat.diagnostic.Diagnostics;
 import io.cryostat.resources.S3StorageResource;
 
 import io.quarkus.test.common.QuarkusTestResource;
-import io.quarkus.test.common.http.TestHTTPEndpoint;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
 import jakarta.websocket.DeploymentException;
@@ -38,7 +36,6 @@ import org.junit.jupiter.api.Test;
 
 @QuarkusTest
 @QuarkusTestResource(value = S3StorageResource.class, restrictToAnnotatedClass = true)
-@TestHTTPEndpoint(Diagnostics.class)
 public class ThreadDumpsTest extends AbstractTransactionalTestBase {
 
     @Test
@@ -47,8 +44,8 @@ public class ThreadDumpsTest extends AbstractTransactionalTestBase {
         given().log()
                 .all()
                 .when()
-                .pathParam("targetId", id)
-                .get("targets/{targetId}/threaddump")
+                .pathParam("jvmId", id.toString())
+                .get("/api/v5/targets/{jvmId}/diagnostics/threaddump")
                 .then()
                 .log()
                 .all()
@@ -63,6 +60,7 @@ public class ThreadDumpsTest extends AbstractTransactionalTestBase {
     public void testCreate()
             throws InterruptedException, IOException, DeploymentException, TimeoutException {
         final UUID targetId = defineSelfCustomTarget();
+        final String jvmId = targetId.toString();
         final String[] jobId = new String[1];
         final String[] threadDumpId = new String[1];
         try {
@@ -73,8 +71,9 @@ public class ThreadDumpsTest extends AbstractTransactionalTestBase {
                                         given().log()
                                                 .all()
                                                 .when()
-                                                .pathParam("targetId", targetId)
-                                                .post("targets/{targetId}/threaddump")
+                                                .pathParam("jvmId", jvmId)
+                                                .post(
+                                                        "/api/v5/targets/{jvmId}/diagnostics/threaddump")
                                                 .then()
                                                 .log()
                                                 .all()
@@ -107,9 +106,9 @@ public class ThreadDumpsTest extends AbstractTransactionalTestBase {
             given().log()
                     .all()
                     .when()
-                    .pathParam("targetId", targetId)
+                    .pathParam("jvmId", jvmId)
                     .pathParam("threadDumpId", threadDumpId[0])
-                    .delete("targets/{targetId}/threaddump/{threadDumpId}")
+                    .delete("/api/v5/targets/{jvmId}/diagnostics/threaddump/{threadDumpId}")
                     .then()
                     .log()
                     .all()
@@ -124,6 +123,7 @@ public class ThreadDumpsTest extends AbstractTransactionalTestBase {
             throws IOException, DeploymentException, InterruptedException, TimeoutException {
         // Check that creating a thread dump works as expected
         final UUID targetId = defineSelfCustomTarget();
+        final String jvmId = targetId.toString();
         final String[] jobId = new String[1];
         final String[] threadDumpId = new String[1];
 
@@ -134,8 +134,8 @@ public class ThreadDumpsTest extends AbstractTransactionalTestBase {
                                     given().log()
                                             .all()
                                             .when()
-                                            .pathParam("targetId", targetId)
-                                            .post("targets/{targetId}/threaddump")
+                                            .pathParam("jvmId", jvmId)
+                                            .post("/api/v5/targets/{jvmId}/diagnostics/threaddump")
                                             .then()
                                             .log()
                                             .all()
@@ -168,8 +168,8 @@ public class ThreadDumpsTest extends AbstractTransactionalTestBase {
         given().log()
                 .all()
                 .when()
-                .pathParam("targetId", targetId)
-                .get("targets/{targetId}/threaddump")
+                .pathParam("jvmId", jvmId)
+                .get("/api/v5/targets/{jvmId}/diagnostics/threaddump")
                 .then()
                 .log()
                 .all()
@@ -182,9 +182,9 @@ public class ThreadDumpsTest extends AbstractTransactionalTestBase {
         given().log()
                 .all()
                 .when()
-                .pathParam("targetId", targetId)
+                .pathParam("jvmId", jvmId)
                 .pathParam("threadDumpId", threadDumpId[0])
-                .delete("targets/{targetId}/threaddump/{threadDumpId}")
+                .delete("/api/v5/targets/{jvmId}/diagnostics/threaddump/{threadDumpId}")
                 .then()
                 .log()
                 .all()
@@ -196,8 +196,8 @@ public class ThreadDumpsTest extends AbstractTransactionalTestBase {
         given().log()
                 .all()
                 .when()
-                .pathParam("targetId", targetId)
-                .get("targets/{targetId}/threaddump")
+                .pathParam("jvmId", jvmId)
+                .get("/api/v5/targets/{jvmId}/diagnostics/threaddump")
                 .then()
                 .log()
                 .all()
@@ -212,14 +212,15 @@ public class ThreadDumpsTest extends AbstractTransactionalTestBase {
     public void testCreateAndDelete()
             throws InterruptedException, IOException, DeploymentException, TimeoutException {
         UUID id = defineSelfCustomTarget();
+        String jvmId = id.toString();
         Executors.newSingleThreadScheduledExecutor()
                 .schedule(
                         () -> {
                             given().log()
                                     .all()
                                     .when()
-                                    .pathParam("targetId", id)
-                                    .post("targets/{targetId}/threaddump")
+                                    .pathParam("jvmId", jvmId)
+                                    .post("/api/v5/targets/{jvmId}/diagnostics/threaddump")
                                     .then()
                                     .log()
                                     .all()
@@ -240,8 +241,8 @@ public class ThreadDumpsTest extends AbstractTransactionalTestBase {
                 given().log()
                         .all()
                         .when()
-                        .pathParam("targetId", id)
-                        .get("targets/{targetId}/threaddump")
+                        .pathParam("jvmId", jvmId)
+                        .get("/api/v5/targets/{jvmId}/diagnostics/threaddump")
                         .then()
                         .log()
                         .all()
@@ -261,9 +262,10 @@ public class ThreadDumpsTest extends AbstractTransactionalTestBase {
                             given().log()
                                     .all()
                                     .when()
-                                    .pathParam("targetId", id)
+                                    .pathParam("jvmId", jvmId)
                                     .pathParam("threadDumpId", threadDumpId)
-                                    .delete("targets/{targetId}/threaddump/{threadDumpId}")
+                                    .delete(
+                                            "/api/v5/targets/{jvmId}/diagnostics/threaddump/{threadDumpId}")
                                     .then()
                                     .log()
                                     .all()
@@ -287,12 +289,13 @@ public class ThreadDumpsTest extends AbstractTransactionalTestBase {
     @Test
     public void testAnalysis() throws InterruptedException, TimeoutException {
         UUID id = defineSelfCustomTarget();
+        String jvmId = id.toString();
 
         given().log()
                 .all()
                 .when()
-                .pathParam("targetId", id)
-                .post("targets/{targetId}/threaddump")
+                .pathParam("jvmId", jvmId)
+                .post("/api/v5/targets/{jvmId}/diagnostics/threaddump")
                 .then()
                 .log()
                 .all()
@@ -310,8 +313,8 @@ public class ThreadDumpsTest extends AbstractTransactionalTestBase {
                 given().log()
                         .all()
                         .when()
-                        .pathParam("targetId", id)
-                        .get("targets/{targetId}/threaddump")
+                        .pathParam("jvmId", jvmId)
+                        .get("/api/v5/targets/{jvmId}/diagnostics/threaddump")
                         .then()
                         .log()
                         .all()
@@ -324,14 +327,13 @@ public class ThreadDumpsTest extends AbstractTransactionalTestBase {
                         .jsonPath();
 
         var threadDumpId = listResponseJson.getString("[0].threadDumpId");
-        var jvmId = listResponseJson.getString("[0].jvmId");
 
         given().log()
                 .all()
                 .when()
                 .pathParam("jvmId", jvmId)
                 .pathParam("threadDumpId", threadDumpId)
-                .post("targets/{jvmId}/threaddump/{threadDumpId}/analyze")
+                .post("/api/v5/targets/{jvmId}/diagnostics/threaddump/{threadDumpId}/analyze")
                 .then()
                 .log()
                 .all()
@@ -342,9 +344,9 @@ public class ThreadDumpsTest extends AbstractTransactionalTestBase {
         given().log()
                 .all()
                 .when()
-                .pathParam("targetId", id)
+                .pathParam("jvmId", jvmId)
                 .pathParam("threadDumpId", threadDumpId)
-                .delete("targets/{targetId}/threaddump/{threadDumpId}")
+                .delete("/api/v5/targets/{jvmId}/diagnostics/threaddump/{threadDumpId}")
                 .then()
                 .log()
                 .all()
@@ -358,8 +360,8 @@ public class ThreadDumpsTest extends AbstractTransactionalTestBase {
         given().log()
                 .all()
                 .when()
-                .pathParam("targetId", UUID.randomUUID())
-                .get("targets/{targetId}/threaddump")
+                .pathParam("jvmId", UUID.randomUUID().toString())
+                .get("/api/v5/targets/{jvmId}/diagnostics/threaddump")
                 .then()
                 .log()
                 .all()
@@ -374,9 +376,9 @@ public class ThreadDumpsTest extends AbstractTransactionalTestBase {
         given().log()
                 .all()
                 .when()
-                .pathParam("targetId", id)
+                .pathParam("jvmId", id.toString())
                 .pathParam("threadDumpId", "foo")
-                .delete("targets/{targetId}/threaddump/{threadDumpId}")
+                .delete("/api/v5/targets/{jvmId}/diagnostics/threaddump/{threadDumpId}")
                 .then()
                 .log()
                 .all()
@@ -390,7 +392,7 @@ public class ThreadDumpsTest extends AbstractTransactionalTestBase {
         given().log()
                 .all()
                 .when()
-                .get("/api/beta/diagnostics/threaddump/download/abcd1234")
+                .get("/api/v5/diagnostics/threaddump/download/abcd1234")
                 .then()
                 .assertThat()
                 .statusCode(404);

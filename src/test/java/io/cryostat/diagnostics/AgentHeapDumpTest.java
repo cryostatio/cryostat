@@ -132,9 +132,9 @@ public class AgentHeapDumpTest extends AgentTestBase {
                 (List<?>)
                         given().log()
                                 .all()
-                                .pathParams("targetId", target.id())
+                                .pathParams("jvmId", target.jvmId())
                                 .when()
-                                .get("/api/beta/diagnostics/targets/{targetId}/heapdump")
+                                .get("/api/v5/targets/{jvmId}/diagnostics/heapdump")
                                 .then()
                                 .log()
                                 .all()
@@ -151,14 +151,14 @@ public class AgentHeapDumpTest extends AgentTestBase {
     @Test
     void testCreateListAndDeleteHeapDump()
             throws InterruptedException, ExecutionException, TimeoutException {
-        String targetId = target.id();
+        String jvmId = target.jvmId();
 
         String jobId =
                 given().log()
                         .all()
-                        .pathParams("targetId", targetId)
+                        .pathParams("jvmId", jvmId)
                         .when()
-                        .post("/api/beta/diagnostics/targets/{targetId}/heapdump")
+                        .post("/api/v5/targets/{jvmId}/diagnostics/heapdump")
                         .then()
                         .log()
                         .all()
@@ -194,9 +194,9 @@ public class AgentHeapDumpTest extends AgentTestBase {
         List<Map<String, Object>> heapDumps =
                 given().log()
                         .all()
-                        .pathParams("targetId", targetId)
+                        .pathParams("jvmId", jvmId)
                         .when()
-                        .get("/api/beta/diagnostics/targets/{targetId}/heapdump")
+                        .get("/api/v5/targets/{jvmId}/diagnostics/heapdump")
                         .then()
                         .log()
                         .all()
@@ -219,9 +219,9 @@ public class AgentHeapDumpTest extends AgentTestBase {
 
         given().log()
                 .all()
-                .pathParams("targetId", targetId, "heapDumpId", heapDumpId)
+                .pathParams("jvmId", jvmId, "heapDumpId", heapDumpId)
                 .when()
-                .delete("/api/beta/diagnostics/targets/{targetId}/heapdump/{heapDumpId}")
+                .delete("/api/v5/targets/{jvmId}/diagnostics/heapdump/{heapDumpId}")
                 .then()
                 .log()
                 .all()
@@ -235,14 +235,14 @@ public class AgentHeapDumpTest extends AgentTestBase {
     @Test
     void testCreateListAndAnalyzeHeapDump()
             throws InterruptedException, ExecutionException, TimeoutException {
-        String targetId = target.id();
+        String jvmId = target.jvmId();
 
         String jobId =
                 given().log()
                         .all()
-                        .pathParams("targetId", targetId)
+                        .pathParams("jvmId", jvmId)
                         .when()
-                        .post("/api/beta/diagnostics/targets/{targetId}/heapdump")
+                        .post("/api/v5/targets/{jvmId}/diagnostics/heapdump")
                         .then()
                         .log()
                         .all()
@@ -278,9 +278,9 @@ public class AgentHeapDumpTest extends AgentTestBase {
         List<Map<String, Object>> heapDumps =
                 given().log()
                         .all()
-                        .pathParams("targetId", targetId)
+                        .pathParams("jvmId", jvmId)
                         .when()
-                        .get("/api/beta/diagnostics/targets/{targetId}/heapdump")
+                        .get("/api/v5/targets/{jvmId}/diagnostics/heapdump")
                         .then()
                         .log()
                         .all()
@@ -296,7 +296,7 @@ public class AgentHeapDumpTest extends AgentTestBase {
                         .getList("$");
 
         String heapDumpId = (String) heapDumps.get(0).get("heapDumpId");
-        String jvmId = (String) heapDumps.get(0).get("jvmId");
+        String responseJvmId = (String) heapDumps.get(0).get("jvmId");
         MatcherAssert.assertThat(heapDumpId, Matchers.equalTo(notificationHeapDumpId));
         MatcherAssert.assertThat(heapDumps.get(0).get("jvmId"), Matchers.equalTo(target.jvmId()));
         MatcherAssert.assertThat(
@@ -305,9 +305,9 @@ public class AgentHeapDumpTest extends AgentTestBase {
         var analysisJobId =
                 given().log()
                         .all()
-                        .pathParams("jvmId", jvmId, "heapDumpId", heapDumpId)
+                        .pathParams("jvmId", responseJvmId, "heapDumpId", heapDumpId)
                         .when()
-                        .post("/api/beta/diagnostics/targets/{jvmId}/heapdump/{heapDumpId}/analyze")
+                        .post("/api/v5/targets/{jvmId}/diagnostics/heapdump/{heapDumpId}/analyze")
                         .then()
                         .log()
                         .all()
@@ -326,9 +326,9 @@ public class AgentHeapDumpTest extends AgentTestBase {
         Response r =
                 given().log()
                         .all()
-                        .pathParams("jvmId", jvmId, "heapDumpId", heapDumpId)
+                        .pathParams("jvmId", responseJvmId, "heapDumpId", heapDumpId)
                         .when()
-                        .post("/api/beta/diagnostics/targets/{jvmId}/heapdump/{heapDumpId}/analyze")
+                        .post("/api/v5/targets/{jvmId}/diagnostics/heapdump/{heapDumpId}/analyze")
                         .then()
                         .log()
                         .all()
@@ -344,14 +344,14 @@ public class AgentHeapDumpTest extends AgentTestBase {
     @Test
     void testCreateMultipleHeapDumps()
             throws InterruptedException, ExecutionException, TimeoutException {
-        String targetId = target.id();
+        String jvmId = target.jvmId();
 
         String jobId1 =
                 given().log()
                         .all()
-                        .pathParams("targetId", targetId)
+                        .pathParams("jvmId", jvmId)
                         .when()
-                        .post("/api/beta/diagnostics/targets/{targetId}/heapdump")
+                        .post("/api/v5/targets/{jvmId}/diagnostics/heapdump")
                         .then()
                         .log()
                         .all()
@@ -376,9 +376,9 @@ public class AgentHeapDumpTest extends AgentTestBase {
         String jobId2 =
                 given().log()
                         .all()
-                        .pathParams("targetId", targetId)
+                        .pathParams("jvmId", jvmId)
                         .when()
-                        .post("/api/beta/diagnostics/targets/{targetId}/heapdump")
+                        .post("/api/v5/targets/{jvmId}/diagnostics/heapdump")
                         .then()
                         .log()
                         .all()
@@ -402,9 +402,9 @@ public class AgentHeapDumpTest extends AgentTestBase {
 
         given().log()
                 .all()
-                .pathParams("targetId", targetId)
+                .pathParams("jvmId", jvmId)
                 .when()
-                .get("/api/beta/diagnostics/targets/{targetId}/heapdump")
+                .get("/api/v5/targets/{jvmId}/diagnostics/heapdump")
                 .then()
                 .log()
                 .all()
@@ -419,9 +419,9 @@ public class AgentHeapDumpTest extends AgentTestBase {
     void testDeleteNonExistentHeapDump() {
         given().log()
                 .all()
-                .pathParams("targetId", target.id(), "heapDumpId", "nonexistent")
+                .pathParams("jvmId", target.jvmId(), "heapDumpId", "nonexistent")
                 .when()
-                .delete("/api/beta/diagnostics/targets/{targetId}/heapdump/{heapDumpId}")
+                .delete("/api/v5/targets/{jvmId}/diagnostics/heapdump/{heapDumpId}")
                 .then()
                 .log()
                 .all()
@@ -436,7 +436,7 @@ public class AgentHeapDumpTest extends AgentTestBase {
                 .all()
                 .pathParams("jvmId", target.jvmId(), "heapDumpId", "nonexistent")
                 .when()
-                .post("/api/beta/diagnostics/targets/{jvmId}/heapdump/{heapDumpId}/analyze")
+                .post("/api/v5/targets/{jvmId}/diagnostics/heapdump/{heapDumpId}/analyze")
                 .then()
                 .log()
                 .all()
@@ -449,9 +449,9 @@ public class AgentHeapDumpTest extends AgentTestBase {
     void testListHeapDumpsForNonExistentTarget() {
         given().log()
                 .all()
-                .pathParams("targetId", UUID.randomUUID())
+                .pathParams("jvmId", UUID.randomUUID().toString())
                 .when()
-                .get("/api/beta/diagnostics/targets/{targetId}/heapdump")
+                .get("/api/v5/targets/{jvmId}/diagnostics/heapdump")
                 .then()
                 .log()
                 .all()
@@ -464,9 +464,9 @@ public class AgentHeapDumpTest extends AgentTestBase {
     void testCreateHeapDumpForNonExistentTarget() {
         given().log()
                 .all()
-                .pathParams("targetId", UUID.randomUUID())
+                .pathParams("jvmId", UUID.randomUUID().toString())
                 .when()
-                .post("/api/beta/diagnostics/targets/{targetId}/heapdump")
+                .post("/api/v5/targets/{jvmId}/diagnostics/heapdump")
                 .then()
                 .log()
                 .all()
@@ -477,14 +477,14 @@ public class AgentHeapDumpTest extends AgentTestBase {
 
     @Test
     void testListAllHeapDumps() throws InterruptedException, ExecutionException, TimeoutException {
-        String targetId = target.id();
+        String jvmId = target.jvmId();
 
         String jobId =
                 given().log()
                         .all()
-                        .pathParams("targetId", targetId)
+                        .pathParams("jvmId", jvmId)
                         .when()
-                        .post("/api/beta/diagnostics/targets/{targetId}/heapdump")
+                        .post("/api/v5/targets/{jvmId}/diagnostics/heapdump")
                         .then()
                         .log()
                         .all()
@@ -526,14 +526,14 @@ public class AgentHeapDumpTest extends AgentTestBase {
     @Test
     @Disabled
     void testGraphQLListHeapDumps() throws Exception {
-        String targetId = target.id();
+        String jvmId = target.jvmId();
 
         String jobId =
                 given().log()
                         .all()
-                        .pathParams("targetId", targetId)
+                        .pathParams("jvmId", jvmId)
                         .when()
-                        .post("/api/beta/diagnostics/targets/{targetId}/heapdump")
+                        .post("/api/v5/targets/{jvmId}/diagnostics/heapdump")
                         .then()
                         .log()
                         .all()
@@ -566,7 +566,7 @@ public class AgentHeapDumpTest extends AgentTestBase {
         assertThat(notificationJvmId, equalTo(target.jvmId()));
         assertThat(notificationHeapDumpId, notNullValue());
 
-        var variables = Map.<String, Object>of("targetIds", List.of(targetId));
+        var variables = Map.<String, Object>of("targetIds", List.of(target.id()));
         Response resp =
                 given().basePath("/")
                         .body(

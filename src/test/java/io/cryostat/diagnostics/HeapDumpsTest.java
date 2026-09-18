@@ -20,11 +20,9 @@ import static io.restassured.RestAssured.given;
 import java.util.UUID;
 
 import io.cryostat.AbstractTransactionalTestBase;
-import io.cryostat.diagnostic.Diagnostics;
 import io.cryostat.resources.S3StorageResource;
 
 import io.quarkus.test.common.QuarkusTestResource;
-import io.quarkus.test.common.http.TestHTTPEndpoint;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
 import org.hamcrest.Matchers;
@@ -32,7 +30,6 @@ import org.junit.jupiter.api.Test;
 
 @QuarkusTest
 @QuarkusTestResource(value = S3StorageResource.class, restrictToAnnotatedClass = true)
-@TestHTTPEndpoint(Diagnostics.class)
 public class HeapDumpsTest extends AbstractTransactionalTestBase {
 
     @Test
@@ -41,8 +38,8 @@ public class HeapDumpsTest extends AbstractTransactionalTestBase {
         given().log()
                 .all()
                 .when()
-                .pathParam("targetId", id)
-                .get("targets/{targetId}/heapdump")
+                .pathParam("jvmId", id)
+                .get("/api/v5/targets/{jvmId}/diagnostics/heapdump")
                 .then()
                 .log()
                 .all()
@@ -58,8 +55,8 @@ public class HeapDumpsTest extends AbstractTransactionalTestBase {
         given().log()
                 .all()
                 .when()
-                .pathParam("targetId", UUID.randomUUID())
-                .get("targets/{targetId}/heapdump")
+                .pathParam("jvmId", UUID.randomUUID())
+                .get("/api/v5/targets/{jvmId}/diagnostics/heapdump")
                 .then()
                 .log()
                 .all()
@@ -74,9 +71,9 @@ public class HeapDumpsTest extends AbstractTransactionalTestBase {
         given().log()
                 .all()
                 .when()
-                .pathParam("targetId", id)
+                .pathParam("jvmId", id)
                 .pathParam("heapDumpId", "foo")
-                .delete("targets/{targetId}/heapdump/{heapDumpId}")
+                .delete("/api/v5/targets/{jvmId}/diagnostics/heapdump/{heapDumpId}")
                 .then()
                 .log()
                 .all()
@@ -90,7 +87,7 @@ public class HeapDumpsTest extends AbstractTransactionalTestBase {
         given().log()
                 .all()
                 .when()
-                .get("/api/beta/diagnostics/heapdump/download/abcd1234")
+                .get("/api/v5/diagnostics/heapdump/download/abcd1234")
                 .then()
                 .assertThat()
                 .statusCode(404);
@@ -114,7 +111,7 @@ public class HeapDumpsTest extends AbstractTransactionalTestBase {
                 .when()
                 .pathParam("jvmId", "bar")
                 .pathParam("heapDumpId", "foo")
-                .post("targets/{jvmId}/heapdump/{heapDumpId}/analyze")
+                .post("/api/v5/targets/{jvmId}/diagnostics/heapdump/{heapDumpId}/analyze")
                 .then()
                 .assertThat()
                 .statusCode(404);

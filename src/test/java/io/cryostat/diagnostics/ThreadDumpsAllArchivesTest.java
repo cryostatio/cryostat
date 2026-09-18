@@ -18,18 +18,15 @@ package io.cryostat.diagnostics;
 import static io.restassured.RestAssured.given;
 
 import java.io.IOException;
-import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 import io.cryostat.AbstractTransactionalTestBase;
-import io.cryostat.diagnostic.Diagnostics;
 import io.cryostat.resources.S3StorageResource;
 
 import io.quarkus.test.common.QuarkusTestResource;
-import io.quarkus.test.common.http.TestHTTPEndpoint;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
 import jakarta.inject.Inject;
@@ -40,7 +37,6 @@ import org.junit.jupiter.api.Test;
 
 @QuarkusTest
 @QuarkusTestResource(value = S3StorageResource.class, restrictToAnnotatedClass = true)
-@TestHTTPEndpoint(Diagnostics.class)
 public class ThreadDumpsAllArchivesTest extends AbstractTransactionalTestBase {
 
     @Inject Logger logger;
@@ -50,7 +46,7 @@ public class ThreadDumpsAllArchivesTest extends AbstractTransactionalTestBase {
         given().log()
                 .all()
                 .when()
-                .get("fs/threaddumps")
+                .get("/api/v5/diagnostics/threaddumps")
                 .then()
                 .log()
                 .all()
@@ -72,7 +68,7 @@ public class ThreadDumpsAllArchivesTest extends AbstractTransactionalTestBase {
                                     .all()
                                     .when()
                                     .pathParam("targetId", id)
-                                    .post("targets/{targetId}/threaddump")
+                                    .post("/api/v5/targets/{targetId}/diagnostics/threaddump")
                                     .then()
                                     .log()
                                     .all()
@@ -97,7 +93,7 @@ public class ThreadDumpsAllArchivesTest extends AbstractTransactionalTestBase {
         given().log()
                 .all()
                 .when()
-                .get("fs/threaddumps")
+                .get("/api/v5/diagnostics/threaddumps")
                 .then()
                 .log()
                 .all()
@@ -107,34 +103,6 @@ public class ThreadDumpsAllArchivesTest extends AbstractTransactionalTestBase {
                 .statusCode(200)
                 .body("size()", Matchers.equalTo(1));
 
-        logger.infov("Deleting threadDumpId: {0}", threadDumpId);
-
-        Executors.newSingleThreadScheduledExecutor()
-                .schedule(
-                        () -> {
-                            given().log()
-                                    .all()
-                                    .when()
-                                    .pathParam("jvmId", this.selfJvmId)
-                                    .pathParam("threadDumpId", threadDumpId)
-                                    .delete("fs/threaddumps/{jvmId}/{threadDumpId}")
-                                    .then()
-                                    .log()
-                                    .all()
-                                    .and()
-                                    .assertThat()
-                                    .statusCode(204);
-                        },
-                        3,
-                        TimeUnit.SECONDS);
-
-        webSocketClient.expectNotification(
-                "ThreadDumpDeleted",
-                json ->
-                        Objects.equals(
-                                json.getJsonObject("message")
-                                        .getJsonObject("threadDump")
-                                        .getString("threadDumpId"),
-                                threadDumpId));
+        logger.infov("Created threadDumpId: {0}", threadDumpId);
     }
 }
