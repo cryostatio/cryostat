@@ -12,7 +12,7 @@ type ActiveRecording {
   "URL for GET request to retrieve the JFR binary file content of this recording"
   downloadUrl: String
   duration: BigInteger!
-  id: BigInteger
+  id: String!
   maxAge: BigInteger!
   maxSize: BigInteger!
   metadata: Metadata!
@@ -91,7 +91,7 @@ type DiscoveryNode {
   children: [DiscoveryNode]
   "Get target nodes that are descendants of this node. That is, get the set of leaf nodes from anywhere below this node's subtree."
   descendantTargets(filter: DiscoveryNodeFilterInput): [DiscoveryNode]
-  id: BigInteger
+  id: String!
   labels(
     "Get entry/entries for a certain key/s"
     key: [String]
@@ -312,7 +312,7 @@ type Target {
   doStartRecording(recording: RecordingSettingsInput!): ActiveRecording
   "Retrieve a list of heap dumps belonging to the target"
   heapDumps(filter: HeapDumpsFilterInput): HeapDumps
-  id: BigInteger
+  id: String!
   jvmId: String
   labels(
     "Get entry/entries for a certain key/s"
@@ -424,16 +424,16 @@ input DiscoveryNodeFilterInput {
   alias: String
   aliases: [String]
   annotations: [String]
-  id: BigInteger
-  ids: [BigInteger]
+  id: String
+  ids: [String]
   jvmId: String
   jvmIds: [String]
   labels: [String]
   name: String
   names: [String]
   nodeTypes: [String]
-  targetId: BigInteger
-  targetIds: [BigInteger]
+  targetId: String
+  targetIds: [String]
 }
 
 input Entry_String_StringInput {

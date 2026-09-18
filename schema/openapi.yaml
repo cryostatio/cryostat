@@ -240,8 +240,7 @@ components:
     Credential:
       properties:
         id:
-          format: int64
-          type: integer
+          $ref: '#/components/schemas/UUID'
         matchExpression:
           $ref: '#/components/schemas/MatchExpression'
         password:
@@ -253,6 +252,7 @@ components:
           type: string
           writeOnly: true
       required:
+        - id
         - matchExpression
         - username
         - password
@@ -260,8 +260,7 @@ components:
     CredentialMatchResult:
       properties:
         id:
-          format: int64
-          type: integer
+          $ref: '#/components/schemas/UUID'
         matchExpression:
           $ref: '#/components/schemas/MatchExpression'
         targets:
@@ -330,8 +329,7 @@ components:
             $ref: '#/components/schemas/DiscoveryNode'
           type: array
         id:
-          format: int64
-          type: integer
+          $ref: '#/components/schemas/UUID'
         labels:
           additionalProperties:
             type: string
@@ -345,6 +343,7 @@ components:
         target:
           $ref: '#/components/schemas/Target'
       required:
+        - id
         - name
         - nodeType
         - labels
@@ -352,8 +351,7 @@ components:
     DiscoveryNode_Flat:
       properties:
         id:
-          format: int64
-          type: integer
+          $ref: '#/components/schemas/UUID'
         labels:
           additionalProperties:
             type: string
@@ -367,6 +365,7 @@ components:
         target:
           $ref: '#/components/schemas/Target_Flat'
       required:
+        - id
         - name
         - nodeType
         - labels
@@ -567,8 +566,7 @@ components:
           format: int64
           type: integer
         id:
-          format: int64
-          type: integer
+          $ref: '#/components/schemas/UUID'
         maxAge:
           format: int64
           type: integer
@@ -620,12 +618,12 @@ components:
     MatchExpression:
       properties:
         id:
-          format: int64
-          type: integer
+          $ref: '#/components/schemas/UUID'
         script:
           pattern: \S
           type: string
       required:
+        - id
         - script
       type: object
     MatchedExpression:
@@ -633,8 +631,7 @@ components:
         expression:
           type: string
         id:
-          format: int64
-          type: integer
+          $ref: '#/components/schemas/UUID'
         targets:
           items:
             $ref: '#/components/schemas/Target'
@@ -760,8 +757,9 @@ components:
           type: string
         targetIds:
           items:
-            format: int64
-            type: integer
+            format: uuid
+            pattern: '[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}'
+            type: string
           type: array
       type: object
     RevisionDetail:
@@ -815,8 +813,7 @@ components:
           pattern: \S
           type: string
         id:
-          format: int64
-          type: integer
+          $ref: '#/components/schemas/UUID'
         initialDelaySeconds:
           format: int32
           minimum: 0
@@ -841,6 +838,7 @@ components:
           minimum: 0
           type: integer
       required:
+        - id
         - name
         - description
         - matchExpression
@@ -958,8 +956,7 @@ components:
           format: uri
           type: string
         id:
-          format: int64
-          type: integer
+          $ref: '#/components/schemas/UUID'
         jvmId:
           type: string
         labels:
@@ -967,6 +964,7 @@ components:
             type: string
           type: object
       required:
+        - id
         - connectUrl
         - alias
         - labels
@@ -1002,8 +1000,7 @@ components:
           format: uri
           type: string
         id:
-          format: int64
-          type: integer
+          $ref: '#/components/schemas/UUID'
         jvmId:
           type: string
         labels:
@@ -1011,6 +1008,7 @@ components:
             type: string
           type: object
       required:
+        - id
         - connectUrl
         - alias
         - labels
@@ -1640,8 +1638,7 @@ paths:
           name: targetId
           required: true
           schema:
-            format: int64
-            type: integer
+            $ref: '#/components/schemas/UUID'
       responses:
         "201":
           description: Created
@@ -1661,8 +1658,7 @@ paths:
           name: targetId
           required: true
           schema:
-            format: int64
-            type: integer
+            $ref: '#/components/schemas/UUID'
       responses:
         "200":
           content:
@@ -1689,8 +1685,7 @@ paths:
           name: targetId
           required: true
           schema:
-            format: int64
-            type: integer
+            $ref: '#/components/schemas/UUID'
       requestBody:
         content:
           application/json:
@@ -1727,8 +1722,7 @@ paths:
           name: targetId
           required: true
           schema:
-            format: int64
-            type: integer
+            $ref: '#/components/schemas/UUID'
       responses:
         "204":
           description: No Content
@@ -1748,8 +1742,7 @@ paths:
           name: targetId
           required: true
           schema:
-            format: int64
-            type: integer
+            $ref: '#/components/schemas/UUID'
       responses:
         "200":
           content:
@@ -1774,8 +1767,7 @@ paths:
           name: targetId
           required: true
           schema:
-            format: int64
-            type: integer
+            $ref: '#/components/schemas/UUID'
         - in: query
           name: format
           schema:
@@ -1812,8 +1804,7 @@ paths:
           name: targetId
           required: true
           schema:
-            format: int64
-            type: integer
+            $ref: '#/components/schemas/UUID'
         - in: path
           name: threadDumpId
           required: true
@@ -1838,8 +1829,7 @@ paths:
           name: targetId
           required: true
           schema:
-            format: int64
-            type: integer
+            $ref: '#/components/schemas/UUID'
       responses:
         "204":
           description: No Content
@@ -1858,8 +1848,7 @@ paths:
           name: targetId
           required: true
           schema:
-            format: int64
-            type: integer
+            $ref: '#/components/schemas/UUID'
       responses:
         "200":
           content:
@@ -1882,8 +1871,7 @@ paths:
           name: targetId
           required: true
           schema:
-            format: int64
-            type: integer
+            $ref: '#/components/schemas/UUID'
         - in: query
           name: decorators
           schema:
@@ -1914,8 +1902,7 @@ paths:
           name: targetId
           required: true
           schema:
-            format: int64
-            type: integer
+            $ref: '#/components/schemas/UUID'
         - in: query
           name: decorators
           schema:
@@ -1947,8 +1934,7 @@ paths:
           name: targetId
           required: true
           schema:
-            format: int64
-            type: integer
+            $ref: '#/components/schemas/UUID'
       responses:
         "200":
           content:
@@ -1972,8 +1958,7 @@ paths:
           name: targetId
           required: true
           schema:
-            format: int64
-            type: integer
+            $ref: '#/components/schemas/UUID'
       responses:
         "200":
           content:
@@ -2004,8 +1989,7 @@ paths:
           name: targetId
           required: true
           schema:
-            format: int64
-            type: integer
+            $ref: '#/components/schemas/UUID'
       responses:
         "204":
           description: No Content
@@ -2029,8 +2013,7 @@ paths:
           name: targetId
           required: true
           schema:
-            format: int64
-            type: integer
+            $ref: '#/components/schemas/UUID'
         - in: query
           name: filename
           schema:
@@ -2061,8 +2044,7 @@ paths:
           name: targetId
           required: true
           schema:
-            format: int64
-            type: integer
+            $ref: '#/components/schemas/UUID'
       requestBody:
         content:
           application/json:
@@ -2551,8 +2533,7 @@ paths:
           name: targetId
           required: true
           schema:
-            format: int64
-            type: integer
+            $ref: '#/components/schemas/UUID'
       responses:
         "200":
           content:
@@ -2577,8 +2558,7 @@ paths:
           name: targetId
           required: true
           schema:
-            format: int64
-            type: integer
+            $ref: '#/components/schemas/UUID'
       requestBody:
         content:
           application/json:
@@ -2610,8 +2590,7 @@ paths:
           name: targetId
           required: true
           schema:
-            format: int64
-            type: integer
+            $ref: '#/components/schemas/UUID'
       responses:
         "200":
           content:
@@ -2640,8 +2619,7 @@ paths:
           name: targetId
           required: true
           schema:
-            format: int64
-            type: integer
+            $ref: '#/components/schemas/UUID'
       responses:
         "204":
           description: No Content
@@ -2665,8 +2643,7 @@ paths:
           name: targetId
           required: true
           schema:
-            format: int64
-            type: integer
+            $ref: '#/components/schemas/UUID'
       responses:
         "200":
           content:
@@ -2691,8 +2668,7 @@ paths:
           name: targetId
           required: true
           schema:
-            format: int64
-            type: integer
+            $ref: '#/components/schemas/UUID'
       responses:
         "200":
           content:
@@ -2723,8 +2699,7 @@ paths:
           name: targetId
           required: true
           schema:
-            format: int64
-            type: integer
+            $ref: '#/components/schemas/UUID'
       requestBody:
         content:
           application/x-www-form-urlencoded:
@@ -2761,8 +2736,7 @@ paths:
           name: targetId
           required: true
           schema:
-            format: int64
-            type: integer
+            $ref: '#/components/schemas/UUID'
         - in: path
           name: uuid
           required: true
@@ -2868,8 +2842,7 @@ paths:
           name: targetId
           required: true
           schema:
-            format: int64
-            type: integer
+            $ref: '#/components/schemas/UUID'
       responses:
         "200":
           content:
@@ -2899,8 +2872,7 @@ paths:
           name: targetId
           required: true
           schema:
-            format: int64
-            type: integer
+            $ref: '#/components/schemas/UUID'
         - in: query
           name: clean
           schema:
@@ -3005,8 +2977,7 @@ paths:
           name: targetId
           required: true
           schema:
-            format: int64
-            type: integer
+            $ref: '#/components/schemas/UUID'
       responses:
         "204":
           description: Active recordings synchronized
@@ -3031,8 +3002,7 @@ paths:
           name: id
           required: true
           schema:
-            format: int64
-            type: integer
+            $ref: '#/components/schemas/UUID'
       responses:
         "200":
           content:
@@ -3137,8 +3107,7 @@ paths:
           name: targetId
           required: true
           schema:
-            format: int64
-            type: integer
+            $ref: '#/components/schemas/UUID'
       requestBody:
         content:
           application/x-www-form-urlencoded:
@@ -3175,8 +3144,7 @@ paths:
           name: id
           required: true
           schema:
-            format: int64
-            type: integer
+            $ref: '#/components/schemas/UUID'
       responses:
         "204":
           description: No Content
@@ -3199,8 +3167,7 @@ paths:
           name: id
           required: true
           schema:
-            format: int64
-            type: integer
+            $ref: '#/components/schemas/UUID'
       responses:
         "200":
           content:
@@ -3726,8 +3693,7 @@ paths:
           name: id
           required: true
           schema:
-            format: int64
-            type: integer
+            $ref: '#/components/schemas/UUID'
       responses:
         "200":
           content:
@@ -4259,8 +4225,7 @@ paths:
           name: id
           required: true
           schema:
-            format: int64
-            type: integer
+            $ref: '#/components/schemas/UUID'
       responses:
         "204":
           description: No Content
@@ -4281,8 +4246,7 @@ paths:
           name: id
           required: true
           schema:
-            format: int64
-            type: integer
+            $ref: '#/components/schemas/UUID'
       responses:
         "200":
           content:
@@ -4310,8 +4274,7 @@ paths:
           name: id
           required: true
           schema:
-            format: int64
-            type: integer
+            $ref: '#/components/schemas/UUID'
       responses:
         "200":
           content:
@@ -4339,8 +4302,7 @@ paths:
           name: id
           required: true
           schema:
-            format: int64
-            type: integer
+            $ref: '#/components/schemas/UUID'
         - in: path
           name: templateName
           required: true
@@ -4379,8 +4341,7 @@ paths:
           name: id
           required: true
           schema:
-            format: int64
-            type: integer
+            $ref: '#/components/schemas/UUID'
         - in: query
           name: q
           schema:
@@ -4410,8 +4371,7 @@ paths:
           name: id
           required: true
           schema:
-            format: int64
-            type: integer
+            $ref: '#/components/schemas/UUID'
       responses:
         "204":
           description: No Content
@@ -4430,8 +4390,7 @@ paths:
           name: id
           required: true
           schema:
-            format: int64
-            type: integer
+            $ref: '#/components/schemas/UUID'
       responses:
         "200":
           content:
@@ -4459,8 +4418,7 @@ paths:
           name: id
           required: true
           schema:
-            format: int64
-            type: integer
+            $ref: '#/components/schemas/UUID'
         - in: path
           name: probeTemplateName
           required: true
@@ -4487,8 +4445,7 @@ paths:
           name: targetId
           required: true
           schema:
-            format: int64
-            type: integer
+            $ref: '#/components/schemas/UUID'
       responses:
         "200":
           content:
@@ -4516,8 +4473,7 @@ paths:
           name: targetId
           required: true
           schema:
-            format: int64
-            type: integer
+            $ref: '#/components/schemas/UUID'
       requestBody:
         content:
           application/x-www-form-urlencoded:
@@ -4558,8 +4514,7 @@ paths:
           name: targetId
           required: true
           schema:
-            format: int64
-            type: integer
+            $ref: '#/components/schemas/UUID'
       responses:
         "200":
           content:
@@ -4591,8 +4546,7 @@ paths:
           name: targetId
           required: true
           schema:
-            format: int64
-            type: integer
+            $ref: '#/components/schemas/UUID'
       requestBody:
         content:
           application/x-www-form-urlencoded:
@@ -4674,8 +4628,7 @@ paths:
           name: targetId
           required: true
           schema:
-            format: int64
-            type: integer
+            $ref: '#/components/schemas/UUID'
       responses:
         "204":
           description: No Content
@@ -4705,8 +4658,7 @@ paths:
           name: targetId
           required: true
           schema:
-            format: int64
-            type: integer
+            $ref: '#/components/schemas/UUID'
       responses:
         "200":
           content:
@@ -4739,8 +4691,7 @@ paths:
           name: targetId
           required: true
           schema:
-            format: int64
-            type: integer
+            $ref: '#/components/schemas/UUID'
       requestBody:
         content:
           application/json:
@@ -4779,8 +4730,7 @@ paths:
           name: targetId
           required: true
           schema:
-            format: int64
-            type: integer
+            $ref: '#/components/schemas/UUID'
       requestBody:
         content:
           application/json:
@@ -4823,8 +4773,7 @@ paths:
           name: targetId
           required: true
           schema:
-            format: int64
-            type: integer
+            $ref: '#/components/schemas/UUID'
         - in: query
           name: filter
           schema:
@@ -4858,8 +4807,7 @@ paths:
           name: targetId
           required: true
           schema:
-            format: int64
-            type: integer
+            $ref: '#/components/schemas/UUID'
       responses:
         "200":
           content:
