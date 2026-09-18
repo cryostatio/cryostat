@@ -112,14 +112,14 @@ class HeapDumpReportsServiceImpl implements HeapDumpReportsService {
                 logger.tracev("sidecar reportFor presigned heap dump {0} {1}", jvmId, heapDumpId);
                 var uri = getPresignedPath(jvmId, heapDumpId);
                 // Sidecar will handle download and cleanup
-                return sidecar.generatePresigned(uri.toString(), jvmId, heapDumpId);
+                return sidecar.generatePresigned(uri.toString());
             } else {
                 InputStream stream = helper.getHeapDumpStream(jvmId, heapDumpId);
                 // Copy the heap dump from storage to a temporary file for analysis
                 Path tmpFile = Files.createTempFile("", ".hprof");
                 Files.copy(stream, tmpFile, StandardCopyOption.REPLACE_EXISTING);
                 logger.tracev("sidecar reportFor heap dump {0} {1}", jvmId, heapDumpId);
-                return fireRequest(tmpFile, jvmId, heapDumpId)
+                return fireRequest(tmpFile)
                         .eventually(
                                 () -> {
                                     safeClose(stream);
@@ -142,8 +142,8 @@ class HeapDumpReportsServiceImpl implements HeapDumpReportsService {
         return Uni.createFrom().future(reportGenerator.generate(file, memoryLimit));
     }
 
-    private Uni<HeapDumpAnalysis> fireRequest(Path file, String jvmId, String heapDumpId) {
-        return sidecar.generate(file, jvmId, heapDumpId);
+    private Uni<HeapDumpAnalysis> fireRequest(Path file) {
+        return sidecar.generate(file);
     }
 
     @Override
