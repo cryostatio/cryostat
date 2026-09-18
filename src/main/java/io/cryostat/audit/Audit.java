@@ -61,7 +61,7 @@ import org.hibernate.envers.query.AuditEntity;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestPath;
 
-@Path("/api/beta/audit/")
+@Path("/api/v5/audit/")
 public class Audit {
 
     static final Class<?>[] AUDITED_CLASSES = {
