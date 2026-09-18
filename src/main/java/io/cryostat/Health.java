@@ -125,7 +125,7 @@ class Health {
     }
 
     @GET
-    @Path("/api/v4/grafana_dashboard_url")
+    @Path("/api/v5/grafana_dashboard_url")
     @PermitAll
     @Produces({MediaType.APPLICATION_JSON})
     @Operation(
@@ -146,7 +146,7 @@ class Health {
     }
 
     @GET
-    @Path("/api/v4/grafana_datasource_url")
+    @Path("/api/v5/grafana_datasource_url")
     @PermitAll
     @Produces({MediaType.APPLICATION_JSON})
     @Operation(

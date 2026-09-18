@@ -59,7 +59,7 @@ public class HealthTest {
 
     @Test
     public void testGrafanaDashboardUrl() {
-        when().get("/api/v4/grafana_dashboard_url")
+        when().get("/api/v5/grafana_dashboard_url")
                 .then()
                 .statusCode(200)
                 .contentType(ContentType.JSON)
@@ -68,7 +68,7 @@ public class HealthTest {
 
     @Test
     public void testGrafanaDatasourceUrl() {
-        when().get("/api/v4/grafana_datasource_url")
+        when().get("/api/v5/grafana_datasource_url")
                 .then()
                 .statusCode(200)
                 .contentType(ContentType.JSON)
