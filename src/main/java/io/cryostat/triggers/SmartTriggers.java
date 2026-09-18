@@ -168,7 +168,7 @@ public class SmartTriggers {
     public void syncRecordings(@RestPath String jvmId, String body) {
         try {
             log.tracev("Smart Trigger Sync request received {}", body);
-            Target target = Target.getTargetByJvmId(jvmId).get();
+            Target target = Target.getTargetByJvmId(jvmId).orElseThrow();
             bus.publish(TargetUpdateService.class.getName(), target);
             List<String> removedIds =
                     mapper.readValue(body, SmartTriggerUpdate.class).removedTriggers;
