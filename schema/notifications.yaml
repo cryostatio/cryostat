@@ -91,7 +91,8 @@ components:
                 type: object
                 properties:
                   id:
-                    type: integer
+                    type: object
+                    description: Payload of type UUID
                   remoteId:
                     type: integer
                   state:
@@ -156,7 +157,8 @@ components:
                 type: object
                 properties:
                   id:
-                    type: integer
+                    type: object
+                    description: Payload of type UUID
                   remoteId:
                     type: integer
                   state:
@@ -221,7 +223,8 @@ components:
                 type: object
                 properties:
                   id:
-                    type: integer
+                    type: object
+                    description: Payload of type UUID
                   remoteId:
                     type: integer
                   state:
@@ -431,7 +434,8 @@ components:
             type: object
             properties:
               id:
-                type: integer
+                type: object
+                description: Payload of type UUID
               script:
                 type: string
         required:
@@ -460,7 +464,8 @@ components:
             type: object
             properties:
               id:
-                type: integer
+                type: object
+                description: Payload of type UUID
               script:
                 type: string
         required:
@@ -489,7 +494,8 @@ components:
             type: object
             properties:
               id:
-                type: integer
+                type: object
+                description: Payload of type UUID
               script:
                 type: string
         required:
@@ -807,7 +813,8 @@ components:
                 type: object
                 properties:
                   id:
-                    type: integer
+                    type: object
+                    description: Payload of type UUID
                   remoteId:
                     type: integer
                   state:
@@ -998,13 +1005,15 @@ components:
             type: object
             properties:
               id:
-                type: integer
+                type: object
+                description: Payload of type UUID
               name:
                 type: string
               description:
                 type: string
               matchExpressionId:
-                type: integer
+                type: object
+                description: Payload of type UUID
               eventSpecifier:
                 type: string
               archivalPeriodSeconds:
@@ -1051,13 +1060,15 @@ components:
             type: object
             properties:
               id:
-                type: integer
+                type: object
+                description: Payload of type UUID
               name:
                 type: string
               description:
                 type: string
               matchExpressionId:
-                type: integer
+                type: object
+                description: Payload of type UUID
               eventSpecifier:
                 type: string
               archivalPeriodSeconds:
@@ -1104,13 +1115,15 @@ components:
             type: object
             properties:
               id:
-                type: integer
+                type: object
+                description: Payload of type UUID
               name:
                 type: string
               description:
                 type: string
               matchExpressionId:
-                type: integer
+                type: object
+                description: Payload of type UUID
               eventSpecifier:
                 type: string
               archivalPeriodSeconds:
@@ -1166,7 +1179,8 @@ components:
                     type: object
                     properties:
                       id:
-                        type: integer
+                        type: object
+                        description: Payload of type UUID
                       connectUrl:
                         type: object
                         description: Payload of type URI
@@ -1272,7 +1286,8 @@ components:
               jobId:
                 type: string
               targetId:
-                type: integer
+                type: object
+                description: Payload of type UUID
         required:
         - meta
         - message
