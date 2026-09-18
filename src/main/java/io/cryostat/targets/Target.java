@@ -102,7 +102,9 @@ public class Target extends PanacheUuidEntity {
      * remote JVM processes running as replicas of the same container will have all of the same hash
      * inputs, except for hopefully different start timestamps. This hash ID is used to identify
      * JVMs because multiple connectUrls may resolve to the same host:port and therefore the same
-     * actual JVM process.
+     * actual JVM process. If the target JVM contains the Cryostat Agent then a custom Agent MXBean
+     * is also installed and consulted and provides a truly random hash input, so the fingerprint
+     * becomes truly unique.
      *
      * <p>Cryostat attempts to connect to a target immediately to retrieve the RuntimeMXBean data
      * and compute the hash ID. If the connection attempt fails then Cryostat will retry for some
@@ -110,6 +112,8 @@ public class Target extends PanacheUuidEntity {
      * yet been successful in connecting to the target JVM. The connection URL may be incorrect or
      * there may be external network factors preventing Cryostat from establishing a connection.
      */
+    @Column(unique = true, updatable = false)
+    @NotNull
     public String jvmId;
 
     @JdbcTypeCode(SqlTypes.JSON)
@@ -325,6 +329,9 @@ public class Target extends PanacheUuidEntity {
 
         @PrePersist
         void prePersist(Target target) {
+            if (StringUtils.isBlank(target.jvmId)) {
+                throw new IllegalArgumentException();
+            }
             if (StringUtils.isBlank(target.alias)) {
                 throw new IllegalArgumentException();
             }

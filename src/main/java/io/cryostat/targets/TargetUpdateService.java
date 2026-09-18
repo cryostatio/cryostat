@@ -49,7 +49,7 @@ import org.quartz.TriggerBuilder;
 /**
  * Watch for {@link io.cryostat.target.Target} instances to be discovered, or matching {@link
  * io.cryostat.credentials.Credential} to be added, and schedule {@link
- * io.cryostat.targets.TargetUpdateJob} jobs to compute the target JVM hash IDs.
+ * io.cryostat.targets.TargetUpdateJob} jobs to synchronize target activeRecordings state.
  */
 @ApplicationScoped
 public class TargetUpdateService {

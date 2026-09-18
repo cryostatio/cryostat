@@ -231,6 +231,14 @@ public class TargetConnectionManager {
                                         })));
     }
 
+    public String getJvmId(Target target) {
+        return executeConnectedTask(target, conn -> conn.getJvmIdentifier().getHash());
+    }
+
+    public String getJvmId(Target target, Duration timeout) {
+        return executeConnectedTask(target, conn -> conn.getJvmIdentifier().getHash(), timeout);
+    }
+
     private <T> Uni<T> executeInternal(Uni<T> uni) {
         return uni.onFailure(
                         t ->

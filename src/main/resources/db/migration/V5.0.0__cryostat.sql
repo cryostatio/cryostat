@@ -152,6 +152,10 @@ DROP SEQUENCE IF EXISTS Target_SEQ;
 DROP SEQUENCE IF EXISTS ThreadDump_SEQ;
 DROP SEQUENCE IF EXISTS UnifiedLog_SEQ;
 
+-- Add NOT NULL and UNIQUE constraints to jvmId column on Target table
+ALTER TABLE Target ALTER COLUMN jvmId SET NOT NULL;
+ALTER TABLE Target ADD CONSTRAINT uk_target_jvmid UNIQUE (jvmId);
+
 -- Recreate foreign key constraints with UUID columns
 ALTER TABLE ActiveRecording ADD CONSTRAINT FK2g1pb3osnf0t9g12wnqfjn2a FOREIGN KEY (target_id) REFERENCES Target(id);
 ALTER TABLE ActiveRecording ADD CONSTRAINT UKr8nr64n7i34ipp019xrbbbyeh UNIQUE (target_id, remoteId);
