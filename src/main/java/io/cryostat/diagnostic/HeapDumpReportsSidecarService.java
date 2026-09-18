@@ -38,15 +38,12 @@ public interface HeapDumpReportsSidecarService {
     @POST
     @Consumes(MediaType.MULTIPART_FORM_DATA)
     Uni<HeapDumpAnalysis> generate(
-            @RestForm("file") @PartType(MediaType.APPLICATION_OCTET_STREAM) java.nio.file.Path file,
-            @RestForm("jvmId") @PartType(MediaType.TEXT_PLAIN) String jvmId,
-            @RestForm("heapDumpID") @PartType(MediaType.TEXT_PLAIN) String heapDumpId);
+            @RestForm("file") @PartType(MediaType.APPLICATION_OCTET_STREAM)
+                    java.nio.file.Path file);
 
     @Path("/heapdump/remote_report")
     @POST
     @Consumes(MediaType.MULTIPART_FORM_DATA)
     Uni<HeapDumpAnalysis> generatePresigned(
-            @RestForm("uri") @PartType(MediaType.TEXT_PLAIN) String uri,
-            @RestForm("jvmId") @PartType(MediaType.TEXT_PLAIN) String jvmId,
-            @RestForm("heapDumpID") @PartType(MediaType.TEXT_PLAIN) String heapDumpId);
+            @RestForm("uri") @PartType(MediaType.TEXT_PLAIN) String uri);
 }
