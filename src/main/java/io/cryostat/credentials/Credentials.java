@@ -64,7 +64,7 @@ import org.jboss.resteasy.reactive.RestResponse;
 import org.jboss.resteasy.reactive.RestResponse.ResponseBuilder;
 import org.projectnessie.cel.tools.ScriptException;
 
-@Path("/api/v4/credentials")
+@Path("/api/v5/credentials")
 public class Credentials {
 
     @ConfigProperty(name = ConfigProperties.CREDENTIALS_DIR)
