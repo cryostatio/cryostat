@@ -2730,95 +2730,7 @@ paths:
       summary: List currently discovered targets
       tags:
         - Targets
-    post:
-      description: |
-        Create a target definition given a JSON request body target stub. The target stub must contain the
-        connectUrl and alias, and optionally contain a username and password to create a Stored Credential
-        associated with this target. The dryrun parameter can be used to perform this operation as a check,
-        to verify if such a target could be created (no connectUrl conflict and acceptable credentials).
-      parameters:
-        - in: query
-          name: dryrun
-          schema:
-            type: boolean
-        - in: query
-          name: storeCredentials
-          schema:
-            type: boolean
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/TargetStub'
-          application/x-www-form-urlencoded:
-            schema:
-              properties:
-                alias:
-                  type: string
-                connectUrl:
-                  format: uri
-                  type: string
-                password:
-                  type: string
-                username:
-                  type: string
-              type: object
-          multipart/form-data:
-            schema:
-              properties:
-                alias:
-                  type: string
-                connectUrl:
-                  format: uri
-                  type: string
-                password:
-                  type: string
-                username:
-                  type: string
-              type: object
-        required: true
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Target'
-          description: OK
-        "400":
-          description: Bad Request
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme: []
-      summary: Create a target definition
-      tags:
-        - Custom Discovery
   /api/v4/targets/{id}:
-    delete:
-      description: |
-        Delete the specified target by ID. Only allows deletion of targets that were defined by the same
-        Custom Target discovery API. Other targets must be removed by the discovery mechanisms which
-        discovered them.
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema:
-            $ref: '#/components/schemas/UUID'
-      responses:
-        "204":
-          description: No Content
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme: []
-      summary: Delete the specified target
-      tags:
-        - Custom Discovery
     get:
       description: |
         Get details about a particular target given its ID.
@@ -3961,6 +3873,96 @@ paths:
         and its redirect response.
       tags:
         - Auth
+  /api/v5/targets:
+    post:
+      description: |
+        Create a target definition given a JSON request body target stub. The target stub must contain the
+        connectUrl and alias, and optionally contain a username and password to create a Stored Credential
+        associated with this target. The dryrun parameter can be used to perform this operation as a check,
+        to verify if such a target could be created (no connectUrl conflict and acceptable credentials).
+      parameters:
+        - in: query
+          name: dryrun
+          schema:
+            type: boolean
+        - in: query
+          name: storeCredentials
+          schema:
+            type: boolean
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TargetStub'
+          application/x-www-form-urlencoded:
+            schema:
+              properties:
+                alias:
+                  type: string
+                connectUrl:
+                  format: uri
+                  type: string
+                password:
+                  type: string
+                username:
+                  type: string
+              type: object
+          multipart/form-data:
+            schema:
+              properties:
+                alias:
+                  type: string
+                connectUrl:
+                  format: uri
+                  type: string
+                password:
+                  type: string
+                username:
+                  type: string
+              type: object
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Target'
+          description: OK
+        "400":
+          description: Bad Request
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      summary: Create a target definition
+      tags:
+        - Custom Discovery
+  /api/v5/targets/{id}:
+    delete:
+      description: |
+        Delete the specified target by ID. Only allows deletion of targets that were defined by the same
+        Custom Target discovery API. Other targets must be removed by the discovery mechanisms which
+        discovered them.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            $ref: '#/components/schemas/UUID'
+      responses:
+        "204":
+          description: No Content
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      summary: Delete the specified target
+      tags:
+        - Custom Discovery
   /api/v5/targets/{jvmId}/async-profiler:
     get:
       parameters:
