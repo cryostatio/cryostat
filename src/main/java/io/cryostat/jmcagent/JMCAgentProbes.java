@@ -20,7 +20,6 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
-import java.util.UUID;
 
 import javax.management.InstanceNotFoundException;
 
@@ -50,7 +49,7 @@ import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestPath;
 import org.xml.sax.SAXException;
 
-@Path("")
+@Path("/api/v5/targets/{jvmId}/jmc_agent/probes")
 public class JMCAgentProbes {
 
     private static final String PROBES_REMOVED_CATEGORY = "ProbesRemoved";
@@ -73,15 +72,15 @@ public class JMCAgentProbes {
     @PermissionsAllowed(
             value = {"targets:read", "jmcagent:write"},
             inclusive = true)
-    @Path("/api/v4/targets/{id}/probes/{probeTemplateName}")
+    @Path("/{probeTemplateName}")
     @Operation(
             summary = "Activate a probe template on the specified target",
             description =
                     """
                     Activate a probe template (specified by template name) on the specified target (specified by ID).
                     """)
-    public void postProbe(@RestPath UUID id, @RestPath String probeTemplateName) {
-        Target target = Target.getTargetById(id);
+    public void postProbe(@RestPath String jvmId, @RestPath String probeTemplateName) {
+        Target target = Target.getTargetByJvmId(jvmId).orElseThrow();
 
         String templateContent;
         try {
@@ -134,10 +133,9 @@ public class JMCAgentProbes {
     @PermissionsAllowed(
             value = {"targets:read", "jmcagent:write"},
             inclusive = true)
-    @Path("/api/v4/targets/{id}/probes")
     @Operation(summary = "Remove all loaded probes from the specified target")
-    public void deleteProbe(@RestPath UUID id) {
-        Target target = Target.getTargetById(id);
+    public void deleteProbe(@RestPath String jvmId) {
+        Target target = Target.getTargetByJvmId(jvmId).orElseThrow();
         connectionManager.executeConnectedTask(
                 target,
                 connection -> {
@@ -171,10 +169,9 @@ public class JMCAgentProbes {
     @PermissionsAllowed(
             value = {"targets:read", "jmcagent:read"},
             inclusive = true)
-    @Path("/api/v4/targets/{id}/probes")
     @Operation(summary = "List loaded probes on the specified target")
-    public List<ProbeResponse> getProbes(@RestPath UUID id) {
-        Target target = Target.getTargetById(id);
+    public List<ProbeResponse> getProbes(@RestPath String jvmId) {
+        Target target = Target.getTargetByJvmId(jvmId).orElseThrow();
         return connectionManager.<List<ProbeResponse>>executeConnectedTask(
                 target,
                 connection -> {

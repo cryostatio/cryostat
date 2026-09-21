@@ -1809,105 +1809,6 @@ paths:
       summary: Upload an archived recording to Grafana for online analysis
       tags:
         - Archived Recordings
-  /api/v4/probes:
-    get:
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                items:
-                  $ref: '#/components/schemas/ProbeTemplateResponse'
-                type: array
-          description: OK
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme: []
-      summary: List defined probe templates
-      tags:
-        - JMC Agent Templates
-    post:
-      description: |2
-            Create a probe template. This requires a probe template file upload in XML format. See
-            https://github.com/openjdk/jmc/blob/master/agent/README.md and
-            https://github.com/openjdk/jmc/blob/master/agent/src/main/resources/org/openjdk/jmc/agent/impl/jfrprobes_schema.xsd
-            for more information about this file format.
-      requestBody:
-        content:
-          application/x-www-form-urlencoded:
-            schema:
-              properties:
-                name:
-                  type: string
-                probeTemplate:
-                  format: binary
-                  type: string
-              type: object
-        required: true
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ProbeTemplate'
-          description: OK
-        "400":
-          description: Bad Request
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme: []
-      summary: Create a probe template
-      tags:
-        - JMC Agent Templates
-  /api/v4/probes/{probeTemplateName}:
-    delete:
-      parameters:
-        - in: path
-          name: probeTemplateName
-          required: true
-          schema:
-            type: string
-      responses:
-        "204":
-          description: No Content
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme: []
-      summary: Delete the specified probe template
-      tags:
-        - JMC Agent Templates
-    get:
-      parameters:
-        - in: path
-          name: probeTemplateName
-          required: true
-          schema:
-            type: string
-      responses:
-        "200":
-          content:
-            application/xml:
-              schema:
-                type: string
-          description: OK
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme: []
-      summary: Get a specific probe template
-      tags:
-        - JMC Agent Templates
   /api/v4/recordings:
     get:
       description: |
@@ -2225,78 +2126,6 @@ paths:
       summary: Update an Automated Rule
       tags:
         - Rules
-  /api/v4/targets/{id}/probes:
-    delete:
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema:
-            $ref: '#/components/schemas/UUID'
-      responses:
-        "204":
-          description: No Content
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme: []
-      summary: Remove all loaded probes from the specified target
-      tags:
-        - JMC Agent Probes
-    get:
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema:
-            $ref: '#/components/schemas/UUID'
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                items:
-                  $ref: '#/components/schemas/ProbeResponse'
-                type: array
-          description: OK
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme: []
-      summary: List loaded probes on the specified target
-      tags:
-        - JMC Agent Probes
-  /api/v4/targets/{id}/probes/{probeTemplateName}:
-    post:
-      description: |
-        Activate a probe template (specified by template name) on the specified target (specified by ID).
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema:
-            $ref: '#/components/schemas/UUID'
-        - in: path
-          name: probeTemplateName
-          required: true
-          schema:
-            type: string
-      responses:
-        "201":
-          description: Created
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme: []
-      summary: Activate a probe template on the specified target
-      tags:
-        - JMC Agent Probes
   /api/v4/targets/{targetId}/recordingOptions:
     get:
       description: |
@@ -3591,6 +3420,105 @@ paths:
       summary: Return the URL to the associated jfr-datasource instance.
       tags:
         - Health
+  /api/v5/jmc_agent/probe_templates:
+    get:
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/ProbeTemplateResponse'
+                type: array
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      summary: List defined probe templates
+      tags:
+        - JMC Agent Templates
+    post:
+      description: |2
+            Create a probe template. This requires a probe template file upload in XML format. See
+            https://github.com/openjdk/jmc/blob/master/agent/README.md and
+            https://github.com/openjdk/jmc/blob/master/agent/src/main/resources/org/openjdk/jmc/agent/impl/jfrprobes_schema.xsd
+            for more information about this file format.
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              properties:
+                name:
+                  type: string
+                probeTemplate:
+                  format: binary
+                  type: string
+              type: object
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProbeTemplate'
+          description: OK
+        "400":
+          description: Bad Request
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      summary: Create a probe template
+      tags:
+        - JMC Agent Templates
+  /api/v5/jmc_agent/probe_templates/{probeTemplateName}:
+    delete:
+      parameters:
+        - in: path
+          name: probeTemplateName
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      summary: Delete the specified probe template
+      tags:
+        - JMC Agent Templates
+    get:
+      parameters:
+        - in: path
+          name: probeTemplateName
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/xml:
+              schema:
+                type: string
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      summary: Get a specific probe template
+      tags:
+        - JMC Agent Templates
   /api/v5/logout:
     post:
       deprecated: true
@@ -4598,6 +4526,78 @@ paths:
       summary: List JFR event types registered within the given target
       tags:
         - Events
+  /api/v5/targets/{jvmId}/jmc_agent/probes:
+    delete:
+      parameters:
+        - in: path
+          name: jvmId
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      summary: Remove all loaded probes from the specified target
+      tags:
+        - JMC Agent Probes
+    get:
+      parameters:
+        - in: path
+          name: jvmId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/ProbeResponse'
+                type: array
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      summary: List loaded probes on the specified target
+      tags:
+        - JMC Agent Probes
+  /api/v5/targets/{jvmId}/jmc_agent/probes/{probeTemplateName}:
+    post:
+      description: |
+        Activate a probe template (specified by template name) on the specified target (specified by ID).
+      parameters:
+        - in: path
+          name: jvmId
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: probeTemplateName
+          required: true
+          schema:
+            type: string
+      responses:
+        "201":
+          description: Created
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      summary: Activate a probe template on the specified target
+      tags:
+        - JMC Agent Probes
   /health:
     get:
       description: |
