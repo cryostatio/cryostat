@@ -95,11 +95,9 @@ import org.eclipse.microprofile.faulttolerance.Timeout;
 import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 import org.jboss.logging.Logger;
-import org.jboss.resteasy.reactive.RestForm;
 import org.jboss.resteasy.reactive.RestHeader;
 import org.jboss.resteasy.reactive.RestPath;
 import org.jboss.resteasy.reactive.RestQuery;
-import org.jboss.resteasy.reactive.RestResponse;
 import org.quartz.DisallowConcurrentExecution;
 import org.quartz.Job;
 import org.quartz.JobBuilder;
@@ -196,25 +194,6 @@ public class Discovery {
                 | ParseException e) {
             throw new BadRequestException(e);
         }
-    }
-
-    @POST
-    @Blocking
-    @PermissionsAllowed(
-            value = {"credentials:read", "matchexpressions:read"},
-            inclusive = true)
-    @Consumes({MediaType.MULTIPART_FORM_DATA, MediaType.APPLICATION_FORM_URLENCODED})
-    @Path("/api/beta/discovery/credential_exists")
-    @Operation(
-            summary =
-                    "Check if a Credential already exists with an identical MatchExpression"
-                            + " script.")
-    public RestResponse<Credential> checkCredentialExists(@RestForm String script) {
-        var result = Credential.find("matchExpression.script", script);
-        if (result.count() == 0) {
-            return RestResponse.notFound();
-        }
-        return RestResponse.ok(result.firstResult());
     }
 
     @Bulkhead

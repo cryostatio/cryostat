@@ -45,12 +45,14 @@ import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
 import jakarta.persistence.PersistenceException;
 import jakarta.transaction.Transactional;
+import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.InternalServerErrorException;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.core.Context;
+import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.UriInfo;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.faulttolerance.Bulkhead;
@@ -210,6 +212,7 @@ public class Credentials {
     @Timeout
     @Retry(retryOn = {SQLException.class, PersistenceException.class})
     @RateLimit
+    @Blocking
     @POST
     @PermissionsAllowed(value = "credentials:write", inclusive = true)
     @Operation(
@@ -239,10 +242,35 @@ public class Credentials {
                 .build();
     }
 
+    @Bulkhead
+    @Timeout
+    @RateLimit
+    @POST
+    @Blocking
+    @PermissionsAllowed(
+            value = {"credentials:read", "matchexpressions:read"},
+            inclusive = true)
+    @Consumes({MediaType.MULTIPART_FORM_DATA, MediaType.APPLICATION_FORM_URLENCODED})
+    @Path("/check_exists")
+    @Operation(
+            summary =
+                    """
+                    Check if a Credential already exists with an identical MatchExpression
+                            script.
+                    """)
+    public RestResponse<Credential> checkCredentialExists(@RestForm String script) {
+        var result = Credential.find("matchExpression.script", script);
+        if (result.count() == 0) {
+            return RestResponse.notFound();
+        }
+        return RestResponse.ok(result.firstResult());
+    }
+
     @Transactional
     @Bulkhead
     @Timeout
     @RateLimit
+    @Blocking
     @DELETE
     @PermissionsAllowed(value = "credentials:delete", inclusive = true)
     @Path("/{id}")
