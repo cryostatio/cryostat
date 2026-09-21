@@ -90,7 +90,7 @@ public class Discovery {
 
                 DiscoveryNode mergedNode;
                 if (mergedParent == null) {
-                    mergedNode = mergedNodes.computeIfAbsent(key, _ -> copyNode(sourceNode));
+                    mergedNode = mergedNodes.computeIfAbsent(key, k -> copyNode(sourceNode));
                     syntheticRealm.children.add(mergedNode);
                     if (fromBuiltin) {
                         mergeNodeProperties(mergedNode, sourceNode);

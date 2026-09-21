@@ -18,8 +18,6 @@ package io.cryostat.events;
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.*;
 
-import java.util.UUID;
-
 import io.cryostat.AbstractTransactionalTestBase;
 
 import io.quarkus.test.junit.QuarkusTest;
@@ -36,14 +34,7 @@ public class TargetEventsGetTest extends AbstractTransactionalTestBase {
 
     @BeforeEach
     void setupTargetEventsGetTest() {
-        getSelfReferenceTargetId();
-    }
-
-    private UUID getSelfReferenceTargetId() {
-        if (selfId == null) {
-            defineSelfCustomTarget();
-        }
-        return selfId;
+        defineSelfCustomTarget();
     }
 
     @Test
@@ -52,7 +43,7 @@ public class TargetEventsGetTest extends AbstractTransactionalTestBase {
                 given().log()
                         .all()
                         .when()
-                        .get("/api/v4/targets/{targetId}/events", getSelfReferenceTargetId())
+                        .get("/api/v5/targets/{jvmId}/events", selfJvmId)
                         .then()
                         .log()
                         .all()
@@ -80,7 +71,7 @@ public class TargetEventsGetTest extends AbstractTransactionalTestBase {
                         .all()
                         .queryParam("q", "TargetConnectionOpened")
                         .when()
-                        .get("/api/v4/targets/{targetId}/events", getSelfReferenceTargetId())
+                        .get("/api/v5/targets/{jvmId}/events", selfJvmId)
                         .then()
                         .log()
                         .all()
@@ -136,7 +127,7 @@ public class TargetEventsGetTest extends AbstractTransactionalTestBase {
                         .all()
                         .queryParam("q", "thisEventDoesNotExist")
                         .when()
-                        .get("/api/v4/targets/{targetId}/events", getSelfReferenceTargetId())
+                        .get("/api/v5/targets/{jvmId}/events", selfJvmId)
                         .then()
                         .log()
                         .all()

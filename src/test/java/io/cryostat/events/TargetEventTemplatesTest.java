@@ -17,8 +17,6 @@ package io.cryostat.events;
 
 import static io.restassured.RestAssured.given;
 
-import java.util.UUID;
-
 import io.cryostat.AbstractTransactionalTestBase;
 import io.cryostat.resources.S3StorageResource;
 
@@ -34,11 +32,11 @@ public class TargetEventTemplatesTest extends AbstractTransactionalTestBase {
 
     @Test
     void testList() {
-        UUID id = defineSelfCustomTarget();
+        defineSelfCustomTarget();
         given().log()
                 .all()
                 .when()
-                .get("/api/v4/targets/{id}/event_templates", id)
+                .get("/api/v5/targets/{jvmId}/event_templates", selfJvmId)
                 .then()
                 .log()
                 .all()
@@ -60,13 +58,13 @@ public class TargetEventTemplatesTest extends AbstractTransactionalTestBase {
 
     @Test
     void testGetInvalid() {
-        UUID id = defineSelfCustomTarget();
+        defineSelfCustomTarget();
         given().log()
                 .all()
                 .when()
                 .get(
-                        "/api/v4/targets/{id}/event_templates/{templateType}/{templateName}",
-                        id,
+                        "/api/v5/targets/{jvmId}/event_templates/{templateType}/{templateName}",
+                        selfJvmId,
                         "TARGET",
                         "ALL")
                 .then()
@@ -79,13 +77,13 @@ public class TargetEventTemplatesTest extends AbstractTransactionalTestBase {
 
     @Test
     void testGetNotFound() {
-        UUID id = defineSelfCustomTarget();
+        defineSelfCustomTarget();
         given().log()
                 .all()
                 .when()
                 .get(
-                        "/api/v4/targets/{id}/event_templates/{templateType}/{templateName}",
-                        id,
+                        "/api/v5/targets/{jvmId}/event_templates/{templateType}/{templateName}",
+                        selfJvmId,
                         "CUSTOM",
                         "None")
                 .then()
@@ -98,13 +96,13 @@ public class TargetEventTemplatesTest extends AbstractTransactionalTestBase {
 
     @Test
     void testGet() {
-        UUID id = defineSelfCustomTarget();
+        defineSelfCustomTarget();
         given().log()
                 .all()
                 .when()
                 .get(
-                        "/api/v4/targets/{id}/event_templates/{templateType}/{templateName}",
-                        id,
+                        "/api/v5/targets/{jvmId}/event_templates/{templateType}/{templateName}",
+                        selfJvmId,
                         "TARGET",
                         "Profiling")
                 .then()
