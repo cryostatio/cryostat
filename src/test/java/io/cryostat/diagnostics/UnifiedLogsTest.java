@@ -23,9 +23,11 @@ import java.util.stream.Stream;
 
 import io.cryostat.audit.AuditTestBase;
 import io.cryostat.diagnostic.UnifiedLog;
+import io.cryostat.resources.S3StorageResource;
 import io.cryostat.targets.Target;
 
 import io.quarkus.narayana.jta.QuarkusTransaction;
+import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.TestProfile;
 import jakarta.inject.Inject;
@@ -41,6 +43,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 @QuarkusTest
 @TestProfile(UnifiedLogsTest.class)
+@QuarkusTestResource(value = S3StorageResource.class, restrictToAnnotatedClass = true)
 public class UnifiedLogsTest extends AuditTestBase {
 
     @Inject EntityManager em;

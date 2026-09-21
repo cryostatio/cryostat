@@ -37,6 +37,7 @@ import jakarta.transaction.Transactional;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
+import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.core.MediaType;
@@ -137,7 +138,11 @@ public class TargetHeapDumpEndpoint {
     @GET
     public List<Diagnostics.HeapDump> getHeapDumps(@RestPath String jvmId) {
         log.tracev("Fetching heap dumps for target: {0}", jvmId);
-        return helper.getHeapDumps(Target.getTargetByJvmId(jvmId).orElseThrow());
+        var dumps = helper.getHeapDumps(jvmId);
+        if (dumps.isEmpty()) {
+            throw new NotFoundException();
+        }
+        return dumps;
     }
 
     @Path("/{heapDumpId}")

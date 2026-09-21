@@ -33,6 +33,7 @@ import jakarta.transaction.Transactional;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.DefaultValue;
 import jakarta.ws.rs.GET;
+import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.QueryParam;
@@ -78,7 +79,11 @@ public class TargetThreadDumpEndpoint {
     @GET
     public List<Diagnostics.ThreadDump> getThreadDumps(@RestPath String jvmId) {
         log.tracev("Fetching thread dumps for target: {0}", jvmId);
-        return helper.getThreadDumps(Target.getTargetByJvmId(jvmId).orElseThrow());
+        var dumps = helper.getThreadDumps(jvmId);
+        if (dumps.isEmpty()) {
+            throw new NotFoundException();
+        }
+        return dumps;
     }
 
     @Path("/{threadDumpId}")

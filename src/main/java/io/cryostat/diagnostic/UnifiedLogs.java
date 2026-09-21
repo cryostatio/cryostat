@@ -34,6 +34,7 @@ import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
+import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.PATCH;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
@@ -92,25 +93,30 @@ public class UnifiedLogs {
     @Blocking
     @GET
     public List<UnifiedLog> listUnifiedLogs(@RestPath String jvmId) {
-        QuarkusTransaction.requiringNew().call(() -> Target.getTargetByJvmId(jvmId)).orElseThrow();
-        return helper.listUnifiedLogObjects(jvmId).stream()
-                .map(
-                        item -> {
-                            String[] parts = item.key().strip().split("/");
-                            String filename = parts[1];
-                            String storageKey = DiagnosticsHelper.storageKey(jvmId, filename);
-                            Metadata metadata =
-                                    helper.getUnifiedLogMetadata(storageKey)
-                                            .orElse(Metadata.empty());
-                            return new UnifiedLog(
-                                    jvmId,
-                                    helper.unifiedLogDownloadUrl(jvmId, filename),
-                                    filename,
-                                    item.lastModified().getEpochSecond(),
-                                    item.size(),
-                                    metadata);
-                        })
-                .toList();
+        var logs =
+                helper.listUnifiedLogObjects(jvmId).stream()
+                        .map(
+                                item -> {
+                                    String[] parts = item.key().strip().split("/");
+                                    String filename = parts[1];
+                                    String storageKey =
+                                            DiagnosticsHelper.storageKey(jvmId, filename);
+                                    Metadata metadata =
+                                            helper.getUnifiedLogMetadata(storageKey)
+                                                    .orElse(Metadata.empty());
+                                    return new UnifiedLog(
+                                            jvmId,
+                                            helper.unifiedLogDownloadUrl(jvmId, filename),
+                                            filename,
+                                            item.lastModified().getEpochSecond(),
+                                            item.size(),
+                                            metadata);
+                                })
+                        .toList();
+        if (logs.isEmpty()) {
+            throw new NotFoundException();
+        }
+        return logs;
     }
 
     @Path("/{logId}")
@@ -122,7 +128,6 @@ public class UnifiedLogs {
     public RestResponse<Object> downloadUnifiedLog(
             @RestPath String jvmId, @RestPath String logId, @RestQuery String filename)
             throws URISyntaxException {
-        QuarkusTransaction.requiringNew().call(() -> Target.getTargetByJvmId(jvmId)).orElseThrow();
         String encodedKey = helper.encodedKey(jvmId, logId);
         return RestResponse.seeOther(
                 new URI(
@@ -138,7 +143,6 @@ public class UnifiedLogs {
     @Blocking
     @DELETE
     public void deleteUnifiedLog(@RestPath String jvmId, @RestPath String logId) {
-        QuarkusTransaction.requiringNew().call(() -> Target.getTargetByJvmId(jvmId)).orElseThrow();
         helper.deleteUnifiedLog(jvmId, logId);
     }
 
@@ -151,7 +155,6 @@ public class UnifiedLogs {
     @Consumes("application/json")
     public UnifiedLog patchUnifiedLogMetadata(
             @RestPath String jvmId, @RestPath String logId, MetadataBody body) throws Exception {
-        QuarkusTransaction.requiringNew().call(() -> Target.getTargetByJvmId(jvmId)).orElseThrow();
         return helper.updateUnifiedLogMetadata(jvmId, logId, body.labels());
     }
 
