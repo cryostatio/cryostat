@@ -1693,74 +1693,6 @@ paths:
       summary: Perform "target analysis" on the specified target
       tags:
         - Reports
-  /api/v4.2/discovery/{id}:
-    post:
-      description: |
-        Using its plugin ID and current token, a discovery plugin uses this endpoint to publish a JSON
-        request body containing a list of discovery nodes. The discovery plugin itself is a Realm node in
-        the overall discovery tree, so the published list of nodes here will replace the plugin Realm
-        node's list of children.
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema:
-            $ref: '#/components/schemas/UUID'
-        - in: header
-          name: Cryostat-Discovery-Authentication
-          schema:
-            type: string
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/DiscoveryPublication'
-        required: true
-      responses:
-        "201":
-          description: Created
-        "400":
-          description: Bad Request
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme: []
-      summary: Publish updated target discovery information
-      tags:
-        - Discovery
-  /api/v4.3/discovery/agents:
-    post:
-      description: |
-        Register a Cryostat Agent as a discovery plugin, create its associated Stored Credential, and
-        publish its target nodes in one request. This endpoint is intentionally Agent-specific; the
-        general Discovery Plugin registration and publication endpoints remain available for other
-        Discovery Plugin implementations.
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/AgentRegistration'
-        required: true
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PluginRegistration'
-          description: OK
-        "400":
-          description: Bad Request
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme: []
-      summary: Register and publish a Cryostat Agent
-      tags:
-        - Discovery
   /api/v4.3/targets/{targetId}/recordings_sync:
     post:
       description: Reconcile Cryostat's active recording model with the recordings present on the target.
@@ -1812,205 +1744,6 @@ paths:
       summary: Download a Flight Recording binary file
       tags:
         - Active Recordings Download
-  /api/v4/discovery:
-    get:
-      parameters:
-        - in: query
-          name: mergeRealms
-          schema:
-            default: false
-            type: boolean
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/DiscoveryNode'
-          description: OK
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme: []
-      summary: Retrieve the entire discovery tree.
-      tags:
-        - Discovery
-    post:
-      description: |
-        Register a new discovery plugin, or refresh an existing plugin's registration and generate a new
-        token. New registrations require the realm and callback fields. Registration refreshers
-        additionally require the id and token fields, which are supplied in the response to the original
-        registration.
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/JsonObject'
-        required: true
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PluginRegistration'
-          description: OK
-        "400":
-          description: Bad Request
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme: []
-      summary: Register as a new discovery plugin or refresh existing registration
-      tags:
-        - Discovery
-  /api/v4/discovery/{id}:
-    delete:
-      description: |
-        Delete the plugin's registration along with its discovery Realm node and all of its children. This
-        is used when a discovery plugin is shutting down.
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema:
-            $ref: '#/components/schemas/UUID'
-        - in: header
-          name: Cryostat-Discovery-Authentication
-          schema:
-            type: string
-      responses:
-        "204":
-          description: No Content
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme: []
-      summary: Delete the given plugin's registration
-      tags:
-        - Discovery
-    get:
-      description: |
-        Endpoint for discovery plugins to check their own current registration status, ie. whether their
-        registration ID is still known and their current token is still valid.
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema:
-            $ref: '#/components/schemas/UUID'
-        - in: header
-          name: Cryostat-Discovery-Authentication
-          schema:
-            type: string
-      responses:
-        "204":
-          description: No Content
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme: []
-      summary: Endpoint for discovery plugins to check their own registration status
-      tags:
-        - Discovery
-    post:
-      description: |
-        Using its plugin ID and current token, a discovery plugin uses this endpoint to publish a JSON
-        request body containing a list of discovery nodes. The discovery plugin itself is a Realm node in
-        the overall discovery tree, so the published list of nodes here will replace the plugin Realm
-        node's list of children.
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema:
-            $ref: '#/components/schemas/UUID'
-        - in: header
-          name: Cryostat-Discovery-Authentication
-          schema:
-            type: string
-      requestBody:
-        content:
-          application/json:
-            schema:
-              items:
-                $ref: '#/components/schemas/DiscoveryNode'
-              type: array
-        required: true
-      responses:
-        "201":
-          description: Created
-        "400":
-          description: Bad Request
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme: []
-      summary: Publish updated target discovery information
-      tags:
-        - Discovery
-  /api/v4/discovery_plugins:
-    get:
-      description: |
-        Retrieve a list of currently registered discovery plugins only, not including their subtrees.
-      parameters:
-        - in: query
-          name: realm
-          schema:
-            type: string
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                items:
-                  $ref: '#/components/schemas/DiscoveryPlugin_Flat'
-                type: array
-          description: OK
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme: []
-      summary: List currently registered discovery plugins
-      tags:
-        - Discovery
-  /api/v4/discovery_plugins/{id}:
-    get:
-      description: |
-        Retrieve information about a specific discovery plugin, including its discovery Realm node and
-        subtree.
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema:
-            $ref: '#/components/schemas/UUID'
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/DiscoveryPlugin'
-          description: OK
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme: []
-      summary: Retrieve a specific discovery plugin
-      tags:
-        - Discovery
   /api/v4/download/{encodedKey}:
     get:
       description: |
@@ -2707,55 +2440,6 @@ paths:
       summary: Update an Automated Rule
       tags:
         - Rules
-  /api/v4/targets:
-    get:
-      description: |
-        Get a list of the currently discovered targets. These are essentialy the same as the leaf nodes of
-        the discovery tree. See 'GET /api/v4/discovery'.
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                items:
-                  $ref: '#/components/schemas/Target'
-                type: array
-          description: OK
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme: []
-      summary: List currently discovered targets
-      tags:
-        - Targets
-  /api/v4/targets/{id}:
-    get:
-      description: |
-        Get details about a particular target given its ID.
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema:
-            $ref: '#/components/schemas/UUID'
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Target'
-          description: OK
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme: []
-      summary: Get a target by ID
-      tags:
-        - Targets
   /api/v4/targets/{id}/event_templates:
     get:
       description: |
@@ -3826,6 +3510,235 @@ paths:
       summary: Handle Unified Log Storage Download
       tags:
         - Unified Log Download
+  /api/v5/discovery/plugins:
+    get:
+      description: |
+        Retrieve a list of currently registered discovery plugins only, not including their subtrees.
+      parameters:
+        - in: query
+          name: realm
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/DiscoveryPlugin_Flat'
+                type: array
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      summary: List currently registered discovery plugins
+      tags:
+        - Discovery
+    post:
+      description: |
+        Register a new discovery plugin, or refresh an existing plugin's registration and generate a new
+        token. New registrations require the realm and callback fields. Registration refreshers
+        additionally require the id and token fields, which are supplied in the response to the original
+        registration.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JsonObject'
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PluginRegistration'
+          description: OK
+        "400":
+          description: Bad Request
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      summary: Register as a new discovery plugin or refresh existing registration
+      tags:
+        - Discovery
+  /api/v5/discovery/plugins/agent:
+    post:
+      description: |
+        Register a Cryostat Agent as a discovery plugin, create its associated Stored Credential, and
+        publish its target nodes in one request. This endpoint is intentionally Agent-specific; the
+        general Discovery Plugin registration and publication endpoints remain available for other
+        Discovery Plugin implementations.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AgentRegistration'
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PluginRegistration'
+          description: OK
+        "400":
+          description: Bad Request
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      summary: Register and publish a Cryostat Agent
+      tags:
+        - Discovery
+  /api/v5/discovery/plugins/registration_check/{id}:
+    get:
+      description: |
+        Endpoint for discovery plugins to check their own current registration status, ie. whether their
+        registration ID is still known and their current token is still valid.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            $ref: '#/components/schemas/UUID'
+        - in: header
+          name: Cryostat-Discovery-Authentication
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      summary: Endpoint for discovery plugins to check their own registration status
+      tags:
+        - Discovery
+  /api/v5/discovery/plugins/{id}:
+    delete:
+      description: |
+        Delete the plugin's registration along with its discovery Realm node and all of its children. This
+        is used when a discovery plugin is shutting down.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            $ref: '#/components/schemas/UUID'
+        - in: header
+          name: Cryostat-Discovery-Authentication
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      summary: Delete the given plugin's registration
+      tags:
+        - Discovery
+    get:
+      description: |
+        Retrieve information about a specific discovery plugin, including its discovery Realm node and
+        subtree.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            $ref: '#/components/schemas/UUID'
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DiscoveryPlugin'
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      summary: Retrieve a specific discovery plugin
+      tags:
+        - Discovery
+  /api/v5/discovery/plugins/{id}/publish:
+    post:
+      description: |
+        Using its plugin ID and current token, a discovery plugin uses this endpoint to publish a JSON
+        request body containing a list of discovery nodes. The discovery plugin itself is a Realm node in
+        the overall discovery tree, so the published list of nodes here will replace the plugin Realm
+        node's list of children.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            $ref: '#/components/schemas/UUID'
+        - in: header
+          name: Cryostat-Discovery-Authentication
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DiscoveryPublication'
+        required: true
+      responses:
+        "201":
+          description: Created
+        "400":
+          description: Bad Request
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      summary: Publish updated target discovery information
+      tags:
+        - Discovery
+  /api/v5/discovery/tree:
+    get:
+      parameters:
+        - in: query
+          name: mergeRealms
+          schema:
+            default: false
+            type: boolean
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DiscoveryNode'
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      summary: Retrieve the entire discovery tree.
+      tags:
+        - Discovery
   /api/v5/grafana_dashboard_url:
     get:
       description: |
@@ -3874,6 +3787,28 @@ paths:
       tags:
         - Auth
   /api/v5/targets:
+    get:
+      description: |
+        Get a list of the currently discovered targets. These are essentialy the same as the leaf nodes of
+        the discovery tree. See 'GET /api/v5/discovery'.
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/Target'
+                type: array
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      summary: List currently discovered targets
+      tags:
+        - Targets
     post:
       description: |
         Create a target definition given a JSON request body target stub. The target stub must contain the
@@ -3963,6 +3898,31 @@ paths:
       summary: Delete the specified target
       tags:
         - Custom Discovery
+    get:
+      description: |
+        Get details about a particular target given its ID.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            $ref: '#/components/schemas/UUID'
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Target'
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      summary: Get a target by ID
+      tags:
+        - Targets
   /api/v5/targets/{jvmId}/async-profiler:
     get:
       parameters:

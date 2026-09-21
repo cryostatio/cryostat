@@ -40,10 +40,10 @@ public class JsonRequestFilter implements ContainerRequestFilter {
     static final Set<String> disallowedFields = Set.of("id");
     static final Set<String> allowedPathPatterns =
             Set.of(
-                    "/api/v4/discovery",
-                    "/api/v4/rules/[\\w]+",
-                    "/api/v4/matchExpressions",
-                    "/api/v4/graphql");
+                    "/api/v5/discovery/[\\w]*",
+                    "/api/v5/rules/[\\w]+",
+                    "/api/v5/matchExpressions",
+                    "/api/v5/graphql");
 
     private final Map<String, Pattern> compiledPatterns = new ConcurrentHashMap<>();
     @Inject ObjectMapper objectMapper;

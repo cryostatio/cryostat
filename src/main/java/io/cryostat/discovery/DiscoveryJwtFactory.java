@@ -70,8 +70,7 @@ public class DiscoveryJwtFactory {
     public static final String RESOURCE_CLAIM = "resource";
     public static final String REALM_CLAIM = "realm";
     public static final String PLUGIN_ADDR_CLAIM = "plugin_addr";
-    static final String DISCOVERY_V4_API_PATH = "/api/v4/discovery/";
-    static final String DISCOVERY_V4_2_API_PATH = "/api/v4.2/discovery/";
+    static final String DISCOVERY_V5_API_PATH = "/api/v5/discovery/plugins/";
 
     @ConfigProperty(name = ConfigProperties.DISCOVERY_PLUGINS_PING_PERIOD)
     Duration discoveryPingPeriod;
@@ -248,18 +247,21 @@ public class DiscoveryJwtFactory {
 
     public List<URI> getPluginLocations(DiscoveryPlugin plugin) throws URISyntaxException {
         List<URI> locations = new ArrayList<>();
-        for (var p : List.of(DISCOVERY_V4_API_PATH, DISCOVERY_V4_2_API_PATH)) {
-            URI location =
-                    new URI(
-                                    String.format(
-                                            "%s://%s:%d/",
-                                            tlsEnabled ? "https" : "http", httpHost, httpPort))
-                            .resolve(httpPath)
-                            .resolve(p)
-                            .normalize();
-            locations.add(location);
-            locations.add(location.resolve(plugin.id.toString()).normalize());
-        }
+        URI location =
+                new URI(
+                                String.format(
+                                        "%s://%s:%d/",
+                                        tlsEnabled ? "https" : "http", httpHost, httpPort))
+                        .resolve(httpPath)
+                        .resolve(DISCOVERY_V5_API_PATH)
+                        .normalize();
+        locations.add(location);
+        URI pluginPath = location.resolve(plugin.id.toString() + "/").normalize();
+        locations.add(pluginPath);
+        locations.add(pluginPath.resolve("publish").normalize());
+        locations.add(pluginPath.resolve("registration_check").normalize());
+        // Also add the bare plugin path without trailing slash for exact matching
+        locations.add(location.resolve(plugin.id.toString()).normalize());
         return locations;
     }
 }

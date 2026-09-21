@@ -106,7 +106,7 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
     public static final String REALM = "KubernetesApi";
 
     public static final String DISCOVERY_NAMESPACE_LABEL_KEY =
-            Discovery.DISCOVERY_PLUGIN_LABEL_PREFIX + "namespace";
+            DiscoveryPlugins.DISCOVERY_PLUGIN_LABEL_PREFIX + "namespace";
 
     // SQL query to find orphaned nodes - nodes with no children and no associated Target
     // Uses native SQL to access JSONB map keys/values which HQL doesn't support well
