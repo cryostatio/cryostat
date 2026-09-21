@@ -881,15 +881,27 @@ components:
           $ref: '#/components/schemas/Date'
         id:
           type: string
+        invocationCountTarget:
+          format: int64
+          type: integer
         recordingTemplateName:
           type: string
         simple:
           type: boolean
         state:
           $ref: '#/components/schemas/TriggerState'
+        stopCondition:
+          type: string
+        stopDuration:
+          format: int64
+          type: integer
+        stopMetTime:
+          $ref: '#/components/schemas/Date'
         targetDuration:
           $ref: '#/components/schemas/Duration'
         timeConditionFirstMet:
+          $ref: '#/components/schemas/Date'
+        timeStopConditionFirstMet:
           $ref: '#/components/schemas/Date'
         triggerCondition:
           type: string
@@ -1115,6 +1127,8 @@ components:
         - NEW
         - WAITING_HIGH
         - WAITING_LOW
+        - RECORDING_ACTIVE
+        - RECORDING_STOPPING
         - COMPLETE
       type: string
     UUID:
