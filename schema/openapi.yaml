@@ -1174,938 +1174,6 @@ info:
   version: 4.3.0-snapshot
 openapi: 3.1.0
 paths:
-  /api/beta/audit/export:
-    get:
-      parameters:
-        - in: query
-          name: endTime
-          schema:
-            format: int64
-            type: integer
-        - in: query
-          name: startTime
-          schema:
-            format: int64
-            type: integer
-      responses:
-        "200":
-          content:
-            application/json:
-              schema: {}
-          description: OK
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme: []
-      summary: Export Revisions
-      tags:
-        - Audit
-  /api/beta/audit/revisions:
-    get:
-      parameters:
-        - in: query
-          name: endTime
-          schema:
-            format: int64
-            type: integer
-        - in: query
-          name: page
-          schema:
-            default: 0
-            format: int32
-            type: integer
-        - in: query
-          name: pageSize
-          schema:
-            default: 50
-            format: int32
-            type: integer
-        - in: query
-          name: startTime
-          schema:
-            format: int64
-            type: integer
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RevisionsResponse'
-          description: OK
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme: []
-      summary: Get Revisions
-      tags:
-        - Audit
-  /api/beta/audit/revisions/{rev}:
-    get:
-      parameters:
-        - in: path
-          name: rev
-          required: true
-          schema:
-            format: int64
-            type: integer
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RevisionDetail'
-          description: OK
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme: []
-      summary: Get Revision Detail
-      tags:
-        - Audit
-  /api/beta/audit/target_lineage/{jvmId}:
-    get:
-      parameters:
-        - in: path
-          name: jvmId
-          required: true
-          schema:
-            type: string
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/DiscoveryNode'
-          description: OK
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme: []
-      summary: Target Lineage By Jvm Id
-      tags:
-        - Audit
-  /api/beta/audit/targets/{jvmId}:
-    get:
-      parameters:
-        - in: path
-          name: jvmId
-          required: true
-          schema:
-            type: string
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Target'
-          description: OK
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme: []
-      summary: Target By Jvm Id
-      tags:
-        - Audit
-  /api/beta/diagnostics/fs/heapdumps:
-    get:
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                items:
-                  $ref: '#/components/schemas/ArchivedHeapDumpDirectory'
-                type: array
-          description: OK
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme: []
-      summary: List Fs Heap Dumps
-      tags:
-        - Diagnostics
-  /api/beta/diagnostics/fs/heapdumps/{jvmId}/{heapDumpId}:
-    delete:
-      parameters:
-        - in: path
-          name: heapDumpId
-          required: true
-          schema:
-            type: string
-        - in: path
-          name: jvmId
-          required: true
-          schema:
-            type: string
-      responses:
-        "204":
-          description: No Content
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme: []
-      summary: Delete Heap Dump By Path
-      tags:
-        - Diagnostics
-  /api/beta/diagnostics/fs/threaddumps:
-    get:
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                items:
-                  $ref: '#/components/schemas/ArchivedThreadDumpDirectory'
-                type: array
-          description: OK
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme: []
-      summary: List Fs Thread Dumps
-      tags:
-        - Diagnostics
-  /api/beta/diagnostics/fs/threaddumps/{jvmId}/{threadDumpId}:
-    delete:
-      parameters:
-        - in: path
-          name: jvmId
-          required: true
-          schema:
-            type: string
-        - in: path
-          name: threadDumpId
-          required: true
-          schema:
-            type: string
-      responses:
-        "204":
-          description: No Content
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme: []
-      summary: Delete Thread Dump
-      tags:
-        - Diagnostics
-  /api/beta/diagnostics/fs/unified-logs:
-    get:
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                items:
-                  $ref: '#/components/schemas/ArchivedUnifiedLogDirectory'
-                type: array
-          description: OK
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme: []
-      summary: List Fs Unified Logs
-      tags:
-        - Unified Logs
-  /api/beta/diagnostics/fs/unified-logs/{jvmId}/{logId}:
-    delete:
-      parameters:
-        - in: path
-          name: jvmId
-          required: true
-          schema:
-            type: string
-        - in: path
-          name: logId
-          required: true
-          schema:
-            type: string
-      responses:
-        "204":
-          description: No Content
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme: []
-      summary: Delete Unified Log By Path
-      tags:
-        - Unified Logs
-    patch:
-      parameters:
-        - in: path
-          name: jvmId
-          required: true
-          schema:
-            type: string
-        - in: path
-          name: logId
-          required: true
-          schema:
-            type: string
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/MetadataBody'
-        required: true
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/UnifiedLog'
-          description: OK
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme: []
-      summary: Patch Fs Unified Log Metadata
-      tags:
-        - Unified Logs
-  /api/beta/diagnostics/heapdump/download/{encodedKey}:
-    get:
-      parameters:
-        - in: path
-          name: encodedKey
-          required: true
-          schema:
-            type: string
-        - in: query
-          name: filename
-          schema:
-            type: string
-      responses:
-        "200":
-          content:
-            application/json:
-              schema: {}
-          description: OK
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme: []
-      summary: Handle Heap Dumps Storage Download
-      tags:
-        - Diagnostics
-  /api/beta/diagnostics/heapdump/upload/{jvmId}:
-    post:
-      parameters:
-        - in: path
-          name: jvmId
-          required: true
-          schema:
-            type: string
-      requestBody:
-        content:
-          application/x-www-form-urlencoded:
-            schema:
-              properties:
-                heapDump:
-                  format: binary
-                  type: string
-                jobId:
-                  type: string
-                labels:
-                  $ref: '#/components/schemas/JsonObject'
-              type: object
-        required: true
-      responses:
-        "201":
-          description: Created
-        "400":
-          description: Bad Request
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme: []
-      summary: Upload Heap Dump
-      tags:
-        - Diagnostics
-  /api/beta/diagnostics/targets/{jvmId}/heapdump/{heapDumpId}/analyze:
-    post:
-      parameters:
-        - in: path
-          name: heapDumpId
-          required: true
-          schema:
-            type: string
-        - in: path
-          name: jvmId
-          required: true
-          schema:
-            type: string
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/HttpServerResponse'
-        required: true
-      responses:
-        "200":
-          content:
-            application/json:
-              schema: {}
-          description: OK
-        "400":
-          description: Bad Request
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme: []
-      summary: Analyze Heap Dump
-      tags:
-        - Diagnostics
-  /api/beta/diagnostics/targets/{jvmId}/threaddump/{threadDumpId}/analyze:
-    post:
-      parameters:
-        - in: path
-          name: jvmId
-          required: true
-          schema:
-            type: string
-        - in: path
-          name: threadDumpId
-          required: true
-          schema:
-            type: string
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ThreadDumpAnalysis'
-          description: OK
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme: []
-      summary: Analyze Thread Dump
-      tags:
-        - Diagnostics
-  /api/beta/diagnostics/targets/{targetId}/gc:
-    post:
-      description: |
-        Request the remote target to perform a garbage collection. The target JVM is free to ignore this
-        request. This is generally equivalent to a System.gc() call made within the target JVM.
-      parameters:
-        - in: path
-          name: targetId
-          required: true
-          schema:
-            $ref: '#/components/schemas/UUID'
-      responses:
-        "201":
-          description: Created
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme: []
-      summary: Initiate a garbage collection on the specified target
-      tags:
-        - Diagnostics
-  /api/beta/diagnostics/targets/{targetId}/heapdump:
-    get:
-      parameters:
-        - in: path
-          name: targetId
-          required: true
-          schema:
-            $ref: '#/components/schemas/UUID'
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                items:
-                  $ref: '#/components/schemas/HeapDump'
-                type: array
-          description: OK
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme: []
-      summary: Get Heap Dumps
-      tags:
-        - Diagnostics
-    post:
-      description: |
-        Request the remote target to perform a heap dump.
-      parameters:
-        - in: path
-          name: targetId
-          required: true
-          schema:
-            $ref: '#/components/schemas/UUID'
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/HttpServerResponse'
-        required: true
-      responses:
-        "200":
-          content:
-            text/plain:
-              schema:
-                type: string
-          description: OK
-        "400":
-          description: Bad Request
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme: []
-      summary: Initiates a heap dump on the specified target
-      tags:
-        - Diagnostics
-  /api/beta/diagnostics/targets/{targetId}/heapdump/{heapDumpId}:
-    delete:
-      parameters:
-        - in: path
-          name: heapDumpId
-          required: true
-          schema:
-            type: string
-        - in: path
-          name: targetId
-          required: true
-          schema:
-            $ref: '#/components/schemas/UUID'
-      responses:
-        "204":
-          description: No Content
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme: []
-      summary: Delete Heap Dump
-      tags:
-        - Diagnostics
-  /api/beta/diagnostics/targets/{targetId}/threaddump:
-    get:
-      parameters:
-        - in: path
-          name: targetId
-          required: true
-          schema:
-            $ref: '#/components/schemas/UUID'
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                items:
-                  $ref: '#/components/schemas/ThreadDump'
-                type: array
-          description: OK
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme: []
-      summary: Get Thread Dumps
-      tags:
-        - Diagnostics
-    post:
-      parameters:
-        - in: path
-          name: targetId
-          required: true
-          schema:
-            $ref: '#/components/schemas/UUID'
-        - in: query
-          name: format
-          schema:
-            default: threadPrint
-            type: string
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/HttpServerResponse'
-        required: true
-      responses:
-        "200":
-          content:
-            text/plain:
-              schema:
-                type: string
-          description: OK
-        "400":
-          description: Bad Request
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme: []
-      summary: Thread Dump
-      tags:
-        - Diagnostics
-  /api/beta/diagnostics/targets/{targetId}/threaddump/{threadDumpId}:
-    delete:
-      parameters:
-        - in: path
-          name: targetId
-          required: true
-          schema:
-            $ref: '#/components/schemas/UUID'
-        - in: path
-          name: threadDumpId
-          required: true
-          schema:
-            type: string
-      responses:
-        "204":
-          description: No Content
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme: []
-      summary: Delete Thread Dump
-      tags:
-        - Diagnostics
-  /api/beta/diagnostics/targets/{targetId}/unified-logging:
-    delete:
-      parameters:
-        - in: path
-          name: targetId
-          required: true
-          schema:
-            $ref: '#/components/schemas/UUID'
-      responses:
-        "204":
-          description: No Content
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme: []
-      summary: Disable Unified Logging
-      tags:
-        - Unified Logs
-    get:
-      parameters:
-        - in: path
-          name: targetId
-          required: true
-          schema:
-            $ref: '#/components/schemas/UUID'
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/UnifiedLogStatus'
-          description: OK
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme: []
-      summary: Unified Logging Status
-      tags:
-        - Unified Logs
-    patch:
-      parameters:
-        - in: path
-          name: targetId
-          required: true
-          schema:
-            $ref: '#/components/schemas/UUID'
-        - in: query
-          name: decorators
-          schema:
-            type: string
-        - in: query
-          name: what
-          schema:
-            type: string
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/UnifiedLog'
-          description: OK
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme: []
-      summary: Reconfigure Unified Logging
-      tags:
-        - Unified Logs
-    post:
-      parameters:
-        - in: path
-          name: targetId
-          required: true
-          schema:
-            $ref: '#/components/schemas/UUID'
-        - in: query
-          name: decorators
-          schema:
-            type: string
-        - in: query
-          name: what
-          schema:
-            type: string
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/UnifiedLog'
-          description: OK
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme: []
-      summary: Enable Unified Logging
-      tags:
-        - Unified Logs
-  /api/beta/diagnostics/targets/{targetId}/unified-logging/pull:
-    post:
-      parameters:
-        - in: path
-          name: targetId
-          required: true
-          schema:
-            $ref: '#/components/schemas/UUID'
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/UnifiedLog'
-          description: OK
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme: []
-      summary: Pull Unified Log
-      tags:
-        - Unified Logs
-  /api/beta/diagnostics/targets/{targetId}/unified-logs:
-    get:
-      parameters:
-        - in: path
-          name: targetId
-          required: true
-          schema:
-            $ref: '#/components/schemas/UUID'
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                items:
-                  $ref: '#/components/schemas/UnifiedLog'
-                type: array
-          description: OK
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme: []
-      summary: List Unified Logs
-      tags:
-        - Unified Logs
-  /api/beta/diagnostics/targets/{targetId}/unified-logs/{logId}:
-    delete:
-      parameters:
-        - in: path
-          name: logId
-          required: true
-          schema:
-            type: string
-        - in: path
-          name: targetId
-          required: true
-          schema:
-            $ref: '#/components/schemas/UUID'
-      responses:
-        "204":
-          description: No Content
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme: []
-      summary: Delete Unified Log
-      tags:
-        - Unified Logs
-    get:
-      parameters:
-        - in: path
-          name: logId
-          required: true
-          schema:
-            type: string
-        - in: path
-          name: targetId
-          required: true
-          schema:
-            $ref: '#/components/schemas/UUID'
-        - in: query
-          name: filename
-          schema:
-            type: string
-      responses:
-        "200":
-          content:
-            application/json:
-              schema: {}
-          description: OK
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme: []
-      summary: Download Unified Log
-      tags:
-        - Unified Logs
-    patch:
-      parameters:
-        - in: path
-          name: logId
-          required: true
-          schema:
-            type: string
-        - in: path
-          name: targetId
-          required: true
-          schema:
-            $ref: '#/components/schemas/UUID'
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/MetadataBody'
-        required: true
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/UnifiedLog'
-          description: OK
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme: []
-      summary: Patch Unified Log Metadata
-      tags:
-        - Unified Logs
-  /api/beta/diagnostics/threaddump/download/{encodedKey}:
-    get:
-      parameters:
-        - in: path
-          name: encodedKey
-          required: true
-          schema:
-            type: string
-        - in: query
-          name: filename
-          schema:
-            type: string
-      responses:
-        "200":
-          content:
-            application/json:
-              schema: {}
-          description: OK
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme: []
-      summary: Handle Thread Dumps Storage Download
-      tags:
-        - Diagnostics
-  /api/beta/diagnostics/unified-logs/download/{encodedKey}:
-    get:
-      parameters:
-        - in: path
-          name: encodedKey
-          required: true
-          schema:
-            type: string
-        - in: query
-          name: filename
-          schema:
-            type: string
-      responses:
-        "200":
-          content:
-            application/json:
-              schema: {}
-          description: OK
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme: []
-      summary: Handle Unified Log Storage Download
-      tags:
-        - Unified Logs
   /api/beta/discovery/credential_exists:
     post:
       requestBody:
@@ -2420,141 +1488,6 @@ paths:
       summary: Sync Recordings
       tags:
         - Smart Triggers
-  /api/beta/targets/{targetId}/async-profiler:
-    get:
-      parameters:
-        - in: path
-          name: targetId
-          required: true
-          schema:
-            $ref: '#/components/schemas/UUID'
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                items:
-                  $ref: '#/components/schemas/AsyncProfile'
-                type: array
-          description: OK
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme: []
-      summary: List existing async-profiler profiles on the specified target
-      tags:
-        - Async Profiler
-    post:
-      parameters:
-        - in: path
-          name: targetId
-          required: true
-          schema:
-            $ref: '#/components/schemas/UUID'
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/StartProfileRequest'
-        required: true
-      responses:
-        "200":
-          content:
-            text/plain:
-              schema:
-                type: string
-          description: OK
-        "400":
-          description: Bad Request
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme: []
-      summary: Create a new async-profiler profile on the specified target
-      tags:
-        - Async Profiler
-  /api/beta/targets/{targetId}/async-profiler/status:
-    get:
-      parameters:
-        - in: path
-          name: targetId
-          required: true
-          schema:
-            $ref: '#/components/schemas/UUID'
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AsyncProfilerStatus'
-          description: OK
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme: []
-      summary: Get specified target's async-profiler status
-      tags:
-        - Async Profiler
-  /api/beta/targets/{targetId}/async-profiler/{profileId}:
-    delete:
-      parameters:
-        - in: path
-          name: profileId
-          required: true
-          schema:
-            type: string
-        - in: path
-          name: targetId
-          required: true
-          schema:
-            $ref: '#/components/schemas/UUID'
-      responses:
-        "204":
-          description: No Content
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme: []
-      summary: Delete an async-profiler profile from the specified target
-      tags:
-        - Async Profiler
-    get:
-      parameters:
-        - in: path
-          name: profileId
-          required: true
-          schema:
-            type: string
-        - in: path
-          name: targetId
-          required: true
-          schema:
-            $ref: '#/components/schemas/UUID'
-      responses:
-        "200":
-          content:
-            application/octet-stream:
-              schema:
-                format: binary
-                type: string
-          description: OK
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme: []
-      summary: Download an async-profiler binary file in JFR format
-      tags:
-        - Async Profiler
   /api/beta/targets/{targetId}/smart_triggers:
     get:
       parameters:
@@ -2914,170 +1847,6 @@ paths:
       summary: Download a Flight Recording binary file
       tags:
         - Active Recordings Download
-  /api/v4/auth:
-    post:
-      description: |
-        In modern Cryostat deployments it is customary to deploy Cryostat behind an authenticating reverse
-        proxy, so authentication is not actually handled by Cryostat itself. This endpoint is used by the
-        Cryostat Web UI client to send an authenticated client request, including some authentication
-        headers, to the Cryostat server so that it can extract information about the logged-in user. The
-        response contains the current user's username if it can be determined, or else an empty string.
-        This is only used for display in the Web UI. API clients do not need to use this endpoint.
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AuthResponse'
-          description: OK
-      summary: Authenticate to the Cryostat server
-      tags:
-        - Auth
-  /api/v4/credentials:
-    get:
-      description: |
-        Returns a list of match results. A match result includes the Stored Credential's ID,
-        its Match Expression, and a list of currently discovered Targets which match that expression
-        and are therefore candidates for Cryostat to select this Credential.
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                items:
-                  $ref: '#/components/schemas/CredentialMatchResult'
-                type: array
-          description: OK
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme: []
-      summary: List information about all of the available Stored Credentials.
-      tags:
-        - Credentials
-    post:
-      description: |
-        Define a new Stored Credential. Requires a match expression which defines which targets require
-        this credential, and the username and password to use to pass authentication checks on those
-        targets. Stored Credentials are stored in an encrypted keyring using symmetric encryption and an
-        encryption key configured on the Cryostat database.
-      requestBody:
-        content:
-          application/x-www-form-urlencoded:
-            schema:
-              properties:
-                matchExpression:
-                  type: string
-                password:
-                  type: string
-                username:
-                  type: string
-              type: object
-        required: true
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Credential'
-          description: OK
-        "400":
-          description: Bad Request
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme: []
-      summary: Define a new Stored Credential
-      tags:
-        - Credentials
-  /api/v4/credentials/test/{targetId}:
-    post:
-      parameters:
-        - in: path
-          name: targetId
-          required: true
-          schema:
-            $ref: '#/components/schemas/UUID'
-      requestBody:
-        content:
-          application/x-www-form-urlencoded:
-            schema:
-              properties:
-                password:
-                  type: string
-                username:
-                  type: string
-              type: object
-        required: true
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CredentialTestResult'
-          description: OK
-        "400":
-          description: Bad Request
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme: []
-      summary: Test if the supplied username/password are valid credentials for the specified target.
-      tags:
-        - Credentials
-  /api/v4/credentials/{id}:
-    delete:
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema:
-            $ref: '#/components/schemas/UUID'
-      responses:
-        "204":
-          description: No Content
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme: []
-      summary: Delete a Stored Credential
-      tags:
-        - Credentials
-    get:
-      description: |
-        Get match result information about a specific Stored Credential. A match result includes the Stored
-        Credential's ID, its Match Expression, and a list of currently discovered Targets which match that
-        expression and are therefore candidates for Cryostat to select this Credential.
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema:
-            $ref: '#/components/schemas/UUID'
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CredentialMatchResult'
-          description: OK
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme: []
-      summary: Get information about a Stored Credential
-      tags:
-        - Credentials
   /api/v4/discovery:
     get:
       parameters:
@@ -3478,53 +2247,6 @@ paths:
       summary: Upload an archived recording to Grafana for online analysis
       tags:
         - Archived Recordings
-  /api/v4/grafana_dashboard_url:
-    get:
-      description: |
-        Returns the URL for the associated Grafana dashboard instance. If there is an internally-accessible
-        (for Cryostat) URL and an externally-accessible URL (for users) URL, the externally-accessible URL
-        is preferred. If neither are configured then the response is an HTTP 400 Bad Request.
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/DashboardUrl'
-          description: OK
-      summary: Return the URL which users can visit to access the associated Grafana dashboard instance.
-      tags:
-        - Health
-  /api/v4/grafana_datasource_url:
-    get:
-      description: |
-        Returns the URL for the jfr-datasource instance which Cryostat is configured to use. This datasource
-        accepts JFR file uploads from Cryostat and allows the Grafana dashboard to perform queries on the
-        data within the recording file.
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/DatasourceUrl'
-          description: OK
-      summary: Return the URL to the associated jfr-datasource instance.
-      tags:
-        - Health
-  /api/v4/logout:
-    post:
-      deprecated: true
-      responses:
-        "200":
-          content:
-            application/json:
-              schema: {}
-          description: OK
-      summary: |
-        OAuth2 sign out. Invalidate the current user session.
-        Clients should directly visit the /oauth2/sign_out endpoint rather than relying on this endpoint
-        and its redirect response.
-      tags:
-        - Auth
   /api/v4/matchExpressions:
     get:
       description: |
@@ -4743,6 +3465,1175 @@ paths:
       summary: List additional trusted SSL/TLS certificates
       tags:
         - Trust Store
+  /api/v5/audit/export:
+    get:
+      parameters:
+        - in: query
+          name: endTime
+          schema:
+            format: int64
+            type: integer
+        - in: query
+          name: startTime
+          schema:
+            format: int64
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: {}
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      summary: Export Revisions
+      tags:
+        - Audit
+  /api/v5/audit/revisions:
+    get:
+      parameters:
+        - in: query
+          name: endTime
+          schema:
+            format: int64
+            type: integer
+        - in: query
+          name: page
+          schema:
+            default: 0
+            format: int32
+            type: integer
+        - in: query
+          name: pageSize
+          schema:
+            default: 50
+            format: int32
+            type: integer
+        - in: query
+          name: startTime
+          schema:
+            format: int64
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RevisionsResponse'
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      summary: Get Revisions
+      tags:
+        - Audit
+  /api/v5/audit/revisions/{rev}:
+    get:
+      parameters:
+        - in: path
+          name: rev
+          required: true
+          schema:
+            format: int64
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RevisionDetail'
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      summary: Get Revision Detail
+      tags:
+        - Audit
+  /api/v5/audit/target_lineage/{jvmId}:
+    get:
+      parameters:
+        - in: path
+          name: jvmId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DiscoveryNode'
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      summary: Target Lineage By Jvm Id
+      tags:
+        - Audit
+  /api/v5/audit/targets/{jvmId}:
+    get:
+      parameters:
+        - in: path
+          name: jvmId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Target'
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      summary: Target By Jvm Id
+      tags:
+        - Audit
+  /api/v5/auth:
+    post:
+      description: |
+        In modern Cryostat deployments it is customary to deploy Cryostat behind an authenticating reverse
+        proxy, so authentication is not actually handled by Cryostat itself. This endpoint is used by the
+        Cryostat Web UI client to send an authenticated client request, including some authentication
+        headers, to the Cryostat server so that it can extract information about the logged-in user. The
+        response contains the current user's username if it can be determined, or else an empty string.
+        This is only used for display in the Web UI. API clients do not need to use this endpoint.
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+          description: OK
+      summary: Authenticate to the Cryostat server
+      tags:
+        - Auth
+  /api/v5/credentials:
+    get:
+      description: |
+        Returns a list of match results. A match result includes the Stored Credential's ID,
+        its Match Expression, and a list of currently discovered Targets which match that expression
+        and are therefore candidates for Cryostat to select this Credential.
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/CredentialMatchResult'
+                type: array
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      summary: List information about all of the available Stored Credentials.
+      tags:
+        - Credentials
+    post:
+      description: |
+        Define a new Stored Credential. Requires a match expression which defines which targets require
+        this credential, and the username and password to use to pass authentication checks on those
+        targets. Stored Credentials are stored in an encrypted keyring using symmetric encryption and an
+        encryption key configured on the Cryostat database.
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              properties:
+                matchExpression:
+                  type: string
+                password:
+                  type: string
+                username:
+                  type: string
+              type: object
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Credential'
+          description: OK
+        "400":
+          description: Bad Request
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      summary: Define a new Stored Credential
+      tags:
+        - Credentials
+  /api/v5/credentials/test/{targetId}:
+    post:
+      parameters:
+        - in: path
+          name: targetId
+          required: true
+          schema:
+            $ref: '#/components/schemas/UUID'
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              properties:
+                password:
+                  type: string
+                username:
+                  type: string
+              type: object
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CredentialTestResult'
+          description: OK
+        "400":
+          description: Bad Request
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      summary: Test if the supplied username/password are valid credentials for the specified target.
+      tags:
+        - Credentials
+  /api/v5/credentials/{id}:
+    delete:
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            $ref: '#/components/schemas/UUID'
+      responses:
+        "204":
+          description: No Content
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      summary: Delete a Stored Credential
+      tags:
+        - Credentials
+    get:
+      description: |
+        Get match result information about a specific Stored Credential. A match result includes the Stored
+        Credential's ID, its Match Expression, and a list of currently discovered Targets which match that
+        expression and are therefore candidates for Cryostat to select this Credential.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            $ref: '#/components/schemas/UUID'
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CredentialMatchResult'
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      summary: Get information about a Stored Credential
+      tags:
+        - Credentials
+  /api/v5/diagnostics/heapdump/download/{encodedKey}:
+    get:
+      parameters:
+        - in: path
+          name: encodedKey
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: filename
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: {}
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      summary: Handle Heap Dumps Storage Download
+      tags:
+        - Heap Dump Endpoint
+  /api/v5/diagnostics/heapdumps:
+    get:
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/ArchivedHeapDumpDirectory'
+                type: array
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      summary: List Heap Dumps
+      tags:
+        - Heap Dump Endpoint
+  /api/v5/diagnostics/threaddump/download/{encodedKey}:
+    get:
+      parameters:
+        - in: path
+          name: encodedKey
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: filename
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: {}
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      summary: Handle Thread Dumps Storage Download
+      tags:
+        - Thread Dump Endpoint
+  /api/v5/diagnostics/threaddumps:
+    get:
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/ArchivedThreadDumpDirectory'
+                type: array
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      summary: List Thread Dumps
+      tags:
+        - Thread Dump Endpoint
+  /api/v5/diagnostics/unified-logs:
+    get:
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/ArchivedUnifiedLogDirectory'
+                type: array
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      summary: List Unified Logs
+      tags:
+        - Unified Log Endpoint
+  /api/v5/diagnostics/unified-logs/download/{encodedKey}:
+    get:
+      parameters:
+        - in: path
+          name: encodedKey
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: filename
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: {}
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      summary: Handle Unified Log Storage Download
+      tags:
+        - Unified Log Download
+  /api/v5/grafana_dashboard_url:
+    get:
+      description: |
+        Returns the URL for the associated Grafana dashboard instance. If there is an internally-accessible
+        (for Cryostat) URL and an externally-accessible URL (for users) URL, the externally-accessible URL
+        is preferred. If neither are configured then the response is an HTTP 400 Bad Request.
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardUrl'
+          description: OK
+      summary: Return the URL which users can visit to access the associated Grafana dashboard instance.
+      tags:
+        - Health
+  /api/v5/grafana_datasource_url:
+    get:
+      description: |
+        Returns the URL for the jfr-datasource instance which Cryostat is configured to use. This datasource
+        accepts JFR file uploads from Cryostat and allows the Grafana dashboard to perform queries on the
+        data within the recording file.
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DatasourceUrl'
+          description: OK
+      summary: Return the URL to the associated jfr-datasource instance.
+      tags:
+        - Health
+  /api/v5/logout:
+    post:
+      deprecated: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: {}
+          description: OK
+      summary: |
+        OAuth2 sign out. Invalidate the current user session.
+        Clients should directly visit the /oauth2/sign_out endpoint rather than relying on this endpoint
+        and its redirect response.
+      tags:
+        - Auth
+  /api/v5/targets/{jvmId}/async-profiler:
+    get:
+      parameters:
+        - in: path
+          name: jvmId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/AsyncProfile'
+                type: array
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      summary: List existing async-profiler profiles on the specified target
+      tags:
+        - Async Profiler
+    post:
+      parameters:
+        - in: path
+          name: jvmId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StartProfileRequest'
+        required: true
+      responses:
+        "200":
+          content:
+            text/plain:
+              schema:
+                type: string
+          description: OK
+        "400":
+          description: Bad Request
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      summary: Create a new async-profiler profile on the specified target
+      tags:
+        - Async Profiler
+  /api/v5/targets/{jvmId}/async-profiler/status:
+    get:
+      parameters:
+        - in: path
+          name: jvmId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AsyncProfilerStatus'
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      summary: Get specified target's async-profiler status
+      tags:
+        - Async Profiler
+  /api/v5/targets/{jvmId}/async-profiler/{profileId}:
+    delete:
+      parameters:
+        - in: path
+          name: jvmId
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: profileId
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      summary: Delete an async-profiler profile from the specified target
+      tags:
+        - Async Profiler
+    get:
+      parameters:
+        - in: path
+          name: jvmId
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: profileId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/octet-stream:
+              schema:
+                format: binary
+                type: string
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      summary: Download an async-profiler binary file in JFR format
+      tags:
+        - Async Profiler
+  /api/v5/targets/{jvmId}/diagnostics/gc:
+    post:
+      description: |
+        Request the remote target to perform a garbage collection. The target JVM is free to ignore this
+        request. This is generally equivalent to a System.gc() call made within the target JVM.
+      parameters:
+        - in: path
+          name: jvmId
+          required: true
+          schema:
+            type: string
+      responses:
+        "201":
+          description: Created
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      summary: Initiate a garbage collection on the specified target
+      tags:
+        - Garbage Collection Endpoint
+  /api/v5/targets/{jvmId}/diagnostics/heapdump:
+    get:
+      parameters:
+        - in: path
+          name: jvmId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/HeapDump'
+                type: array
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      summary: Get Heap Dumps
+      tags:
+        - Target Heap Dump Endpoint
+    post:
+      description: |
+        Request the remote target to perform a heap dump.
+      parameters:
+        - in: path
+          name: jvmId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HttpServerResponse'
+        required: true
+      responses:
+        "200":
+          content:
+            text/plain:
+              schema:
+                type: string
+          description: OK
+        "400":
+          description: Bad Request
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      summary: Initiates a heap dump on the specified target
+      tags:
+        - Target Heap Dump Endpoint
+  /api/v5/targets/{jvmId}/diagnostics/heapdump/upload:
+    post:
+      parameters:
+        - in: path
+          name: jvmId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              properties:
+                heapDump:
+                  format: binary
+                  type: string
+                jobId:
+                  type: string
+                labels:
+                  $ref: '#/components/schemas/JsonObject'
+              type: object
+        required: true
+      responses:
+        "201":
+          description: Created
+        "400":
+          description: Bad Request
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      summary: Upload Heap Dump
+      tags:
+        - Target Heap Dump Endpoint
+  /api/v5/targets/{jvmId}/diagnostics/heapdump/{heapDumpId}:
+    delete:
+      parameters:
+        - in: path
+          name: heapDumpId
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: jvmId
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      summary: Delete Heap Dump
+      tags:
+        - Target Heap Dump Endpoint
+  /api/v5/targets/{jvmId}/diagnostics/heapdump/{heapDumpId}/analyze:
+    post:
+      parameters:
+        - in: path
+          name: heapDumpId
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: jvmId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HttpServerResponse'
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: {}
+          description: OK
+        "400":
+          description: Bad Request
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      summary: Analyze Heap Dump
+      tags:
+        - Target Heap Dump Endpoint
+  /api/v5/targets/{jvmId}/diagnostics/threaddump:
+    get:
+      parameters:
+        - in: path
+          name: jvmId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/ThreadDump'
+                type: array
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      summary: Get Thread Dumps
+      tags:
+        - Target Thread Dump Endpoint
+    post:
+      parameters:
+        - in: path
+          name: jvmId
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: format
+          schema:
+            default: threadPrint
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HttpServerResponse'
+        required: true
+      responses:
+        "200":
+          content:
+            text/plain:
+              schema:
+                type: string
+          description: OK
+        "400":
+          description: Bad Request
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      summary: Thread Dump
+      tags:
+        - Target Thread Dump Endpoint
+  /api/v5/targets/{jvmId}/diagnostics/threaddump/{threadDumpId}:
+    delete:
+      parameters:
+        - in: path
+          name: jvmId
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: threadDumpId
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      summary: Delete Thread Dump
+      tags:
+        - Target Thread Dump Endpoint
+  /api/v5/targets/{jvmId}/diagnostics/threaddump/{threadDumpId}/analyze:
+    post:
+      parameters:
+        - in: path
+          name: jvmId
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: threadDumpId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ThreadDumpAnalysis'
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      summary: Analyze Thread Dump
+      tags:
+        - Target Thread Dump Endpoint
+  /api/v5/targets/{jvmId}/diagnostics/unified-logging:
+    delete:
+      parameters:
+        - in: path
+          name: jvmId
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      summary: Disable Unified Logging
+      tags:
+        - Unified Log Configuration
+    get:
+      parameters:
+        - in: path
+          name: jvmId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnifiedLogStatus'
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      summary: Unified Logging Status
+      tags:
+        - Unified Log Configuration
+    patch:
+      parameters:
+        - in: path
+          name: jvmId
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: decorators
+          schema:
+            type: string
+        - in: query
+          name: what
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnifiedLog'
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      summary: Reconfigure Unified Logging
+      tags:
+        - Unified Log Configuration
+    post:
+      parameters:
+        - in: path
+          name: jvmId
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: decorators
+          schema:
+            type: string
+        - in: query
+          name: what
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnifiedLog'
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      summary: Enable Unified Logging
+      tags:
+        - Unified Log Configuration
+  /api/v5/targets/{jvmId}/diagnostics/unified-logs:
+    get:
+      parameters:
+        - in: path
+          name: jvmId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/UnifiedLog'
+                type: array
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      summary: List Unified Logs
+      tags:
+        - Unified Logs
+  /api/v5/targets/{jvmId}/diagnostics/unified-logs/pull:
+    post:
+      parameters:
+        - in: path
+          name: jvmId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnifiedLog'
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      summary: Pull Unified Log
+      tags:
+        - Unified Logs
+  /api/v5/targets/{jvmId}/diagnostics/unified-logs/{logId}:
+    delete:
+      parameters:
+        - in: path
+          name: jvmId
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: logId
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      summary: Delete Unified Log
+      tags:
+        - Unified Logs
+    get:
+      parameters:
+        - in: path
+          name: jvmId
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: logId
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: filename
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: {}
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      summary: Download Unified Log
+      tags:
+        - Unified Logs
+    patch:
+      parameters:
+        - in: path
+          name: jvmId
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: logId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MetadataBody'
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnifiedLog'
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      summary: Patch Unified Log Metadata
+      tags:
+        - Unified Logs
   /health:
     get:
       description: |
