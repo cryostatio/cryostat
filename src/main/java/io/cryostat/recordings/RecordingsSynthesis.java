@@ -47,7 +47,7 @@ import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestPath;
 
 @ApplicationScoped
-@Path("/api/v5/targets/{jvmId}/recording/synthesis")
+@Path("/api/v5/targets/{jvmId}/recordings/synthesis")
 public class RecordingsSynthesis {
 
     @Inject RecordingHelper recordingHelper;

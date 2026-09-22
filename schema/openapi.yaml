@@ -4092,53 +4092,6 @@ paths:
       summary: Activate a probe template on the specified target
       tags:
         - JMC Agent Probes
-  /api/v5/targets/{jvmId}/recording/synthesis:
-    post:
-      parameters:
-        - in: path
-          name: jvmId
-          required: true
-          schema:
-            type: string
-        - in: query
-          name: fromTimestamp
-          required: true
-          schema:
-            format: int64
-            type: integer
-        - in: query
-          name: tag
-          schema:
-            type: string
-        - in: query
-          name: toTimestamp
-          required: true
-          schema:
-            format: int64
-            type: integer
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/HttpServerResponse'
-        required: true
-      responses:
-        "200":
-          content:
-            application/json:
-              schema: {}
-          description: OK
-        "400":
-          description: Bad Request
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme: []
-      summary: Synthesize
-      tags:
-        - Recordings Synthesis
   /api/v5/targets/{jvmId}/recordingOptions:
     get:
       description: |
@@ -4339,6 +4292,53 @@ paths:
       summary: Create a JFR Snapshot on the specified target
       tags:
         - Snapshots
+  /api/v5/targets/{jvmId}/recordings/synthesis:
+    post:
+      parameters:
+        - in: path
+          name: jvmId
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: fromTimestamp
+          required: true
+          schema:
+            format: int64
+            type: integer
+        - in: query
+          name: tag
+          schema:
+            type: string
+        - in: query
+          name: toTimestamp
+          required: true
+          schema:
+            format: int64
+            type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HttpServerResponse'
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: {}
+          description: OK
+        "400":
+          description: Bad Request
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      summary: Synthesize
+      tags:
+        - Recordings Synthesis
   /api/v5/targets/{jvmId}/recordings/{remoteId}:
     delete:
       description: |
