@@ -292,7 +292,7 @@ public abstract class AbstractTestBase {
                 .all()
                 .when()
                 .basePath("")
-                .pathParams("jvmId", selfId, "remoteId", selfRecordingId)
+                .pathParams("jvmId", selfJvmId, "remoteId", selfRecordingId)
                 .delete("/api/v5/targets/{jvmId}/recordings/{remoteId}")
                 .then()
                 .log()
