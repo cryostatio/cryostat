@@ -437,15 +437,20 @@
           </execution>
         </executions>
         <configuration>
-          <jvmArgs>-Dcryostat.discovery.jdp.enabled=true -Dcryostat.discovery.podman.enabled=true -XX:StartFlightRecording=filename=/tmp/,name=onstart,settings=default,disk=true,maxage=5m -Dcom.sun.management.jmxremote.autodiscovery=true -Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.port=9091 -Dcom.sun.management.jmxremote.rmi.port=9091 -Djava.rmi.server.hostname=127.0.0.1 -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.local.only=false</jvmArgs>
+          <jvmArgs>--add-exports jdk.jfr/jdk.jfr.internal.query=ALL-UNNAMED --add-exports jdk.jfr/jdk.jfr.internal.util=ALL-UNNAMED -Dcryostat.discovery.jdp.enabled=true -Dcryostat.discovery.podman.enabled=true -XX:StartFlightRecording=filename=/tmp/,name=onstart,settings=default,disk=true,maxage=5m -Dcom.sun.management.jmxremote.autodiscovery=true -Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.port=9091 -Dcom.sun.management.jmxremote.rmi.port=9091 -Djava.rmi.server.hostname=127.0.0.1 -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.local.only=false</jvmArgs>
         </configuration>
       </plugin>
       <plugin>
         <artifactId>maven-compiler-plugin</artifactId>
         <version>${compiler-plugin.version}</version>
         <configuration>
+          <!-- Empty release so source/target (not the release flag) are used; add-exports below
+               is rejected by javac when compiling with the release flag for a system module. -->
+          <release combine.self="override"></release>
           <compilerArgs>
             <arg>-parameters</arg>
+            <arg>--add-exports</arg><arg>jdk.jfr/jdk.jfr.internal.query=ALL-UNNAMED</arg>
+            <arg>--add-exports</arg><arg>jdk.jfr/jdk.jfr.internal.util=ALL-UNNAMED</arg>
           </compilerArgs>
           <annotationProcessorPaths></annotationProcessorPaths>
         </configuration>
@@ -590,7 +595,7 @@
             <quarkus.test.arg-line>--network-alias=${quarkus.test.network-alias}</quarkus.test.arg-line>
           </systemPropertyVariables>
           <skipTests>${skip.surefire.tests}</skipTests>
-          <argLine>@{argLine}</argLine>
+          <argLine>@{argLine} --add-exports jdk.jfr/jdk.jfr.internal.query=ALL-UNNAMED --add-exports jdk.jfr/jdk.jfr.internal.util=ALL-UNNAMED</argLine>
         </configuration>
       </plugin>
       <plugin>

@@ -19,6 +19,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -649,73 +650,100 @@ public class DiagnosticsHelper {
     }
 
     public HeapDump addHeapDump(String jvmId, FileUpload heapDump, String requestId) {
-        String filename = heapDump.fileName().strip();
-        if (StringUtils.isBlank(filename)) {
-            throw new BadRequestException();
-        }
-        if (!filename.endsWith(".hprof")) {
-            filename = filename + ".hprof";
-        }
-        log.tracev("Putting Heap dump into storage with key: {0}", storageKey(jvmId, filename));
-        var req =
-                PutObjectRequest.builder()
-                        .bucket(heapDumpBucket)
-                        .key(storageKey(jvmId, filename))
-                        .contentType(MediaType.APPLICATION_OCTET_STREAM)
-                        .contentDisposition(String.format("attachment; filename=\"%s\"", filename));
-
-        switch (storageMode()) {
-            case TAGGING:
-                req = req.tagging(createMetadataTagging(new Metadata(Map.of())));
-                break;
-            case METADATA:
-                req = req.metadata(Map.of());
-                break;
-            case BUCKET:
-                try {
-                    heapDumpsMetadataService.get().create(jvmId, filename, new Metadata(Map.of()));
-                } catch (IOException ioe) {
-                    log.warn(ioe);
-                }
-                break;
-            default:
-                throw new IllegalStateException();
-        }
-
-        Uni.createFrom()
-                .completionStage(
-                        transferManager
-                                .uploadFile(
-                                        UploadFileRequest.builder()
-                                                .putObjectRequest(req.build())
-                                                .source(heapDump.filePath())
-                                                .build())
-                                .completionFuture())
-                .runSubscriptionOn(Infrastructure.getDefaultExecutor())
-                .await()
-                .atMost(uploadFailedTimeout);
-        var dump =
-                new HeapDump(
-                        jvmId,
-                        heapDumpDownloadUrl(jvmId, filename),
-                        filename,
-                        clock.now().getEpochSecond(),
-                        heapDump.filePath().toFile().length(),
-                        new Metadata(Map.of()));
-        var event =
-                new HeapDumpEvent(
-                        EventCategory.HEAP_DUMP_UPLOADED, HeapDumpEvent.Payload.of(jvmId, dump));
-        bus.publish(
-                MessagingServer.class.getName(),
-                new Notification(event.category().category(), event.payload()));
-
+        boolean uploadStarted = false;
         try {
-            // Clean up temporary files
-            Files.delete(heapDump.filePath());
+            String filename = heapDump.fileName().strip();
+            if (StringUtils.isBlank(filename)) {
+                throw new BadRequestException();
+            }
+            if (!filename.endsWith(".hprof")) {
+                filename = filename + ".hprof";
+            }
+            log.tracev("Putting Heap dump into storage with key: {0}", storageKey(jvmId, filename));
+            var req =
+                    PutObjectRequest.builder()
+                            .bucket(heapDumpBucket)
+                            .key(storageKey(jvmId, filename))
+                            .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                            .contentDisposition(
+                                    String.format("attachment; filename=\"%s\"", filename));
+
+            switch (storageMode()) {
+                case TAGGING:
+                    req = req.tagging(createMetadataTagging(new Metadata(Map.of())));
+                    break;
+                case METADATA:
+                    req = req.metadata(Map.of());
+                    break;
+                case BUCKET:
+                    try {
+                        heapDumpsMetadataService
+                                .get()
+                                .create(jvmId, filename, new Metadata(Map.of()));
+                    } catch (IOException ioe) {
+                        log.warn(ioe);
+                    }
+                    break;
+                default:
+                    throw new IllegalStateException();
+            }
+
+            // Capture the source file size before starting the upload, since the
+            // temp file is deleted once the transfer reaches a terminal state.
+            long fileSize = heapDump.filePath().toFile().length();
+            var uploadFuture =
+                    transferManager
+                            .uploadFile(
+                                    UploadFileRequest.builder()
+                                            .putObjectRequest(req.build())
+                                            .source(heapDump.filePath())
+                                            .build())
+                            .completionFuture();
+            // Delete the temp file only after the transfer reaches a terminal
+            // state (success or failure), even if we stop awaiting below due to
+            // timeout. Deleting the source file while the transfer is still
+            // reading it would race with the in-flight upload.
+            uploadStarted = true;
+            uploadFuture.whenComplete((res, err) -> deleteQuietly(heapDump.filePath()));
+
+            Uni.createFrom()
+                    .completionStage(uploadFuture)
+                    .runSubscriptionOn(Infrastructure.getDefaultExecutor())
+                    .await()
+                    .atMost(uploadFailedTimeout);
+            var dump =
+                    new HeapDump(
+                            jvmId,
+                            heapDumpDownloadUrl(jvmId, filename),
+                            filename,
+                            clock.now().getEpochSecond(),
+                            fileSize,
+                            new Metadata(Map.of()));
+            var event =
+                    new HeapDumpEvent(
+                            EventCategory.HEAP_DUMP_UPLOADED,
+                            HeapDumpEvent.Payload.of(jvmId, dump));
+            bus.publish(
+                    MessagingServer.class.getName(),
+                    new Notification(event.category().category(), event.payload()));
+
+            return dump;
+        } finally {
+            // If the transfer never started (e.g. validation failed), clean up
+            // the temp file here. Otherwise deletion is deferred to the upload's
+            // completion callback registered above.
+            if (!uploadStarted) {
+                deleteQuietly(heapDump.filePath());
+            }
+        }
+    }
+
+    private void deleteQuietly(Path path) {
+        try {
+            Files.delete(path);
         } catch (IOException ioe) {
             log.warn(ioe);
         }
-        return dump;
     }
 
     public String threadDumpDownloadUrl(String jvmId, String filename) {

@@ -72,7 +72,7 @@ public class S3StorageResource
         Map<String, String> properties = new HashMap<>();
         properties.put("test.storage.enabled", "true");
         properties.put("quarkus.s3.aws.region", "us-east-1");
-        properties.put("s3.url.override", "http://localhost:" + hostPort);
+        properties.put("s3.url.override", adjustS3Url("localhost", hostPort));
         properties.put("quarkus.s3.endpoint-override", properties.get("s3.url.override"));
         properties.put("quarkus.s3.path-style-access", "true");
         properties.put("quarkus.s3.aws.credentials.type", "static");
@@ -89,6 +89,17 @@ public class S3StorageResource
         properties.put("aws.secretAccessKey", properties.get("aws.secret-access-key"));
 
         return properties;
+    }
+
+    /**
+     * Builds the {@code s3.url.override} value the application under test uses to reach the storage
+     * container. For in-JVM {@code @QuarkusTest} the app runs on the host, so the default is {@code
+     * localhost:<mappedPort>}. Integration tests running the app inside a container override this
+     * (see {@code S3StorageITResource}) to address the storage container over the shared container
+     * network instead.
+     */
+    protected String adjustS3Url(String host, int port) {
+        return "http://" + host + ":" + port;
     }
 
     @SuppressWarnings("resource")
