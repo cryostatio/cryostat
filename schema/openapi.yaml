@@ -1172,125 +1172,6 @@ info:
   version: 4.3.0-snapshot
 openapi: 3.1.0
 paths:
-  /api/beta/targets/{jvmId}/smart_triggers/sync:
-    post:
-      parameters:
-        - in: path
-          name: jvmId
-          required: true
-          schema:
-            type: string
-      requestBody:
-        content:
-          text/plain:
-            schema:
-              type: string
-        required: true
-      responses:
-        "201":
-          description: Created
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme: []
-      summary: Sync Recordings
-      tags:
-        - Smart Triggers
-  /api/beta/targets/{targetId}/smart_triggers:
-    get:
-      parameters:
-        - in: path
-          name: targetId
-          required: true
-          schema:
-            $ref: '#/components/schemas/UUID'
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                items:
-                  $ref: '#/components/schemas/SmartTrigger'
-                type: array
-          description: OK
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme: []
-      summary: Retrieve all currently active Smart Triggers for a target
-      tags:
-        - Smart Triggers
-    post:
-      description: |
-        Define a new Smart Trigger. A custom trigger definition must consist of both an expression
-        that defines the overall trigger condition and the name of an event template that is used
-        for the JFR Recording. The entire trigger expression must be enclosed in square brackets,
-        with the recording template name specified after a ~. For an example definition:
-        [ProcessCpuLoad > 0.2 ; TargetDuration > duration("30s")]~profile
-      parameters:
-        - in: path
-          name: targetId
-          required: true
-          schema:
-            $ref: '#/components/schemas/UUID'
-      requestBody:
-        content:
-          application/x-www-form-urlencoded:
-            schema:
-              properties:
-                definition:
-                  type: string
-              type: object
-        required: true
-      responses:
-        "201":
-          description: Created
-        "400":
-          description: Bad Request
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme: []
-      summary: Define a new Smart Trigger for a target
-      tags:
-        - Smart Triggers
-  /api/beta/targets/{targetId}/smart_triggers/{uuid}:
-    delete:
-      description: |
-        Delete an active Smart Trigger. A custom trigger definition must consist of both an expression
-        that defines the overall trigger condition and the name of an event template that is used
-        for the JFR Recording. The entire trigger expression must be enclosed in square brackets,
-        with the recording template name specified after a ~. For an example definition:
-        [ProcessCpuLoad > 0.2 ; TargetDuration > duration("30s")]~profile
-      parameters:
-        - in: path
-          name: targetId
-          required: true
-          schema:
-            $ref: '#/components/schemas/UUID'
-        - in: path
-          name: uuid
-          required: true
-          schema:
-            type: string
-      responses:
-        "204":
-          description: No Content
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme: []
-      summary: Delete a currently active Smart Trigger for a target
-      tags:
-        - Smart Triggers
   /api/v5/activedownload/{id}:
     get:
       description: |
@@ -4478,6 +4359,125 @@ paths:
       summary: Get an automated analysis report for a particular recording on the specified target
       tags:
         - Reports
+  /api/v5/targets/{jvmId}/smart_triggers:
+    get:
+      parameters:
+        - in: path
+          name: jvmId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/SmartTrigger'
+                type: array
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      summary: Retrieve all currently active Smart Triggers for a target
+      tags:
+        - Smart Triggers
+    post:
+      description: |
+        Define a new Smart Trigger. A custom trigger definition must consist of both an expression
+        that defines the overall trigger condition and the name of an event template that is used
+        for the JFR Recording. The entire trigger expression must be enclosed in square brackets,
+        with the recording template name specified after a ~. For an example definition:
+        [ProcessCpuLoad > 0.2 ; TargetDuration > duration("30s")]~profile
+      parameters:
+        - in: path
+          name: jvmId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              properties:
+                definition:
+                  type: string
+              type: object
+        required: true
+      responses:
+        "201":
+          description: Created
+        "400":
+          description: Bad Request
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      summary: Define a new Smart Trigger for a target
+      tags:
+        - Smart Triggers
+  /api/v5/targets/{jvmId}/smart_triggers/sync:
+    post:
+      parameters:
+        - in: path
+          name: jvmId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          text/plain:
+            schema:
+              type: string
+        required: true
+      responses:
+        "201":
+          description: Created
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      summary: Sync Recordings
+      tags:
+        - Smart Triggers
+  /api/v5/targets/{jvmId}/smart_triggers/{id}:
+    delete:
+      description: |
+        Delete an active Smart Trigger. A custom trigger definition must consist of both an expression
+        that defines the overall trigger condition and the name of an event template that is used
+        for the JFR Recording. The entire trigger expression must be enclosed in square brackets,
+        with the recording template name specified after a ~. For an example definition:
+        [ProcessCpuLoad > 0.2 ; TargetDuration > duration("30s")]~profile
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: jvmId
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      summary: Delete a currently active Smart Trigger for a target
+      tags:
+        - Smart Triggers
   /api/v5/tls/certs:
     get:
       description: |

@@ -34,12 +34,12 @@ public class SmartTriggersTest extends AbstractTransactionalTestBase {
 
     @Test
     public void testList() {
-        UUID id = defineSelfCustomTarget();
+        defineSelfCustomTarget();
         given().log()
                 .all()
                 .when()
-                .pathParam("targetId", id)
-                .get("api/beta/targets/{targetId}/smart_triggers")
+                .pathParam("jvmId", selfJvmId)
+                .get()
                 .then()
                 .log()
                 .all()
@@ -53,8 +53,8 @@ public class SmartTriggersTest extends AbstractTransactionalTestBase {
         given().log()
                 .all()
                 .when()
-                .pathParam("targetId", UUID.randomUUID())
-                .get("api/beta/targets/{targetId}/smart_triggers")
+                .pathParam("jvmId", UUID.randomUUID())
+                .get()
                 .then()
                 .log()
                 .all()
@@ -65,13 +65,13 @@ public class SmartTriggersTest extends AbstractTransactionalTestBase {
 
     @Test
     public void testDeleteInvalid() {
-        UUID id = defineSelfCustomTarget();
+        defineSelfCustomTarget();
         given().log()
                 .all()
                 .when()
-                .pathParam("targetId", id)
-                .pathParam("uuid", "foo")
-                .delete("api/beta/targets/{targetId}/smart_triggers/{uuid}")
+                .pathParam("jvmId", selfJvmId)
+                .pathParam("id", "foo")
+                .delete("/{id}")
                 .then()
                 .log()
                 .all()
@@ -82,13 +82,13 @@ public class SmartTriggersTest extends AbstractTransactionalTestBase {
 
     @Test
     public void testPost() {
-        UUID id = defineSelfCustomTarget();
+        defineSelfCustomTarget();
         given().log()
                 .all()
                 .when()
-                .pathParam("targetId", id)
+                .pathParam("jvmId", selfJvmId)
                 .formParam("definition", "[foo]~bar")
-                .post("api/beta/targets/{targetId}/smart_triggers")
+                .post()
                 .then()
                 .log()
                 .all()
