@@ -1291,201 +1291,6 @@ paths:
       summary: Delete a currently active Smart Trigger for a target
       tags:
         - Smart Triggers
-  /api/v4/rules:
-    get:
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                items:
-                  $ref: '#/components/schemas/Rule'
-                type: array
-          description: OK
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme: []
-      summary: List all Automated Rules
-      tags:
-        - Rules
-    post:
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/Rule'
-          application/x-www-form-urlencoded:
-            schema:
-              properties:
-                archivalPeriodSeconds:
-                  format: int32
-                  type: integer
-                description:
-                  type: string
-                enabled:
-                  type: boolean
-                eventSpecifier:
-                  type: string
-                initialDelaySeconds:
-                  format: int32
-                  type: integer
-                matchExpression:
-                  type: string
-                maxAgeSeconds:
-                  format: int32
-                  type: integer
-                maxSizeBytes:
-                  format: int32
-                  type: integer
-                metadata:
-                  type:
-                    - string
-                    - "null"
-                name:
-                  type: string
-                preservedArchives:
-                  format: int32
-                  type: integer
-              type: object
-          multipart/form-data:
-            schema:
-              properties:
-                archivalPeriodSeconds:
-                  format: int32
-                  type: integer
-                description:
-                  type: string
-                enabled:
-                  type: boolean
-                eventSpecifier:
-                  type: string
-                initialDelaySeconds:
-                  format: int32
-                  type: integer
-                matchExpression:
-                  type: string
-                maxAgeSeconds:
-                  format: int32
-                  type: integer
-                maxSizeBytes:
-                  format: int32
-                  type: integer
-                metadata:
-                  type:
-                    - string
-                    - "null"
-                name:
-                  type: string
-                preservedArchives:
-                  format: int32
-                  type: integer
-              type: object
-        required: true
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Rule'
-          description: OK
-        "400":
-          description: Bad Request
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme: []
-      summary: Create a new Automated Rule
-      tags:
-        - Rules
-  /api/v4/rules/{name}:
-    delete:
-      parameters:
-        - in: path
-          name: name
-          required: true
-          schema:
-            type: string
-        - in: query
-          name: clean
-          schema:
-            default: false
-            type: boolean
-      responses:
-        "204":
-          description: No Content
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme: []
-      summary: Delete an Automated Rule by name
-      tags:
-        - Rules
-    get:
-      parameters:
-        - in: path
-          name: name
-          required: true
-          schema:
-            type: string
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Rule'
-          description: OK
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme: []
-      summary: Get an Automated Rule by name
-      tags:
-        - Rules
-    patch:
-      description: |
-        Update Automated Rule parameters, such as whether the rule is currently active or not.
-      parameters:
-        - in: path
-          name: name
-          required: true
-          schema:
-            type: string
-        - in: query
-          name: clean
-          schema:
-            default: false
-            type: boolean
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/JsonObject'
-        required: true
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Rule'
-          description: OK
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme: []
-      summary: Update an Automated Rule
-      tags:
-        - Rules
   /api/v4/tls/certs:
     get:
       description: |
@@ -2992,6 +2797,201 @@ paths:
       summary: Get an automated analysis report
       tags:
         - Reports
+  /api/v5/rules:
+    get:
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/Rule'
+                type: array
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      summary: List all Automated Rules
+      tags:
+        - Rules
+    post:
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Rule'
+          application/x-www-form-urlencoded:
+            schema:
+              properties:
+                archivalPeriodSeconds:
+                  format: int32
+                  type: integer
+                description:
+                  type: string
+                enabled:
+                  type: boolean
+                eventSpecifier:
+                  type: string
+                initialDelaySeconds:
+                  format: int32
+                  type: integer
+                matchExpression:
+                  type: string
+                maxAgeSeconds:
+                  format: int32
+                  type: integer
+                maxSizeBytes:
+                  format: int32
+                  type: integer
+                metadata:
+                  type:
+                    - string
+                    - "null"
+                name:
+                  type: string
+                preservedArchives:
+                  format: int32
+                  type: integer
+              type: object
+          multipart/form-data:
+            schema:
+              properties:
+                archivalPeriodSeconds:
+                  format: int32
+                  type: integer
+                description:
+                  type: string
+                enabled:
+                  type: boolean
+                eventSpecifier:
+                  type: string
+                initialDelaySeconds:
+                  format: int32
+                  type: integer
+                matchExpression:
+                  type: string
+                maxAgeSeconds:
+                  format: int32
+                  type: integer
+                maxSizeBytes:
+                  format: int32
+                  type: integer
+                metadata:
+                  type:
+                    - string
+                    - "null"
+                name:
+                  type: string
+                preservedArchives:
+                  format: int32
+                  type: integer
+              type: object
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Rule'
+          description: OK
+        "400":
+          description: Bad Request
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      summary: Create a new Automated Rule
+      tags:
+        - Rules
+  /api/v5/rules/{id}:
+    delete:
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            $ref: '#/components/schemas/UUID'
+        - in: query
+          name: clean
+          schema:
+            default: false
+            type: boolean
+      responses:
+        "204":
+          description: No Content
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      summary: Delete an Automated Rule
+      tags:
+        - Rules
+    get:
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            $ref: '#/components/schemas/UUID'
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Rule'
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      summary: Get an Automated Rule by id
+      tags:
+        - Rules
+    patch:
+      description: |
+        Update Automated Rule parameters, such as whether the rule is currently active or not.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            $ref: '#/components/schemas/UUID'
+        - in: query
+          name: clean
+          schema:
+            default: false
+            type: boolean
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JsonObject'
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Rule'
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      summary: Update an Automated Rule
+      tags:
+        - Rules
   /api/v5/targets:
     get:
       description: |

@@ -38,10 +38,19 @@ public class RulesPostFormTest extends AbstractTransactionalTestBase {
     static final String TEST_RULE_EVENT_SPECIFIER = "template=Continuous,type=TARGET";
     static final String TEST_RULE_MATCH_EXPRESSION = "target.alias == 'some-target'";
 
+    String ruleId = null;
+
     @AfterEach
     void cleanupRulesPostFormTest() {
         // Delete test rule if it exists (204 if exists, 404 if not)
-        given().when().delete("/{name}", TEST_RULE_NAME).then().statusCode(anyOf(is(204), is(404)));
+        if (ruleId != null) {
+            given().pathParam("id", ruleId)
+                    .when()
+                    .delete("/{id}")
+                    .then()
+                    .statusCode(anyOf(is(204), is(404)));
+        }
+        ruleId = null;
     }
 
     @Test
@@ -78,7 +87,7 @@ public class RulesPostFormTest extends AbstractTransactionalTestBase {
                 .body("enabled", equalTo(false))
                 .body("metadata.labels.size()", equalTo(0));
 
-        // Try to create the same rule again - should fail with 409
+        // Try to create the same rule again - should fail with 400
         given().log()
                 .all()
                 .contentType(ContentType.URLENC)
@@ -91,7 +100,7 @@ public class RulesPostFormTest extends AbstractTransactionalTestBase {
                 .then()
                 .log()
                 .all()
-                .statusCode(409);
+                .statusCode(400);
     }
 
     @Test

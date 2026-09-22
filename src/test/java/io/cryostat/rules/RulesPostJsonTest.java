@@ -36,10 +36,19 @@ public class RulesPostJsonTest extends AbstractTransactionalTestBase {
 
     private static final String TEST_RULE_NAME = "Test_Rule_JSON";
 
+    String ruleId = null;
+
     @AfterEach
     void cleanupRulesPostJsonTest() {
         // Delete test rule if it exists (204 if exists, 404 if not)
-        given().when().delete("/{name}", TEST_RULE_NAME).then().statusCode(anyOf(is(204), is(404)));
+        if (ruleId != null) {
+            given().pathParam("id", ruleId)
+                    .when()
+                    .delete("/{id}")
+                    .then()
+                    .statusCode(anyOf(is(204), is(404)));
+        }
+        ruleId = null;
     }
 
     @Test
@@ -102,7 +111,7 @@ public class RulesPostJsonTest extends AbstractTransactionalTestBase {
                 .body("enabled", equalTo(false))
                 .body("metadata.labels.size()", equalTo(0));
 
-        // Try to create the same rule again - should fail with 409
+        // Try to create the same rule again - should fail with 400
         given().log()
                 .all()
                 .contentType(ContentType.JSON)
@@ -112,7 +121,7 @@ public class RulesPostJsonTest extends AbstractTransactionalTestBase {
                 .then()
                 .log()
                 .all()
-                .statusCode(409);
+                .statusCode(400);
     }
 
     @Test
