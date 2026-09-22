@@ -16,7 +16,6 @@
 package io.cryostat.recordings;
 
 import java.time.Duration;
-import java.util.UUID;
 
 import io.cryostat.ConfigProperties;
 import io.cryostat.recordings.ActiveRecordings.LinkedRecordingDescriptor;
@@ -36,7 +35,7 @@ import org.jboss.resteasy.reactive.RestPath;
 import org.jboss.resteasy.reactive.RestResponse;
 import org.jboss.resteasy.reactive.RestResponse.ResponseBuilder;
 
-@Path("/api/v4/targets/{targetId}/snapshot")
+@Path("/api/v5/targets/{jvmId}/recordings/snapshot")
 public class Snapshots {
 
     @Inject RecordingHelper recordingHelper;
@@ -52,10 +51,10 @@ public class Snapshots {
             value = {"targets:read", "activerecordings:write"},
             inclusive = true)
     @Operation(summary = "Create a JFR Snapshot on the specified target")
-    public RestResponse<LinkedRecordingDescriptor> createSnapshotUsingTargetId(
-            @RestPath UUID targetId) throws Exception {
+    public RestResponse<LinkedRecordingDescriptor> createSnapshot(@RestPath String jvmId)
+            throws Exception {
         return recordingHelper
-                .createSnapshot(Target.find("id", targetId).singleResult())
+                .createSnapshot(Target.getTargetByJvmId(jvmId).orElseThrow())
                 .onItem()
                 .transform(
                         recording ->

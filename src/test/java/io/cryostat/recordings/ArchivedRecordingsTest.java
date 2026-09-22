@@ -37,19 +37,7 @@ public class ArchivedRecordingsTest extends AbstractTransactionalTestBase {
         given().log()
                 .all()
                 .when()
-                .get("/api/v4/recordings")
-                .then()
-                .assertThat()
-                .contentType(ContentType.JSON)
-                .statusCode(200);
-    }
-
-    @Test
-    void testListFsNone() {
-        given().log()
-                .all()
-                .when()
-                .get("/api/beta/fs/recordings")
+                .get("/api/v5/recordings")
                 .then()
                 .assertThat()
                 .contentType(ContentType.JSON)
@@ -61,7 +49,7 @@ public class ArchivedRecordingsTest extends AbstractTransactionalTestBase {
         given().log()
                 .all()
                 .when()
-                .get("/api/beta/fs/recordings/abcd1234")
+                .get("/api/v5/recordings/abcd1234")
                 .then()
                 .assertThat()
                 .contentType(ContentType.JSON)
@@ -70,22 +58,11 @@ public class ArchivedRecordingsTest extends AbstractTransactionalTestBase {
     }
 
     @Test
-    void testDeleteNone() {
+    void testDeleteInvalid() {
         given().log()
                 .all()
                 .when()
-                .delete("/api/v4/recordings/nothing")
-                .then()
-                .assertThat()
-                .statusCode(404);
-    }
-
-    @Test
-    void testDeleteFsInvalid() {
-        given().log()
-                .all()
-                .when()
-                .delete("/api/beta/fs/recordings/abcd1234/nothing")
+                .delete("/api/v5/recordings/abcd1234/nothing")
                 .then()
                 .assertThat()
                 .statusCode(404);
@@ -96,7 +73,7 @@ public class ArchivedRecordingsTest extends AbstractTransactionalTestBase {
         given().log()
                 .all()
                 .when()
-                .post("/api/v4/grafana/abcd1234")
+                .post("/api/v5/grafana/abcd1234")
                 .then()
                 .assertThat()
                 .statusCode(400);
@@ -107,7 +84,7 @@ public class ArchivedRecordingsTest extends AbstractTransactionalTestBase {
         given().log()
                 .all()
                 .when()
-                .post("/api/v4/grafana/Zm9vL2Jhcg==")
+                .post("/api/v5/grafana/Zm9vL2Jhcg==")
                 .then()
                 .assertThat()
                 .statusCode(404);
@@ -118,7 +95,7 @@ public class ArchivedRecordingsTest extends AbstractTransactionalTestBase {
         given().log()
                 .all()
                 .when()
-                .get("/api/v4/download/abcd1234")
+                .get("/api/v5/download/abcd1234")
                 .then()
                 .assertThat()
                 .statusCode(400);
@@ -129,7 +106,7 @@ public class ArchivedRecordingsTest extends AbstractTransactionalTestBase {
         given().log()
                 .all()
                 .when()
-                .get("/api/v4/download/Zm9vL2Jhcg==")
+                .get("/api/v5/download/Zm9vL2Jhcg==")
                 .then()
                 .assertThat()
                 .statusCode(404);

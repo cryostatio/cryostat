@@ -63,9 +63,9 @@ public class AgentWorkflowTest extends AgentTestBase {
     void testListNoRecordings() {
         given().log()
                 .all()
-                .pathParams("targetId", target.id())
+                .pathParams("jvmId", target.jvmId())
                 .when()
-                .get("/api/v4/targets/{targetId}/recordings")
+                .get("/api/v5/targets/{jvmId}/recordings")
                 .then()
                 .log()
                 .all()
@@ -81,12 +81,12 @@ public class AgentWorkflowTest extends AgentTestBase {
         var recordingId =
                 given().log()
                         .all()
-                        .pathParams("targetId", target.id())
+                        .pathParams("jvmId", target.jvmId())
                         .when()
                         .formParam("recordingName", RECORDING_NAME)
                         .formParam("events", CONTINUOUS_TEMPLATE)
                         .formParam("duration", 10)
-                        .post("/api/v4/targets/{targetId}/recordings")
+                        .post("/api/v5/targets/{jvmId}/recordings")
                         .then()
                         .log()
                         .all()
@@ -104,9 +104,9 @@ public class AgentWorkflowTest extends AgentTestBase {
 
         given().log()
                 .all()
-                .pathParams("targetId", target.id())
+                .pathParams("jvmId", target.jvmId())
                 .when()
-                .get("/api/v4/targets/{targetId}/recordings")
+                .get("/api/v5/targets/{jvmId}/recordings")
                 .then()
                 .log()
                 .all()
@@ -122,9 +122,9 @@ public class AgentWorkflowTest extends AgentTestBase {
 
         given().log()
                 .all()
-                .pathParams("targetId", target.id(), "recordingId", recordingId)
+                .pathParams("jvmId", target.jvmId(), "recordingId", recordingId)
                 .when()
-                .delete("/api/v4/targets/{targetId}/recordings/{recordingId}")
+                .delete("/api/v5/targets/{jvmId}/recordings/{recordingId}")
                 .then()
                 .log()
                 .all()
@@ -142,7 +142,7 @@ public class AgentWorkflowTest extends AgentTestBase {
                     DeploymentException,
                     ExecutionException,
                     TimeoutException {
-        String targetId = target.id();
+        String targetId = target.jvmId();
         String archivedRecordingName = null;
         long recordingId = -1;
         try {
@@ -159,8 +159,8 @@ public class AgentWorkflowTest extends AgentTestBase {
                                         given().log()
                                                 .all()
                                                 .when()
-                                                .pathParams("targetId", targetId)
-                                                .post("/api/v4.1/targets/{targetId}/reports")
+                                                .pathParams("jvmId", targetId)
+                                                .post("/api/v5/targets/{jvmId}/reports")
                                                 .then()
                                                 .log()
                                                 .all()
@@ -206,7 +206,7 @@ public class AgentWorkflowTest extends AgentTestBase {
                                 target.connectUrl(),
                                 "filename",
                                 archivedRecordingName)
-                        .delete("/api/beta/recordings/{connectUrl}/{filename}")
+                        .delete("/api/v5/recordings/{jvmId}/{filename}")
                         .then()
                         .log()
                         .all()
@@ -219,8 +219,8 @@ public class AgentWorkflowTest extends AgentTestBase {
                 given().log()
                         .all()
                         .when()
-                        .pathParams("targetId", targetId, "recordingId", recordingId)
-                        .delete("/api/v4/targets/{targetId}/recordings/{recordingId}")
+                        .pathParams("jvmId", targetId, "recordingId", recordingId)
+                        .delete("/api/v5/targets/{jvmId}/recordings/{recordingId}")
                         .then()
                         .log()
                         .all()
@@ -239,12 +239,12 @@ public class AgentWorkflowTest extends AgentTestBase {
         form.add("events", events);
         return given().log()
                 .all()
-                .pathParams("targetId", targetId)
+                .pathParams("jvmId", targetId)
                 .formParam("recordingName", recordingName)
                 .formParam("duration", "5")
                 .formParam("events", events)
                 .when()
-                .post("/api/v4/targets/{targetId}/recordings")
+                .post("/api/v5/targets/{jvmId}/recordings")
                 .then()
                 .log()
                 .all()

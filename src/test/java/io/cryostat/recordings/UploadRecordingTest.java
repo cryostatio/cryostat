@@ -52,10 +52,8 @@ public class UploadRecordingTest extends AbstractTransactionalTestBase {
     static final int RECORDING_DURATION_SECONDS = 10;
 
     @BeforeEach
-    void setupUploadRecordingTest() throws Exception {
-        if (selfId == null) {
-            defineSelfCustomTarget();
-        }
+    void setup() throws Exception {
+        defineSelfCustomTarget();
     }
 
     @Test
@@ -81,8 +79,8 @@ public class UploadRecordingTest extends AbstractTransactionalTestBase {
                         .all()
                         .when()
                         .basePath("")
-                        .pathParams("targetId", selfId, "remoteId", recordingRemoteId)
-                        .post("/api/v4/targets/{targetId}/recordings/{remoteId}/upload")
+                        .pathParams("jvmId", selfJvmId, "remoteId", recordingRemoteId)
+                        .post("/api/v5/targets/{jvmId}/recordings/{remoteId}/upload")
                         .then()
                         .log()
                         .all()
@@ -104,7 +102,7 @@ public class UploadRecordingTest extends AbstractTransactionalTestBase {
                         .all()
                         .when()
                         .basePath("")
-                        .get("/api/v4/grafana_datasource_url")
+                        .get("/api/v5/grafana_datasource_url")
                         .then()
                         .log()
                         .all()

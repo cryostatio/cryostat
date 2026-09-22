@@ -266,7 +266,7 @@ public abstract class AbstractTestBase {
         var spec = given().log().all().when().basePath("");
         formParams.forEach(spec::formParam);
         var jp =
-                spec.pathParam("jvmId", this.selfId)
+                spec.pathParam("jvmId", this.selfJvmId)
                         .formParam("recordingName", name)
                         .formParam("replace", "ALWAYS")
                         .post("/api/v5/targets/{jvmId}/recordings")

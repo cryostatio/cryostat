@@ -18,7 +18,6 @@ package io.cryostat.recordings;
 import static io.restassured.RestAssured.given;
 
 import java.util.Map;
-import java.util.UUID;
 
 import io.cryostat.AbstractTransactionalTestBase;
 
@@ -26,6 +25,7 @@ import io.quarkus.test.common.http.TestHTTPEndpoint;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
 import org.hamcrest.Matchers;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -34,13 +34,17 @@ import org.junit.jupiter.params.provider.ValueSource;
 @TestHTTPEndpoint(RecordingOptions.class)
 public class RecordingOptionsTest extends AbstractTransactionalTestBase {
 
+    @BeforeEach
+    void setup() {
+        defineSelfCustomTarget();
+    }
+
     @Test
     void testGetStandard() {
-        UUID targetId = defineSelfCustomTarget();
         given().log()
                 .all()
                 .when()
-                .pathParams(Map.of("targetId", targetId))
+                .pathParam("jvmId", selfJvmId)
                 .get()
                 .then()
                 .log()
@@ -57,12 +61,11 @@ public class RecordingOptionsTest extends AbstractTransactionalTestBase {
 
     @Test
     void testSetGetUnset() {
-        UUID targetId = defineSelfCustomTarget();
 
         given().log()
                 .all()
                 .when()
-                .pathParams(Map.of("targetId", targetId))
+                .pathParam("jvmId", selfJvmId)
                 .formParams(Map.of("maxAge", 1234, "maxSize", 5678, "toDisk", true))
                 .patch()
                 .then()
@@ -80,7 +83,7 @@ public class RecordingOptionsTest extends AbstractTransactionalTestBase {
         given().log()
                 .all()
                 .when()
-                .pathParams(Map.of("targetId", targetId))
+                .pathParam("jvmId", selfJvmId)
                 .get()
                 .then()
                 .log()
@@ -97,7 +100,7 @@ public class RecordingOptionsTest extends AbstractTransactionalTestBase {
         given().log()
                 .all()
                 .when()
-                .pathParams(Map.of("targetId", targetId))
+                .pathParam("jvmId", selfJvmId)
                 .formParams(Map.of("maxAge", "unset", "maxSize", "unset", "toDisk", "unset"))
                 .patch()
                 .then()
@@ -115,7 +118,7 @@ public class RecordingOptionsTest extends AbstractTransactionalTestBase {
         given().log()
                 .all()
                 .when()
-                .pathParams(Map.of("targetId", targetId))
+                .pathParam("jvmId", selfJvmId)
                 .get()
                 .then()
                 .log()
@@ -133,11 +136,10 @@ public class RecordingOptionsTest extends AbstractTransactionalTestBase {
     @ParameterizedTest
     @ValueSource(strings = {"maxAge", "maxSize", "toDisk"})
     void testSetInvalid(String key) {
-        UUID targetId = defineSelfCustomTarget();
         given().log()
                 .all()
                 .when()
-                .pathParams(Map.of("targetId", targetId))
+                .pathParam("jvmId", selfJvmId)
                 .formParams(Map.of(key, "invalid"))
                 .patch()
                 .then()

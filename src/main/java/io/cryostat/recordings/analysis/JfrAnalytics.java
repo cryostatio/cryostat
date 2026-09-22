@@ -93,7 +93,7 @@ public class JfrAnalytics {
                         .buildAsync(new JfrFileLoader());
     }
 
-    @jakarta.ws.rs.Path("/api/beta/recording_analytics/{jvmId}/{filename}")
+    @jakarta.ws.rs.Path("/api/v5/recordings/{jvmId}/{filename}/analytics")
     @POST
     @Blocking
     @PermissionsAllowed(value = "archivedrecordings:read", inclusive = true)
