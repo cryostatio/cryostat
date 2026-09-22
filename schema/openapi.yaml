@@ -1291,31 +1291,6 @@ paths:
       summary: Delete a currently active Smart Trigger for a target
       tags:
         - Smart Triggers
-  /api/v4/tls/certs:
-    get:
-      description: |
-        In addition to the standard system/OpenJDK certificate trust store, Cryostat can be configured to
-        trust additional certificates which may be presented by target JVM JMX servers or by Cryostat Agent
-        HTTPS servers. This endpoint returns a list of local file paths to additional certificate files,
-        which Cryostat will have loaded into an additional trust store at startup.
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                items:
-                  type: string
-                type: array
-          description: OK
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme: []
-      summary: List additional trusted SSL/TLS certificates
-      tags:
-        - Trust Store
   /api/v5/activedownload/{id}:
     get:
       description: |
@@ -4503,6 +4478,31 @@ paths:
       summary: Get an automated analysis report for a particular recording on the specified target
       tags:
         - Reports
+  /api/v5/tls/certs:
+    get:
+      description: |
+        In addition to the standard system/OpenJDK certificate trust store, Cryostat can be configured to
+        trust additional certificates which may be presented by target JVM JMX servers or by Cryostat Agent
+        HTTPS servers. This endpoint returns a list of local file paths to additional certificate files,
+        which Cryostat will have loaded into an additional trust store at startup.
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  type: string
+                type: array
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      summary: List additional trusted SSL/TLS certificates
+      tags:
+        - Trust Store
   /health:
     get:
       description: |
