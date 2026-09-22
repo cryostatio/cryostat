@@ -18,12 +18,12 @@ package io.cryostat.events;
 import io.cryostat.ws.MessagingServer;
 import io.cryostat.ws.Notification;
 
-import io.quarkus.hibernate.orm.panache.PanacheEntity;
+import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.inject.Inject;
 import org.jboss.logging.Logger;
 
-public abstract class EntityNotificationObserver<E extends PanacheEntity> {
+public abstract class EntityNotificationObserver<E extends PanacheEntityBase> {
 
     @Inject protected Logger logger;
     @Inject protected EventBus bus;
@@ -96,7 +96,7 @@ public abstract class EntityNotificationObserver<E extends PanacheEntity> {
         bus.publish(category, payload);
     }
 
-    public abstract static class Simple<E extends PanacheEntity>
+    public abstract static class Simple<E extends PanacheEntityBase>
             extends EntityNotificationObserver<E> {
         @Override
         protected <S> Object buildCreatedPayload(S snapshot) {

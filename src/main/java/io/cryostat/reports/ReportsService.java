@@ -32,7 +32,7 @@ public interface ReportsService {
     Uni<Map<String, AnalysisResult>> reportFor(String jvmId, String filename);
 
     static String key(ActiveRecording recording) {
-        return String.format("%s/%d", recording.target.jvmId, recording.id);
+        return String.format("%s/%s", recording.target.jvmId, recording.id);
     }
 
     public boolean keyExists(ActiveRecording recording);

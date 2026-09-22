@@ -18,6 +18,7 @@ package io.cryostat.diagnostics;
 import static io.restassured.RestAssured.given;
 
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Stream;
 
 import io.cryostat.audit.AuditTestBase;
@@ -51,7 +52,7 @@ public class UnifiedLogsTest extends AuditTestBase {
 
     @Test
     public void testEnableUnifiedLoggingOnJmxTargetReturns400() {
-        int targetId = defineSelfCustomTarget();
+        UUID targetId = defineSelfCustomTarget();
         given().log()
                 .all()
                 .when()
@@ -68,7 +69,7 @@ public class UnifiedLogsTest extends AuditTestBase {
 
     @Test
     public void testPatchUnifiedLoggingOnJmxTargetReturns400() {
-        int targetId = defineSelfCustomTarget();
+        UUID targetId = defineSelfCustomTarget();
         given().log()
                 .all()
                 .when()
@@ -85,7 +86,7 @@ public class UnifiedLogsTest extends AuditTestBase {
 
     @Test
     public void testDisableUnifiedLoggingOnJmxTargetReturns400() {
-        int targetId = defineSelfCustomTarget();
+        UUID targetId = defineSelfCustomTarget();
         given().log()
                 .all()
                 .when()
@@ -100,7 +101,7 @@ public class UnifiedLogsTest extends AuditTestBase {
 
     @Test
     public void testPullUnifiedLogOnJmxTargetReturns400() {
-        int targetId = defineSelfCustomTarget();
+        UUID targetId = defineSelfCustomTarget();
         given().log()
                 .all()
                 .when()
@@ -137,7 +138,7 @@ public class UnifiedLogsTest extends AuditTestBase {
     @MethodSource("invalidParams")
     public void testEnableUnifiedLoggingWithInvalidParamsReturns400(
             String what, String decorators) {
-        int targetId = defineSelfCustomTarget();
+        UUID targetId = defineSelfCustomTarget();
         given().log()
                 .all()
                 .when()
@@ -156,7 +157,7 @@ public class UnifiedLogsTest extends AuditTestBase {
     @MethodSource("invalidParams")
     public void testReconfigureUnifiedLoggingWithInvalidParamsReturns400(
             String what, String decorators) {
-        int targetId = defineSelfCustomTarget();
+        UUID targetId = defineSelfCustomTarget();
         given().log()
                 .all()
                 .when()
@@ -178,7 +179,7 @@ public class UnifiedLogsTest extends AuditTestBase {
         given().log()
                 .all()
                 .when()
-                .pathParam("targetId", Integer.MAX_VALUE)
+                .pathParam("targetId", UUID.randomUUID())
                 .queryParam("what", "gc")
                 .queryParam("decorators", "time,level")
                 .post("targets/{targetId}/unified-logging")
@@ -194,7 +195,7 @@ public class UnifiedLogsTest extends AuditTestBase {
     @Test
     @Transactional
     public void testUnifiedLogEntityEnableCreatesActiveRow() {
-        int targetId = defineSelfCustomTarget();
+        UUID targetId = defineSelfCustomTarget();
         Target target = Target.getTargetById(targetId);
 
         long before = System.currentTimeMillis();
@@ -212,10 +213,10 @@ public class UnifiedLogsTest extends AuditTestBase {
 
     @Test
     public void testUnifiedLogSessionLifecycleCreatesAuditRevisions() {
-        int targetId = defineSelfCustomTarget();
+        UUID targetId = defineSelfCustomTarget();
 
         // Persist a UnifiedLog session and immediately delete it (simulating enable + disable).
-        long sessionId =
+        UUID sessionId =
                 QuarkusTransaction.requiringNew()
                         .call(
                                 () -> {
@@ -259,7 +260,7 @@ public class UnifiedLogsTest extends AuditTestBase {
         given().log()
                 .all()
                 .when()
-                .pathParam("targetId", Integer.MAX_VALUE)
+                .pathParam("targetId", UUID.randomUUID())
                 .get("targets/{targetId}/unified-logs")
                 .then()
                 .log()

@@ -141,7 +141,7 @@ public class Rules {
         rule.persist();
 
         return ResponseBuilder.<Rule>created(
-                        uriInfo.getAbsolutePathBuilder().path(Long.toString(rule.id)).build())
+                        uriInfo.getAbsolutePathBuilder().path(rule.id.toString()).build())
                 .entity(rule)
                 .build();
     }
@@ -261,7 +261,7 @@ public class Rules {
         rule.persist();
 
         return ResponseBuilder.<Rule>created(
-                        uriInfo.getAbsolutePathBuilder().path(Long.toString(rule.id)).build())
+                        uriInfo.getAbsolutePathBuilder().path(rule.id.toString()).build())
                 .entity(rule)
                 .build();
     }

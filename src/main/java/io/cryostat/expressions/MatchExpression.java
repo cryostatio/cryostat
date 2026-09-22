@@ -20,14 +20,15 @@ import java.util.HashSet;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 
+import io.cryostat.PanacheUuidEntity;
 import io.cryostat.expressions.events.MatchExpressionEvents;
 import io.cryostat.targets.Target;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.annotation.Nullable;
@@ -60,7 +61,7 @@ import org.projectnessie.cel.tools.ScriptException;
 @Entity
 @EntityListeners(MatchExpression.Listener.class)
 @Cacheable
-public class MatchExpression extends PanacheEntity {
+public class MatchExpression extends PanacheUuidEntity {
     public static final String EXPRESSION_ADDRESS = "io.cryostat.expressions.MatchExpression";
 
     @Column(updatable = false, nullable = false)
@@ -125,7 +126,7 @@ public class MatchExpression extends PanacheEntity {
 
     @SuppressFBWarnings("EI_EXPOSE_REP")
     public static record MatchedExpression(
-            @Nullable Long id, String expression, Collection<Target> targets) {
+            @Nullable UUID id, String expression, Collection<Target> targets) {
         public MatchedExpression {
             Objects.requireNonNull(expression);
             Objects.requireNonNull(targets);

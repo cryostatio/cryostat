@@ -22,6 +22,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -230,7 +231,7 @@ public class CustomDiscovery {
 
                                 return ResponseBuilder.<Target>created(
                                                 uriInfo.getAbsolutePathBuilder()
-                                                        .path(Long.toString(target.id))
+                                                        .path(target.id.toString())
                                                         .build())
                                         .entity(target)
                                         .build();
@@ -259,7 +260,7 @@ public class CustomDiscovery {
                     Custom Target discovery API. Other targets must be removed by the discovery mechanisms which
                     discovered them.
                     """)
-    public void delete(@RestPath long id) throws URISyntaxException {
+    public void delete(@RestPath UUID id) throws URISyntaxException {
         Target target = Target.find("id", id).singleResult();
         DiscoveryNode realm = DiscoveryNode.getRealm(REALM).orElseThrow();
         realm = entityManager.find(DiscoveryNode.class, realm.id, LockModeType.PESSIMISTIC_WRITE);

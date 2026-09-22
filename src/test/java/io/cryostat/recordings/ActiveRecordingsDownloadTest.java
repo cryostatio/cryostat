@@ -18,6 +18,7 @@ package io.cryostat.recordings;
 import static io.restassured.RestAssured.given;
 
 import java.util.Map;
+import java.util.UUID;
 
 import io.cryostat.AbstractTransactionalTestBase;
 import io.cryostat.resources.S3StorageResource;
@@ -35,7 +36,7 @@ public class ActiveRecordingsDownloadTest extends AbstractTransactionalTestBase 
 
     @Test
     void testCreateDownloadAndDelete() throws InterruptedException {
-        int targetId = defineSelfCustomTarget();
+        UUID targetId = defineSelfCustomTarget();
         var json =
                 given().log()
                         .all()

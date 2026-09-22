@@ -107,13 +107,13 @@ public class DiscoveryAgentKubernetesTest extends AbstractTransactionalTestBase 
         var pluginId = firstRegistration.getString("id");
         MatcherAssert.assertThat(pluginId, Matchers.is(Matchers.not(Matchers.emptyOrNullString())));
 
-        Long firstTargetId =
+        UUID firstTargetId =
                 QuarkusTransaction.requiringNew()
                         .call(
                                 () ->
                                         io.cryostat.targets.Target.getTargetByConnectUrl(connectUrl)
                                                 .id);
-        Long firstCredentialId =
+        UUID firstCredentialId =
                 QuarkusTransaction.requiringNew()
                         .call(
                                 () ->
@@ -136,13 +136,13 @@ public class DiscoveryAgentKubernetesTest extends AbstractTransactionalTestBase 
                 .assertThat()
                 .statusCode(200);
 
-        Long secondTargetId =
+        UUID secondTargetId =
                 QuarkusTransaction.requiringNew()
                         .call(
                                 () ->
                                         io.cryostat.targets.Target.getTargetByConnectUrl(connectUrl)
                                                 .id);
-        Long secondCredentialId =
+        UUID secondCredentialId =
                 QuarkusTransaction.requiringNew()
                         .call(
                                 () ->

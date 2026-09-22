@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.atomic.AtomicReferenceArray;
@@ -667,7 +668,7 @@ public class LongRunningRequestGenerator {
         }
     }
 
-    public record GrafanaActiveUploadRequest(String id, long remoteId, long targetId) {
+    public record GrafanaActiveUploadRequest(String id, long remoteId, UUID targetId) {
         public GrafanaActiveUploadRequest {
             Objects.requireNonNull(id);
             Objects.requireNonNull(remoteId);
@@ -719,14 +720,14 @@ public class LongRunningRequestGenerator {
         }
     }
 
-    public record HeapDumpRequest(String id, long targetId) {
+    public record HeapDumpRequest(String id, UUID targetId) {
         public HeapDumpRequest {
             Objects.requireNonNull(id);
             Objects.requireNonNull(targetId);
         }
     }
 
-    public record ThreadDumpRequest(String id, long targetId, String format) {
+    public record ThreadDumpRequest(String id, UUID targetId, String format) {
         public ThreadDumpRequest {
             Objects.requireNonNull(id);
             Objects.requireNonNull(targetId);

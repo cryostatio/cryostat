@@ -219,7 +219,7 @@ public class ArchivedRecordings {
         doUpload(recording, metadata, id);
     }
 
-    private Optional<Long> resolveActiveRecordingId(String jvmId, Map<String, String> labels) {
+    private Optional<UUID> resolveActiveRecordingId(String jvmId, Map<String, String> labels) {
         String sourceRecordingId = labels.get(RecordingHelper.SOURCE_RECORDING_ID_LABEL);
         if (StringUtils.isBlank(sourceRecordingId)) {
             logger.warnv(

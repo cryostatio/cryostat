@@ -20,6 +20,7 @@ import static io.restassured.RestAssured.given;
 
 import java.time.Duration;
 import java.util.Map;
+import java.util.UUID;
 
 import io.cryostat.AbstractTransactionalTestBase;
 import io.cryostat.resources.S3StorageResource;
@@ -57,8 +58,8 @@ public class ReportGenerationCacheEnabledTest extends AbstractTransactionalTestB
         cleanupSelfActiveAndArchivedRecordings();
     }
 
-    private long getSelfReferenceTargetId() {
-        if (selfId < 1) {
+    private UUID getSelfReferenceTargetId() {
+        if (selfId == null) {
             defineSelfCustomTarget();
         }
         return selfId;
@@ -66,7 +67,7 @@ public class ReportGenerationCacheEnabledTest extends AbstractTransactionalTestB
 
     @Test
     void testGetArchivedCachedReport() throws Exception {
-        long targetId = getSelfReferenceTargetId();
+        UUID targetId = getSelfReferenceTargetId();
 
         // Create a recording
         Response postResponse =

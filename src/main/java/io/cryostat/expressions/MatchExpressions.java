@@ -19,6 +19,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.UUID;
 
 import io.cryostat.expressions.MatchExpression.MatchedExpression;
 import io.cryostat.targets.Target;
@@ -95,11 +96,11 @@ public class MatchExpressions {
             inclusive = true)
     @Blocking
     @Operation(summary = "Retrieve a single Match Expression")
-    public MatchedExpression get(@RestPath long id) throws ScriptException {
+    public MatchedExpression get(@RestPath UUID id) throws ScriptException {
         return targetMatcher.match(MatchExpression.find("id", id).singleResult());
     }
 
-    static record RequestData(String matchExpression, List<Long> targetIds) {
+    static record RequestData(String matchExpression, List<UUID> targetIds) {
         RequestData {
             Objects.requireNonNull(matchExpression);
         }

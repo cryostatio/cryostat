@@ -18,6 +18,7 @@ package io.cryostat.recordings;
 import static io.restassured.RestAssured.given;
 
 import java.util.Map;
+import java.util.UUID;
 
 import io.cryostat.AbstractTransactionalTestBase;
 
@@ -35,7 +36,7 @@ public class RecordingOptionsTest extends AbstractTransactionalTestBase {
 
     @Test
     void testGetStandard() {
-        int targetId = defineSelfCustomTarget();
+        UUID targetId = defineSelfCustomTarget();
         given().log()
                 .all()
                 .when()
@@ -56,7 +57,7 @@ public class RecordingOptionsTest extends AbstractTransactionalTestBase {
 
     @Test
     void testSetGetUnset() {
-        int targetId = defineSelfCustomTarget();
+        UUID targetId = defineSelfCustomTarget();
 
         given().log()
                 .all()
@@ -132,7 +133,7 @@ public class RecordingOptionsTest extends AbstractTransactionalTestBase {
     @ParameterizedTest
     @ValueSource(strings = {"maxAge", "maxSize", "toDisk"})
     void testSetInvalid(String key) {
-        int targetId = defineSelfCustomTarget();
+        UUID targetId = defineSelfCustomTarget();
         given().log()
                 .all()
                 .when()

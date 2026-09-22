@@ -17,6 +17,7 @@ package io.cryostat.recordings;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -62,7 +63,7 @@ public class RecordingOptions {
                     """
                     Retrieve a map of the current options for the specified target.
                     """)
-    public Map<String, Object> getRecordingOptions(@RestPath long targetId) throws Exception {
+    public Map<String, Object> getRecordingOptions(@RestPath UUID targetId) throws Exception {
         Target target = Target.find("id", targetId).singleResult();
         return connectionManager.executeConnectedTask(
                 target,
@@ -89,7 +90,7 @@ public class RecordingOptions {
             value = "UC_USELESS_OBJECT",
             justification = "SpotBugs thinks the options map is unused, but it is used")
     public Map<String, Object> patchRecordingOptions(
-            @Parameter(required = true) @RestPath long targetId,
+            @Parameter(required = true) @RestPath UUID targetId,
             @Parameter(
                             required = false,
                             description =

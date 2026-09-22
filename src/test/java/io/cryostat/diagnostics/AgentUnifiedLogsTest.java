@@ -22,6 +22,7 @@ import static org.hamcrest.Matchers.*;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 
@@ -61,7 +62,8 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
                     .all();
         } catch (Exception ignored) {
         }
-        QuarkusTransaction.requiringNew().run(() -> UnifiedLog.delete("target.id", target.id()));
+        QuarkusTransaction.requiringNew()
+                .run(() -> UnifiedLog.delete("target.id", UUID.fromString(target.id())));
     }
 
     @AfterEach
@@ -84,7 +86,8 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
         // Remove any leftover UnifiedLog session rows directly so the unique constraint on
         // (target_id) does not bleed into the next test regardless of what the REST
         // call above returned.
-        QuarkusTransaction.requiringNew().run(() -> UnifiedLog.delete("target.id", target.id()));
+        QuarkusTransaction.requiringNew()
+                .run(() -> UnifiedLog.delete("target.id", UUID.fromString(target.id())));
 
         // Delete any pulled log files from S3.
         try {
@@ -164,7 +167,7 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
     @Test
     void testEnableUnifiedLoggingCreatesSessionRow()
             throws InterruptedException, ExecutionException, TimeoutException {
-        long targetId = target.id();
+        String targetId = target.id();
 
         given().log()
                 .all()
@@ -183,14 +186,15 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
 
         long count =
                 QuarkusTransaction.requiringNew()
-                        .call(() -> UnifiedLog.count("target.id = ?1", targetId));
+                        .call(() -> UnifiedLog.count("target.id = ?1", UUID.fromString(targetId)));
         assertThat(count, equalTo(1L));
 
         UnifiedLog session =
                 QuarkusTransaction.requiringNew()
                         .call(
                                 () ->
-                                        UnifiedLog.<UnifiedLog>find("target.id", targetId)
+                                        UnifiedLog.<UnifiedLog>find(
+                                                        "target.id", UUID.fromString(targetId))
                                                 .firstResult());
         assertThat(session, notNullValue());
         assertThat(session.status, equalTo(UnifiedLog.Status.ACTIVE));
@@ -201,7 +205,7 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
 
     @Test
     void testEnableUnifiedLoggingWithCustomParams() {
-        long targetId = target.id();
+        String targetId = target.id();
 
         given().log()
                 .all()
@@ -221,7 +225,8 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
                 QuarkusTransaction.requiringNew()
                         .call(
                                 () ->
-                                        UnifiedLog.<UnifiedLog>find("target.id", targetId)
+                                        UnifiedLog.<UnifiedLog>find(
+                                                        "target.id", UUID.fromString(targetId))
                                                 .firstResult());
         assertThat(session, notNullValue());
         assertThat(session.what, equalTo("gc+heap"));
@@ -230,7 +235,7 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
 
     @Test
     void testGetUnifiedLoggingStatusAfterEnable() {
-        long targetId = target.id();
+        String targetId = target.id();
 
         given().log()
                 .all()
@@ -267,7 +272,7 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
 
     @Test
     void testReconfigureUnifiedLoggingUpdatesSessionRow() {
-        long targetId = target.id();
+        String targetId = target.id();
 
         given().log()
                 .all()
@@ -301,7 +306,8 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
                 QuarkusTransaction.requiringNew()
                         .call(
                                 () ->
-                                        UnifiedLog.<UnifiedLog>find("target.id", targetId)
+                                        UnifiedLog.<UnifiedLog>find(
+                                                        "target.id", UUID.fromString(targetId))
                                                 .firstResult());
         assertThat(after, notNullValue());
         assertThat(after.what, equalTo("gc+heap"));
@@ -309,7 +315,7 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
 
         long count =
                 QuarkusTransaction.requiringNew()
-                        .call(() -> UnifiedLog.count("target.id = ?1", targetId));
+                        .call(() -> UnifiedLog.count("target.id = ?1", UUID.fromString(targetId)));
         assertThat("Session row count must remain at 1 after reconfigure", count, equalTo(1L));
     }
 
@@ -332,7 +338,7 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
 
     // ── Pull ──────────────────────────────────────────────────────────────────────
 
-    private void triggerGcAndWait(long targetId) throws InterruptedException {
+    private void triggerGcAndWait(String targetId) throws InterruptedException {
         given().pathParam("targetId", targetId)
                 .when()
                 .post("/api/beta/diagnostics/targets/{targetId}/gc")
@@ -345,7 +351,7 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
     @Test
     void testPullUnifiedLogUploadsToS3AndUpdatesSessionRow()
             throws InterruptedException, ExecutionException, TimeoutException {
-        long targetId = target.id();
+        String targetId = target.id();
 
         given().log()
                 .all()
@@ -390,7 +396,8 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
                 QuarkusTransaction.requiringNew()
                         .call(
                                 () ->
-                                        UnifiedLog.<UnifiedLog>find("target.id", targetId)
+                                        UnifiedLog.<UnifiedLog>find(
+                                                        "target.id", UUID.fromString(targetId))
                                                 .firstResult());
         assertThat(session, notNullValue());
 
@@ -421,7 +428,7 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
     @Test
     void testUnifiedLogNotificationPublishedOnPull()
             throws InterruptedException, ExecutionException, TimeoutException {
-        long targetId = target.id();
+        String targetId = target.id();
 
         given().log()
                 .all()
@@ -459,7 +466,7 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
 
     @Test
     void testPullUnifiedLogWithNoContentReturns204() {
-        long targetId = target.id();
+        String targetId = target.id();
 
         given().log()
                 .all()
@@ -499,7 +506,8 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
                 QuarkusTransaction.requiringNew()
                         .call(
                                 () ->
-                                        UnifiedLog.<UnifiedLog>find("target.id", targetId)
+                                        UnifiedLog.<UnifiedLog>find(
+                                                        "target.id", UUID.fromString(targetId))
                                                 .firstResult());
         assertThat(session, notNullValue());
         assertThat(session.status, equalTo(UnifiedLog.Status.ACTIVE));
@@ -524,7 +532,7 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
 
     @Test
     void testDisableUnifiedLoggingDeletesSessionRow() {
-        long targetId = target.id();
+        String targetId = target.id();
 
         given().log()
                 .all()
@@ -542,7 +550,7 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
 
         long countAfterEnable =
                 QuarkusTransaction.requiringNew()
-                        .call(() -> UnifiedLog.count("target.id = ?1", targetId));
+                        .call(() -> UnifiedLog.count("target.id = ?1", UUID.fromString(targetId)));
         assertThat(countAfterEnable, equalTo(1L));
 
         given().log()
@@ -559,7 +567,7 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
 
         long countAfterDisable =
                 QuarkusTransaction.requiringNew()
-                        .call(() -> UnifiedLog.count("target.id = ?1", targetId));
+                        .call(() -> UnifiedLog.count("target.id = ?1", UUID.fromString(targetId)));
         assertThat("Session row should be deleted after disable", countAfterDisable, equalTo(0L));
     }
 
@@ -568,7 +576,7 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
     @Test
     void testFullUnifiedLogLifecycle()
             throws InterruptedException, ExecutionException, TimeoutException {
-        long targetId = target.id();
+        String targetId = target.id();
 
         // 1. Enable
         given().log()
@@ -587,7 +595,7 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
 
         assertThat(
                 QuarkusTransaction.requiringNew()
-                        .call(() -> UnifiedLog.count("target.id = ?1", targetId)),
+                        .call(() -> UnifiedLog.count("target.id = ?1", UUID.fromString(targetId))),
                 equalTo(1L));
 
         // 2. Reconfigure
@@ -673,7 +681,7 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
         assertThat(
                 "Session row must survive S3 delete",
                 QuarkusTransaction.requiringNew()
-                        .call(() -> UnifiedLog.count("target.id = ?1", targetId)),
+                        .call(() -> UnifiedLog.count("target.id = ?1", UUID.fromString(targetId))),
                 equalTo(1L));
 
         // 6. Disable — session row must be deleted
@@ -692,7 +700,7 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
         assertThat(
                 "Session row should be absent after disable",
                 QuarkusTransaction.requiringNew()
-                        .call(() -> UnifiedLog.count("target.id = ?1", targetId)),
+                        .call(() -> UnifiedLog.count("target.id = ?1", UUID.fromString(targetId))),
                 equalTo(0L));
     }
 
@@ -701,7 +709,7 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
     @Test
     void testListAllUnifiedLogsAfterPull()
             throws InterruptedException, ExecutionException, TimeoutException {
-        long targetId = target.id();
+        String targetId = target.id();
 
         given().log()
                 .all()
@@ -753,7 +761,7 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
     @Test
     void testDeleteUnifiedLogByPath()
             throws InterruptedException, ExecutionException, TimeoutException {
-        long targetId = target.id();
+        String targetId = target.id();
 
         given().log()
                 .all()
@@ -834,7 +842,7 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
     @Test
     void testPullUnifiedLogUploadsToS3AndUpdatesSessionRowIncludesMetadata()
             throws InterruptedException, ExecutionException, TimeoutException {
-        long targetId = target.id();
+        String targetId = target.id();
 
         given().log()
                 .all()
@@ -904,7 +912,7 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
     @Test
     void testPatchUnifiedLogMetadataReturnsUpdatedLabels()
             throws InterruptedException, ExecutionException, TimeoutException {
-        long targetId = target.id();
+        String targetId = target.id();
 
         given().log()
                 .all()
@@ -973,7 +981,7 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
     @Test
     void testPatchFsUnifiedLogMetadataReturnsUpdatedLabels()
             throws InterruptedException, ExecutionException, TimeoutException {
-        long targetId = target.id();
+        String targetId = target.id();
 
         given().log()
                 .all()
@@ -1054,7 +1062,7 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
     @Test
     void testPatchUnifiedLogMetadataIsPersisted()
             throws InterruptedException, ExecutionException, TimeoutException {
-        long targetId = target.id();
+        String targetId = target.id();
 
         given().log()
                 .all()
@@ -1143,7 +1151,7 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
     @Test
     void testPatchUnifiedLogMetadataNotFoundReturns404()
             throws InterruptedException, ExecutionException, TimeoutException {
-        long targetId = target.id();
+        String targetId = target.id();
 
         given().log()
                 .all()
@@ -1177,7 +1185,7 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
     @Test
     void testPatchUnifiedLogMetadataNotificationPublished()
             throws InterruptedException, ExecutionException, TimeoutException {
-        long targetId = target.id();
+        String targetId = target.id();
 
         given().log()
                 .all()

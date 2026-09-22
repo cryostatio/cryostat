@@ -17,6 +17,7 @@ package io.cryostat.graphql;
 
 import java.io.IOException;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.TimeoutException;
 
 import io.cryostat.reports.AnalysisReportAggregator;
@@ -46,7 +47,7 @@ public class GraphQlReportsTest extends AbstractGraphQLTestBase {
 
     @Test
     public void testTargetReportWithNoSource() {
-        int targetId = defineSelfCustomTarget();
+        UUID targetId = defineSelfCustomTarget();
 
         var jsonPath =
                 graphql(
@@ -71,7 +72,8 @@ public class GraphQlReportsTest extends AbstractGraphQLTestBase {
                 jsonPath.getList("data.targetNodes"), Matchers.not(Matchers.nullValue()));
         MatcherAssert.assertThat(jsonPath.getList("data.targetNodes"), Matchers.hasSize(1));
         MatcherAssert.assertThat(
-                jsonPath.getInt("data.targetNodes[0].target.id"), Matchers.equalTo(targetId));
+                jsonPath.getString("data.targetNodes[0].target.id"),
+                Matchers.equalTo(targetId.toString()));
         MatcherAssert.assertThat(
                 jsonPath.getLong("data.targetNodes[0].target.report.aggregate.count"),
                 Matchers.equalTo(0L));
@@ -83,7 +85,7 @@ public class GraphQlReportsTest extends AbstractGraphQLTestBase {
     @Test
     void testTargetReportWithSource()
             throws InterruptedException, IOException, DeploymentException, TimeoutException {
-        int targetId = defineSelfCustomTarget();
+        UUID targetId = defineSelfCustomTarget();
         try {
             startSelfRecording(
                     "analysisReportAggregatorSingle",
@@ -123,7 +125,8 @@ public class GraphQlReportsTest extends AbstractGraphQLTestBase {
                     jsonPath.getList("data.targetNodes"), Matchers.not(Matchers.nullValue()));
             MatcherAssert.assertThat(jsonPath.getList("data.targetNodes"), Matchers.hasSize(1));
             MatcherAssert.assertThat(
-                    jsonPath.getInt("data.targetNodes[0].target.id"), Matchers.equalTo(targetId));
+                    jsonPath.getString("data.targetNodes[0].target.id"),
+                    Matchers.equalTo(targetId.toString()));
             MatcherAssert.assertThat(
                     jsonPath.getLong("data.targetNodes[0].target.report.aggregate.count"),
                     Matchers.greaterThan(0L));

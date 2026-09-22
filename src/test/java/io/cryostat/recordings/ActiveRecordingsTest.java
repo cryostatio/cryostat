@@ -18,6 +18,7 @@ package io.cryostat.recordings;
 import static io.restassured.RestAssured.given;
 
 import java.util.Map;
+import java.util.UUID;
 
 import io.cryostat.AbstractTransactionalTestBase;
 import io.cryostat.resources.S3StorageResource;
@@ -38,7 +39,7 @@ public class ActiveRecordingsTest extends AbstractTransactionalTestBase {
 
     @Test
     void testListNone() {
-        int id = defineSelfCustomTarget();
+        UUID id = defineSelfCustomTarget();
         given().log()
                 .all()
                 .when()
@@ -56,7 +57,7 @@ public class ActiveRecordingsTest extends AbstractTransactionalTestBase {
 
     @Test
     void testDeleteNone() {
-        int id = defineSelfCustomTarget();
+        UUID id = defineSelfCustomTarget();
         given().log()
                 .all()
                 .when()
@@ -80,7 +81,7 @@ public class ActiveRecordingsTest extends AbstractTransactionalTestBase {
                 "test1 | \t",
             })
     void testCreateInvalid(String recordingName, String eventSpecifier) {
-        int targetId = defineSelfCustomTarget();
+        UUID targetId = defineSelfCustomTarget();
         given().log()
                 .all()
                 .when()
@@ -101,7 +102,7 @@ public class ActiveRecordingsTest extends AbstractTransactionalTestBase {
         given().log()
                 .all()
                 .when()
-                .pathParams(Map.of("targetId", Integer.MAX_VALUE))
+                .pathParams(Map.of("targetId", UUID.randomUUID()))
                 .formParam("recordingName", "irrelevant")
                 .formParam("events", "template=ALL")
                 .post()
@@ -115,7 +116,7 @@ public class ActiveRecordingsTest extends AbstractTransactionalTestBase {
 
     @Test
     void testCreateWithUnknownEventTemplate() {
-        int targetId = defineSelfCustomTarget();
+        UUID targetId = defineSelfCustomTarget();
         given().log()
                 .all()
                 .when()
@@ -133,7 +134,7 @@ public class ActiveRecordingsTest extends AbstractTransactionalTestBase {
 
     @Test
     void testCreateListAndDelete() {
-        int targetId = defineSelfCustomTarget();
+        UUID targetId = defineSelfCustomTarget();
         long startTime = System.currentTimeMillis();
         int recordingId =
                 given().log()
@@ -149,7 +150,7 @@ public class ActiveRecordingsTest extends AbstractTransactionalTestBase {
                         .and()
                         .assertThat()
                         .statusCode(201)
-                        .body("id", Matchers.greaterThan(0))
+                        .body("id", Matchers.notNullValue())
                         .body("name", Matchers.equalTo("activeRecordingsTest"))
                         .body("remoteId", Matchers.greaterThan(0))
                         .body("state", Matchers.equalTo("RUNNING"))
@@ -189,7 +190,7 @@ public class ActiveRecordingsTest extends AbstractTransactionalTestBase {
                 .contentType(ContentType.JSON)
                 .statusCode(200)
                 .body("size()", Matchers.equalTo(1))
-                .body("[0].id", Matchers.greaterThan(0))
+                .body("[0].id", Matchers.notNullValue())
                 .body("[0].name", Matchers.equalTo("activeRecordingsTest"))
                 .body("[0].remoteId", Matchers.greaterThan(0))
                 .body("[0].state", Matchers.equalTo("RUNNING"))
@@ -240,7 +241,7 @@ public class ActiveRecordingsTest extends AbstractTransactionalTestBase {
 
     @Test
     void testCreateDownloadAndDelete() {
-        int targetId = defineSelfCustomTarget();
+        UUID targetId = defineSelfCustomTarget();
         int recordingId =
                 given().log()
                         .all()
@@ -288,7 +289,7 @@ public class ActiveRecordingsTest extends AbstractTransactionalTestBase {
 
     @Test
     void testCreateStopAndDelete() {
-        int targetId = defineSelfCustomTarget();
+        UUID targetId = defineSelfCustomTarget();
         long startTime = System.currentTimeMillis();
         int recordingId =
                 given().log()
@@ -323,7 +324,7 @@ public class ActiveRecordingsTest extends AbstractTransactionalTestBase {
                 .contentType(ContentType.JSON)
                 .statusCode(200)
                 .body("size()", Matchers.equalTo(1))
-                .body("[0].id", Matchers.greaterThan(0))
+                .body("[0].id", Matchers.notNullValue())
                 .body("[0].name", Matchers.equalTo("activeRecordingsTest"))
                 .body("[0].remoteId", Matchers.greaterThan(0))
                 .body("[0].state", Matchers.equalTo("RUNNING"))
@@ -371,7 +372,7 @@ public class ActiveRecordingsTest extends AbstractTransactionalTestBase {
                 .contentType(ContentType.JSON)
                 .statusCode(200)
                 .body("size()", Matchers.equalTo(1))
-                .body("[0].id", Matchers.greaterThan(0))
+                .body("[0].id", Matchers.notNullValue())
                 .body("[0].name", Matchers.equalTo("activeRecordingsTest"))
                 .body("[0].remoteId", Matchers.greaterThan(0))
                 .body("[0].state", Matchers.equalTo("STOPPED"))
@@ -408,7 +409,7 @@ public class ActiveRecordingsTest extends AbstractTransactionalTestBase {
 
     @Test
     void testCreateWithArchiveOnStopPermissiveMode() {
-        int targetId = defineSelfCustomTarget();
+        UUID targetId = defineSelfCustomTarget();
         int recordingId =
                 given().log()
                         .all()

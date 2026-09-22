@@ -16,6 +16,7 @@
 package io.cryostat.audit;
 
 import java.util.List;
+import java.util.UUID;
 
 import io.cryostat.rules.Rules;
 
@@ -37,7 +38,7 @@ public class EnversAuditEnabledTest extends EnversAuditTestBase {
         JsonObject rule = createRuleJson("test-rule-create-audit");
 
         var response = createRuleViaApi(rule);
-        Long ruleId = ((Number) response.get("id")).longValue();
+        UUID ruleId = UUID.fromString((String) response.get("id"));
 
         List<Object[]> auditRecords = queryAuditRecords(ruleId);
 
@@ -53,7 +54,7 @@ public class EnversAuditEnabledTest extends EnversAuditTestBase {
         JsonObject rule = createRuleJson(ruleName);
 
         var response = createRuleViaApi(rule);
-        Long ruleId = ((Number) response.get("id")).longValue();
+        UUID ruleId = UUID.fromString((String) response.get("id"));
 
         JsonObject updateRule = createRuleJson(ruleName);
         updateRule.put("enabled", false);
@@ -78,7 +79,7 @@ public class EnversAuditEnabledTest extends EnversAuditTestBase {
         JsonObject rule = createRuleJson(ruleName);
 
         var response = createRuleViaApi(rule);
-        Long ruleId = ((Number) response.get("id")).longValue();
+        UUID ruleId = UUID.fromString((String) response.get("id"));
 
         deleteRuleViaApi(ruleName);
 
@@ -100,13 +101,13 @@ public class EnversAuditEnabledTest extends EnversAuditTestBase {
         String ruleAName = "test-rule-a-audit";
         JsonObject ruleA = createRuleJson(ruleAName);
         var responseA = createRuleViaApi(ruleA);
-        Long ruleAId = ((Number) responseA.get("id")).longValue();
+        UUID ruleAId = UUID.fromString((String) responseA.get("id"));
 
         String ruleBName = "test-rule-b-audit";
         JsonObject ruleB = createRuleJson(ruleBName);
         ruleB.put("enabled", false);
         var responseB = createRuleViaApi(ruleB);
-        Long ruleBId = ((Number) responseB.get("id")).longValue();
+        UUID ruleBId = UUID.fromString((String) responseB.get("id"));
 
         JsonObject updateRuleA = createRuleJson(ruleAName);
         updateRuleA.put("description", String.format("Updated %s description", ruleAName));
