@@ -304,16 +304,16 @@ public abstract class AbstractTestBase {
 
     protected void cleanupSelfActiveAndArchivedRecordings() {
         if (selfId != null) {
-            cleanupActiveAndArchivedRecordingsForTarget(this.selfId);
+            cleanupActiveAndArchivedRecordingsForTarget(this.selfJvmId);
         }
         // If selfId is null, there's nothing to clean up, so just return
     }
 
-    protected void cleanupActiveAndArchivedRecordingsForTarget(UUID... ids) {
+    protected void cleanupActiveAndArchivedRecordingsForTarget(String... ids) {
         cleanupActiveAndArchivedRecordingsForTarget(Arrays.asList(ids));
     }
 
-    protected void cleanupActiveAndArchivedRecordingsForTarget(List<UUID> ids) {
+    protected void cleanupActiveAndArchivedRecordingsForTarget(List<String> ids) {
         var variables = new HashMap<String, Object>();
         if (ids == null || ids.isEmpty()) {
             variables.put("jvmIds", null);

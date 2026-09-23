@@ -48,7 +48,7 @@ public class AgentWorkflowTest extends AgentTestBase {
     static final String CONTINUOUS_TEMPLATE = "template=Continuous,type=TARGET";
     static final String RECORDING_NAME = AgentWorkflowTest.class.getSimpleName();
 
-    @TestHTTPResource("/api/v4.1/targets")
+    @TestHTTPResource("/api/v5/targets")
     URL targetsUrl;
 
     @Test
@@ -201,11 +201,7 @@ public class AgentWorkflowTest extends AgentTestBase {
                 given().log()
                         .all()
                         .when()
-                        .pathParams(
-                                "connectUrl",
-                                target.connectUrl(),
-                                "filename",
-                                archivedRecordingName)
+                        .pathParams("jvmId", target.jvmId(), "filename", archivedRecordingName)
                         .delete("/api/v5/recordings/{jvmId}/{filename}")
                         .then()
                         .log()

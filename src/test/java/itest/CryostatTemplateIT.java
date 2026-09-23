@@ -49,7 +49,7 @@ public class CryostatTemplateIT {
     public void shouldHaveCryostatTemplate() throws Exception {
         String url =
                 String.format(
-                        "/api/v4/targets/%s/event_templates/TARGET/Cryostat",
+                        "/api/v5/targets/%s/event_templates/TARGET/Cryostat",
                         getSelfReferenceTargetId());
 
         Response response =
@@ -90,7 +90,7 @@ public class CryostatTemplateIT {
         String path = URI.create(selfCustomTargetLocation).getPath();
         Response response = given().when().get(path).then().statusCode(200).extract().response();
         JsonObject body = new JsonObject(response.body().asString());
-        return body.getString("id");
+        return body.getString("jvmId");
     }
 
     private static void tryDefineSelfCustomTarget() {
@@ -103,7 +103,7 @@ public class CryostatTemplateIT {
                 given().contentType(ContentType.JSON)
                         .body(self.encode())
                         .when()
-                        .post("/api/v4/targets")
+                        .post("/api/v5/targets")
                         .then()
                         .extract()
                         .response();

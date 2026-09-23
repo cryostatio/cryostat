@@ -140,8 +140,8 @@ public class AgentHeapDumpTest extends AgentTestBase {
                                 .all()
                                 .and()
                                 .assertThat()
-                                .contentType(ContentType.JSON)
                                 .statusCode(200)
+                                .contentType(ContentType.JSON)
                                 .extract()
                                 .body()
                                 .as(List.class),
@@ -202,8 +202,8 @@ public class AgentHeapDumpTest extends AgentTestBase {
                         .all()
                         .and()
                         .assertThat()
-                        .contentType(ContentType.JSON)
                         .statusCode(200)
+                        .contentType(ContentType.JSON)
                         .body("$.size()", Matchers.equalTo(1))
                         .and()
                         .extract()
@@ -286,8 +286,8 @@ public class AgentHeapDumpTest extends AgentTestBase {
                         .all()
                         .and()
                         .assertThat()
-                        .contentType(ContentType.JSON)
                         .statusCode(200)
+                        .contentType(ContentType.JSON)
                         .body("$.size()", Matchers.equalTo(1))
                         .and()
                         .extract()
@@ -410,8 +410,8 @@ public class AgentHeapDumpTest extends AgentTestBase {
                 .all()
                 .and()
                 .assertThat()
-                .contentType(ContentType.JSON)
                 .statusCode(200)
+                .contentType(ContentType.JSON)
                 .body("$.size()", Matchers.equalTo(2));
     }
 
@@ -457,7 +457,8 @@ public class AgentHeapDumpTest extends AgentTestBase {
                 .all()
                 .and()
                 .assertThat()
-                .statusCode(404);
+                .statusCode(200)
+                .body("$.size()", Matchers.equalTo(0));
     }
 
     @Test
@@ -509,14 +510,14 @@ public class AgentHeapDumpTest extends AgentTestBase {
         given().log()
                 .all()
                 .when()
-                .get("/api/beta/diagnostics/fs/heapdumps")
+                .get("/api/v5/diagnostics/heapdump")
                 .then()
                 .log()
                 .all()
                 .and()
                 .assertThat()
-                .contentType(ContentType.JSON)
                 .statusCode(200)
+                .contentType(ContentType.JSON)
                 .body("$.size()", Matchers.greaterThanOrEqualTo(1))
                 .body(
                         "find { it.jvmId == '" + target.jvmId() + "' }.heapDumps.size()",

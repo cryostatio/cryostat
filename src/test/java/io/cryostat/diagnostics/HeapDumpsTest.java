@@ -17,7 +17,7 @@ package io.cryostat.diagnostics;
 
 import static io.restassured.RestAssured.given;
 
-import java.util.UUID;
+import java.util.Base64;
 
 import io.cryostat.AbstractTransactionalTestBase;
 import io.cryostat.resources.S3StorageResource;
@@ -34,11 +34,11 @@ public class HeapDumpsTest extends AbstractTransactionalTestBase {
 
     @Test
     public void testListNone() {
-        UUID id = defineSelfCustomTarget();
+        defineSelfCustomTarget();
         given().log()
                 .all()
                 .when()
-                .pathParam("jvmId", id)
+                .pathParam("jvmId", selfJvmId)
                 .get("/api/v5/targets/{jvmId}/diagnostics/heapdump")
                 .then()
                 .log()
@@ -55,23 +55,24 @@ public class HeapDumpsTest extends AbstractTransactionalTestBase {
         given().log()
                 .all()
                 .when()
-                .pathParam("jvmId", UUID.randomUUID())
+                .pathParam("jvmId", "nonexistent")
                 .get("/api/v5/targets/{jvmId}/diagnostics/heapdump")
                 .then()
                 .log()
                 .all()
                 .and()
                 .assertThat()
-                .statusCode(404);
+                .statusCode(200)
+                .body("$.size()", Matchers.equalTo(0));
     }
 
     @Test
     public void testDeleteInvalid() {
-        UUID id = defineSelfCustomTarget();
+        defineSelfCustomTarget();
         given().log()
                 .all()
                 .when()
-                .pathParam("jvmId", id)
+                .pathParam("jvmId", selfJvmId)
                 .pathParam("heapDumpId", "foo")
                 .delete("/api/v5/targets/{jvmId}/diagnostics/heapdump/{heapDumpId}")
                 .then()
@@ -84,21 +85,26 @@ public class HeapDumpsTest extends AbstractTransactionalTestBase {
 
     @Test
     public void testDownloadInvalid() {
+        String encodedKey = "abcd1234";
         given().log()
                 .all()
                 .when()
-                .get("/api/v5/diagnostics/heapdump/download/abcd1234")
+                .pathParam("encodedKey", encodedKey)
+                .get("/api/v5/diagnostics/heapdump/download/{encodedKey}")
                 .then()
                 .assertThat()
-                .statusCode(404);
+                .statusCode(400);
     }
 
     @Test
     public void testDownloadNotFound() {
+        String encodedKey =
+                Base64.getEncoder().encodeToString(String.format("nonexistent/file").getBytes());
         given().log()
                 .all()
                 .when()
-                .get("/api/v4/download/Zm9vL2Jhcg==")
+                .pathParam("encodedKey", encodedKey)
+                .get("/api/v5/diagnostics/heapdump/download/{encodedKey}")
                 .then()
                 .assertThat()
                 .statusCode(404);

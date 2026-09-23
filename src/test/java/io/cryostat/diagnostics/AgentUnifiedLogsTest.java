@@ -20,6 +20,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.*;
 
 import java.time.Duration;
+import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -107,13 +108,14 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
                             .jsonPath()
                             .getList("$");
             for (Map<String, Object> entry : logs) {
+                String jvmId = (String) entry.get("jvmId");
                 String logId = (String) entry.get("logId");
-                String encodedKey = (String) entry.get("logId");
                 given().log()
                         .all()
-                        .pathParam("encodedKey", encodedKey)
+                        .pathParam("jvmId", jvmId)
+                        .pathParam("id", logId)
                         .when()
-                        .delete("/api/v5/diagnostics/unified-logs/download/{encodedKey}")
+                        .delete("/api/v5/targets/{jvmId}/diagnostics/unified-logs/{id}")
                         .then()
                         .log()
                         .all();
@@ -664,8 +666,9 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
         String logId = (String) logs.get(0).get("logId");
         assertThat(logId, notNullValue());
 
-        // 4. Download the pulled log via redirect
-        String encodedKey = logId;
+        // 4. Download the pulled log
+        String encodedKey =
+                Base64.getEncoder().encodeToString(String.format("%s/%s", jvmId, logId).getBytes());
         given().log()
                 .all()
                 .pathParam("encodedKey", encodedKey)
@@ -678,14 +681,15 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
                 .all()
                 .and()
                 .assertThat()
-                .statusCode(303);
+                .statusCode(200);
 
         // 5. Delete the pulled log from S3 — session row must remain
         given().log()
                 .all()
-                .pathParam("encodedKey", encodedKey)
+                .pathParam("jvmId", jvmId)
+                .pathParam("id", logId)
                 .when()
-                .delete("/api/v5/diagnostics/unified-logs/download/{encodedKey}")
+                .delete("/api/v5/targets/{jvmId}/diagnostics/unified-logs/{id}")
                 .then()
                 .log()
                 .all()
@@ -834,9 +838,10 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
 
         given().log()
                 .all()
-                .pathParam("encodedKey", logId)
+                .pathParam("jvmId", jvmId)
+                .pathParam("id", logId)
                 .when()
-                .delete("/api/v5/diagnostics/unified-logs/download/{encodedKey}")
+                .delete("/api/v5/targets/{jvmId}/diagnostics/unified-logs/{id}")
                 .then()
                 .log()
                 .all()
@@ -973,11 +978,12 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
                 new JsonObject(
                         given().log()
                                 .all()
-                                .pathParam("encodedKey", logId)
+                                .pathParam("jvmId", jvmId)
+                                .pathParam("id", logId)
                                 .contentType(ContentType.JSON)
                                 .body("{\"labels\":{\"env\":\"prod\"}}")
                                 .when()
-                                .patch("/api/v5/diagnostics/unified-logs/download/{encodedKey}")
+                                .patch("/api/v5/targets/{jvmId}/diagnostics/unified-logs/{id}")
                                 .then()
                                 .log()
                                 .all()
@@ -1054,11 +1060,12 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
                 new JsonObject(
                         given().log()
                                 .all()
-                                .pathParam("encodedKey", logId)
+                                .pathParam("jvmId", jvmId)
+                                .pathParam("id", logId)
                                 .contentType(ContentType.JSON)
                                 .body("{\"labels\":{\"env\":\"staging\"}}")
                                 .when()
-                                .patch("/api/v5/diagnostics/unified-logs/download/{encodedKey}")
+                                .patch("/api/v5/targets/{jvmId}/diagnostics/unified-logs/{id}")
                                 .then()
                                 .log()
                                 .all()
@@ -1120,11 +1127,12 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
 
         given().log()
                 .all()
-                .pathParam("encodedKey", logId)
+                .pathParam("jvmId", jvmId)
+                .pathParam("id", logId)
                 .contentType(ContentType.JSON)
                 .body("{\"labels\":{\"env\":\"prod\"}}")
                 .when()
-                .patch("/api/v5/diagnostics/unified-logs/download/{encodedKey}")
+                .patch("/api/v5/targets/{jvmId}/diagnostics/unified-logs/{id}")
                 .then()
                 .log()
                 .all()
@@ -1188,11 +1196,12 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
 
         given().log()
                 .all()
-                .pathParam("encodedKey", "nonexistent-log-id.log")
+                .pathParam("jvmId", jvmId)
+                .pathParam("id", "nonexistent-log-id")
                 .contentType(ContentType.JSON)
                 .body("{\"labels\":{\"env\":\"prod\"}}")
                 .when()
-                .patch("/api/v5/diagnostics/unified-logs/download/{encodedKey}")
+                .patch("/api/v5/targets/{jvmId}/diagnostics/unified-logs/{id}")
                 .then()
                 .log()
                 .all()
@@ -1243,11 +1252,12 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
 
         given().log()
                 .all()
-                .pathParam("encodedKey", logId)
+                .pathParam("jvmId", jvmId)
+                .pathParam("id", logId)
                 .contentType(ContentType.JSON)
                 .body("{\"labels\":{\"env\":\"prod\"}}")
                 .when()
-                .patch("/api/v5/diagnostics/unified-logs/download/{encodedKey}")
+                .patch("/api/v5/targets/{jvmId}/diagnostics/unified-logs/{id}")
                 .then()
                 .log()
                 .all()

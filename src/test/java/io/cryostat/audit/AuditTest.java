@@ -561,7 +561,7 @@ public class AuditTest extends AuditTestBase {
                 .formParam("username", username)
                 .formParam("password", password)
                 .when()
-                .post("/api/v4/credentials")
+                .post("/api/v5/credentials")
                 .then()
                 .statusCode(201);
 
@@ -758,7 +758,7 @@ public class AuditTest extends AuditTestBase {
                 .formParam("username", username)
                 .formParam("password", password)
                 .when()
-                .post("/api/v4/credentials")
+                .post("/api/v5/credentials")
                 .then()
                 .statusCode(201);
 

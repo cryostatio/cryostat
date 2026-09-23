@@ -18,7 +18,6 @@ package io.cryostat.recordings;
 import static io.restassured.RestAssured.given;
 
 import java.util.Map;
-import java.util.UUID;
 
 import io.cryostat.AbstractTransactionalTestBase;
 import io.cryostat.resources.S3StorageResource;
@@ -44,11 +43,11 @@ public class SnapshotsTest extends AbstractTransactionalTestBase {
 
     @Test
     void testNoSource() {
-        UUID id = defineSelfCustomTarget();
+        defineSelfCustomTarget();
         given().log()
                 .all()
                 .when()
-                .pathParams(Map.of("jvmId", selfJvmId))
+                .pathParam("jvmId", selfJvmId)
                 .post()
                 .then()
                 .log()
@@ -105,7 +104,7 @@ public class SnapshotsTest extends AbstractTransactionalTestBase {
                         .all()
                         .when()
                         .basePath("/api/v5/targets/{jvmId}/recordings")
-                        .pathParams(Map.of("jvmId", selfJvmId))
+                        .pathParam("jvmId", selfJvmId)
                         .formParam("recordingName", "snapshotsTest")
                         .formParam("events", "template=Continuous")
                         .post()
@@ -146,7 +145,7 @@ public class SnapshotsTest extends AbstractTransactionalTestBase {
                 given().log()
                         .all()
                         .when()
-                        .pathParams(Map.of("jvmId", selfJvmId))
+                        .pathParam("jvmId", selfJvmId)
                         .post()
                         .then()
                         .log()

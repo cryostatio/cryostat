@@ -114,7 +114,7 @@ public class AgentExternalRecordingTest extends AgentTestBase {
                 given().log()
                         .all()
                         .when()
-                        .get("/api/v5/targets/{jvmId}/recordings", target.id())
+                        .get("/api/v5/targets/{jvmId}/recordings", target.jvmId())
                         .then()
                         .log()
                         .all()

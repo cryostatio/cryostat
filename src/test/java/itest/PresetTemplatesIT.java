@@ -47,7 +47,7 @@ public class PresetTemplatesIT {
     public void shouldListPresetTemplates() throws Exception {
         Response response =
                 given().when()
-                        .get("/api/v4/event_templates/PRESET")
+                        .get("/api/v5/event_templates/PRESET")
                         .then()
                         .statusCode(200)
                         .extract()
@@ -64,7 +64,7 @@ public class PresetTemplatesIT {
     @ParameterizedTest
     @MethodSource("templateNames")
     public void shouldHaveExpectedPresetTemplates(String templateName) throws Exception {
-        String url = String.format("/api/v4/event_templates/PRESET/%s", templateName);
+        String url = String.format("/api/v5/event_templates/PRESET/%s", templateName);
 
         Response response =
                 given().redirects()

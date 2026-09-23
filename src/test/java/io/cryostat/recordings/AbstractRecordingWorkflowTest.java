@@ -191,7 +191,8 @@ public abstract class AbstractRecordingWorkflowTest extends AbstractTransactiona
                 "list-saved should have size 1 after recording save",
                 archivedList.size(),
                 Matchers.equalTo(1));
-        JsonObject archivedRecordingInfo = archivedList.getJsonObject(0);
+        JsonObject archivedRecordingInfo =
+                archivedList.getJsonObject(0).getJsonArray("recordings").getJsonObject(0);
         String archivedRecordingName = archivedRecordingInfo.getString("name");
         MatcherAssert.assertThat(
                 archivedRecordingName,

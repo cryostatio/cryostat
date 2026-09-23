@@ -332,15 +332,19 @@ class GraphQLQueryTest extends AbstractGraphQLTestBase {
         // Retrieve archived recording name via REST API
         Response archivedListResponse =
                 given().when()
-                        .get("/api/v4/recordings")
+                        .get("/api/v5/recordings")
                         .then()
                         .statusCode(200)
                         .extract()
                         .response();
         JsonArray retrievedArchivedRecordings =
                 new JsonArray(archivedListResponse.body().asString());
-        JsonObject retrievedArchivedRecording = retrievedArchivedRecordings.getJsonObject(0);
-        String retrievedArchivedRecordingsName = retrievedArchivedRecording.getString("name");
+        JsonObject retrievedArchivedRecordingDir = retrievedArchivedRecordings.getJsonObject(0);
+        String retrievedArchivedRecordingsName =
+                retrievedArchivedRecordingDir
+                        .getJsonArray("recordings")
+                        .getJsonObject(0)
+                        .getString("name");
 
         // GraphQL Query to filter Archived recordings by names
         JsonObject query = new JsonObject();

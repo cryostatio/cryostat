@@ -183,7 +183,7 @@ public abstract class AgentTestBase extends AbstractTestBase {
                                     given().log()
                                             .all()
                                             .when()
-                                            .get("/api/v4/targets")
+                                            .get("/api/v5/targets")
                                             .then()
                                             .log()
                                             .all()

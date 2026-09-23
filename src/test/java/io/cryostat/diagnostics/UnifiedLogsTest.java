@@ -33,6 +33,7 @@ import io.quarkus.test.junit.TestProfile;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
 import jakarta.transaction.Transactional;
+import org.hamcrest.Matchers;
 import org.hibernate.envers.AuditReader;
 import org.hibernate.envers.AuditReaderFactory;
 import org.junit.jupiter.api.Assertions;
@@ -264,7 +265,7 @@ public class UnifiedLogsTest extends AuditTestBase {
     }
 
     @Test
-    public void testListUnifiedLogsForInvalidTargetReturns404() {
+    public void testListUnifiedLogsForInvalidTarget() {
         given().basePath("")
                 .log()
                 .all()
@@ -275,18 +276,21 @@ public class UnifiedLogsTest extends AuditTestBase {
                 .log()
                 .all()
                 .assertThat()
-                .statusCode(404);
+                .statusCode(200)
+                .body("$.size()", Matchers.equalTo(0));
     }
 
     @Test
-    public void testDownloadInvalidUnifiedLogKeyReturns404() {
+    public void testDownloadInvalidUnifiedLogKeyReturns400() {
+        String encodedKey = "abcd1234";
         given().basePath("")
                 .log()
                 .all()
                 .when()
-                .get("/api/v5/diagnostics/unified-logs/download/abcd1234")
+                .pathParam("encodedKey", encodedKey)
+                .get("/api/v5/diagnostics/unified-logs/download/{encodedKey}")
                 .then()
                 .assertThat()
-                .statusCode(404);
+                .statusCode(400);
     }
 }

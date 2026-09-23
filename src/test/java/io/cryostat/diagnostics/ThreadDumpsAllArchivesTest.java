@@ -29,10 +29,13 @@ import io.cryostat.resources.S3StorageResource;
 import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
+import io.vertx.core.json.JsonArray;
+import io.vertx.core.json.JsonObject;
 import jakarta.inject.Inject;
 import jakarta.websocket.DeploymentException;
 import org.hamcrest.Matchers;
 import org.jboss.logging.Logger;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 @QuarkusTest
@@ -41,12 +44,53 @@ public class ThreadDumpsAllArchivesTest extends AbstractTransactionalTestBase {
 
     @Inject Logger logger;
 
+    @BeforeEach
+    void cleanup() {
+        String response =
+                given().when()
+                        .basePath("/")
+                        .get("/api/v5/diagnostics/threaddump")
+                        .then()
+                        .extract()
+                        .body()
+                        .asString();
+        if (response != null && !response.isEmpty() && !response.equals("[]")) {
+            JsonArray dirs = new JsonArray(response);
+            dirs.forEach(
+                    dir -> {
+                        JsonObject directory = (JsonObject) dir;
+                        String jvmId = directory.getString("jvmId");
+                        JsonArray threadDumps = directory.getJsonArray("threadDumps");
+                        if (threadDumps != null) {
+                            threadDumps.forEach(
+                                    dump -> {
+                                        JsonObject threadDump = (JsonObject) dump;
+                                        String threadDumpId = threadDump.getString("threadDumpId");
+                                        if (threadDumpId != null && !threadDumpId.isEmpty()) {
+                                            given().when()
+                                                    .basePath("/")
+                                                    .pathParams(
+                                                            "jvmId",
+                                                            jvmId,
+                                                            "threadDumpId",
+                                                            threadDumpId)
+                                                    .delete(
+                                                            "/api/v5/targets/{jvmId}/diagnostics/threaddump/{threadDumpId}")
+                                                    .then()
+                                                    .statusCode(204);
+                                        }
+                                    });
+                        }
+                    });
+        }
+    }
+
     @Test
     public void testListNone() {
         given().log()
                 .all()
                 .when()
-                .get("/api/v5/diagnostics/threaddumps")
+                .get("/api/v5/diagnostics/threaddump")
                 .then()
                 .log()
                 .all()
@@ -67,8 +111,8 @@ public class ThreadDumpsAllArchivesTest extends AbstractTransactionalTestBase {
                             given().log()
                                     .all()
                                     .when()
-                                    .pathParam("targetId", id)
-                                    .post("/api/v5/targets/{targetId}/diagnostics/threaddump")
+                                    .pathParam("jvmId", this.selfJvmId)
+                                    .post("/api/v5/targets/{jvmId}/diagnostics/threaddump")
                                     .then()
                                     .log()
                                     .all()
@@ -93,7 +137,7 @@ public class ThreadDumpsAllArchivesTest extends AbstractTransactionalTestBase {
         given().log()
                 .all()
                 .when()
-                .get("/api/v5/diagnostics/threaddumps")
+                .get("/api/v5/diagnostics/threaddump")
                 .then()
                 .log()
                 .all()
