@@ -29,7 +29,6 @@ import io.cryostat.core.RecordingOptionsCustomizer;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.TargetConnectionManager;
 
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.quarkus.security.PermissionsAllowed;
 import io.smallrye.common.annotation.Blocking;
 import jakarta.inject.Inject;
@@ -85,9 +84,6 @@ public class RecordingOptions {
                     recordings started on this target if no override values are specified when the recording is
                     created.
                     """)
-    @SuppressFBWarnings(
-            value = "UC_USELESS_OBJECT",
-            justification = "SpotBugs thinks the options map is unused, but it is used")
     public Map<String, Object> patchRecordingOptions(
             @Parameter(required = true) @RestPath String jvmId,
             @Parameter(

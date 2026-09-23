@@ -17,9 +17,11 @@ package io.cryostat.diagnostic;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 
 import io.cryostat.recordings.ActiveRecordings.Metadata;
+import io.cryostat.util.StringUtils;
 
 import io.quarkus.security.PermissionsAllowed;
 import jakarta.inject.Inject;
@@ -68,5 +70,15 @@ public class UnifiedLogEndpoint {
     }
 
     public record ArchivedUnifiedLogDirectory(
-            String jvmId, Collection<UnifiedLogs.UnifiedLog> unifiedLogs) {}
+            String jvmId, Collection<UnifiedLogs.UnifiedLog> unifiedLogs) {
+        public ArchivedUnifiedLogDirectory(
+                String jvmId, Collection<UnifiedLogs.UnifiedLog> unifiedLogs) {
+            this.jvmId = StringUtils.requireNonBlank(jvmId);
+            this.unifiedLogs = new ArrayList<>(unifiedLogs);
+        }
+
+        public Collection<UnifiedLogs.UnifiedLog> unifiedLogs() {
+            return Collections.unmodifiableCollection(this.unifiedLogs);
+        }
+    }
 }

@@ -3,7 +3,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>io.cryostat</groupId>
   <artifactId>cryostat</artifactId>
-  <version>4.3.0-SNAPSHOT</version>
+  <version>5.0.0-SNAPSHOT</version>
 
   <repositories>
     <repository>
@@ -35,6 +35,7 @@
 
     <build.arch>amd64</build.arch>
 
+    <!-- TODO cryostat-core 5.0.0-SNAPSHOT -->
     <io.cryostat.core.version>4.3.0-SNAPSHOT</io.cryostat.core.version>
     <org.openjdk.jmc.version>9.1.2</org.openjdk.jmc.version>
 
