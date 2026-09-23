@@ -932,7 +932,8 @@ public class DiscoveryPlugins {
         plugin.callback = callbackUri;
         plugin.realm =
                 DiscoveryNode.environment(
-                        requireNonBlank(realmName, "realm"), NodeType.BaseNodeType.REALM);
+                        io.cryostat.util.StringUtils.requireNonBlank(realmName),
+                        NodeType.BaseNodeType.REALM);
         plugin.builtin = false;
         if (credential != null) {
             plugin.credential = credential;
@@ -1018,9 +1019,10 @@ public class DiscoveryPlugins {
         }
         Credential credential = new Credential();
         credential.matchExpression =
-                new MatchExpression(requireNonBlank(body.matchExpression(), "matchExpression"));
-        credential.username = requireNonBlank(body.username(), "username");
-        credential.password = requireNonBlank(body.password(), "password");
+                new MatchExpression(
+                        io.cryostat.util.StringUtils.requireNonBlank(body.matchExpression()));
+        credential.username = io.cryostat.util.StringUtils.requireNonBlank(body.username());
+        credential.password = io.cryostat.util.StringUtils.requireNonBlank(body.password());
         return credential;
     }
 
@@ -1290,14 +1292,6 @@ public class DiscoveryPlugins {
                 }
             }
         }
-    }
-
-    static String requireNonBlank(String in, String name) {
-        if (StringUtils.isBlank(in)) {
-            throw new IllegalArgumentException(
-                    String.format("Parameter \"%s\" may not be blank", name));
-        }
-        return in;
     }
 
     /**
