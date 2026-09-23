@@ -27,13 +27,12 @@ import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
 import org.jboss.logging.Logger;
 
-@Path("/api/v5/diagnostics")
+@Path("/api/v5/diagnostics/unified-logs")
 public class UnifiedLogEndpoint {
 
     @Inject Logger log;
     @Inject DiagnosticsHelper helper;
 
-    @Path("/unified-logs")
     @PermissionsAllowed(value = "unifiedlogs:read", inclusive = true)
     @GET
     public Collection<ArchivedUnifiedLogDirectory> listUnifiedLogs() {

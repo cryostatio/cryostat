@@ -50,7 +50,7 @@ import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
 import software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequest;
 
-@Path("/api/v5/diagnostics")
+@Path("/api/v5/diagnostics/heapdump")
 public class HeapDumpEndpoint {
 
     @Inject S3Client storage;
@@ -68,7 +68,6 @@ public class HeapDumpEndpoint {
 
     @Inject DiagnosticsHelper helper;
 
-    @Path("/heapdumps")
     @PermissionsAllowed(value = "heapdumps:read", inclusive = true)
     @GET
     public Collection<Diagnostics.ArchivedHeapDumpDirectory> listHeapDumps() {
@@ -102,7 +101,7 @@ public class HeapDumpEndpoint {
         return map.values();
     }
 
-    @Path("/heapdump/download/{encodedKey}")
+    @Path("/download/{encodedKey}")
     @PermissionsAllowed(value = "heapdumps:read", inclusive = true)
     @Blocking
     @GET

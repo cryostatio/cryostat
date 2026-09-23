@@ -34,7 +34,6 @@ import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
-import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.PATCH;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
@@ -93,30 +92,24 @@ public class UnifiedLogs {
     @Blocking
     @GET
     public List<UnifiedLog> listUnifiedLogs(@RestPath String jvmId) {
-        var logs =
-                helper.listUnifiedLogObjects(jvmId).stream()
-                        .map(
-                                item -> {
-                                    String[] parts = item.key().strip().split("/");
-                                    String filename = parts[1];
-                                    String storageKey =
-                                            DiagnosticsHelper.storageKey(jvmId, filename);
-                                    Metadata metadata =
-                                            helper.getUnifiedLogMetadata(storageKey)
-                                                    .orElse(Metadata.empty());
-                                    return new UnifiedLog(
-                                            jvmId,
-                                            helper.unifiedLogDownloadUrl(jvmId, filename),
-                                            filename,
-                                            item.lastModified().getEpochSecond(),
-                                            item.size(),
-                                            metadata);
-                                })
-                        .toList();
-        if (logs.isEmpty()) {
-            throw new NotFoundException();
-        }
-        return logs;
+        return helper.listUnifiedLogObjects(jvmId).stream()
+                .map(
+                        item -> {
+                            String[] parts = item.key().strip().split("/");
+                            String filename = parts[1];
+                            String storageKey = DiagnosticsHelper.storageKey(jvmId, filename);
+                            Metadata metadata =
+                                    helper.getUnifiedLogMetadata(storageKey)
+                                            .orElse(Metadata.empty());
+                            return new UnifiedLog(
+                                    jvmId,
+                                    helper.unifiedLogDownloadUrl(jvmId, filename),
+                                    filename,
+                                    item.lastModified().getEpochSecond(),
+                                    item.size(),
+                                    metadata);
+                        })
+                .toList();
     }
 
     @Path("/{logId}")

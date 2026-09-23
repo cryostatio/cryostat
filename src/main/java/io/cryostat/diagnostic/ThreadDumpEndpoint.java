@@ -49,7 +49,7 @@ import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
 import software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequest;
 
-@Path("/api/v5/diagnostics")
+@Path("/api/v5/diagnostics/threaddump")
 public class ThreadDumpEndpoint {
 
     @Inject TargetConnectionManager targetConnectionManager;
@@ -68,7 +68,6 @@ public class ThreadDumpEndpoint {
 
     @Inject DiagnosticsHelper helper;
 
-    @Path("/threaddumps")
     @PermissionsAllowed(value = "threaddumps:read", inclusive = true)
     @GET
     public Collection<Diagnostics.ArchivedThreadDumpDirectory> listThreadDumps() {
@@ -102,7 +101,7 @@ public class ThreadDumpEndpoint {
         return map.values();
     }
 
-    @Path("/threaddump/download/{encodedKey}")
+    @Path("/download/{encodedKey}")
     @PermissionsAllowed(value = "threaddumps:read", inclusive = true)
     @Blocking
     @GET
