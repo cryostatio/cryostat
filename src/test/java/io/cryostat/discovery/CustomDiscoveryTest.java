@@ -17,17 +17,26 @@ package io.cryostat.discovery;
 
 import static io.restassured.RestAssured.given;
 
+import java.util.Map;
+
 import io.cryostat.AbstractTransactionalTestBase;
 
 import io.quarkus.test.common.http.TestHTTPEndpoint;
 import io.quarkus.test.junit.QuarkusTest;
+import io.quarkus.test.junit.QuarkusTestProfile;
 import io.restassured.http.ContentType;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
 
 @QuarkusTest
 @TestHTTPEndpoint(CustomDiscovery.class)
-public class CustomDiscoveryTest extends AbstractTransactionalTestBase {
+public class CustomDiscoveryTest extends AbstractTransactionalTestBase
+        implements QuarkusTestProfile {
+
+    @Override
+    public Map<String, String> getConfigOverrides() {
+        return Map.of("cryostat.connections.failed-timeout", "100ms");
+    }
 
     @Test
     public void testCreate() {
