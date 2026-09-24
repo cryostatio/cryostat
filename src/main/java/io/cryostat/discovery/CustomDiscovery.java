@@ -20,9 +20,9 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -250,27 +250,44 @@ public class CustomDiscovery {
 
     @Transactional
     @DELETE
-    @Path("/api/v5/targets/{id}")
+    @Path("/api/v5/targets/{jvmId}")
     @PermissionsAllowed(value = "targets:delete", inclusive = true)
     @Operation(
-            summary = "Delete the specified target",
+            summary = "Delete a custom target by JVM ID",
             description =
                     """
-                    Delete the specified target by ID. Only allows deletion of targets that were defined by the same
-                    Custom Target discovery API. Other targets must be removed by the discovery mechanisms which
-                    discovered them.
+                    Delete a custom target definition by its JVM ID. Only allows deletion of targets that were defined by the
+                    Custom Target API. Other targets must be removed by the discovery mechanisms which discovered them.
                     """)
-    public void delete(@RestPath UUID id) throws URISyntaxException {
-        Target target = Target.find("id", id).singleResult();
+    public void delete(@RestPath String jvmId) throws URISyntaxException {
         DiscoveryNode realm = DiscoveryNode.getRealm(REALM).orElseThrow();
         realm = entityManager.find(DiscoveryNode.class, realm.id, LockModeType.PESSIMISTIC_WRITE);
-        boolean withinRealm = realm.children.remove(target.discoveryNode);
-        if (!withinRealm) {
-            throw new BadRequestException();
+
+        List<Target> targets = findAndRemoveCustomTargetsByJvmId(realm, jvmId);
+        if (targets.isEmpty()) {
+            throw new BadRequestException("Custom target with JVM ID not found");
         }
-        target.discoveryNode.parent = null;
+
         realm.persist();
-        target.delete();
+        targets.forEach(Target::delete);
+    }
+
+    private List<Target> findAndRemoveCustomTargetsByJvmId(DiscoveryNode realmNode, String jvmId) {
+        List<Target> found = new ArrayList<>();
+        removeTargetsFromSubtree(realmNode, jvmId, found);
+        return found;
+    }
+
+    private void removeTargetsFromSubtree(DiscoveryNode node, String jvmId, List<Target> found) {
+        for (DiscoveryNode child : new ArrayList<>(node.children)) {
+            if (child.target != null && jvmId.equals(child.target.jvmId)) {
+                node.children.remove(child);
+                child.parent = null;
+                found.add(child.target);
+            }
+
+            removeTargetsFromSubtree(child, jvmId, found);
+        }
     }
 
     private URI sanitizeConnectUrl(String in) throws URISyntaxException, MalformedURLException {

@@ -2911,29 +2911,6 @@ paths:
       tags:
         - Custom Discovery
   /api/v5/targets/{id}:
-    delete:
-      description: |
-        Delete the specified target by ID. Only allows deletion of targets that were defined by the same
-        Custom Target discovery API. Other targets must be removed by the discovery mechanisms which
-        discovered them.
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema:
-            $ref: '#/components/schemas/UUID'
-      responses:
-        "204":
-          description: No Content
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme: []
-      summary: Delete the specified target
-      tags:
-        - Custom Discovery
     get:
       description: |
         Get details about a particular target given its ID.
@@ -2959,6 +2936,29 @@ paths:
       summary: Get a target by ID
       tags:
         - Targets
+  /api/v5/targets/{jvmId}:
+    delete:
+      description: |
+        Delete a custom target definition by its JVM ID. Only allows deletion of targets that were defined by the
+        Custom Target API. Other targets must be removed by the discovery mechanisms which discovered them.
+      parameters:
+        - in: path
+          name: jvmId
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      summary: Delete a custom target by JVM ID
+      tags:
+        - Custom Discovery
   /api/v5/targets/{jvmId}/async-profiler:
     get:
       parameters:
