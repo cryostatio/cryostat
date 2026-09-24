@@ -1545,6 +1545,26 @@ paths:
       summary: Get information about a Stored Credential
       tags:
         - Credentials
+  /api/v5/diagnostics/heapdump:
+    get:
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/ArchivedHeapDumpDirectory'
+                type: array
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      summary: List Heap Dumps
+      tags:
+        - Heap Dump Endpoint
   /api/v5/diagnostics/heapdump/download/{encodedKey}:
     get:
       parameters:
@@ -1572,7 +1592,7 @@ paths:
       summary: Handle Heap Dumps Storage Download
       tags:
         - Heap Dump Endpoint
-  /api/v5/diagnostics/heapdumps:
+  /api/v5/diagnostics/threaddump:
     get:
       responses:
         "200":
@@ -1580,7 +1600,7 @@ paths:
             application/json:
               schema:
                 items:
-                  $ref: '#/components/schemas/ArchivedHeapDumpDirectory'
+                  $ref: '#/components/schemas/ArchivedThreadDumpDirectory'
                 type: array
           description: OK
         "401":
@@ -1589,9 +1609,9 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
-      summary: List Heap Dumps
+      summary: List Thread Dumps
       tags:
-        - Heap Dump Endpoint
+        - Thread Dump Endpoint
   /api/v5/diagnostics/threaddump/download/{encodedKey}:
     get:
       parameters:
@@ -1617,26 +1637,6 @@ paths:
       security:
         - SecurityScheme: []
       summary: Handle Thread Dumps Storage Download
-      tags:
-        - Thread Dump Endpoint
-  /api/v5/diagnostics/threaddumps:
-    get:
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                items:
-                  $ref: '#/components/schemas/ArchivedThreadDumpDirectory'
-                type: array
-          description: OK
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme: []
-      summary: List Thread Dumps
       tags:
         - Thread Dump Endpoint
   /api/v5/diagnostics/unified-logs:
