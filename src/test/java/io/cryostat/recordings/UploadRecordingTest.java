@@ -36,6 +36,7 @@ import io.restassured.http.ContentType;
 import io.restassured.response.Response;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -50,6 +51,9 @@ public class UploadRecordingTest extends AbstractTransactionalTestBase {
     public static final String DATASOURCE_FILENAME = "cryostat-analysis.jfr";
     static final String RECORDING_NAME = "upload_recording_it_rec";
     static final int RECORDING_DURATION_SECONDS = 10;
+
+    @ConfigProperty(name = "grafana-datasource.url")
+    String datasourceUrl;
 
     @BeforeEach
     void setup() throws Exception {
@@ -95,25 +99,6 @@ public class UploadRecordingTest extends AbstractTransactionalTestBase {
 
         // Sleep for a bit to give the upload time to complete
         Thread.sleep(2000);
-
-        // Get the datasource URL
-        Response datasourceUrlResponse =
-                given().log()
-                        .all()
-                        .when()
-                        .basePath("")
-                        .get("/api/v5/grafana_datasource_url")
-                        .then()
-                        .log()
-                        .all()
-                        .and()
-                        .assertThat()
-                        .statusCode(200)
-                        .extract()
-                        .response();
-
-        JsonObject datasourceUrlJson = new JsonObject(datasourceUrlResponse.body().asString());
-        String datasourceUrl = datasourceUrlJson.getString("grafanaDatasourceUrl");
 
         // Confirm recording is loaded in Data Source
         Response listResponse =
