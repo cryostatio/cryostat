@@ -43,6 +43,7 @@ import io.cryostat.libcryostat.JvmIdentifier;
 import io.cryostat.libcryostat.net.CryostatAgentMXBean;
 import io.cryostat.libcryostat.net.IDException;
 import io.cryostat.libcryostat.net.MBeanMetrics;
+import io.cryostat.libcryostat.net.MbeanAttributeMap;
 import io.cryostat.libcryostat.sys.Clock;
 import io.cryostat.libcryostat.triggers.SmartTrigger;
 import io.cryostat.targets.AgentClient.AsyncProfile;
@@ -168,6 +169,15 @@ public class AgentConnection implements JFRConnection {
         return client.invokeMBeanOperation(beanName, operation, parameters, signature, returnType)
                 .await()
                 .atMost(client.getTimeout());
+    }
+
+    @Override
+    public List<MbeanAttributeMap> queryMbeanAttributes()
+            throws IOException,
+                    InstanceNotFoundException,
+                    IntrospectionException,
+                    ReflectionException {
+        return client.queryMbeanAttributes().await().atMost(client.getTimeout());
     }
 
     @Override
