@@ -38,7 +38,7 @@ public class UnifiedLogEndpoint {
     @PermissionsAllowed(value = "unifiedlogs:read", inclusive = true)
     @GET
     public Collection<ArchivedUnifiedLogDirectory> listUnifiedLogs() {
-        var map = new HashMap<String, ArchivedUnifiedLogDirectory>();
+        var map = new HashMap<String, ArrayList<UnifiedLogs.UnifiedLog>>();
         helper.listUnifiedLogObjects()
                 .forEach(
                         item -> {
@@ -46,27 +46,23 @@ public class UnifiedLogEndpoint {
                             String[] parts = path.split("/");
                             String jvmId = parts[0];
                             String filename = parts[1];
-                            var dir =
-                                    map.computeIfAbsent(
-                                            jvmId,
-                                            id ->
-                                                    new ArchivedUnifiedLogDirectory(
-                                                            id, new ArrayList<>()));
+                            var logs = map.computeIfAbsent(jvmId, id -> new ArrayList<>());
                             String storageKey = DiagnosticsHelper.storageKey(jvmId, filename);
                             Metadata metadata =
                                     helper.getUnifiedLogMetadata(storageKey)
                                             .orElse(Metadata.empty());
-                            dir.unifiedLogs()
-                                    .add(
-                                            new UnifiedLogs.UnifiedLog(
-                                                    jvmId,
-                                                    helper.unifiedLogDownloadUrl(jvmId, filename),
-                                                    filename,
-                                                    item.lastModified().getEpochSecond(),
-                                                    item.size(),
-                                                    metadata));
+                            logs.add(
+                                    new UnifiedLogs.UnifiedLog(
+                                            jvmId,
+                                            helper.unifiedLogDownloadUrl(jvmId, filename),
+                                            filename,
+                                            item.lastModified().getEpochSecond(),
+                                            item.size(),
+                                            metadata));
                         });
-        return map.values();
+        return map.entrySet().stream()
+                .map(e -> new ArchivedUnifiedLogDirectory(e.getKey(), e.getValue()))
+                .toList();
     }
 
     public record ArchivedUnifiedLogDirectory(
