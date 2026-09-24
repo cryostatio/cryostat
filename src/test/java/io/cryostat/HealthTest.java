@@ -42,36 +42,25 @@ public class HealthTest {
     String datasourceURL;
 
     @Test
+    public void testHealthLiveness() {
+        when().get("/liveness").then().statusCode(204);
+    }
+
+    @Test
     public void testHealth() {
-        when().get("/health")
+        when().get()
                 .then()
                 .statusCode(200)
                 .contentType(ContentType.JSON)
                 .body(
                         "cryostatVersion", Matchers.instanceOf(String.class),
-                        "dashboardConfigured", is(true),
-                        "dashboardAvailable", is(true),
-                        "datasourceConfigured", is(true),
-                        "datasourceAvailable", is(true),
-                        "reportsConfigured", is(false),
-                        "reportsAvailable", is(true));
-    }
-
-    @Test
-    public void testGrafanaDashboardUrl() {
-        when().get("/api/v5/grafana_dashboard_url")
-                .then()
-                .statusCode(200)
-                .contentType(ContentType.JSON)
-                .body("grafanaDashboardUrl", is(dashboardURL));
-    }
-
-    @Test
-    public void testGrafanaDatasourceUrl() {
-        when().get("/api/v5/grafana_datasource_url")
-                .then()
-                .statusCode(200)
-                .contentType(ContentType.JSON)
-                .body("grafanaDatasourceUrl", is(datasourceURL));
+                        "build.git.hash", Matchers.not(Matchers.emptyOrNullString()),
+                        "services.dashboard.configured", is(true),
+                        "services.dashboard.available", is(true),
+                        "services.dashboard.url", is(dashboardURL),
+                        "services.datasource.configured", is(true),
+                        "services.datasource.available", is(true),
+                        "services.reports.configured", is(false),
+                        "services.reports.available", is(true));
     }
 }

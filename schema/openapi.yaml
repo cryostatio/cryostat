@@ -113,18 +113,8 @@ components:
           $ref: '#/components/schemas/BuildInfo'
         cryostatVersion:
           type: string
-        dashboardAvailable:
-          type: boolean
-        dashboardConfigured:
-          type: boolean
-        datasourceAvailable:
-          type: boolean
-        datasourceConfigured:
-          type: boolean
-        reportsAvailable:
-          type: boolean
-        reportsConfigured:
-          type: boolean
+        services:
+          $ref: '#/components/schemas/Services'
       type: object
     ArchivedHeapDumpDirectory:
       properties:
@@ -272,16 +262,6 @@ components:
         - FAILURE
         - NA
       type: string
-    DashboardUrl:
-      properties:
-        grafanaDashboardUrl:
-          type: string
-      type: object
-    DatasourceUrl:
-      properties:
-        grafanaDatasourceUrl:
-          type: string
-      type: object
     Date:
       examples:
         - 2022-03-10
@@ -480,6 +460,16 @@ components:
         - NONE
         - UNKNOWN
       type: string
+    ExternalService:
+      properties:
+        available:
+          type: boolean
+        configured:
+          type: boolean
+        url:
+          format: uri
+          type: string
+      type: object
     Field:
       properties:
         contentType:
@@ -528,6 +518,13 @@ components:
           type: integer
         statusMessage:
           type: string
+      type: object
+    InternalService:
+      properties:
+        available:
+          type: boolean
+        configured:
+          type: boolean
       type: object
     JniInfo:
       properties:
@@ -868,6 +865,15 @@ components:
           type: string
         name:
           type: string
+      type: object
+    Services:
+      properties:
+        dashboard:
+          $ref: '#/components/schemas/ExternalService'
+        datasource:
+          $ref: '#/components/schemas/InternalService'
+        reports:
+          $ref: '#/components/schemas/InternalService'
       type: object
     SmartTrigger:
       properties:
@@ -2116,38 +2122,6 @@ paths:
       summary: Upload an archived recording to Grafana for online analysis
       tags:
         - Archived Recordings
-  /api/v5/grafana_dashboard_url:
-    get:
-      description: |
-        Returns the URL for the associated Grafana dashboard instance. If there is an internally-accessible
-        (for Cryostat) URL and an externally-accessible URL (for users) URL, the externally-accessible URL
-        is preferred. If neither are configured then the response is an HTTP 400 Bad Request.
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/DashboardUrl'
-          description: OK
-      summary: Return the URL which users can visit to access the associated Grafana dashboard instance.
-      tags:
-        - Health
-  /api/v5/grafana_datasource_url:
-    get:
-      description: |
-        Returns the URL for the jfr-datasource instance which Cryostat is configured to use. This datasource
-        accepts JFR file uploads from Cryostat and allows the Grafana dashboard to perform queries on the
-        data within the recording file.
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/DatasourceUrl'
-          description: OK
-      summary: Return the URL to the associated jfr-datasource instance.
-      tags:
-        - Health
   /api/v5/jmc_agent/probe_templates:
     get:
       responses:
@@ -4533,7 +4507,7 @@ paths:
           description: No Content
       summary: Check if the application is able to accept and respond to requests.
       tags:
-        - Liveness
+        - Health
 tags:
   - description: |
       Endpoints for Discovery Plugins to register with a Cryostat instance, refresh their registration

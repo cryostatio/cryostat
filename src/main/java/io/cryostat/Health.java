@@ -25,6 +25,8 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
+import io.cryostat.targets.Target;
+import io.cryostat.targets.TargetConnectionManager;
 import io.cryostat.util.HttpStatusCodeIdentifier;
 
 import io.quarkus.rest.client.reactive.Url;
@@ -35,8 +37,6 @@ import jakarta.inject.Inject;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
-import jakarta.ws.rs.Produces;
-import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.UriBuilder;
 import org.apache.commons.lang3.StringUtils;
@@ -47,7 +47,7 @@ import org.eclipse.microprofile.rest.client.inject.RestClient;
 import org.jboss.logging.Logger;
 
 /** Status and configuration verification for the application. */
-@Path("")
+@Path("/health")
 class Health {
 
     private static final String LOCAL_REPORT_GENERATION_URL = "http://localhost/";
@@ -73,13 +73,44 @@ class Health {
     @ConfigProperty(name = ConfigProperties.REPORTS_SIDECAR_URL)
     String reportsClientURL;
 
+    @Inject TargetConnectionManager tcm;
     @Inject BuildInfo buildInfo;
     @Inject @RestClient HealthClient client;
     @Inject Logger logger;
 
+    static final Target SELF;
+
+    static {
+        SELF = new Target();
+        SELF.connectUrl = URI.create("service:jmx:rmi:///jndi/rmi://localhost:0/jmxrmi");
+    }
+
     @GET
     @Blocking
-    @Path("/health")
+    @Path("/liveness")
+    @PermitAll
+    @Operation(
+            summary = "Check if the application is able to accept and respond to requests.",
+            description =
+                    """
+                    Performs a simple target connection request on a worker thread.
+                    This is a simply check to determine if the application has available threads
+                    to service requests. HTTP 204 No Content is the only expected response.
+                    If the application is not live and no worker threads are available,
+                    then the client will never receive a response.
+                    """)
+    public Uni<Void> liveness() {
+        return tcm.executeDirect(
+                SELF,
+                Optional.empty(),
+                conn -> {
+                    conn.getJvmIdentifier();
+                    return null;
+                });
+    }
+
+    @GET
+    @Blocking
     @PermitAll
     @Operation(
             summary = "Check the overall status of the application",
@@ -116,50 +147,18 @@ class Health {
         return new ApplicationHealth(
                 String.format("v%s", version),
                 buildInfo,
-                dashboardURL.isPresent(),
-                safeGet(dashboardAvailable),
-                datasourceURL.isPresent(),
-                safeGet(datasourceAvailable),
-                reportsConfigured,
-                safeGet(reportsAvailable));
-    }
-
-    @GET
-    @Path("/api/v5/grafana_dashboard_url")
-    @PermitAll
-    @Produces({MediaType.APPLICATION_JSON})
-    @Operation(
-            summary =
-                    "Return the URL which users can visit to access the associated Grafana"
-                            + " dashboard instance.",
-            description =
-                    """
-                    Returns the URL for the associated Grafana dashboard instance. If there is an internally-accessible
-                    (for Cryostat) URL and an externally-accessible URL (for users) URL, the externally-accessible URL
-                    is preferred. If neither are configured then the response is an HTTP 400 Bad Request.
-                    """)
-    public DashboardUrl grafanaDashboardUrl() {
-        String url =
-                dashboardExternalURL.orElseGet(
-                        () -> dashboardURL.orElseThrow(() -> new BadRequestException()));
-        return new DashboardUrl(url);
-    }
-
-    @GET
-    @Path("/api/v5/grafana_datasource_url")
-    @PermitAll
-    @Produces({MediaType.APPLICATION_JSON})
-    @Operation(
-            summary = "Return the URL to the associated jfr-datasource instance.",
-            description =
-                    """
-                    Returns the URL for the jfr-datasource instance which Cryostat is configured to use. This datasource
-                    accepts JFR file uploads from Cryostat and allows the Grafana dashboard to perform queries on the
-                    data within the recording file.
-                    """)
-    public DatasourceUrl grafanaDatasourceUrl() {
-        String url = datasourceURL.orElseThrow(() -> new BadRequestException());
-        return new DatasourceUrl(url);
+                new Services(
+                        new ExternalService(
+                                dashboardURL.isPresent(),
+                                safeGet(dashboardAvailable),
+                                URI.create(
+                                        dashboardExternalURL.orElseGet(
+                                                () ->
+                                                        dashboardURL.orElseThrow(
+                                                                BadRequestException::new)))),
+                        new InternalService(
+                                datasourceURL.isPresent(), safeGet(datasourceAvailable)),
+                        new InternalService(reportsConfigured, safeGet(reportsAvailable))));
     }
 
     private void checkUri(
@@ -192,19 +191,14 @@ class Health {
         }
     }
 
-    static record ApplicationHealth(
-            String cryostatVersion,
-            BuildInfo build,
-            boolean dashboardConfigured,
-            boolean dashboardAvailable,
-            boolean datasourceConfigured,
-            boolean datasourceAvailable,
-            boolean reportsConfigured,
-            boolean reportsAvailable) {}
+    static record ApplicationHealth(String cryostatVersion, BuildInfo build, Services services) {}
 
-    static record DashboardUrl(String grafanaDashboardUrl) {}
+    record InternalService(boolean configured, boolean available) {}
 
-    static record DatasourceUrl(String grafanaDatasourceUrl) {}
+    record ExternalService(boolean configured, boolean available, URI url) {}
+
+    static record Services(
+            ExternalService dashboard, InternalService datasource, InternalService reports) {}
 
     @RegisterRestClient(
             configKey = "health",
