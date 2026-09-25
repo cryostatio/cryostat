@@ -24,12 +24,14 @@ import io.cryostat.AbstractTransactionalTestBase;
 import io.quarkus.test.common.http.TestHTTPEndpoint;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.QuarkusTestProfile;
+import io.quarkus.test.junit.TestProfile;
 import io.restassured.http.ContentType;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
 
 @QuarkusTest
 @TestHTTPEndpoint(CustomDiscovery.class)
+@TestProfile(CustomDiscoveryTest.class)
 public class CustomDiscoveryTest extends AbstractTransactionalTestBase
         implements QuarkusTestProfile {
 
