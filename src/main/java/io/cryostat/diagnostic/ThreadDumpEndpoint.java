@@ -49,7 +49,7 @@ import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
 import software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequest;
 
-@Path("/api/v5/diagnostics/threaddump")
+@Path("/api/v5/diagnostics/thread-dump")
 public class ThreadDumpEndpoint {
 
     @Inject TargetConnectionManager targetConnectionManager;

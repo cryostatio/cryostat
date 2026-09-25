@@ -1220,7 +1220,7 @@ public class RecordingHelper {
     }
 
     public String downloadUrl(ActiveRecording recording) {
-        return String.format("/api/v5/activedownload/%s", recording.id);
+        return String.format("/api/v5/active-download/%s", recording.id);
     }
 
     public String downloadUrl(String jvmId, String filename) {

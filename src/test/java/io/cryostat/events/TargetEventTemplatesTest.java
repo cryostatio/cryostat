@@ -36,7 +36,7 @@ public class TargetEventTemplatesTest extends AbstractTransactionalTestBase {
         given().log()
                 .all()
                 .when()
-                .get("/api/v5/targets/{jvmId}/event_templates", selfJvmId)
+                .get("/api/v5/targets/{jvmId}/event-templates", selfJvmId)
                 .then()
                 .log()
                 .all()
@@ -63,7 +63,7 @@ public class TargetEventTemplatesTest extends AbstractTransactionalTestBase {
                 .all()
                 .when()
                 .get(
-                        "/api/v5/targets/{jvmId}/event_templates/{templateType}/{templateName}",
+                        "/api/v5/targets/{jvmId}/event-templates/{templateType}/{templateName}",
                         selfJvmId,
                         "TARGET",
                         "ALL")
@@ -82,7 +82,7 @@ public class TargetEventTemplatesTest extends AbstractTransactionalTestBase {
                 .all()
                 .when()
                 .get(
-                        "/api/v5/targets/{jvmId}/event_templates/{templateType}/{templateName}",
+                        "/api/v5/targets/{jvmId}/event-templates/{templateType}/{templateName}",
                         selfJvmId,
                         "CUSTOM",
                         "None")
@@ -101,7 +101,7 @@ public class TargetEventTemplatesTest extends AbstractTransactionalTestBase {
                 .all()
                 .when()
                 .get(
-                        "/api/v5/targets/{jvmId}/event_templates/{templateType}/{templateName}",
+                        "/api/v5/targets/{jvmId}/event-templates/{templateType}/{templateName}",
                         selfJvmId,
                         "TARGET",
                         "Profiling")

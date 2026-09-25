@@ -50,7 +50,7 @@ import org.jboss.resteasy.reactive.RestResponse;
 import org.jboss.resteasy.reactive.RestResponse.ResponseBuilder;
 import org.jboss.resteasy.reactive.multipart.FileUpload;
 
-@Path("/api/v5/event_templates")
+@Path("/api/v5/event-templates")
 public class EventTemplates {
 
     public static final Template ALL_EVENTS_TEMPLATE =

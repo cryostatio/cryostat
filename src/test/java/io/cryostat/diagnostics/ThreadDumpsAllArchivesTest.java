@@ -49,7 +49,7 @@ public class ThreadDumpsAllArchivesTest extends AbstractTransactionalTestBase {
         String response =
                 given().when()
                         .basePath("/")
-                        .get("/api/v5/diagnostics/threaddump")
+                        .get("/api/v5/diagnostics/thread-dump")
                         .then()
                         .extract()
                         .body()
@@ -75,7 +75,7 @@ public class ThreadDumpsAllArchivesTest extends AbstractTransactionalTestBase {
                                                             "threadDumpId",
                                                             threadDumpId)
                                                     .delete(
-                                                            "/api/v5/targets/{jvmId}/diagnostics/threaddump/{threadDumpId}")
+                                                            "/api/v5/targets/{jvmId}/diagnostics/thread-dump/{threadDumpId}")
                                                     .then()
                                                     .statusCode(204);
                                         }
@@ -90,7 +90,7 @@ public class ThreadDumpsAllArchivesTest extends AbstractTransactionalTestBase {
         given().log()
                 .all()
                 .when()
-                .get("/api/v5/diagnostics/threaddump")
+                .get("/api/v5/diagnostics/thread-dump")
                 .then()
                 .log()
                 .all()
@@ -112,7 +112,7 @@ public class ThreadDumpsAllArchivesTest extends AbstractTransactionalTestBase {
                                     .all()
                                     .when()
                                     .pathParam("jvmId", this.selfJvmId)
-                                    .post("/api/v5/targets/{jvmId}/diagnostics/threaddump")
+                                    .post("/api/v5/targets/{jvmId}/diagnostics/thread-dump")
                                     .then()
                                     .log()
                                     .all()
@@ -137,7 +137,7 @@ public class ThreadDumpsAllArchivesTest extends AbstractTransactionalTestBase {
         given().log()
                 .all()
                 .when()
-                .get("/api/v5/diagnostics/threaddump")
+                .get("/api/v5/diagnostics/thread-dump")
                 .then()
                 .log()
                 .all()

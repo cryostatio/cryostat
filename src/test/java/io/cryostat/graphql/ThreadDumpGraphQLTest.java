@@ -127,7 +127,7 @@ public class ThreadDumpGraphQLTest extends AbstractGraphQLTestBase {
                         .all()
                         .when()
                         .pathParam("jvmId", selfJvmId)
-                        .post("/api/v5/targets/{jvmId}/diagnostics/threaddump")
+                        .post("/api/v5/targets/{jvmId}/diagnostics/thread-dump")
                         .then()
                         .log()
                         .all()
@@ -220,7 +220,7 @@ public class ThreadDumpGraphQLTest extends AbstractGraphQLTestBase {
         // Retrieve archived thread dump name via REST API
         Response archivedListResponse =
                 given().when()
-                        .get("/api/v5/targets/" + selfJvmId + "/diagnostics/threaddump")
+                        .get("/api/v5/targets/" + selfJvmId + "/diagnostics/thread-dump")
                         .then()
                         .statusCode(200)
                         .extract()

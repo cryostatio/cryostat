@@ -251,7 +251,7 @@ public class Credentials {
             value = {"credentials:read", "matchexpressions:read"},
             inclusive = true)
     @Consumes({MediaType.MULTIPART_FORM_DATA, MediaType.APPLICATION_FORM_URLENCODED})
-    @Path("/check_exists")
+    @Path("/check-exists")
     @Operation(
             summary =
                     """

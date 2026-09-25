@@ -42,7 +42,7 @@ import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestForm;
 import org.jboss.resteasy.reactive.RestPath;
 
-@Path("/api/v5/targets/{jvmId}/recordingOptions")
+@Path("/api/v5/targets/{jvmId}/recording-options")
 public class RecordingOptions {
 
     @Inject TargetConnectionManager connectionManager;

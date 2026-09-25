@@ -1178,7 +1178,7 @@ info:
   version: 5.0.0-snapshot
 openapi: 3.1.0
 paths:
-  /api/v5/activedownload/{id}:
+  /api/v5/active-download/{id}:
     get:
       description: |
         Given a recording ID and a remote recording ID within that target, Cryostat will open a remote
@@ -1302,7 +1302,7 @@ paths:
       summary: Get Revision Detail
       tags:
         - Audit
-  /api/v5/audit/target_lineage/{jvmId}:
+  /api/v5/audit/target-lineage/{jvmId}:
     get:
       parameters:
         - in: path
@@ -1430,7 +1430,7 @@ paths:
       summary: Define a new Stored Credential
       tags:
         - Credentials
-  /api/v5/credentials/check_exists:
+  /api/v5/credentials/check-exists:
     post:
       requestBody:
         content:
@@ -1551,7 +1551,7 @@ paths:
       summary: Get information about a Stored Credential
       tags:
         - Credentials
-  /api/v5/diagnostics/heapdump:
+  /api/v5/diagnostics/heap-dump:
     get:
       responses:
         "200":
@@ -1571,7 +1571,7 @@ paths:
       summary: List Heap Dumps
       tags:
         - Heap Dump Endpoint
-  /api/v5/diagnostics/heapdump/download/{encodedKey}:
+  /api/v5/diagnostics/heap-dump/download/{encodedKey}:
     get:
       parameters:
         - in: path
@@ -1598,7 +1598,7 @@ paths:
       summary: Handle Heap Dumps Storage Download
       tags:
         - Heap Dump Endpoint
-  /api/v5/diagnostics/threaddump:
+  /api/v5/diagnostics/thread-dump:
     get:
       responses:
         "200":
@@ -1618,7 +1618,7 @@ paths:
       summary: List Thread Dumps
       tags:
         - Thread Dump Endpoint
-  /api/v5/diagnostics/threaddump/download/{encodedKey}:
+  /api/v5/diagnostics/thread-dump/download/{encodedKey}:
     get:
       parameters:
         - in: path
@@ -1780,7 +1780,7 @@ paths:
       summary: Register and publish a Cryostat Agent
       tags:
         - Discovery
-  /api/v5/discovery/plugins/registration_check/{id}:
+  /api/v5/discovery/plugins/registration-check/{id}:
     get:
       description: |
         Endpoint for discovery plugins to check their own current registration status, ie. whether their
@@ -1951,7 +1951,7 @@ paths:
       summary: Get a download URL for an archived recording
       tags:
         - Archived Recordings
-  /api/v5/event_templates:
+  /api/v5/event-templates:
     get:
       description: |
         Retrieve a list of templates available on this Cryostat server. These templates can be applied to
@@ -2006,7 +2006,7 @@ paths:
       summary: Upload a custom event template
       tags:
         - Event Templates
-  /api/v5/event_templates/{templateName}:
+  /api/v5/event-templates/{templateName}:
     delete:
       description: |
         Delete a custom event template from the server. Only previously uploaded custom event templates can
@@ -2029,7 +2029,7 @@ paths:
       summary: Delete a custom event template
       tags:
         - Event Templates
-  /api/v5/event_templates/{templateType}:
+  /api/v5/event-templates/{templateType}:
     get:
       parameters:
         - in: path
@@ -2055,7 +2055,7 @@ paths:
       summary: List server event templates of the given type
       tags:
         - Event Templates
-  /api/v5/event_templates/{templateType}/{templateName}:
+  /api/v5/event-templates/{templateType}/{templateName}:
     get:
       description: |
         Get the .jfc (XML) file definition for the given server event template. This is the same type of
@@ -2122,7 +2122,7 @@ paths:
       summary: Upload an archived recording to Grafana for online analysis
       tags:
         - Archived Recordings
-  /api/v5/jmc_agent/probe_templates:
+  /api/v5/jmc-agent/probe-templates:
     get:
       responses:
         "200":
@@ -2178,7 +2178,7 @@ paths:
       summary: Create a probe template
       tags:
         - JMC Agent Templates
-  /api/v5/jmc_agent/probe_templates/{probeTemplateName}:
+  /api/v5/jmc-agent/probe-templates/{probeTemplateName}:
     delete:
       parameters:
         - in: path
@@ -2236,7 +2236,7 @@ paths:
         and its redirect response.
       tags:
         - Auth
-  /api/v5/matchExpressions:
+  /api/v5/match-expressions:
     get:
       description: |
         Retrieve a list of all currently defined Match Expressions. These objects cannot be created
@@ -2291,7 +2291,7 @@ paths:
       summary: Test a MatchExpression against a list of Targets
       tags:
         - Match Expressions
-  /api/v5/matchExpressions/{id}:
+  /api/v5/match-expressions/{id}:
     get:
       parameters:
         - in: path
@@ -3117,7 +3117,7 @@ paths:
       summary: Initiate a garbage collection on the specified target
       tags:
         - Garbage Collection Endpoint
-  /api/v5/targets/{jvmId}/diagnostics/heapdump:
+  /api/v5/targets/{jvmId}/diagnostics/heap-dump:
     get:
       parameters:
         - in: path
@@ -3176,7 +3176,7 @@ paths:
       summary: Initiates a heap dump on the specified target
       tags:
         - Target Heap Dump Endpoint
-  /api/v5/targets/{jvmId}/diagnostics/heapdump/upload:
+  /api/v5/targets/{jvmId}/diagnostics/heap-dump/upload:
     post:
       parameters:
         - in: path
@@ -3212,7 +3212,7 @@ paths:
       summary: Upload Heap Dump
       tags:
         - Target Heap Dump Endpoint
-  /api/v5/targets/{jvmId}/diagnostics/heapdump/{heapDumpId}:
+  /api/v5/targets/{jvmId}/diagnostics/heap-dump/{heapDumpId}:
     delete:
       parameters:
         - in: path
@@ -3237,7 +3237,7 @@ paths:
       summary: Delete Heap Dump
       tags:
         - Target Heap Dump Endpoint
-  /api/v5/targets/{jvmId}/diagnostics/heapdump/{heapDumpId}/analyze:
+  /api/v5/targets/{jvmId}/diagnostics/heap-dump/{heapDumpId}/analyze:
     post:
       parameters:
         - in: path
@@ -3273,7 +3273,7 @@ paths:
       summary: Analyze Heap Dump
       tags:
         - Target Heap Dump Endpoint
-  /api/v5/targets/{jvmId}/diagnostics/threaddump:
+  /api/v5/targets/{jvmId}/diagnostics/thread-dump:
     get:
       parameters:
         - in: path
@@ -3335,7 +3335,7 @@ paths:
       summary: Thread Dump
       tags:
         - Target Thread Dump Endpoint
-  /api/v5/targets/{jvmId}/diagnostics/threaddump/{threadDumpId}:
+  /api/v5/targets/{jvmId}/diagnostics/thread-dump/{threadDumpId}:
     delete:
       parameters:
         - in: path
@@ -3360,7 +3360,7 @@ paths:
       summary: Delete Thread Dump
       tags:
         - Target Thread Dump Endpoint
-  /api/v5/targets/{jvmId}/diagnostics/threaddump/{threadDumpId}/analyze:
+  /api/v5/targets/{jvmId}/diagnostics/thread-dump/{threadDumpId}/analyze:
     post:
       parameters:
         - in: path
@@ -3634,7 +3634,7 @@ paths:
       summary: Patch Unified Log Metadata
       tags:
         - Unified Logs
-  /api/v5/targets/{jvmId}/event_templates:
+  /api/v5/targets/{jvmId}/event-templates:
     get:
       description: |
         Retrieve a list of event templates available on the given target when starting recordings on the
@@ -3664,7 +3664,7 @@ paths:
       summary: Retrieve a list of event templates available on the given target
       tags:
         - Target Event Templates
-  /api/v5/targets/{jvmId}/event_templates/{templateType}/{templateName}:
+  /api/v5/targets/{jvmId}/event-templates/{templateType}/{templateName}:
     get:
       description: |
         Get the .jfc (XML) file definition for the given target event template.
@@ -3735,7 +3735,7 @@ paths:
       summary: List JFR event types registered within the given target
       tags:
         - Events
-  /api/v5/targets/{jvmId}/jmc_agent/probes:
+  /api/v5/targets/{jvmId}/jmc-agent/probes:
     delete:
       parameters:
         - in: path
@@ -3780,7 +3780,7 @@ paths:
       summary: List loaded probes on the specified target
       tags:
         - JMC Agent Probes
-  /api/v5/targets/{jvmId}/jmc_agent/probes/{probeTemplateName}:
+  /api/v5/targets/{jvmId}/jmc-agent/probes/{probeTemplateName}:
     post:
       description: |
         Activate a probe template (specified by template name) on the specified target (specified by ID).
@@ -3807,7 +3807,7 @@ paths:
       summary: Activate a probe template on the specified target
       tags:
         - JMC Agent Probes
-  /api/v5/targets/{jvmId}/recordingOptions:
+  /api/v5/targets/{jvmId}/recording-options:
     get:
       description: |
         Retrieve a map of the current options for the specified target.
@@ -3983,6 +3983,27 @@ paths:
       summary: Start a new recording on the specified target
       tags:
         - Active Recordings
+  /api/v5/targets/{jvmId}/recordings-sync:
+    post:
+      description: Reconcile Cryostat's active recording model with the recordings present on the target.
+      parameters:
+        - in: path
+          name: jvmId
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Active recordings synchronized
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      summary: Resynchronize active recordings on the specified target
+      tags:
+        - Recording Sync
   /api/v5/targets/{jvmId}/recordings/snapshot:
     post:
       parameters:
@@ -4197,27 +4218,6 @@ paths:
       summary: Upload a recording for analysis in Grafana dashboard
       tags:
         - Active Recordings
-  /api/v5/targets/{jvmId}/recordings_sync:
-    post:
-      description: Reconcile Cryostat's active recording model with the recordings present on the target.
-      parameters:
-        - in: path
-          name: jvmId
-          required: true
-          schema:
-            type: string
-      responses:
-        "204":
-          description: Active recordings synchronized
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme: []
-      summary: Resynchronize active recordings on the specified target
-      tags:
-        - Recording Sync
   /api/v5/targets/{jvmId}/reports:
     get:
       description: |
@@ -4333,7 +4333,7 @@ paths:
       summary: Get an automated analysis report for a particular recording on the specified target
       tags:
         - Reports
-  /api/v5/targets/{jvmId}/smart_triggers:
+  /api/v5/targets/{jvmId}/smart-triggers:
     get:
       parameters:
         - in: path
@@ -4395,7 +4395,7 @@ paths:
       summary: Define a new Smart Trigger for a target
       tags:
         - Smart Triggers
-  /api/v5/targets/{jvmId}/smart_triggers/sync:
+  /api/v5/targets/{jvmId}/smart-triggers/sync:
     post:
       parameters:
         - in: path
@@ -4421,7 +4421,7 @@ paths:
       summary: Sync Recordings
       tags:
         - Smart Triggers
-  /api/v5/targets/{jvmId}/smart_triggers/{id}:
+  /api/v5/targets/{jvmId}/smart-triggers/{id}:
     delete:
       description: |
         Delete an active Smart Trigger. A custom trigger definition must consist of both an expression

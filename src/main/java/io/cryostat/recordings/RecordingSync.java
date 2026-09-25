@@ -28,7 +28,7 @@ import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.eclipse.microprofile.openapi.annotations.responses.APIResponse;
 import org.jboss.resteasy.reactive.RestPath;
 
-@Path("/api/v5/targets/{jvmId}/recordings_sync")
+@Path("/api/v5/targets/{jvmId}/recordings-sync")
 public class RecordingSync {
 
     @Inject RecordingHelper recordingHelper;

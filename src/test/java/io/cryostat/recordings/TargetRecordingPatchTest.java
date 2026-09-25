@@ -70,7 +70,7 @@ public class TargetRecordingPatchTest extends AbstractTransactionalTestBase {
                 .formParam("toDisk", "false")
                 .formParam("maxSize", "0")
                 .when()
-                .patch("/api/v5/targets/{jvmId}/recordingOptions", selfJvmId)
+                .patch("/api/v5/targets/{jvmId}/recording-options", selfJvmId)
                 .then()
                 .log()
                 .all()

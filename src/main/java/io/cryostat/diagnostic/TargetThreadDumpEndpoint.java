@@ -39,7 +39,7 @@ import jakarta.ws.rs.QueryParam;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestPath;
 
-@Path("/api/v5/targets/{jvmId}/diagnostics/threaddump")
+@Path("/api/v5/targets/{jvmId}/diagnostics/thread-dump")
 public class TargetThreadDumpEndpoint {
 
     @Inject Logger log;

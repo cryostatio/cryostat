@@ -49,7 +49,7 @@ public class CryostatTemplateIT {
     public void shouldHaveCryostatTemplate() throws Exception {
         String url =
                 String.format(
-                        "/api/v5/targets/%s/event_templates/TARGET/Cryostat",
+                        "/api/v5/targets/%s/event-templates/TARGET/Cryostat",
                         getSelfReferenceTargetId());
 
         Response response =

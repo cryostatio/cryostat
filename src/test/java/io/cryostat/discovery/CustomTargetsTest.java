@@ -69,7 +69,7 @@ public class CustomTargetsTest extends AbstractTransactionalTestBase {
             if (SELF_JMX_URL.equals(target.getString("connectUrl"))) {
                 given().basePath("/")
                         .when()
-                        .delete("/api/v5/targets/" + target.getString("id"))
+                        .delete("/api/v5/targets/" + target.getString("jvmId"))
                         .then()
                         .statusCode(204);
             }
@@ -216,7 +216,7 @@ public class CustomTargetsTest extends AbstractTransactionalTestBase {
                         .response();
 
         JsonObject createBody = new JsonObject(createResponse.body().asString());
-        String targetId = createBody.getString("id");
+        String targetJvmId = createBody.getString("jvmId");
 
         // Wait for and consume the FOUND notification from target creation
         webSocketClient.expectNotification(
@@ -230,7 +230,11 @@ public class CustomTargetsTest extends AbstractTransactionalTestBase {
                                                 .getString("kind")));
 
         // Delete the target
-        given().basePath("/").when().delete("/api/v5/targets/" + targetId).then().statusCode(204);
+        given().basePath("/")
+                .when()
+                .delete("/api/v5/targets/" + targetJvmId)
+                .then()
+                .statusCode(204);
 
         // Wait for LOST notification
         JsonObject notification =

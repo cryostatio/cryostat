@@ -52,7 +52,7 @@ import org.jboss.resteasy.reactive.multipart.FileUpload;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 
-@Path("/api/v5/targets/{jvmId}/diagnostics/heapdump")
+@Path("/api/v5/targets/{jvmId}/diagnostics/heap-dump")
 public class TargetHeapDumpEndpoint {
 
     @Inject S3Client storage;

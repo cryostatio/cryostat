@@ -146,7 +146,7 @@ public class DiscoveryPlugins {
     }
 
     @GET
-    @Path("/registration_check/{id}")
+    @Path("/registration-check/{id}")
     @PermissionsAllowed(value = "discoverynodes:read", inclusive = true)
     @Tag(ref = "Discovery")
     @Operation(

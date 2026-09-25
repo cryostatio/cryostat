@@ -49,7 +49,7 @@ import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestPath;
 import org.xml.sax.SAXException;
 
-@Path("/api/v5/targets/{jvmId}/jmc_agent/probes")
+@Path("/api/v5/targets/{jvmId}/jmc-agent/probes")
 public class JMCAgentProbes {
 
     private static final String PROBES_REMOVED_CATEGORY = "ProbesRemoved";

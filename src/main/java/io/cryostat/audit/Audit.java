@@ -61,7 +61,7 @@ import org.hibernate.envers.query.AuditEntity;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestPath;
 
-@Path("/api/v5/audit/")
+@Path("/api/v5/audit")
 public class Audit {
 
     static final Class<?>[] AUDITED_CLASSES = {
@@ -88,7 +88,7 @@ public class Audit {
     // does not return audit log metadata like username, so audit:read permission is not required
     @GET
     @PermissionsAllowed(value = "targets:read", inclusive = true)
-    @Path("targets/{jvmId}")
+    @Path("/targets/{jvmId}")
     @Produces(MediaType.APPLICATION_JSON)
     public Target targetByJvmId(@RestPath String jvmId) {
         if (StringUtils.isBlank(jvmId)) {
@@ -119,7 +119,7 @@ public class Audit {
     @PermissionsAllowed(
             value = {"targets:read", "discoverynodes:read"},
             inclusive = true)
-    @Path("target_lineage/{jvmId}")
+    @Path("/target-lineage/{jvmId}")
     @Produces(MediaType.APPLICATION_JSON)
     public DiscoveryNode targetLineageByJvmId(@RestPath String jvmId) {
         if (StringUtils.isBlank(jvmId)) {
@@ -243,7 +243,7 @@ public class Audit {
                 "unifiedlogs:read"
             },
             inclusive = true)
-    @Path("revisions")
+    @Path("/revisions")
     @Produces(MediaType.APPLICATION_JSON)
     public RevisionsResponse getRevisions(
             @QueryParam("startTime") Long startTime,
@@ -342,7 +342,7 @@ public class Audit {
                 "unifiedlogs:read"
             },
             inclusive = true)
-    @Path("export")
+    @Path("/export")
     @Produces(MediaType.APPLICATION_JSON)
     public Response exportRevisions(
             @QueryParam("startTime") Long startTime, @QueryParam("endTime") Long endTime) {
@@ -409,7 +409,7 @@ public class Audit {
                 "unifiedlogs:read"
             },
             inclusive = true)
-    @Path("revisions/{rev}")
+    @Path("/revisions/{rev}")
     @Produces(MediaType.APPLICATION_JSON)
     public RevisionDetail getRevisionDetail(@RestPath long rev) throws Exception {
         try {

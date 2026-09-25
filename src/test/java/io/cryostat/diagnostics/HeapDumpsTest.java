@@ -39,14 +39,14 @@ public class HeapDumpsTest extends AbstractTransactionalTestBase {
                 .all()
                 .when()
                 .pathParam("jvmId", selfJvmId)
-                .get("/api/v5/targets/{jvmId}/diagnostics/heapdump")
+                .get("/api/v5/targets/{jvmId}/diagnostics/heap-dump")
                 .then()
                 .log()
                 .all()
                 .and()
                 .assertThat()
-                .contentType(ContentType.JSON)
                 .statusCode(200)
+                .contentType(ContentType.JSON)
                 .body("size()", Matchers.equalTo(0));
     }
 
@@ -56,7 +56,7 @@ public class HeapDumpsTest extends AbstractTransactionalTestBase {
                 .all()
                 .when()
                 .pathParam("jvmId", "nonexistent")
-                .get("/api/v5/targets/{jvmId}/diagnostics/heapdump")
+                .get("/api/v5/targets/{jvmId}/diagnostics/heap-dump")
                 .then()
                 .log()
                 .all()
@@ -74,7 +74,7 @@ public class HeapDumpsTest extends AbstractTransactionalTestBase {
                 .when()
                 .pathParam("jvmId", selfJvmId)
                 .pathParam("heapDumpId", "foo")
-                .delete("/api/v5/targets/{jvmId}/diagnostics/heapdump/{heapDumpId}")
+                .delete("/api/v5/targets/{jvmId}/diagnostics/heap-dump/{heapDumpId}")
                 .then()
                 .log()
                 .all()
@@ -90,7 +90,7 @@ public class HeapDumpsTest extends AbstractTransactionalTestBase {
                 .all()
                 .when()
                 .pathParam("encodedKey", encodedKey)
-                .get("/api/v5/diagnostics/heapdump/download/{encodedKey}")
+                .get("/api/v5/diagnostics/heap-dump/download/{encodedKey}")
                 .then()
                 .assertThat()
                 .statusCode(400);
@@ -104,7 +104,7 @@ public class HeapDumpsTest extends AbstractTransactionalTestBase {
                 .all()
                 .when()
                 .pathParam("encodedKey", encodedKey)
-                .get("/api/v5/diagnostics/heapdump/download/{encodedKey}")
+                .get("/api/v5/diagnostics/heap-dump/download/{encodedKey}")
                 .then()
                 .assertThat()
                 .statusCode(404);
@@ -117,7 +117,7 @@ public class HeapDumpsTest extends AbstractTransactionalTestBase {
                 .when()
                 .pathParam("jvmId", "bar")
                 .pathParam("heapDumpId", "foo")
-                .post("/api/v5/targets/{jvmId}/diagnostics/heapdump/{heapDumpId}/analyze")
+                .post("/api/v5/targets/{jvmId}/diagnostics/heap-dump/{heapDumpId}/analyze")
                 .then()
                 .assertThat()
                 .statusCode(404);

@@ -123,7 +123,7 @@ public class ActiveRecordings {
                         .findFirst()
                         .orElseThrow();
         return ResponseBuilder.<InputStream>create(RestResponse.Status.PERMANENT_REDIRECT)
-                .location(URI.create(String.format("/api/v5/activedownload/%s", recording.id)))
+                .location(URI.create(String.format("/api/v5/active-download/%s", recording.id)))
                 .build();
     }
 

@@ -35,7 +35,7 @@ import org.jboss.resteasy.reactive.RestPath;
 import org.jboss.resteasy.reactive.RestResponse;
 import org.jboss.resteasy.reactive.RestResponse.ResponseBuilder;
 
-@Path("/api/v5/activedownload/{id}")
+@Path("/api/v5/active-download/{id}")
 public class ActiveRecordingsDownload {
 
     @Inject RecordingHelper recordingHelper;

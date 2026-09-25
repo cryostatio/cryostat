@@ -38,7 +38,7 @@ import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestPath;
 
-@Path("/api/v5/targets/{jvmId}/event_templates")
+@Path("/api/v5/targets/{jvmId}/event-templates")
 public class TargetEventTemplates {
 
     public static final Template ALL_EVENTS_TEMPLATE =

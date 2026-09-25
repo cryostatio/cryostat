@@ -39,7 +39,7 @@ public class HeapDumpsAllArchivesTest extends AbstractTransactionalTestBase {
         given().log()
                 .all()
                 .when()
-                .get("/api/v5/diagnostics/heapdump")
+                .get("/api/v5/diagnostics/heap-dump")
                 .then()
                 .log()
                 .all()

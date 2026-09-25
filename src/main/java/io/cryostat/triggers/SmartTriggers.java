@@ -47,7 +47,7 @@ import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestForm;
 import org.jboss.resteasy.reactive.RestPath;
 
-@Path("/api/v5/targets/{jvmId}/smart_triggers")
+@Path("/api/v5/targets/{jvmId}/smart-triggers")
 public class SmartTriggers {
 
     @Inject Logger log;
