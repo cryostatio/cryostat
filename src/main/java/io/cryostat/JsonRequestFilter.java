@@ -40,8 +40,8 @@ public class JsonRequestFilter implements ContainerRequestFilter {
     static final Set<String> disallowedFields = Set.of("id");
     static final Set<String> allowedPathPatterns =
             Set.of(
-                    "/api/v5/discovery/[\\w]*",
-                    "/api/v5/rules/[\\w]+",
+                    "/api/v5/discovery/[\\w-]*",
+                    "/api/v5/rules/[\\w-]+",
                     "/api/v5/match-expressions",
                     "/api/v5/graphql");
 
