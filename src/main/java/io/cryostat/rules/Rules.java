@@ -27,6 +27,7 @@ import io.cryostat.ConfigProperties;
 import io.cryostat.DeclarativeConfiguration;
 import io.cryostat.expressions.MatchExpression;
 import io.cryostat.recordings.ActiveRecordings.Metadata;
+import io.cryostat.util.EntityExistsException;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonMappingException;
@@ -50,7 +51,6 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
-import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.UriInfo;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.openapi.annotations.Operation;
@@ -133,13 +133,7 @@ public class Rules {
             throw new BadRequestException("POST body was null");
         }
         if (Rule.find("name", rule.name).count() > 0) {
-            return ResponseBuilder.<Rule>status(Response.Status.CONFLICT)
-                    .entity(
-                            new JsonObject()
-                                    .put(
-                                            "message",
-                                            "Rule with name \"" + rule.name + "\" already exists"))
-                    .build();
+            throw new EntityExistsException("Rule", rule.name);
         }
         if (rule.description == null) {
             rule.description = "";
