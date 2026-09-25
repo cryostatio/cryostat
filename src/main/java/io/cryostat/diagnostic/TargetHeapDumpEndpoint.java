@@ -185,7 +185,7 @@ public class TargetHeapDumpEndpoint {
                 .location(
                         UriBuilder.fromUri(
                                         String.format(
-                                                "/api/v5/targets/%s/diagnostics/heapdump/%s/analyze",
+                                                "/api/v5/targets/%s/diagnostics/heap-dump/%s/analyze",
                                                 jvmId, heapDumpId))
                                 .build())
                 .build();

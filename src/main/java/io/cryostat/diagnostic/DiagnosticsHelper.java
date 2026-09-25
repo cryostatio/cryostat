@@ -747,12 +747,12 @@ public class DiagnosticsHelper {
 
     public String threadDumpDownloadUrl(String jvmId, String filename) {
         return String.format(
-                "/api/v5/diagnostics/threaddump/download/%s", encodedKey(jvmId, filename));
+                "/api/v5/diagnostics/thread-dump/download/%s", encodedKey(jvmId, filename));
     }
 
     public String heapDumpDownloadUrl(String jvmId, String filename) {
         return String.format(
-                "/api/v5/diagnostics/heapdump/download/%s", encodedKey(jvmId, filename));
+                "/api/v5/diagnostics/heap-dump/download/%s", encodedKey(jvmId, filename));
     }
 
     public String encodedKey(String jvmId, String uuid) {
