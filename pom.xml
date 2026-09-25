@@ -55,6 +55,9 @@
     <org.codehaus.mojo.build.helper.plugin.version>3.6.2</org.codehaus.mojo.build.helper.plugin.version>
     <org.codehaus.mojo.exec.plugin.version>3.6.4</org.codehaus.mojo.exec.plugin.version>
     <assembly-plugin.version>3.8.0</assembly-plugin.version>
+    <org.codehaus.gmavenplus.plugin.version>5.0.0</org.codehaus.gmavenplus.plugin.version>
+    <org.apache.groovy.version>5.0.3</org.apache.groovy.version>
+    <org.apache.ivy.version>2.5.2</org.apache.ivy.version>
 
     <com.github.spotbugs.version>4.10.4</com.github.spotbugs.version>
     <com.github.spotbugs.plugin.version>4.10.4.1</com.github.spotbugs.plugin.version>
@@ -456,23 +459,64 @@
         </configuration>
       </plugin>
       <plugin>
-        <groupId>org.codehaus.mojo</groupId>
-        <artifactId>exec-maven-plugin</artifactId>
-        <version>${org.codehaus.mojo.exec.plugin.version}</version>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-dependency-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>resolve-hibernate-core-version</id>
+            <phase>process-sources</phase>
+            <goals>
+              <goal>list</goal>
+            </goals>
+            <configuration>
+              <includes>org.hibernate.orm:hibernate-core</includes>
+              <outputFile>${project.build.directory}/hibernate-core-resolved.txt</outputFile>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.codehaus.gmavenplus</groupId>
+        <artifactId>gmavenplus-plugin</artifactId>
+        <version>${org.codehaus.gmavenplus.plugin.version}</version>
         <executions>
           <execution>
             <id>validate-hibernate-version-alignment</id>
             <phase>process-sources</phase>
             <goals>
-              <goal>exec</goal>
+              <goal>execute</goal>
             </goals>
             <configuration>
-              <executable>${project.basedir}/check-hibernate-version.sh</executable>
-              <arguments>
-                <argument>${org.hibernate.orm.hibernate.jfr.version}</argument>
-              </arguments>
+              <includeClasspath>PLUGIN_ONLY</includeClasspath>
+              <scripts>
+                <script>file:///${project.basedir}/check-hibernate-version.groovy</script>
+              </scripts>
             </configuration>
           </execution>
+        </executions>
+        <dependencies>
+          <dependency>
+            <groupId>org.apache.groovy</groupId>
+            <artifactId>groovy</artifactId>
+            <version>${org.apache.groovy.version}</version>
+          </dependency>
+          <dependency>
+            <groupId>org.apache.groovy</groupId>
+            <artifactId>groovy-ant</artifactId>
+            <version>${org.apache.groovy.version}</version>
+          </dependency>
+          <dependency>
+            <groupId>org.apache.ivy</groupId>
+            <artifactId>ivy</artifactId>
+            <version>${org.apache.ivy.version}</version>
+          </dependency>
+        </dependencies>
+      </plugin>
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>exec-maven-plugin</artifactId>
+        <version>${org.codehaus.mojo.exec.plugin.version}</version>
+        <executions>
           <execution>
             <id>generate-git-version</id>
             <phase>generate-resources</phase>
