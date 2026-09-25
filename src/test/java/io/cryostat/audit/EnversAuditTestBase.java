@@ -38,8 +38,8 @@ public abstract class EnversAuditTestBase extends AuditTestBase {
     @AfterEach
     void cleanup() {
         given().get().then().extract().body().jsonPath().getList("$", Map.class).stream()
-                .map(m -> (String) m.get("name"))
-                .forEach(name -> given().delete("/" + name));
+                .map(m -> (String) m.get("id"))
+                .forEach(id -> given().delete("/" + id));
     }
 
     protected JsonObject createRuleJson(String name) {
