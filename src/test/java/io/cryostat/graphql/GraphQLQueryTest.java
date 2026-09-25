@@ -329,7 +329,9 @@ class GraphQLQueryTest extends AbstractGraphQLTestBase {
         assertThat(archivedRecordings, not(empty()));
         assertThat(archivedRecordings, hasSize(1));
 
-        // Retrieve archived recording name via REST API
+        String archivedRecordingName = archivedRecordings.get(0).name;
+
+        // Retrieve archived recording via REST API and verify it's in the correct directory
         Response archivedListResponse =
                 given().when()
                         .get("/api/v5/recordings")
@@ -339,42 +341,29 @@ class GraphQLQueryTest extends AbstractGraphQLTestBase {
                         .response();
         JsonArray retrievedArchivedRecordings =
                 new JsonArray(archivedListResponse.body().asString());
-        JsonObject retrievedArchivedRecordingDir =
+        String retrievedArchivedRecordingsName =
                 retrievedArchivedRecordings.stream()
                         .filter(o -> o instanceof JsonObject)
                         .map(JsonObject.class::cast)
-                        .filter(
-                                dir -> {
-                                    JsonArray recordings = dir.getJsonArray("recordings");
-                                    return recordings != null
-                                            && recordings.stream()
-                                                    .filter(r -> r instanceof JsonObject)
-                                                    .map(JsonObject.class::cast)
-                                                    .anyMatch(
-                                                            r ->
-                                                                    recordingName.equals(
-                                                                            r.getString("name")));
-                                })
+                        .filter(dir -> selfJvmId.equals(dir.getString("jvmId")))
                         .findFirst()
-                        .orElseThrow(
-                                () ->
-                                        new AssertionError(
-                                                "No archived recording directory found matching"
-                                                        + " recording name: "
-                                                        + recordingName));
-        String retrievedArchivedRecordingsName =
-                retrievedArchivedRecordingDir.getJsonArray("recordings").stream()
-                        .filter(o -> o instanceof JsonObject)
-                        .map(JsonObject.class::cast)
-                        .filter(r -> recordingName.equals(r.getString("name")))
-                        .findFirst()
+                        .flatMap(
+                                dir ->
+                                        dir.getJsonArray("recordings").stream()
+                                                .filter(o -> o instanceof JsonObject)
+                                                .map(JsonObject.class::cast)
+                                                .filter(
+                                                        r ->
+                                                                archivedRecordingName.equals(
+                                                                        r.getString("name")))
+                                                .findFirst())
                         .map(r -> r.getString("name"))
                         .orElseThrow(
                                 () ->
                                         new AssertionError(
                                                 "Recording not found in archived recording"
-                                                        + " directory: "
-                                                        + recordingName));
+                                                        + " directory for recording name: "
+                                                        + archivedRecordingName));
 
         // GraphQL Query to filter Archived recordings by names
         JsonObject query = new JsonObject();
