@@ -205,10 +205,10 @@ public class DiagnosticsHelper {
         Target t =
                 QuarkusTransaction.joiningExisting()
                         .call(() -> Target.getTargetByJvmId(jvmId))
-                        .get();
+                        .orElse(null);
         if (Objects.isNull(t)) {
             log.errorv("jvmId {0} failed to resolve to target. Defaulting to uuid.", jvmId);
-            return uuid;
+            return uuid + extension;
         }
         return t.alias + "_" + uuid + extension;
     }
