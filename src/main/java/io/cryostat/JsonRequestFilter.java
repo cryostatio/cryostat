@@ -42,7 +42,7 @@ public class JsonRequestFilter implements ContainerRequestFilter {
             Set.of(
                     "/api/v5/discovery/[\\w]*",
                     "/api/v5/rules/[\\w]+",
-                    "/api/v5/matchExpressions",
+                    "/api/v5/match-expressions",
                     "/api/v5/graphql");
 
     private final Map<String, Pattern> compiledPatterns = new ConcurrentHashMap<>();
