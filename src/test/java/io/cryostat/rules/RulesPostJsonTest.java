@@ -88,28 +88,36 @@ public class RulesPostJsonTest extends AbstractTransactionalTestBase {
         body.put("eventSpecifier", RulesPostFormTest.TEST_RULE_EVENT_SPECIFIER);
 
         // Create the rule first time - should succeed
-        given().log()
-                .all()
-                .contentType(ContentType.JSON)
-                .body(body.encode())
-                .when()
-                .post()
-                .then()
-                .log()
-                .all()
-                .statusCode(201)
-                .body("id", notNullValue())
-                .body("name", equalTo(TEST_RULE_NAME))
-                .body("description", equalTo(RulesPostFormTest.TEST_RULE_DESCRIPTION))
-                .body("matchExpression", equalTo(RulesPostFormTest.TEST_RULE_MATCH_EXPRESSION))
-                .body("eventSpecifier", equalTo(RulesPostFormTest.TEST_RULE_EVENT_SPECIFIER))
-                .body("archivalPeriodSeconds", equalTo(0))
-                .body("initialDelaySeconds", equalTo(0))
-                .body("preservedArchives", equalTo(0))
-                .body("maxAgeSeconds", equalTo(0))
-                .body("maxSizeBytes", equalTo(0))
-                .body("enabled", equalTo(false))
-                .body("metadata.labels.size()", equalTo(0));
+        ruleId =
+                given().log()
+                        .all()
+                        .contentType(ContentType.JSON)
+                        .body(body.encode())
+                        .when()
+                        .post()
+                        .then()
+                        .log()
+                        .all()
+                        .statusCode(201)
+                        .body("id", notNullValue())
+                        .body("name", equalTo(TEST_RULE_NAME))
+                        .body("description", equalTo(RulesPostFormTest.TEST_RULE_DESCRIPTION))
+                        .body(
+                                "matchExpression",
+                                equalTo(RulesPostFormTest.TEST_RULE_MATCH_EXPRESSION))
+                        .body(
+                                "eventSpecifier",
+                                equalTo(RulesPostFormTest.TEST_RULE_EVENT_SPECIFIER))
+                        .body("archivalPeriodSeconds", equalTo(0))
+                        .body("initialDelaySeconds", equalTo(0))
+                        .body("preservedArchives", equalTo(0))
+                        .body("maxAgeSeconds", equalTo(0))
+                        .body("maxSizeBytes", equalTo(0))
+                        .body("enabled", equalTo(false))
+                        .body("metadata.labels.size()", equalTo(0))
+                        .extract()
+                        .path("id")
+                        .toString();
 
         // Try to create the same rule again - should fail with 400
         given().log()
