@@ -231,7 +231,7 @@ public class CustomDiscovery {
 
                                 return ResponseBuilder.<Target>created(
                                                 uriInfo.getAbsolutePathBuilder()
-                                                        .path(target.id.toString())
+                                                        .path(target.jvmId)
                                                         .build())
                                         .entity(target)
                                         .build();
