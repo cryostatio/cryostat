@@ -16,8 +16,8 @@
 package io.cryostat.security.rbac;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Map;
 
@@ -25,15 +25,18 @@ import io.quarkus.security.identity.SecurityIdentity;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.QuarkusTestProfile;
 import io.quarkus.test.junit.TestProfile;
-import io.vertx.ext.web.RoutingContext;
 import jakarta.inject.Inject;
 import org.junit.jupiter.api.Test;
 
+/**
+ * Neither provenance secret is configured. The Agent principal must be unreachable whatever the
+ * request carries, and unstamped user-path requests must still be accepted.
+ */
 @QuarkusTest
-@TestProfile(AgentProxyDisabledTest.NoTrustedHostProfile.class)
-class AgentProxyDisabledTest {
+@TestProfile(AgentGatewaySecretUnconfiguredTest.NoSecretsProfile.class)
+class AgentGatewaySecretUnconfiguredTest {
 
-    public static class NoTrustedHostProfile implements QuarkusTestProfile {
+    public static class NoSecretsProfile implements QuarkusTestProfile {
         @Override
         public Map<String, String> getConfigOverrides() {
             return Map.of(
@@ -45,23 +48,34 @@ class AgentProxyDisabledTest {
     @Inject RbacHttpAuthenticationMechanism mechanism;
 
     @Test
-    void testAgentProxyHeaderIgnoredWhenTrustedHostNotConfigured() {
-        var ctx = mock(RoutingContext.class);
-        var req = mock(io.vertx.core.http.HttpServerRequest.class);
-        var remoteAddr = mock(io.vertx.core.net.SocketAddress.class);
-        var headers = io.vertx.core.http.impl.headers.HeadersMultiMap.headers();
-        headers.add(RbacHttpAuthenticationMechanism.HEADER_AGENT_PROXY, "true");
-        when(ctx.request()).thenReturn(req);
-        when(req.getHeader(RbacHttpAuthenticationMechanism.HEADER_FORWARDED_USER)).thenReturn(null);
-        when(req.getHeader(RbacHttpAuthenticationMechanism.HEADER_FORWARDED_TOKEN))
-                .thenReturn(null);
-        when(req.getHeader(RbacHttpAuthenticationMechanism.HEADER_AGENT_PROXY)).thenReturn("true");
-        when(req.headers()).thenReturn(headers);
-        when(req.remoteAddress()).thenReturn(remoteAddr);
-        when(remoteAddr.host()).thenReturn("127.0.0.1");
+    void testAgentStampIgnoredWhenNoGatewaySecretConfigured() {
+        var ctx = MockRequests.context(ProxyHeaders.AGENT_AUTH, "any-value-at-all");
 
         SecurityIdentity identity = mechanism.authenticate(ctx, null).await().indefinitely();
 
         assertFalse(identity != null && !identity.isAnonymous());
+    }
+
+    @Test
+    void testBlankAgentStampIgnoredWhenNoGatewaySecretConfigured() {
+        var ctx = MockRequests.context(ProxyHeaders.AGENT_AUTH, "");
+
+        SecurityIdentity identity = mechanism.authenticate(ctx, null).await().indefinitely();
+
+        assertFalse(identity != null && !identity.isAnonymous());
+    }
+
+    @Test
+    void testUnstampedUserRequestStillAccepted() {
+        var ctx =
+                MockRequests.context(
+                        ProxyHeaders.FORWARDED_USER, "admin",
+                        ProxyHeaders.FORWARDED_TOKEN, "my-token");
+
+        SecurityIdentity identity = mechanism.authenticate(ctx, null).await().indefinitely();
+
+        assertNotNull(identity);
+        assertFalse(identity.isAnonymous());
+        assertTrue(identity.getPrincipal().getName().equals("admin"));
     }
 }
