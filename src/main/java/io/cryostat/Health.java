@@ -34,7 +34,6 @@ import io.smallrye.common.annotation.Blocking;
 import io.smallrye.mutiny.Uni;
 import jakarta.annotation.security.PermitAll;
 import jakarta.inject.Inject;
-import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.core.Response;
@@ -151,11 +150,10 @@ class Health {
                         new ExternalService(
                                 dashboardURL.isPresent(),
                                 safeGet(dashboardAvailable),
-                                URI.create(
-                                        dashboardExternalURL.orElseGet(
-                                                () ->
-                                                        dashboardURL.orElseThrow(
-                                                                BadRequestException::new)))),
+                                dashboardExternalURL
+                                        .or(() -> dashboardURL)
+                                        .map(URI::create)
+                                        .orElse(null)),
                         new InternalService(
                                 datasourceURL.isPresent(), safeGet(datasourceAvailable)),
                         new InternalService(reportsConfigured, safeGet(reportsAvailable))));
