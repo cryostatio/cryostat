@@ -338,7 +338,7 @@ public class RulesTest extends AbstractTransactionalTestBase {
                 .all()
                 .and()
                 .assertThat()
-                .statusCode(400);
+                .statusCode(409);
     }
 
     @Test
