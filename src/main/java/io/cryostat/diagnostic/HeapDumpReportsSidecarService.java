@@ -41,7 +41,7 @@ public interface HeapDumpReportsSidecarService {
             @RestForm("file") @PartType(MediaType.APPLICATION_OCTET_STREAM)
                     java.nio.file.Path file);
 
-    @Path("/heapdump/remote-report")
+    @Path("/heapdump/remote_report")
     @POST
     @Consumes(MediaType.MULTIPART_FORM_DATA)
     Uni<HeapDumpAnalysis> generatePresigned(
