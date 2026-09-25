@@ -37,7 +37,7 @@ import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestPath;
 import org.projectnessie.cel.tools.ScriptException;
 
-@Path("/api/v4/matchExpressions")
+@Path("/api/v5/match-expressions")
 public class MatchExpressions {
 
     @Inject MatchExpression.TargetMatcher targetMatcher;

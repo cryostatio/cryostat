@@ -13,20 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.cryostat;
+package io.cryostat.util;
 
-import static io.restassured.RestAssured.when;
+public class StringUtils {
+    private StringUtils() {}
 
-import io.quarkus.test.common.http.TestHTTPEndpoint;
-import io.quarkus.test.junit.QuarkusTest;
-import org.junit.jupiter.api.Test;
-
-@QuarkusTest
-@TestHTTPEndpoint(Liveness.class)
-public class LivenessTest {
-
-    @Test
-    public void testHealthLiveness() {
-        when().get("/health/liveness").then().statusCode(204);
+    public static String requireNonBlank(String s) {
+        if (org.apache.commons.lang3.StringUtils.isBlank(s)) {
+            throw new IllegalArgumentException();
+        }
+        return s;
     }
 }

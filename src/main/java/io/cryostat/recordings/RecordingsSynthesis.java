@@ -47,7 +47,7 @@ import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestPath;
 
 @ApplicationScoped
-@Path("")
+@Path("/api/v5/targets/{jvmId}/recordings/synthesis")
 public class RecordingsSynthesis {
 
     @Inject RecordingHelper recordingHelper;
@@ -60,7 +60,6 @@ public class RecordingsSynthesis {
     @PermissionsAllowed(
             value = {"archivedrecordings:read", "archivedrecordings:write"},
             inclusive = true)
-    @Path("/api/beta/recording_synthesis/{jvmId}")
     public Response synthesize(
             HttpServerResponse response,
             @RestPath String jvmId,

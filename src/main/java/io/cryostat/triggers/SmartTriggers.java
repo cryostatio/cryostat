@@ -19,7 +19,6 @@ package io.cryostat.triggers;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 
 import io.cryostat.ConfigProperties;
 import io.cryostat.libcryostat.triggers.SmartTrigger;
@@ -48,7 +47,7 @@ import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestForm;
 import org.jboss.resteasy.reactive.RestPath;
 
-@Path("/")
+@Path("/api/v5/targets/{jvmId}/smart-triggers")
 public class SmartTriggers {
 
     @Inject Logger log;
@@ -66,7 +65,6 @@ public class SmartTriggers {
 
     @Inject ObjectMapper mapper;
 
-    @Path("api/beta/targets/{targetId}/smart_triggers")
     @PermissionsAllowed(
             value = {"targets:read", "smarttriggers:read"},
             inclusive = true)
@@ -74,9 +72,9 @@ public class SmartTriggers {
     @Produces({MediaType.APPLICATION_JSON})
     @GET
     @Operation(summary = "Retrieve all currently active Smart Triggers for a target")
-    public List<SmartTrigger> getSmartTriggers(@RestPath UUID targetId) {
+    public List<SmartTrigger> getSmartTriggers(@RestPath String jvmId) {
         log.trace("Smart triggers list request received");
-        Target target = Target.getTargetById(targetId);
+        Target target = Target.getTargetByJvmId(jvmId).orElseThrow();
         if (!target.isAgent()) {
             throw new BadRequestException("Smart Triggers are unsupported for non-agent targets");
         }
@@ -88,7 +86,6 @@ public class SmartTriggers {
                 uploadFailedTimeout);
     }
 
-    @Path("api/beta/targets/{targetId}/smart_triggers")
     @PermissionsAllowed(
             value = {"targets:read", "smarttriggers:write"},
             inclusive = true)
@@ -104,9 +101,9 @@ public class SmartTriggers {
                     with the recording template name specified after a ~. For an example definition:
                     [ProcessCpuLoad > 0.2 ; TargetDuration > duration(\"30s\")]~profile
                     """)
-    public void addSmartTriggers(@RestPath UUID targetId, @RestForm String definition) {
+    public void addSmartTriggers(@RestPath String jvmId, @RestForm String definition) {
         log.tracev("Smart Triggers Add request received: {0}", definition);
-        Target target = Target.getTargetById(targetId);
+        Target target = Target.getTargetByJvmId(jvmId).orElseThrow();
         if (!target.isAgent()) {
             throw new BadRequestException("Smart Triggers are unsupported for non-agent targets");
         }
@@ -124,7 +121,7 @@ public class SmartTriggers {
                         Map.of("trigger", definition, "jvmId", target.jvmId)));
     }
 
-    @Path("api/beta/targets/{targetId}/smart_triggers/{uuid}")
+    @Path("/{id}")
     @PermissionsAllowed(
             value = {"targets:read", "smarttriggers:delete"},
             inclusive = true)
@@ -140,26 +137,26 @@ public class SmartTriggers {
                     with the recording template name specified after a ~. For an example definition:
                     [ProcessCpuLoad > 0.2 ; TargetDuration > duration(\"30s\")]~profile
                     """)
-    public void removeSmartTriggers(@RestPath UUID targetId, @RestPath String uuid) {
-        log.tracev("Smart Triggers Remove request received: {0}", uuid);
-        Target target = Target.getTargetById(targetId);
+    public void removeSmartTriggers(@RestPath String jvmId, @RestPath String id) {
+        log.tracev("Smart Triggers Remove request received: {0}", id);
+        Target target = Target.getTargetByJvmId(jvmId).orElseThrow();
         if (!target.isAgent()) {
             throw new BadRequestException("Smart Triggers are unsupported for non-agent targets");
         }
         targetConnectionManager.executeConnectedTask(
                 target,
                 conn -> {
-                    conn.disableSmartTrigger(uuid);
+                    conn.disableSmartTrigger(id);
                     return null;
                 },
                 uploadFailedTimeout);
         bus.publish(
                 MessagingServer.class.getName(),
                 new Notification(
-                        SMART_TRIGGER_DELETED, Map.of("trigger", uuid, "jvmId", target.jvmId)));
+                        SMART_TRIGGER_DELETED, Map.of("trigger", id, "jvmId", target.jvmId)));
     }
 
-    @Path("api/beta/targets/{jvmId}/smart_triggers/sync/")
+    @Path("/sync")
     @PermissionsAllowed(
             value = {"targets:read", "activerecordings:read", "activerecordings:write"},
             inclusive = true)
@@ -168,7 +165,7 @@ public class SmartTriggers {
     public void syncRecordings(@RestPath String jvmId, String body) {
         try {
             log.tracev("Smart Trigger Sync request received {}", body);
-            Target target = Target.getTargetByJvmId(jvmId).get();
+            Target target = Target.getTargetByJvmId(jvmId).orElseThrow();
             bus.publish(TargetUpdateService.class.getName(), target);
             List<String> removedIds =
                     mapper.readValue(body, SmartTriggerUpdate.class).removedTriggers;

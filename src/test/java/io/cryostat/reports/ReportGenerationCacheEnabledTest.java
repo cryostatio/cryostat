@@ -65,6 +65,13 @@ public class ReportGenerationCacheEnabledTest extends AbstractTransactionalTestB
         return selfId;
     }
 
+    private String getSelfReferenceJvmId() {
+        if (selfId == null) {
+            defineSelfCustomTarget();
+        }
+        return selfJvmId;
+    }
+
     @Test
     void testGetArchivedCachedReport() throws Exception {
         UUID targetId = getSelfReferenceTargetId();
@@ -74,8 +81,8 @@ public class ReportGenerationCacheEnabledTest extends AbstractTransactionalTestB
                 given().log()
                         .all()
                         .when()
-                        .basePath("/api/v4/targets/{targetId}/recordings")
-                        .pathParam("targetId", targetId)
+                        .basePath("/api/v5/targets/{jvmId}/recordings")
+                        .pathParam("jvmId", getSelfReferenceJvmId())
                         .formParam("recordingName", "testGetArchivedCachedReport")
                         .formParam("duration", "5")
                         .formParam("events", "template=ALL")
@@ -100,8 +107,8 @@ public class ReportGenerationCacheEnabledTest extends AbstractTransactionalTestB
                 given().log()
                         .all()
                         .when()
-                        .basePath("/api/v4/targets/{targetId}/recordings/{remoteId}")
-                        .pathParam("targetId", targetId)
+                        .basePath("/api/v5/targets/{jvmId}/recordings/{remoteId}")
+                        .pathParam("jvmId", getSelfReferenceJvmId())
                         .pathParam("remoteId", activeRecording.getLong("remoteId"))
                         .contentType("text/plain;charset=UTF-8")
                         .body("SAVE")
@@ -151,7 +158,11 @@ public class ReportGenerationCacheEnabledTest extends AbstractTransactionalTestB
 
         // Wait for report generation to complete
         String reportJobId = jobIdResponse.body().asString();
-        notification = webSocketClient.expectNotification("ReportSuccess", Duration.ofSeconds(15));
+        notification =
+                webSocketClient.expectNotification(
+                        "ReportSuccess",
+                        Duration.ofSeconds(15),
+                        n -> reportJobId.equals(n.getJsonObject("message").getString("jobId")));
         MatcherAssert.assertThat(
                 notification.getJsonObject("message").getMap(),
                 Matchers.equalTo(Map.of("jobId", reportJobId, "jvmId", selfJvmId)));

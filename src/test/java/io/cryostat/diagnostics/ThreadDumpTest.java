@@ -20,10 +20,10 @@ import static io.restassured.RestAssured.given;
 import java.util.UUID;
 
 import io.cryostat.audit.AuditTestBase;
-import io.cryostat.diagnostic.Diagnostics;
 import io.cryostat.diagnostic.ThreadDump;
+import io.cryostat.resources.S3StorageResource;
 
-import io.quarkus.test.common.http.TestHTTPEndpoint;
+import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.TestProfile;
 import jakarta.inject.Inject;
@@ -35,21 +35,21 @@ import org.junit.jupiter.api.Test;
 
 @QuarkusTest
 @TestProfile(ThreadDumpTest.class)
-@TestHTTPEndpoint(Diagnostics.class)
+@QuarkusTestResource(value = S3StorageResource.class, restrictToAnnotatedClass = true)
 public class ThreadDumpTest extends AuditTestBase {
 
     @Inject EntityManager em;
 
     @Test
     public void testThreadDumpRequestCreatesEntity() {
-        UUID targetId = defineSelfCustomTarget();
+        defineSelfCustomTarget();
 
         String jobId =
                 given().log()
                         .all()
                         .when()
-                        .pathParam("targetId", targetId)
-                        .post("targets/{targetId}/threaddump")
+                        .pathParam("jvmId", selfJvmId)
+                        .post("/api/v5/targets/{jvmId}/diagnostics/thread-dump")
                         .then()
                         .log()
                         .all()
@@ -63,7 +63,7 @@ public class ThreadDumpTest extends AuditTestBase {
         ThreadDump dump = ThreadDump.<ThreadDump>find("jobId", jobId).firstResult();
         Assertions.assertNotNull(dump, "ThreadDump entity should be created");
         Assertions.assertEquals(ThreadDump.Status.REQUESTED, dump.status);
-        Assertions.assertEquals(targetId, dump.target.id);
+        Assertions.assertEquals(selfJvmId, dump.target.jvmId);
         Assertions.assertNotNull(dump.requestedAt);
         Assertions.assertNull(dump.completedAt);
         Assertions.assertNull(dump.filename);
@@ -71,15 +71,15 @@ public class ThreadDumpTest extends AuditTestBase {
 
     @Test
     public void testThreadDumpEntityHasCorrectFormat() {
-        UUID targetId = defineSelfCustomTarget();
+        defineSelfCustomTarget();
 
         String jobId =
                 given().log()
                         .all()
                         .when()
-                        .pathParam("targetId", targetId)
+                        .pathParam("jvmId", selfJvmId)
                         .queryParam("format", "threadPrint")
-                        .post("targets/{targetId}/threaddump")
+                        .post("/api/v5/targets/{jvmId}/diagnostics/thread-dump")
                         .then()
                         .log()
                         .all()
@@ -95,14 +95,14 @@ public class ThreadDumpTest extends AuditTestBase {
 
     @Test
     public void testThreadDumpEntityCreatesAuditLog() {
-        UUID targetId = defineSelfCustomTarget();
+        defineSelfCustomTarget();
 
         String jobId =
                 given().log()
                         .all()
                         .when()
-                        .pathParam("targetId", targetId)
-                        .post("targets/{targetId}/threaddump")
+                        .pathParam("jvmId", selfJvmId)
+                        .post("/api/v5/targets/{jvmId}/diagnostics/thread-dump")
                         .then()
                         .log()
                         .all()
@@ -121,15 +121,15 @@ public class ThreadDumpTest extends AuditTestBase {
 
     @Test
     public void testThreadDumpEntityHasCorrectTimestamp() {
-        UUID targetId = defineSelfCustomTarget();
+        defineSelfCustomTarget();
         long beforeRequest = System.currentTimeMillis();
 
         String jobId =
                 given().log()
                         .all()
                         .when()
-                        .pathParam("targetId", targetId)
-                        .post("targets/{targetId}/threaddump")
+                        .pathParam("jvmId", selfJvmId)
+                        .post("/api/v5/targets/{jvmId}/diagnostics/thread-dump")
                         .then()
                         .log()
                         .all()
@@ -152,14 +152,14 @@ public class ThreadDumpTest extends AuditTestBase {
 
     @Test
     public void testThreadDumpEntityHasCorrectTargetReference() {
-        UUID targetId = defineSelfCustomTarget();
+        defineSelfCustomTarget();
 
         String jobId =
                 given().log()
                         .all()
                         .when()
-                        .pathParam("targetId", targetId)
-                        .post("targets/{targetId}/threaddump")
+                        .pathParam("jvmId", selfJvmId)
+                        .post("/api/v5/targets/{jvmId}/diagnostics/thread-dump")
                         .then()
                         .log()
                         .all()
@@ -171,7 +171,7 @@ public class ThreadDumpTest extends AuditTestBase {
         ThreadDump dump = ThreadDump.<ThreadDump>find("jobId", jobId).firstResult();
         Assertions.assertNotNull(dump);
         Assertions.assertNotNull(dump.target);
-        Assertions.assertEquals(targetId, dump.target.id);
+        Assertions.assertEquals(selfJvmId, dump.target.jvmId);
     }
 
     @Test
@@ -179,8 +179,8 @@ public class ThreadDumpTest extends AuditTestBase {
         given().log()
                 .all()
                 .when()
-                .pathParam("targetId", UUID.randomUUID())
-                .post("targets/{targetId}/threaddump")
+                .pathParam("jvmId", UUID.randomUUID().toString())
+                .post("/api/v5/targets/{jvmId}/diagnostics/thread-dump")
                 .then()
                 .log()
                 .all()
@@ -193,15 +193,15 @@ public class ThreadDumpTest extends AuditTestBase {
 
     @Test
     public void testThreadDumpAuditQueryIntegration() {
-        UUID targetId = defineSelfCustomTarget();
+        defineSelfCustomTarget();
         long startTime = System.currentTimeMillis();
 
         String jobId =
                 given().log()
                         .all()
                         .when()
-                        .pathParam("targetId", targetId)
-                        .post("targets/{targetId}/threaddump")
+                        .pathParam("jvmId", selfJvmId)
+                        .post("/api/v5/targets/{jvmId}/diagnostics/thread-dump")
                         .then()
                         .log()
                         .all()
@@ -220,7 +220,7 @@ public class ThreadDumpTest extends AuditTestBase {
                         .queryParam("endTime", endTime)
                         .queryParam("pageSize", 10)
                         .when()
-                        .get("/api/beta/audit/revisions")
+                        .get("/api/v5/audit/revisions")
                         .then()
                         .log()
                         .all()
@@ -236,7 +236,7 @@ public class ThreadDumpTest extends AuditTestBase {
                 .log()
                 .all()
                 .when()
-                .get("/api/beta/audit/revisions/{rev}", revisionNumber)
+                .get("/api/v5/audit/revisions/{rev}", revisionNumber)
                 .then()
                 .log()
                 .all()
@@ -253,14 +253,14 @@ public class ThreadDumpTest extends AuditTestBase {
 
     @Test
     public void testMultipleThreadDumpRequestsCreateMultipleEntities() {
-        UUID targetId = defineSelfCustomTarget();
+        defineSelfCustomTarget();
 
         for (int i = 0; i < 3; i++) {
             given().log()
                     .all()
                     .when()
-                    .pathParam("targetId", targetId)
-                    .post("targets/{targetId}/threaddump")
+                    .pathParam("jvmId", selfJvmId)
+                    .post("/api/v5/targets/{jvmId}/diagnostics/thread-dump")
                     .then()
                     .log()
                     .all()
@@ -268,7 +268,7 @@ public class ThreadDumpTest extends AuditTestBase {
                     .statusCode(200);
         }
 
-        long count = ThreadDump.count("target.id = ?1", targetId);
+        long count = ThreadDump.count("target.jvmId = ?1", selfJvmId);
         Assertions.assertEquals(3, count, "Expected three ThreadDump entities to be created");
     }
 }

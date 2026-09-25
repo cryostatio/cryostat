@@ -62,7 +62,7 @@ import org.quartz.JobExecutionException;
 import org.quartz.Scheduler;
 import org.quartz.SchedulerException;
 
-@Path("/api/beta/targets/{targetId}/async-profiler")
+@Path("/api/v5/targets/{jvmId}/async-profiler")
 public class AsyncProfiler {
 
     public static final String ASYNC_PROFILER_CREATED = "AsyncProfilerCreated";
@@ -103,8 +103,8 @@ public class AsyncProfiler {
             value = {"targets:read", "asyncprofiler:write"},
             inclusive = true)
     @Operation(summary = "Create a new async-profiler profile on the specified target")
-    public Uni<String> create(@RestPath UUID targetId, StartProfileRequest req) {
-        Target target = Target.find("id", targetId).singleResult();
+    public Uni<String> create(@RestPath String jvmId, StartProfileRequest req) {
+        Target target = Target.getTargetByJvmId(jvmId).orElseThrow();
         Duration duration = Duration.ofSeconds(req.duration());
 
         return helper.createAsyncProfile(target, req.events(), duration);
@@ -117,9 +117,9 @@ public class AsyncProfiler {
             value = {"targets:read", "asyncprofiler:read"},
             inclusive = true)
     @Operation(summary = "Download an async-profiler binary file in JFR format")
-    public RestResponse<InputStream> get(@RestPath UUID targetId, @RestPath String profileId)
+    public RestResponse<InputStream> get(@RestPath String jvmId, @RestPath String profileId)
             throws Exception {
-        Target target = Target.find("id", targetId).singleResult();
+        Target target = Target.getTargetByJvmId(jvmId).orElseThrow();
         return ResponseBuilder.<InputStream>ok()
                 .header(
                         HttpHeaders.CONTENT_DISPOSITION,
@@ -138,8 +138,8 @@ public class AsyncProfiler {
             value = {"targets:read", "asyncprofiler:read"},
             inclusive = true)
     @Operation(summary = "Get specified target's async-profiler status")
-    public Uni<AsyncProfilerStatus> getStatus(@RestPath UUID targetId) throws Exception {
-        Target target = Target.find("id", targetId).singleResult();
+    public Uni<AsyncProfilerStatus> getStatus(@RestPath String jvmId) throws Exception {
+        Target target = Target.getTargetByJvmId(jvmId).orElseThrow();
         return helper.getStatus(target);
     }
 
@@ -150,8 +150,8 @@ public class AsyncProfiler {
             value = {"targets:read", "asyncprofiler:read"},
             inclusive = true)
     @Operation(summary = "List existing async-profiler profiles on the specified target")
-    public Uni<List<AsyncProfile>> list(@RestPath UUID targetId) throws Exception {
-        Target target = Target.find("id", targetId).singleResult();
+    public Uni<List<AsyncProfile>> list(@RestPath String jvmId) throws Exception {
+        Target target = Target.getTargetByJvmId(jvmId).orElseThrow();
         return helper.getProfiles(target);
     }
 
@@ -163,8 +163,8 @@ public class AsyncProfiler {
             value = {"targets:read", "asyncprofiler:delete"},
             inclusive = true)
     @Operation(summary = "Delete an async-profiler profile from the specified target")
-    public Uni<Void> delete(@RestPath UUID targetId, @RestPath String profileId) throws Exception {
-        Target target = Target.find("id", targetId).singleResult();
+    public Uni<Void> delete(@RestPath String jvmId, @RestPath String profileId) throws Exception {
+        Target target = Target.getTargetByJvmId(jvmId).orElseThrow();
         return helper.deleteProfile(target, profileId);
     }
 

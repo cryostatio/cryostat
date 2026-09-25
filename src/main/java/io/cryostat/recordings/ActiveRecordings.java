@@ -66,7 +66,7 @@ import org.jboss.resteasy.reactive.RestPath;
 import org.jboss.resteasy.reactive.RestResponse;
 import org.jboss.resteasy.reactive.RestResponse.ResponseBuilder;
 
-@Path("/api/v4/targets/{targetId}/recordings")
+@Path("/api/v5/targets/{jvmId}/recordings")
 public class ActiveRecordings {
 
     @Inject ObjectMapper mapper;
@@ -92,8 +92,8 @@ public class ActiveRecordings {
                     Retrieve a list of active recordings currently present on the specified target. This may initiate
                     a new remote connection to the target to update Cryostat's model of available recordings.
                     """)
-    public List<LinkedRecordingDescriptor> list(@RestPath UUID targetId) throws Exception {
-        Target target = Target.find("id", targetId).singleResult();
+    public List<LinkedRecordingDescriptor> list(@RestPath String jvmId) throws Exception {
+        Target target = Target.getTargetByJvmId(jvmId).orElseThrow();
         return recordingHelper.listActiveRecordings(target).stream()
                 .map(recordingHelper::toExternalForm)
                 .toList();
@@ -114,16 +114,16 @@ public class ActiveRecordings {
                     format for that recording. The client can feed this data to other tooling which ingests the JFR
                     binary file format.
                     """)
-    public RestResponse<InputStream> download(@RestPath UUID targetId, @RestPath long remoteId)
+    public RestResponse<InputStream> download(@RestPath String jvmId, @RestPath long remoteId)
             throws Exception {
-        Target target = Target.find("id", targetId).singleResult();
+        Target target = Target.getTargetByJvmId(jvmId).orElseThrow();
         var recording =
                 target.activeRecordings.stream()
                         .filter(r -> r.remoteId == remoteId)
                         .findFirst()
                         .orElseThrow();
         return ResponseBuilder.<InputStream>create(RestResponse.Status.PERMANENT_REDIRECT)
-                .location(URI.create(String.format("/api/v4/activedownload/%s", recording.id)))
+                .location(URI.create(String.format("/api/v5/active-download/%s", recording.id)))
                 .build();
     }
 
@@ -143,11 +143,11 @@ public class ActiveRecordings {
                     """)
     public String patch(
             HttpServerResponse response,
-            @RestPath UUID targetId,
+            @RestPath String jvmId,
             @RestPath long remoteId,
             String body)
             throws Exception {
-        Target target = Target.find("id", targetId).singleResult();
+        Target target = Target.getTargetByJvmId(jvmId).orElseThrow();
         Optional<ActiveRecording> recording =
                 recordingHelper.listActiveRecordings(target).stream()
                         .filter(rec -> rec.remoteId == remoteId)
@@ -203,7 +203,7 @@ public class ActiveRecordings {
                     """)
     public RestResponse<LinkedRecordingDescriptor> create(
             @Context UriInfo uriInfo,
-            @RestPath UUID targetId,
+            @RestPath String jvmId,
             @Parameter(required = true, description = "must be unique within the target") @RestForm
                     String recordingName,
             @Parameter(required = true, description = "ex. template=Profiling,type=TARGET")
@@ -231,7 +231,7 @@ public class ActiveRecordings {
             userAuthorizer.assertAuthorized("archivedrecordings", "write");
         }
 
-        Target target = Target.find("id", targetId).singleResult();
+        Target target = Target.getTargetByJvmId(jvmId).orElseThrow();
 
         Pair<String, TemplateType> pair = recordingHelper.parseEventSpecifier(events);
         Template template =
@@ -284,8 +284,8 @@ public class ActiveRecordings {
                     Delete a recording from the specified target. This will remove it both from Cryostat's database
                     as well as remove the recording and release all resources in the remote target JVM.
                     """)
-    public void delete(@RestPath UUID targetId, @RestPath long remoteId) throws Exception {
-        Target target = Target.find("id", targetId).singleResult();
+    public void delete(@RestPath String jvmId, @RestPath long remoteId) throws Exception {
+        Target target = Target.getTargetByJvmId(jvmId).orElseThrow();
         var recording = target.getRecordingById(remoteId);
         if (recording == null) {
             throw new NotFoundException();
@@ -307,18 +307,18 @@ public class ActiveRecordings {
                     in the associated Grafana dashboard.
                     """)
     public String uploadToGrafana(
-            HttpServerResponse response, @RestPath UUID targetId, @RestPath long remoteId)
+            HttpServerResponse response, @RestPath String jvmId, @RestPath long remoteId)
             throws Exception {
         // Send an intermediate response back to the client while another thread handles the upload
         // request
         logger.trace("Creating grafana upload request");
         GrafanaActiveUploadRequest request =
-                new GrafanaActiveUploadRequest(UUID.randomUUID().toString(), remoteId, targetId);
+                new GrafanaActiveUploadRequest(UUID.randomUUID().toString(), remoteId, jvmId);
         logger.tracev(
                 "Request created: ({0}, {1}, {2})"
                         + request.id()
                         + request.remoteId()
-                        + request.targetId());
+                        + request.jvmId());
         ResponseDispatch.onComplete(
                 response,
                 () ->

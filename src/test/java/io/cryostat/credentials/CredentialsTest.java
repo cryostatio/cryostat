@@ -81,7 +81,7 @@ public class CredentialsTest extends AbstractTransactionalTestBase {
                 .header(
                         "Location",
                         Matchers.matchesRegex(
-                                "https?://[\\.\\w]+:[\\d]+/api/v4/credentials/[\\w-]+"))
+                                "https?://[\\.\\w]+:[\\d]+/api/v5/credentials/[\\w-]+"))
                 .and()
                 .contentType(ContentType.JSON)
                 .and()

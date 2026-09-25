@@ -205,10 +205,10 @@ public class DiagnosticsHelper {
         Target t =
                 QuarkusTransaction.joiningExisting()
                         .call(() -> Target.getTargetByJvmId(jvmId))
-                        .get();
+                        .orElse(null);
         if (Objects.isNull(t)) {
             log.errorv("jvmId {0} failed to resolve to target. Defaulting to uuid.", jvmId);
-            return uuid;
+            return uuid + extension;
         }
         return t.alias + "_" + uuid + extension;
     }
@@ -280,12 +280,23 @@ public class DiagnosticsHelper {
     }
 
     public List<HeapDump> getHeapDumps(String jvmId) {
-        return getHeapDumps(
-                jvmId == null
-                        ? null
-                        : QuarkusTransaction.joiningExisting()
-                                .call(() -> Target.getTargetByJvmId(jvmId))
-                                .get());
+        ListObjectsV2Request.Builder builder =
+                ListObjectsV2Request.builder().bucket(heapDumpBucket);
+        if (StringUtils.isNotBlank(jvmId)) {
+            builder = builder.prefix(jvmId);
+        }
+        return storage.listObjectsV2(builder.build()).contents().stream()
+                .map(
+                        item -> {
+                            try {
+                                return convertHeapDump(item);
+                            } catch (Exception e) {
+                                log.error(e);
+                                return null;
+                            }
+                        })
+                .filter(Objects::nonNull)
+                .toList();
     }
 
     public List<HeapDump> getHeapDumps(Target target) {
@@ -549,11 +560,27 @@ public class DiagnosticsHelper {
 
     public String unifiedLogDownloadUrl(String jvmId, String filename) {
         return String.format(
-                "/api/beta/diagnostics/unified-logs/download/%s", encodedKey(jvmId, filename));
+                "/api/v5/diagnostics/unified-logs/download/%s", encodedKey(jvmId, filename));
     }
 
     public List<ThreadDump> getThreadDumps(String jvmId) {
-        return getThreadDumps(jvmId == null ? null : Target.getTargetByJvmId(jvmId).get());
+        ListObjectsV2Request.Builder builder =
+                ListObjectsV2Request.builder().bucket(threadDumpBucket);
+        if (StringUtils.isNotBlank(jvmId)) {
+            builder = builder.prefix(jvmId);
+        }
+        return storage.listObjectsV2(builder.build()).contents().stream()
+                .map(
+                        item -> {
+                            try {
+                                return convertThreadDump(item);
+                            } catch (Exception e) {
+                                log.error(e);
+                                return null;
+                            }
+                        })
+                .filter(Objects::nonNull)
+                .toList();
     }
 
     public List<ThreadDump> getThreadDumps(Target target) {
@@ -720,12 +747,12 @@ public class DiagnosticsHelper {
 
     public String threadDumpDownloadUrl(String jvmId, String filename) {
         return String.format(
-                "/api/beta/diagnostics/threaddump/download/%s", encodedKey(jvmId, filename));
+                "/api/v5/diagnostics/thread-dump/download/%s", encodedKey(jvmId, filename));
     }
 
     public String heapDumpDownloadUrl(String jvmId, String filename) {
         return String.format(
-                "/api/beta/diagnostics/heapdump/download/%s", encodedKey(jvmId, filename));
+                "/api/v5/diagnostics/heap-dump/download/%s", encodedKey(jvmId, filename));
     }
 
     public String encodedKey(String jvmId, String uuid) {
