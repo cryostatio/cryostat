@@ -15,7 +15,6 @@
  */
 package io.cryostat.diagnostic;
 
-import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.List;
 import java.util.Map;
@@ -37,6 +36,8 @@ import jakarta.ws.rs.GET;
 import jakarta.ws.rs.PATCH;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
+import jakarta.ws.rs.core.UriBuilder;
+import org.apache.commons.lang3.StringUtils;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestPath;
 import org.jboss.resteasy.reactive.RestQuery;
@@ -122,11 +123,11 @@ public class UnifiedLogs {
             @RestPath String jvmId, @RestPath String logId, @RestQuery String filename)
             throws URISyntaxException {
         String encodedKey = helper.encodedKey(jvmId, logId);
-        return RestResponse.seeOther(
-                new URI(
-                        String.format(
-                                "/api/v5/diagnostics/unified-logs/download/%s?filename=%s",
-                                encodedKey, filename)));
+        UriBuilder uri = UriBuilder.fromPath("/api/v5/diagnostics/unified-logs/download/{key}");
+        if (StringUtils.isNotBlank(filename)) {
+            uri = uri.queryParam("filename", filename);
+        }
+        return RestResponse.seeOther(uri.build(encodedKey));
     }
 
     @Path("/{logId}")
