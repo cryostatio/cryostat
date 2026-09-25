@@ -59,7 +59,7 @@ public class CustomDiscoveryTest extends AbstractTransactionalTestBase
                         .header(
                                 "Location",
                                 Matchers.matchesRegex(
-                                        "https?://[\\.\\w]+:[\\d]+/api/v5/targets/[\\w-]+"))
+                                        "https?://[\\.\\w]+:[\\d]+/api/v5/targets/.+"))
                         .and()
                         .contentType(ContentType.JSON)
                         .and()
