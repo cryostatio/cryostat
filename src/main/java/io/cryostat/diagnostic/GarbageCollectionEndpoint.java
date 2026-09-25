@@ -57,11 +57,14 @@ public class GarbageCollectionEndpoint {
                                     entity.persist();
                                     return entity;
                                 });
-        targetConnectionManager.executeConnectedTask(
-                target,
-                conn ->
-                        conn.invokeMBeanOperation(
-                                "java.lang:type=Memory", "gc", null, null, Void.class));
-        QuarkusTransaction.requiringNew().run(() -> GarbageCollection.deleteById(gc.id));
+        try {
+            targetConnectionManager.executeConnectedTask(
+                    target,
+                    conn ->
+                            conn.invokeMBeanOperation(
+                                    "java.lang:type=Memory", "gc", null, null, Void.class));
+        } finally {
+            QuarkusTransaction.requiringNew().run(() -> GarbageCollection.deleteById(gc.id));
+        }
     }
 }
