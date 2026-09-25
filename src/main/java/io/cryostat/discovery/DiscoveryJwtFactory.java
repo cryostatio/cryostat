@@ -259,7 +259,7 @@ public class DiscoveryJwtFactory {
         URI pluginPath = location.resolve(plugin.id.toString() + "/").normalize();
         locations.add(pluginPath);
         locations.add(pluginPath.resolve("publish").normalize());
-        locations.add(pluginPath.resolve("registration_check").normalize());
+        locations.add(location.resolve("registration-check/" + plugin.id.toString()).normalize());
         // Also add the bare plugin path without trailing slash for exact matching
         locations.add(location.resolve(plugin.id.toString()).normalize());
         return locations;
