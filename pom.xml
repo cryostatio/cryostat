@@ -55,7 +55,7 @@
     <org.codehaus.mojo.build.helper.plugin.version>3.6.2</org.codehaus.mojo.build.helper.plugin.version>
     <org.codehaus.mojo.exec.plugin.version>3.6.4</org.codehaus.mojo.exec.plugin.version>
     <assembly-plugin.version>3.8.0</assembly-plugin.version>
-    <org.codehaus.gmavenplus.plugin.version>5.0.0</org.codehaus.gmavenplus.plugin.version>
+    <org.codehaus.gmavenplus.plugin.version>5.1.0</org.codehaus.gmavenplus.plugin.version>
     <org.apache.groovy.version>5.0.8</org.apache.groovy.version>
     <org.apache.ivy.version>2.6.0</org.apache.ivy.version>
 
