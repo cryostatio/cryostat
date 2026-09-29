@@ -57,7 +57,7 @@
     <assembly-plugin.version>3.8.0</assembly-plugin.version>
     <org.codehaus.gmavenplus.plugin.version>5.0.0</org.codehaus.gmavenplus.plugin.version>
     <org.apache.groovy.version>5.0.8</org.apache.groovy.version>
-    <org.apache.ivy.version>2.5.3</org.apache.ivy.version>
+    <org.apache.ivy.version>2.6.0</org.apache.ivy.version>
 
     <com.github.spotbugs.version>4.10.4</com.github.spotbugs.version>
     <com.github.spotbugs.plugin.version>4.10.4.1</com.github.spotbugs.plugin.version>
