@@ -65,8 +65,8 @@ public class RecordingsSynthesis {
     public Response synthesize(
             HttpServerResponse response,
             @RestPath String jvmId,
-            @RestQuery @Parameter(required = true) long fromTimestamp,
-            @RestQuery @Parameter(required = true) long toTimestamp,
+            @RestQuery @Parameter(required = true) @DefaultValue("-1") long fromTimestamp,
+            @RestQuery @Parameter(required = true) @DefaultValue("-1") long toTimestamp,
             @RestQuery @DefaultValue("false") boolean autoanalyze,
             @RestQuery String tag) {
 
