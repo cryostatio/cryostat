@@ -2306,6 +2306,7 @@ paths:
           name: fromTimestamp
           required: true
           schema:
+            default: -1
             format: int64
             type: integer
         - in: query
@@ -2316,6 +2317,7 @@ paths:
           name: toTimestamp
           required: true
           schema:
+            default: -1
             format: int64
             type: integer
       requestBody:
