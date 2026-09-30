@@ -756,7 +756,7 @@ public class LongRunningRequestGenerator {
             Objects.requireNonNull(id);
             Objects.requireNonNull(jvmId);
             Objects.requireNonNull(tag);
-            if (fromMs <= 0 || toMs <= 0 || fromMs >= toMs) {
+            if (fromMs < 0 || toMs < 0 || fromMs >= toMs) {
                 throw new IllegalArgumentException("Invalid millisecond timestamps");
             }
             candidates = List.copyOf(candidates);
