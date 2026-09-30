@@ -58,6 +58,7 @@ import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.panache.common.Parameters;
 import io.quarkus.runtime.ShutdownEvent;
 import io.quarkus.security.PermissionsAllowed;
+import io.quarkus.security.identity.SecurityIdentity;
 import io.smallrye.common.annotation.Blocking;
 import io.smallrye.faulttolerance.api.RateLimit;
 import io.vertx.core.json.JsonObject;
@@ -150,7 +151,7 @@ public class Discovery {
     @Inject PluginCallbackFactory callbackFactory;
     @Inject PluginCleanupHelper cleanupHelper;
     @Inject EntityManager entityManager;
-    @Inject RbacHttpAuthenticationMechanism authMechanism;
+    @Inject SecurityIdentity securityIdentity;
 
     void onStop(@Observes ShutdownEvent evt) throws SchedulerException {
         scheduler.shutdown();
@@ -910,7 +911,15 @@ public class Discovery {
                             ConfigProperties.AGENT_TLS_REQUIRED));
         }
 
-        if (authMechanism.isAgentProxyRequest(ctx)) {
+        // A request forwarded by the agent gateway reaches us from the gateway's own loopback
+        // address rather than the agent's, so the callback host could never resolve to it. This
+        // attribute is only set for a request bearing the gateway's provenance stamp, so trusting
+        // it here is trusting the stamp, not the callback. The principal name cannot be used for
+        // this: in PERMISSIVE and BASIC modes it comes from a proxy-forwarded header, so a user
+        // named "cryostat-agent" could otherwise claim the exemption.
+        if (Boolean.TRUE.equals(
+                securityIdentity.getAttribute(
+                        RbacHttpAuthenticationMechanism.AGENT_IDENTITY_ATTRIBUTE))) {
             return new CallbackValidation(callbackUri, unauthCallback, remoteAddress);
         }
 

@@ -77,24 +77,26 @@ public interface RbacConfig {
      * Kubernetes namespace in which to perform namespace-scoped access reviews. When set
      * (non-empty), access reviews are performed as namespace-bound Roles in the specified
      * namespace. When empty (default), access reviews are performed as cluster-scoped ClusterRoles.
-     * This property should be set by the Operator or Helm chart to the namespace where Cryostat is
-     * installed.
+     * This property should be set to the namespace where Cryostat is installed.
      */
     @WithName("namespace")
     Optional<String> namespace();
 
     /**
-     * The set of {@code resource:verb} permissions granted to authenticated Cryostat Agent proxy
-     * requests (those carrying a trusted {@code X-Cryostat-Agent-Proxy} header, see {@link
+     * The set of {@code resource:verb} permissions granted to requests forwarded by the Cryostat
+     * Agent gateway (those carrying a valid {@code X-Cryostat-Agent-Auth} stamp, see {@link
      * RbacHttpAuthenticationMechanism}). Each entry is a {@code resource:verb} string, e.g. {@code
      * discoverynodes:write}. Configured as a comma-separated list so that a deployment can widen or
      * (more commonly) narrow the Agent's effective permissions — for example, dropping {@code
      * heapdumps:write} to prevent auto-configured Agents from pushing heap dumps. A request is
      * granted only when every {@code resource:verb} it requires is present in this set; blank or
-     * unrecognised permissions are denied.
+     * unrecognised permissions are denied. If this list is not provided in the application
+     * configuration then every authorized endpoint will fail the request (the principal's
+     * permission set does not cover any request's authorization) and Agents will not be permitted
+     * to perform any actions, including registering as plugins.
      */
     @WithName("agent-permissions")
-    List<String> agentPermissions();
+    Optional<List<String>> agentPermissions();
 
     CacheConfig cache();
 
