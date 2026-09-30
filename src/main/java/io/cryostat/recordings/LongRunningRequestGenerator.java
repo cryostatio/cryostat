@@ -597,7 +597,9 @@ public class LongRunningRequestGenerator {
             labelsMap.put("jvmId", request.jvmId());
             labelsMap.put(RecordingHelper.START_TIME_LABEL, String.valueOf(minStart));
             labelsMap.put(RecordingHelper.DURATION_LABEL, String.valueOf(syntheticDuration));
-            labelsMap.put(AnalysisReportAggregator.AUTOANALYZE_LABEL, "true");
+            labelsMap.put(
+                    AnalysisReportAggregator.AUTOANALYZE_LABEL,
+                    Boolean.toString(request.autoanalyze()));
             labelsMap.put("synthetic", "true");
             ActiveRecordings.Metadata metadata = new ActiveRecordings.Metadata(labelsMap);
 
@@ -748,6 +750,7 @@ public class LongRunningRequestGenerator {
             long fromMs,
             long toMs,
             String tag,
+            boolean autoanalyze,
             List<ArchivedRecording> candidates) {
         public SynthesisRequest {
             Objects.requireNonNull(id);

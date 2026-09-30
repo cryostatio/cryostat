@@ -2298,6 +2298,11 @@ paths:
           schema:
             type: string
         - in: query
+          name: autoanalyze
+          schema:
+            default: false
+            type: boolean
+        - in: query
           name: fromTimestamp
           required: true
           schema:

@@ -58,6 +58,41 @@ public class RecordingsSynthesisTest extends AbstractTransactionalTestBase {
     }
 
     // -------------------------------------------------------------------------
+    // Missing timestamp params
+    // -------------------------------------------------------------------------
+    @Test
+    void testWithoutFromTimestampReturns400() {
+        defineSelfCustomTarget();
+        given().basePath("/")
+                .log()
+                .all()
+                .queryParam("toTimestamp", 1000L)
+                .when()
+                .post("/api/beta/recording_synthesis/{jvmId}", selfJvmId)
+                .then()
+                .log()
+                .all()
+                .assertThat()
+                .statusCode(400);
+    }
+
+    @Test
+    void testWithoutToTimestampReturns400() {
+        defineSelfCustomTarget();
+        given().basePath("/")
+                .log()
+                .all()
+                .queryParam("fromTimestamp", 1000L)
+                .when()
+                .post("/api/beta/recording_synthesis/{jvmId}", selfJvmId)
+                .then()
+                .log()
+                .all()
+                .assertThat()
+                .statusCode(400);
+    }
+
+    // -------------------------------------------------------------------------
     // Invalid timestamp range
     // -------------------------------------------------------------------------
 
@@ -96,7 +131,7 @@ public class RecordingsSynthesisTest extends AbstractTransactionalTestBase {
     }
 
     // -------------------------------------------------------------------------
-    // No candidates at all → 400
+    // No candidates at all = 400
     // -------------------------------------------------------------------------
 
     @Test
@@ -120,7 +155,7 @@ public class RecordingsSynthesisTest extends AbstractTransactionalTestBase {
     void testRecordingEndingBeforeRangeStartIsExcludedReturns400() throws Exception {
         defineSelfCustomTarget();
 
-        // Recording ends at 600s — entirely before [1000s, 2000s)
+        // Recording ends at 600s - entirely before [1000s, 2000s)
         Path file = Files.createTempFile("synthesis-before-range", ".jfr");
         Files.write(file, new byte[] {1, 2, 3, 4});
         try {
@@ -153,7 +188,7 @@ public class RecordingsSynthesisTest extends AbstractTransactionalTestBase {
     void testRecordingStartingAfterRangeEndIsExcludedReturns400() throws Exception {
         defineSelfCustomTarget();
 
-        // Recording starts at 2500s — entirely after [1000s, 2000s)
+        // Recording starts at 2500s - entirely after [1000s, 2000s)
         Path file = Files.createTempFile("synthesis-after-range", ".jfr");
         Files.write(file, new byte[] {1, 2, 3, 4});
         try {
@@ -183,7 +218,7 @@ public class RecordingsSynthesisTest extends AbstractTransactionalTestBase {
     }
 
     // -------------------------------------------------------------------------
-    // Complete candidate fast-path — immediate 200
+    // Complete candidate fast-path - immediate 200
     // -------------------------------------------------------------------------
 
     @Test
@@ -268,8 +303,8 @@ public class RecordingsSynthesisTest extends AbstractTransactionalTestBase {
         defineSelfCustomTarget();
 
         // Two complete candidates covering [1000s, 2000s):
-        //   sparse.jfr:  900s start, 1200s duration, 4 bytes  → density ≈ 0.0033 bytes/ms
-        //   dense.jfr:   950s start, 1100s duration, 100 bytes → density ≈ 0.091 bytes/ms
+        //   sparse.jfr:  900s start, 1200s duration, 4 bytes  = density ~ 0.0033 bytes/ms
+        //   dense.jfr:   950s start, 1100s duration, 100 bytes = density ~ 0.091 bytes/ms
         Path sparse = Files.createTempFile("synthesis-sparse", ".jfr");
         Path dense = Files.createTempFile("synthesis-dense", ".jfr");
         Files.write(sparse, new byte[] {1, 2, 3, 4});
@@ -313,7 +348,7 @@ public class RecordingsSynthesisTest extends AbstractTransactionalTestBase {
     }
 
     // -------------------------------------------------------------------------
-    // Single incomplete candidate fast-path — immediate 200
+    // Single incomplete candidate fast-path - immediate 200
     // -------------------------------------------------------------------------
 
     @Test
@@ -353,7 +388,7 @@ public class RecordingsSynthesisTest extends AbstractTransactionalTestBase {
     }
 
     // -------------------------------------------------------------------------
-    // Multiple incomplete candidates — 202 async job dispatched
+    // Multiple incomplete candidates - 202 async job dispatched
     // Gapless coverage is NOT required; any two overlapping recordings qualify
     // -------------------------------------------------------------------------
 
@@ -362,7 +397,7 @@ public class RecordingsSynthesisTest extends AbstractTransactionalTestBase {
         defineSelfCustomTarget();
 
         // Two overlapping recordings, neither fully covers [1000s, 2000s):
-        // [800s, 1300s) and [1500s, 2100s) — there is a gap, but that is acceptable
+        // [800s, 1300s) and [1500s, 2100s) - there is a gap, but that is acceptable
         Path file1 = Files.createTempFile("synthesis-multi-a", ".jfr");
         Path file2 = Files.createTempFile("synthesis-multi-b", ".jfr");
         Files.write(file1, new byte[] {1, 2, 3, 4});
@@ -409,7 +444,7 @@ public class RecordingsSynthesisTest extends AbstractTransactionalTestBase {
     void testCompleteCandidateWinsOverMultipleIncompleteCandidates() throws Exception {
         defineSelfCustomTarget();
 
-        // One complete candidate alongside two incomplete ones —
+        // One complete candidate alongside two incomplete ones -
         // should return the complete candidate as 200, not dispatch a 202 job
         Path complete = Files.createTempFile("synthesis-wins-complete", ".jfr");
         Path inc1 = Files.createTempFile("synthesis-wins-inc1", ".jfr");
