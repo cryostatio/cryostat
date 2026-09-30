@@ -65,6 +65,7 @@ import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
@@ -753,9 +754,15 @@ public class LongRunningRequestGenerator {
             boolean autoanalyze,
             List<ArchivedRecording> candidates) {
         public SynthesisRequest {
-            Objects.requireNonNull(id);
-            Objects.requireNonNull(jvmId);
-            Objects.requireNonNull(tag);
+            if (StringUtils.isBlank(id)) {
+                throw new IllegalArgumentException();
+            }
+            if (StringUtils.isBlank(jvmId)) {
+                throw new IllegalArgumentException();
+            }
+            if (StringUtils.isBlank(tag)) {
+                throw new IllegalArgumentException();
+            }
             if (fromMs < 0 || toMs < 0 || fromMs >= toMs) {
                 throw new IllegalArgumentException("Invalid millisecond timestamps");
             }
