@@ -25,6 +25,7 @@ import java.nio.file.StandardOpenOption;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
@@ -766,7 +767,7 @@ public class LongRunningRequestGenerator {
             if (fromMs < 0 || toMs < 0 || fromMs >= toMs) {
                 throw new IllegalArgumentException("Invalid millisecond timestamps");
             }
-            candidates = List.copyOf(candidates);
+            candidates = Collections.unmodifiableList(List.copyOf(candidates));
         }
     }
 }
