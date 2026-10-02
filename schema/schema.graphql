@@ -42,11 +42,11 @@ type Annotations {
   cryostat(
     "Get entry/entries for a certain key/s"
     key: [String]
-  ): [Entry_String_String]
+  ): [Entry_String_String]!
   platform(
     "Get entry/entries for a certain key/s"
     key: [String]
-  ): [Entry_String_String]
+  ): [Entry_String_String]!
 }
 
 type ArchivedRecording {
@@ -55,11 +55,11 @@ type ArchivedRecording {
   doDelete: ArchivedRecording!
   "Update the metadata associated with an archived recording"
   doPutMetadata(metadataInput: MetadataLabelsInput): ArchivedRecording!
-  downloadUrl: String
-  jvmId: String
-  metadata: Metadata
-  name: String
-  reportUrl: String
+  downloadUrl: String!
+  jvmId: String!
+  metadata: Metadata!
+  name: String!
+  reportUrl: String!
   size: BigInteger!
 }
 
@@ -70,7 +70,7 @@ type ArchivedRecordings {
 
 type AsyncProfile {
   duration: BigInteger!
-  id: String
+  id: String!
   size: BigInteger!
   startTime: BigInteger!
 }
@@ -123,11 +123,11 @@ type HeapDump {
   doDelete: HeapDump!
   "Update the metadata for a heap dump"
   doPutMetadata(metadataInput: MetadataLabelsInput): HeapDump!
-  downloadUrl: String
-  heapDumpId: String
-  jvmId: String
+  downloadUrl: String!
+  heapDumpId: String!
+  jvmId: String!
   lastModified: BigInteger!
-  metadata: Metadata
+  metadata: Metadata!
   size: BigInteger!
 }
 
@@ -172,7 +172,7 @@ type Metadata {
   labels(
     "Get entry/entries for a certain key/s"
     key: [String]
-  ): [Entry_String_String]
+  ): [Entry_String_String]!
 }
 
 "Mutation root"
@@ -338,12 +338,12 @@ type ThreadDump {
   doDelete: ThreadDump!
   "Update the metadata for a thread dump"
   doPutMetadata(metadataInput: MetadataLabelsInput): ThreadDump!
-  downloadUrl: String
-  jvmId: String
+  downloadUrl: String!
+  jvmId: String!
   lastModified: BigInteger!
-  metadata: Metadata
+  metadata: Metadata!
   size: BigInteger!
-  threadDumpId: String
+  threadDumpId: String!
 }
 
 type ThreadDumpAggregateInfo {
