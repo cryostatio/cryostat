@@ -32,6 +32,7 @@ import io.smallrye.common.annotation.Blocking;
 import io.smallrye.mutiny.Uni;
 import jakarta.annotation.security.PermitAll;
 import jakarta.inject.Inject;
+import jakarta.validation.constraints.NotNull;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
@@ -42,6 +43,7 @@ import jakarta.ws.rs.core.UriBuilder;
 import org.apache.commons.lang3.StringUtils;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.openapi.annotations.Operation;
+import org.eclipse.microprofile.openapi.annotations.media.Schema;
 import org.eclipse.microprofile.rest.client.inject.RegisterRestClient;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
 import org.jboss.logging.Logger;
@@ -193,18 +195,18 @@ class Health {
     }
 
     static record ApplicationHealth(
-            String cryostatVersion,
-            BuildInfo build,
-            boolean dashboardConfigured,
-            boolean dashboardAvailable,
-            boolean datasourceConfigured,
-            boolean datasourceAvailable,
-            boolean reportsConfigured,
-            boolean reportsAvailable) {}
+            @NotNull String cryostatVersion,
+            @NotNull BuildInfo build,
+            @Schema(required = true) boolean dashboardConfigured,
+            @Schema(required = true) boolean dashboardAvailable,
+            @Schema(required = true) boolean datasourceConfigured,
+            @Schema(required = true) boolean datasourceAvailable,
+            @Schema(required = true) boolean reportsConfigured,
+            @Schema(required = true) boolean reportsAvailable) {}
 
-    static record DashboardUrl(String grafanaDashboardUrl) {}
+    static record DashboardUrl(@NotNull String grafanaDashboardUrl) {}
 
-    static record DatasourceUrl(String grafanaDatasourceUrl) {}
+    static record DatasourceUrl(@NotNull String grafanaDatasourceUrl) {}
 
     @RegisterRestClient(
             configKey = "health",

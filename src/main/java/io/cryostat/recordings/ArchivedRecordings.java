@@ -47,6 +47,7 @@ import io.vertx.core.http.HttpServerResponse;
 import io.vertx.core.json.JsonObject;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.inject.Inject;
+import jakarta.validation.constraints.NotNull;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.NotFoundException;
@@ -57,6 +58,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.openapi.annotations.Operation;
+import org.eclipse.microprofile.openapi.annotations.media.Schema;
 import org.eclipse.microprofile.openapi.annotations.parameters.Parameter;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestForm;
@@ -534,13 +536,13 @@ public class ArchivedRecordings {
     }
 
     public record ArchivedRecording(
-            String jvmId,
-            String name,
-            String downloadUrl,
-            String reportUrl,
-            Metadata metadata,
-            long size,
-            long archivedTime) {
+            @NotNull String jvmId,
+            @NotNull String name,
+            @NotNull String downloadUrl,
+            @NotNull String reportUrl,
+            @NotNull Metadata metadata,
+            @Schema(required = true) long size,
+            @Schema(required = true) long archivedTime) {
         public ArchivedRecording {
             Objects.requireNonNull(jvmId);
             Objects.requireNonNull(name);
@@ -552,7 +554,9 @@ public class ArchivedRecordings {
 
     @SuppressFBWarnings("EI_EXPOSE_REP")
     public record ArchivedRecordingDirectory(
-            String connectUrl, String jvmId, List<ArchivedRecording> recordings) {
+            @NotNull String connectUrl,
+            @NotNull String jvmId,
+            @NotNull List<ArchivedRecording> recordings) {
         public ArchivedRecordingDirectory {
             Objects.requireNonNull(connectUrl);
             Objects.requireNonNull(jvmId);

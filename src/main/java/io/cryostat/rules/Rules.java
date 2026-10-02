@@ -303,7 +303,8 @@ public class Rules {
 
     @Schema(
             name = "MetadataRequest",
-            description = "Recording metadata as accepted in request bodies")
+            description = "Recording metadata as accepted in request bodies",
+            requiredProperties = {"labels"})
     record MetadataRequest(Map<String, String> labels) {}
 
     @Schema(
