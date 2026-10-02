@@ -83,7 +83,7 @@ components:
           format: int64
           type: integer
         data:
-          type: object
+          $ref: '#/components/schemas/ThreadState'
       required:
         - data
         - count
@@ -1465,11 +1465,20 @@ components:
             $ref: '#/components/schemas/StackFrame'
           type: array
         state:
-          type: object
+          $ref: '#/components/schemas/ThreadState'
         threadId:
           format: int64
           type: integer
       type: object
+    ThreadState:
+      enum:
+        - NEW
+        - RUNNABLE
+        - BLOCKED
+        - WAITING
+        - TIMED_WAITING
+        - TERMINATED
+      type: string
     TriggerState:
       enum:
         - NEW
