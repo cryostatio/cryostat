@@ -28,6 +28,7 @@ import io.smallrye.common.annotation.Blocking;
 import io.smallrye.mutiny.Multi;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
+import jakarta.validation.constraints.NotNull;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
@@ -99,7 +100,7 @@ public class MatchExpressions {
         return targetMatcher.match(MatchExpression.find("id", id).singleResult());
     }
 
-    static record RequestData(String matchExpression, List<Long> targetIds) {
+    static record RequestData(@NotNull String matchExpression, List<Long> targetIds) {
         RequestData {
             Objects.requireNonNull(matchExpression);
         }

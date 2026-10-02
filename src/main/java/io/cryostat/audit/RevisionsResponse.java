@@ -19,7 +19,11 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-public record RevisionsResponse(List<RevisionSummary> revisions, long totalCount) {
+import jakarta.validation.constraints.NotNull;
+import org.eclipse.microprofile.openapi.annotations.media.Schema;
+
+public record RevisionsResponse(
+        @NotNull List<RevisionSummary> revisions, @Schema(required = true) long totalCount) {
     public RevisionsResponse(List<RevisionSummary> revisions, long totalCount) {
         this.revisions = Collections.unmodifiableList(new ArrayList<>(revisions));
         this.totalCount = totalCount;
