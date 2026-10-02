@@ -1275,6 +1275,7 @@ components:
         - alias
         - labels
         - annotations
+        - agent
       type: object
     TargetRequest:
       description: A target as accepted in request bodies
@@ -1351,6 +1352,7 @@ components:
         - alias
         - labels
         - annotations
+        - agent
       type: object
     Template:
       properties:
