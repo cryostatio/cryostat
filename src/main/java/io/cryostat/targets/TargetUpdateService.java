@@ -23,6 +23,7 @@ import io.cryostat.ConfigProperties;
 import io.cryostat.credentials.Credential;
 import io.cryostat.expressions.MatchExpressionEvaluator;
 import io.cryostat.recordings.ActiveRecording;
+import io.cryostat.recordings.RecordingState;
 import io.cryostat.targets.events.TargetEvents;
 
 import io.quarkus.runtime.ShutdownEvent;
@@ -33,7 +34,6 @@ import jakarta.enterprise.event.Observes;
 import jakarta.enterprise.event.TransactionPhase;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
-import jdk.jfr.RecordingState;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 import org.quartz.JobBuilder;

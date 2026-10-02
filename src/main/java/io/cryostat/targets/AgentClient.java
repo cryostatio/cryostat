@@ -51,6 +51,7 @@ import io.cryostat.discovery.DiscoveryPlugin;
 import io.cryostat.discovery.DiscoveryPlugin.PluginCallback.DiscoveryPluginAuthorizationHeaderFactory;
 import io.cryostat.libcryostat.net.MBeanMetrics;
 import io.cryostat.libcryostat.triggers.SmartTrigger;
+import io.cryostat.recordings.RecordingState;
 import io.cryostat.targets.AgentJFRService.StartRecordingRequest;
 import io.cryostat.util.HttpStatusCodeIdentifier;
 
@@ -69,7 +70,6 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.ext.ContextResolver;
-import jdk.jfr.RecordingState;
 import org.apache.commons.io.input.ProxyInputStream;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
