@@ -306,8 +306,6 @@ components:
       properties:
         git:
           $ref: '#/components/schemas/GitInfo'
-        gitinfo:
-          $ref: '#/components/schemas/GitInfo'
       type: object
     ContentType:
       enum:
