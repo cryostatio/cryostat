@@ -25,22 +25,27 @@ import java.util.Map.Entry;
 import java.util.Objects;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import jakarta.validation.constraints.NotNull;
 import me.bechberger.jthreaddump.model.DeadlockInfo;
 import me.bechberger.jthreaddump.model.JniInfo;
 import me.bechberger.jthreaddump.model.LockInfo;
 import me.bechberger.jthreaddump.model.StackFrame;
 import me.bechberger.jthreaddump.model.ThreadDump;
 import me.bechberger.jthreaddump.model.ThreadInfo;
+import org.eclipse.microprofile.openapi.annotations.media.Schema;
 
 public class ThreadDumpAnalysis {
 
-    public List<AggregateThreadStateResult> aggregateThreadStates;
-    public List<AggregateLockInfoResult> aggregateLockInfo;
-    public List<AggregateStackTraceResult> aggregateStackTraces;
-    public List<AggregateMethodResult> runningMethods;
+    @NotNull public List<AggregateThreadStateResult> aggregateThreadStates;
+    @NotNull public List<AggregateLockInfoResult> aggregateLockInfo;
+    @NotNull public List<AggregateStackTraceResult> aggregateStackTraces;
+    @NotNull public List<AggregateMethodResult> runningMethods;
     public List<DeadlockInfo> deadlockInfos;
-    public List<ThreadInfo> threads;
-    public List<AnalysisResult> specificFindings;
+    @NotNull public List<ThreadInfo> threads;
+    @NotNull public List<AnalysisResult> specificFindings;
+
+    // jniInfo and jvmInfo are passed straight through from the parsed thread dump, which does not
+    // guarantee either section is present.
     public JniInfo jniInfo;
     public String jvmInfo;
 
@@ -190,14 +195,21 @@ public class ThreadDumpAnalysis {
         }
     }
 
-    public record AnalysisResult(String resultName, String explanation, int score) {}
+    public record AnalysisResult(
+            @NotNull String resultName,
+            @NotNull String explanation,
+            @Schema(required = true) int score) {}
 
-    public record AggregateThreadStateResult(State data, long count) {}
+    public record AggregateThreadStateResult(
+            @NotNull State data, @Schema(required = true) long count) {}
 
-    public record AggregateLockInfoResult(String data, long count) {}
+    public record AggregateLockInfoResult(
+            @NotNull String data, @Schema(required = true) long count) {}
 
-    public record AggregateMethodResult(String data, long count) {}
+    public record AggregateMethodResult(
+            @NotNull String data, @Schema(required = true) long count) {}
 
     @SuppressFBWarnings("EI_EXPOSE_REP")
-    public record AggregateStackTraceResult(List<StackFrame> data, long count) {}
+    public record AggregateStackTraceResult(
+            @NotNull List<StackFrame> data, @Schema(required = true) long count) {}
 }

@@ -183,9 +183,9 @@ public class Target extends PanacheEntity {
 
     @SuppressFBWarnings("EI_EXPOSE_REP")
     public static record Annotations(
-            @Schema(type = SchemaType.ARRAY, implementation = KeyValue.class)
+            @NotNull @Schema(type = SchemaType.ARRAY, implementation = KeyValue.class)
                     Map<String, String> platform,
-            @Schema(type = SchemaType.ARRAY, implementation = KeyValue.class)
+            @NotNull @Schema(type = SchemaType.ARRAY, implementation = KeyValue.class)
                     Map<String, String> cryostat)
             implements Serializable {
 

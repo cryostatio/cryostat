@@ -32,6 +32,7 @@ import io.quarkus.security.PermissionsAllowed;
 import io.smallrye.common.annotation.Blocking;
 import io.smallrye.mutiny.Uni;
 import jakarta.inject.Inject;
+import jakarta.validation.constraints.NotNull;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.DefaultValue;
 import jakarta.ws.rs.GET;
@@ -203,7 +204,8 @@ public class JfrView {
         return new ViewList(vm, env, app);
     }
 
-    public record ViewList(List<String> vm, List<String> env, List<String> app) {
+    public record ViewList(
+            @NotNull List<String> vm, @NotNull List<String> env, @NotNull List<String> app) {
         public ViewList {
             vm = Collections.unmodifiableList(new ArrayList<>(vm));
             env = Collections.unmodifiableList(new ArrayList<>(env));

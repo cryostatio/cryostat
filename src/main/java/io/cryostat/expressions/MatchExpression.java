@@ -44,6 +44,7 @@ import jakarta.persistence.PostUpdate;
 import jakarta.persistence.PrePersist;
 import jakarta.validation.ValidationException;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import org.eclipse.microprofile.openapi.annotations.enums.SchemaType;
 import org.eclipse.microprofile.openapi.annotations.media.Schema;
 import org.hibernate.envers.Audited;
@@ -136,7 +137,7 @@ public class MatchExpression extends PanacheEntity {
 
     @SuppressFBWarnings("EI_EXPOSE_REP")
     public static record MatchedExpression(
-            @Nullable Long id, String expression, Collection<Target> targets) {
+            @Nullable Long id, @NotNull String expression, @NotNull Collection<Target> targets) {
         public MatchedExpression {
             Objects.requireNonNull(expression);
             Objects.requireNonNull(targets);

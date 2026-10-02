@@ -15,4 +15,10 @@
  */
 package io.cryostat.audit;
 
-public record RevisionSummary(long rev, long revtstmp, String username) {}
+import org.eclipse.microprofile.openapi.annotations.media.Schema;
+
+/** {@code username} is null for revisions not attributable to an authenticated user. */
+public record RevisionSummary(
+        @Schema(required = true) long rev,
+        @Schema(required = true) long revtstmp,
+        String username) {}

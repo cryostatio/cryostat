@@ -48,6 +48,7 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
+import jakarta.validation.constraints.NotNull;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.DefaultValue;
@@ -64,6 +65,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.openapi.annotations.Operation;
+import org.eclipse.microprofile.openapi.annotations.media.Schema;
 import org.eclipse.microprofile.openapi.annotations.parameters.Parameter;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestForm;
@@ -538,7 +540,8 @@ public class Diagnostics {
     }
 
     @SuppressFBWarnings("EI_EXPOSE_REP")
-    public record ArchivedHeapDumpDirectory(String jvmId, List<HeapDump> heapDumps) {
+    public record ArchivedHeapDumpDirectory(
+            @NotNull String jvmId, @NotNull List<HeapDump> heapDumps) {
         public ArchivedHeapDumpDirectory {
             Objects.requireNonNull(jvmId);
             Objects.requireNonNull(heapDumps);
@@ -546,12 +549,12 @@ public class Diagnostics {
     }
 
     public record HeapDump(
-            String jvmId,
-            String downloadUrl,
-            String heapDumpId,
-            long lastModified,
-            long size,
-            Metadata metadata) {
+            @NotNull String jvmId,
+            @NotNull String downloadUrl,
+            @NotNull String heapDumpId,
+            @Schema(required = true) long lastModified,
+            @Schema(required = true) long size,
+            @NotNull Metadata metadata) {
 
         public HeapDump {
             Objects.requireNonNull(jvmId);
@@ -562,7 +565,8 @@ public class Diagnostics {
     }
 
     @SuppressFBWarnings("EI_EXPOSE_REP")
-    public record ArchivedThreadDumpDirectory(String jvmId, List<ThreadDump> threadDumps) {
+    public record ArchivedThreadDumpDirectory(
+            @NotNull String jvmId, @NotNull List<ThreadDump> threadDumps) {
         public ArchivedThreadDumpDirectory {
             Objects.requireNonNull(jvmId);
             Objects.requireNonNull(threadDumps);
@@ -570,12 +574,12 @@ public class Diagnostics {
     }
 
     public record ThreadDump(
-            String jvmId,
-            String downloadUrl,
-            String threadDumpId,
-            long lastModified,
-            long size,
-            Metadata metadata) {
+            @NotNull String jvmId,
+            @NotNull String downloadUrl,
+            @NotNull String threadDumpId,
+            @Schema(required = true) long lastModified,
+            @Schema(required = true) long size,
+            @NotNull Metadata metadata) {
         public ThreadDump {
             Objects.requireNonNull(jvmId);
             Objects.requireNonNull(downloadUrl);

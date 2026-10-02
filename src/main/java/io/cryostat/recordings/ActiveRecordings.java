@@ -46,6 +46,7 @@ import io.vertx.core.http.HttpServerResponse;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
+import jakarta.validation.constraints.NotNull;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
@@ -331,20 +332,20 @@ public class ActiveRecordings {
     }
 
     public record LinkedRecordingDescriptor(
-            long id,
-            long remoteId,
-            RecordingState state,
-            long duration,
-            long startTime,
-            boolean archiveOnStop,
-            boolean continuous,
-            boolean toDisk,
-            long maxSize,
-            long maxAge,
-            String name,
-            String downloadUrl,
-            String reportUrl,
-            Metadata metadata) {
+            @Schema(required = true) long id,
+            @Schema(required = true) long remoteId,
+            @NotNull RecordingState state,
+            @Schema(required = true) long duration,
+            @Schema(required = true) long startTime,
+            @Schema(required = true) boolean archiveOnStop,
+            @Schema(required = true) boolean continuous,
+            @Schema(required = true) boolean toDisk,
+            @Schema(required = true) long maxSize,
+            @Schema(required = true) long maxAge,
+            @NotNull String name,
+            @NotNull String downloadUrl,
+            @NotNull String reportUrl,
+            @NotNull Metadata metadata) {
         public LinkedRecordingDescriptor {
             Objects.requireNonNull(state);
             Objects.requireNonNull(name);
@@ -356,7 +357,7 @@ public class ActiveRecordings {
 
     @SuppressFBWarnings("EI_EXPOSE_REP")
     public record Metadata(
-            @Schema(type = SchemaType.ARRAY, implementation = KeyValue.class)
+            @NotNull @Schema(type = SchemaType.ARRAY, implementation = KeyValue.class)
                     Map<String, String> labels)
             implements Serializable {
 

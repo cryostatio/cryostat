@@ -48,6 +48,7 @@ import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
+import jakarta.validation.constraints.NotNull;
 import jakarta.ws.rs.DefaultValue;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.NotFoundException;
@@ -313,7 +314,10 @@ public class Reports {
     }
 
     private record ReportRule(
-            String id, String name, String topic, Map<String, EventAvailability> requiredEvents) {
+            @NotNull String id,
+            @NotNull String name,
+            @NotNull String topic,
+            @NotNull Map<String, EventAvailability> requiredEvents) {
         ReportRule {
             Objects.requireNonNull(id);
             Objects.requireNonNull(name);
