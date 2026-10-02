@@ -15,7 +15,7 @@ CRYOSTAT_VERSION="${CRYOSTAT_VERSION:-$(./mvnw -q -DforceStdout help:evaluate -D
 # a second full build; a standalone invocation still builds for itself.
 if [ "${SKIP_APP_BUILD:-false}" != "true" ]; then
     echo "Packaging Cryostat project for full classpath resolution (skipping frontend build)..."
-    ./mvnw -B clean package -DskipTests -Dspotless.check.skip=true -Dspotbugs.skip=true -Dlicense.skip=true -Dquarkus.quinoa=disabled
+    ./mvnw -B clean package -DskipTests -Dspotless.check.skip=true -Dspotbugs.skip=true -Dlicense.skip=true -Dquarkus.quinoa=disabled -Dquarkus.container-image.build=false
 else
     echo "Reusing existing application build for classpath resolution."
 fi

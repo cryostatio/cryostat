@@ -40,6 +40,7 @@ echo "Cryostat ${CRYOSTAT_VERSION}, smallrye-graphql-maven-plugin ${SMALLRYE_GRA
 echo "Building application..."
 "${MVNW}" -B \
     -Dquarkus.quinoa=false \
+    -Dquarkus.container-image.build=false \
     -Dmaven.test.skip \
     -Dspotless.check.skip \
     -Dspotbugs.skip \
