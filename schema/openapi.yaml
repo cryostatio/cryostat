@@ -10,7 +10,7 @@ components:
         username:
           type: string
       type: object
-    AgentRegistration:
+    AgentRegistrationRequest:
       properties:
         callback:
           type: string
@@ -24,7 +24,7 @@ components:
           $ref: '#/components/schemas/DiscoveryFillStrategy'
         nodes:
           items:
-            $ref: '#/components/schemas/DiscoveryNode'
+            $ref: '#/components/schemas/DiscoveryNodeRequest'
           type: array
         realm:
           type: string
@@ -88,6 +88,18 @@ components:
     Annotations:
       properties:
         cryostat:
+          items:
+            $ref: '#/components/schemas/KeyValue'
+          type: array
+        platform:
+          items:
+            $ref: '#/components/schemas/KeyValue'
+          type: array
+      type: object
+    AnnotationsRequest:
+      description: Annotations as accepted in request bodies
+      properties:
+        cryostat:
           additionalProperties:
             type: string
           type: object
@@ -99,13 +111,13 @@ components:
     Annotations_Flat:
       properties:
         cryostat:
-          additionalProperties:
-            type: string
-          type: object
+          items:
+            $ref: '#/components/schemas/KeyValue_Flat'
+          type: array
         platform:
-          additionalProperties:
-            type: string
-          type: object
+          items:
+            $ref: '#/components/schemas/KeyValue_Flat'
+          type: array
       type: object
     ApplicationHealth:
       properties:
@@ -333,9 +345,9 @@ components:
           format: int64
           type: integer
         labels:
-          additionalProperties:
-            type: string
-          type: object
+          items:
+            $ref: '#/components/schemas/KeyValue'
+          type: array
         name:
           pattern: \S
           type: string
@@ -349,8 +361,13 @@ components:
         - nodeType
         - labels
       type: object
-    DiscoveryNode_Flat:
+    DiscoveryNodeRequest:
+      description: A discovery node as accepted in request bodies
       properties:
+        children:
+          items:
+            $ref: '#/components/schemas/DiscoveryNodeRequest'
+          type: array
         id:
           format: int64
           type: integer
@@ -358,6 +375,28 @@ components:
           additionalProperties:
             type: string
           type: object
+        name:
+          pattern: \S
+          type: string
+        nodeType:
+          pattern: \S
+          type: string
+        target:
+          $ref: '#/components/schemas/TargetRequest'
+      required:
+        - name
+        - nodeType
+        - labels
+      type: object
+    DiscoveryNode_Flat:
+      properties:
+        id:
+          format: int64
+          type: integer
+        labels:
+          items:
+            $ref: '#/components/schemas/KeyValue_Flat'
+          type: array
         name:
           pattern: \S
           type: string
@@ -403,7 +442,7 @@ components:
         - id
         - realm
       type: object
-    DiscoveryPublication:
+    DiscoveryPublicationRequest:
       properties:
         context:
           additionalProperties:
@@ -421,7 +460,7 @@ components:
             - "null"
         nodes:
           items:
-            $ref: '#/components/schemas/DiscoveryNode'
+            $ref: '#/components/schemas/DiscoveryNodeRequest'
           type: array
       type: object
     Duration:
@@ -555,6 +594,26 @@ components:
           value: {}
         type: object
       type: array
+    KeyValue:
+      description: |
+        A single entry of a string-to-string map. Cryostat emits such maps as arrays of
+        these objects, but accepts them in request bodies as plain JSON objects.
+      properties:
+        key:
+          type: string
+        value:
+          type: string
+      type: object
+    KeyValue_Flat:
+      description: |
+        A single entry of a string-to-string map. Cryostat emits such maps as arrays of
+        these objects, but accepts them in request bodies as plain JSON objects.
+      properties:
+        key:
+          type: string
+        value:
+          type: string
+      type: object
     LinkedRecordingDescriptor:
       properties:
         archiveOnStop:
@@ -618,16 +677,12 @@ components:
         - ELIMINATED
       type: string
     MatchExpression:
-      properties:
-        id:
-          format: int64
-          type: integer
-        script:
-          pattern: \S
-          type: string
-      required:
-        - script
-      type: object
+      description: |
+        A Common Expression Language snippet evaluated against a target JVM's properties.
+      examples:
+        - "true"
+        - target.alias == 'my-app'
+      type: string
     MatchedExpression:
       properties:
         expression:
@@ -643,11 +698,19 @@ components:
     Metadata:
       properties:
         labels:
+          items:
+            $ref: '#/components/schemas/KeyValue'
+          type: array
+      type: object
+    MetadataBody:
+      properties:
+        labels:
           additionalProperties:
             type: string
           type: object
       type: object
-    MetadataBody:
+    MetadataRequest:
+      description: Recording metadata as accepted in request bodies
       properties:
         labels:
           additionalProperties:
@@ -690,9 +753,9 @@ components:
     PluginRegistration:
       properties:
         env:
-          additionalProperties:
-            type: string
-          type: object
+          items:
+            $ref: '#/components/schemas/KeyValue'
+          type: array
         id:
           type: string
         token:
@@ -847,6 +910,53 @@ components:
         - eventSpecifier
         - metadata
       type: object
+    RuleRequest:
+      description: An Automated Rule as accepted in request bodies
+      properties:
+        archivalPeriodSeconds:
+          format: int32
+          minimum: 0
+          type: integer
+        description:
+          type: string
+        enabled:
+          type: boolean
+        eventSpecifier:
+          pattern: \S
+          type: string
+        id:
+          format: int64
+          type: integer
+        initialDelaySeconds:
+          format: int32
+          minimum: 0
+          type: integer
+        matchExpression:
+          $ref: '#/components/schemas/MatchExpression'
+        maxAgeSeconds:
+          format: int32
+          minimum: -1
+          type: integer
+        maxSizeBytes:
+          format: int32
+          minimum: -1
+          type: integer
+        metadata:
+          $ref: '#/components/schemas/MetadataRequest'
+        name:
+          pattern: \S
+          type: string
+        preservedArchives:
+          format: int32
+          minimum: 0
+          type: integer
+      required:
+        - name
+        - description
+        - matchExpression
+        - eventSpecifier
+        - metadata
+      type: object
     SerializableEventTypeInfo:
       properties:
         category:
@@ -963,6 +1073,35 @@ components:
         jvmId:
           type: string
         labels:
+          items:
+            $ref: '#/components/schemas/KeyValue'
+          type: array
+      required:
+        - connectUrl
+        - alias
+        - labels
+        - annotations
+      type: object
+    TargetRequest:
+      description: A target as accepted in request bodies
+      properties:
+        agent:
+          readOnly: true
+          type: boolean
+        alias:
+          pattern: \S
+          type: string
+        annotations:
+          $ref: '#/components/schemas/AnnotationsRequest'
+        connectUrl:
+          format: uri
+          type: string
+        id:
+          format: int64
+          type: integer
+        jvmId:
+          type: string
+        labels:
           additionalProperties:
             type: string
           type: object
@@ -1007,9 +1146,9 @@ components:
         jvmId:
           type: string
         labels:
-          additionalProperties:
-            type: string
-          type: object
+          items:
+            $ref: '#/components/schemas/KeyValue_Flat'
+          type: array
       required:
         - connectUrl
         - alias
@@ -2950,7 +3089,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/DiscoveryPublication'
+              $ref: '#/components/schemas/DiscoveryPublicationRequest'
         required: true
       responses:
         "201":
@@ -2977,7 +3116,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/AgentRegistration'
+              $ref: '#/components/schemas/AgentRegistrationRequest'
         required: true
       responses:
         "200":
@@ -3345,7 +3484,7 @@ paths:
           application/json:
             schema:
               items:
-                $ref: '#/components/schemas/DiscoveryNode'
+                $ref: '#/components/schemas/DiscoveryNodeRequest'
               type: array
         required: true
       responses:
@@ -3990,7 +4129,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/Rule'
+              $ref: '#/components/schemas/RuleRequest'
           application/x-www-form-urlencoded:
             schema:
               properties:
