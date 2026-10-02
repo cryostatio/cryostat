@@ -656,9 +656,13 @@ components:
         these objects, but accepts them in request bodies as plain JSON objects.
       properties:
         key:
+          pattern: \S
           type: string
         value:
           type: string
+      required:
+        - key
+        - value
       type: object
     KeyValue_Flat:
       description: |
@@ -666,9 +670,13 @@ components:
         these objects, but accepts them in request bodies as plain JSON objects.
       properties:
         key:
+          pattern: \S
           type: string
         value:
           type: string
+      required:
+        - key
+        - value
       type: object
     LinkedRecordingDescriptor:
       properties:

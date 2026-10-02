@@ -15,6 +15,8 @@
  */
 package io.cryostat.util;
 
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import org.eclipse.microprofile.openapi.annotations.media.Schema;
 
 /**
@@ -34,4 +36,6 @@ import org.eclipse.microprofile.openapi.annotations.media.Schema;
                 A single entry of a string-to-string map. Cryostat emits such maps as arrays of
                 these objects, but accepts them in request bodies as plain JSON objects.
                 """)
-public record KeyValue(String key, String value) {}
+public record KeyValue(
+        @Schema(required = true) @NotBlank String key,
+        @Schema(required = true) @NotNull String value) {}
