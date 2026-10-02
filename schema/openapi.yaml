@@ -853,6 +853,26 @@ components:
         - token
         - env
       type: object
+    PluginRegistrationRequest:
+      description: A discovery plugin registration or registration refresh
+      properties:
+        callback:
+          pattern: \S
+          type: string
+        id:
+          $ref: '#/components/schemas/UUID'
+          format: uuid
+          pattern: '[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}'
+          type: string
+        realm:
+          pattern: \S
+          type: string
+        token:
+          type: string
+      required:
+        - realm
+        - callback
+      type: object
     ProbeResponse:
       properties:
         description:
@@ -1070,6 +1090,44 @@ components:
         - matchExpression
         - eventSpecifier
         - metadata
+      type: object
+    RuleUpdateRequest:
+      description: A partial update to an existing Automated Rule
+      properties:
+        archivalPeriodSeconds:
+          format: int32
+          minimum: 0
+          type: integer
+        description:
+          type: string
+        enabled:
+          type: boolean
+        eventSpecifier:
+          pattern: \S
+          type: string
+        initialDelaySeconds:
+          format: int32
+          minimum: 0
+          type: integer
+        matchExpression:
+          $ref: '#/components/schemas/MatchExpression'
+        maxAgeSeconds:
+          format: int32
+          minimum: -1
+          type: integer
+        maxSizeBytes:
+          format: int32
+          minimum: -1
+          type: integer
+        metadata:
+          $ref: '#/components/schemas/MetadataRequest'
+        name:
+          pattern: \S
+          type: string
+        preservedArchives:
+          format: int32
+          minimum: 0
+          type: integer
       type: object
     SerializableEventTypeInfo:
       properties:
@@ -1858,6 +1916,12 @@ paths:
                   type: string
                 labels:
                   $ref: '#/components/schemas/JsonObject'
+                  description: |
+                    A JSON object of string key-value labels, sent as the raw text of
+                    the form field.
+                  examples:
+                    - '{"key":"value"}'
+                  type: string
               type: object
         required: true
       responses:
@@ -2689,6 +2753,12 @@ paths:
               properties:
                 labels:
                   $ref: '#/components/schemas/JsonObject'
+                  description: |
+                    A JSON object of string key-value labels, sent as the raw text of
+                    the form field.
+                  examples:
+                    - '{"key":"value"}'
+                  type: string
                 maxFiles:
                   format: int32
                   type: integer
@@ -3520,7 +3590,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/JsonObject'
+              $ref: '#/components/schemas/PluginRegistrationRequest'
         required: true
       responses:
         "200":
@@ -4139,6 +4209,12 @@ paths:
               properties:
                 labels:
                   $ref: '#/components/schemas/JsonObject'
+                  description: |
+                    A JSON object of string key-value labels, sent as the raw text of
+                    the form field.
+                  examples:
+                    - '{"key":"value"}'
+                  type: string
                 recording:
                   format: binary
                   type: string
@@ -4397,7 +4473,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/JsonObject'
+              $ref: '#/components/schemas/RuleUpdateRequest'
         required: true
       responses:
         "200":
