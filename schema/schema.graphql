@@ -377,15 +377,10 @@ type ThreadMetrics {
 
 "Running state of an active Flight Recording"
 enum RecordingState {
-  "CLOSED"
   CLOSED
-  "DELAYED"
   DELAYED
-  "NEW"
   NEW
-  "RUNNING"
   RUNNING
-  "STOPPED"
   STOPPED
 }
 
