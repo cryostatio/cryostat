@@ -113,6 +113,21 @@ public class UnifiedLogsTest extends AuditTestBase {
                 .statusCode(400);
     }
 
+    @Test
+    public void testUnifiedLogStatusOnJmxTargetReturns400() {
+        int targetId = defineSelfCustomTarget();
+        given().log()
+                .all()
+                .when()
+                .pathParam("targetId", targetId)
+                .get("targets/{targetId}/unified-logging")
+                .then()
+                .log()
+                .all()
+                .assertThat()
+                .statusCode(400);
+    }
+
     // ── Invalid query parameter characters ───────────────────────────────────────
 
     static Stream<Arguments> invalidParams() {
