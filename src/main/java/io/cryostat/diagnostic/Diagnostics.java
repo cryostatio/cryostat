@@ -44,6 +44,8 @@ import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.security.PermissionsAllowed;
 import io.smallrye.common.annotation.Blocking;
 import io.vertx.core.http.HttpServerResponse;
+import io.vertx.core.json.DecodeException;
+import io.vertx.core.json.JsonObject;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
@@ -436,14 +438,33 @@ public class Diagnostics {
         log.tracev(
                 "Received heap dump upload request for target: {0} with job ID {1}", jvmId, jobId);
         jvmId = jvmId.strip();
-        doUpload(heapDump, jvmId, jobId);
+        doUpload(heapDump, jvmId, jobId, new Metadata(parseLabels(rawLabels)));
+    }
+
+    /**
+     * Parse the {@code labels} form field, which arrives as the raw text of a JSON object because
+     * it is sent as a urlencoded form value. Values are stringified. A blank or absent field yields
+     * no labels.
+     */
+    private static Map<String, String> parseLabels(String rawLabels) {
+        Map<String, String> labels = new HashMap<>();
+        if (StringUtils.isBlank(rawLabels)) {
+            return labels;
+        }
+        try {
+            new JsonObject(rawLabels).getMap().forEach((k, v) -> labels.put(k, v.toString()));
+        } catch (DecodeException e) {
+            throw new BadRequestException("labels must be a JSON object", e);
+        }
+        return labels;
     }
 
     @Blocking
     @Transactional
     @SuppressFBWarnings("DLS_DEAD_LOCAL_STORE")
-    Map<String, Object> doUpload(FileUpload heapDump, String jvmId, String jobId) {
-        var dump = helper.addHeapDump(jvmId, heapDump, jobId);
+    Map<String, Object> doUpload(
+            FileUpload heapDump, String jvmId, String jobId, Metadata metadata) {
+        var dump = helper.addHeapDump(jvmId, heapDump, jobId, metadata);
 
         io.cryostat.diagnostic.HeapDump.<io.cryostat.diagnostic.HeapDump>find("jobId", jobId)
                 .firstResultOptional()

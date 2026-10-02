@@ -649,7 +649,8 @@ public class DiagnosticsHelper {
                 new Metadata(Map.of()));
     }
 
-    public HeapDump addHeapDump(String jvmId, FileUpload heapDump, String requestId) {
+    public HeapDump addHeapDump(
+            String jvmId, FileUpload heapDump, String requestId, Metadata metadata) {
         boolean uploadStarted = false;
         try {
             String filename = heapDump.fileName().strip();
@@ -670,16 +671,14 @@ public class DiagnosticsHelper {
 
             switch (storageMode()) {
                 case TAGGING:
-                    req = req.tagging(createMetadataTagging(new Metadata(Map.of())));
+                    req = req.tagging(createMetadataTagging(metadata));
                     break;
                 case METADATA:
-                    req = req.metadata(Map.of());
+                    req = req.metadata(metadata.labels());
                     break;
                 case BUCKET:
                     try {
-                        heapDumpsMetadataService
-                                .get()
-                                .create(jvmId, filename, new Metadata(Map.of()));
+                        heapDumpsMetadataService.get().create(jvmId, filename, metadata);
                     } catch (IOException ioe) {
                         log.warn(ioe);
                     }
@@ -718,7 +717,7 @@ public class DiagnosticsHelper {
                             filename,
                             clock.now().getEpochSecond(),
                             fileSize,
-                            new Metadata(Map.of()));
+                            metadata);
             var event =
                     new HeapDumpEvent(
                             EventCategory.HEAP_DUMP_UPLOADED,
