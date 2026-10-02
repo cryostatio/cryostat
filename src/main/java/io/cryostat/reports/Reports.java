@@ -184,7 +184,7 @@ public class Reports {
                     be retrieved, which may require the client to wait for a Job UUID notification.
                     """)
     public Response analyze(
-            @Context HttpServerResponse resp,
+            @Context HttpServerResponse response,
             @RestPath long targetId,
             @QueryParam("clean") @DefaultValue("true") boolean clean) {
         if (clean) {
@@ -192,7 +192,7 @@ public class Reports {
         }
         var target = Target.getTargetById(targetId);
         var jobId = UUID.randomUUID().toString();
-        resp.bodyEndHandler(
+        response.bodyEndHandler(
                 (v) -> {
                     helper.createSnapshot(
                                     target,
