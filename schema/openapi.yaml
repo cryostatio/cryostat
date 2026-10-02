@@ -651,16 +651,6 @@ components:
         - size
         - metadata
       type: object
-    HttpServerResponse:
-      properties:
-        chunked:
-          type: boolean
-        statusCode:
-          format: int32
-          type: integer
-        statusMessage:
-          type: string
-      type: object
     JniInfo:
       properties:
         globalRefs:
@@ -1899,20 +1889,12 @@ paths:
           required: true
           schema:
             type: string
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/HttpServerResponse'
-        required: true
       responses:
         "200":
           content:
             application/json:
               schema: {}
           description: OK
-        "400":
-          description: Bad Request
         "401":
           description: Not Authorized
         "403":
@@ -2012,12 +1994,6 @@ paths:
           schema:
             format: int64
             type: integer
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/HttpServerResponse'
-        required: true
       responses:
         "200":
           content:
@@ -2025,8 +2001,6 @@ paths:
               schema:
                 type: string
           description: OK
-        "400":
-          description: Bad Request
         "401":
           description: Not Authorized
         "403":
@@ -2102,12 +2076,6 @@ paths:
           schema:
             default: threadPrint
             type: string
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/HttpServerResponse'
-        required: true
       responses:
         "200":
           content:
@@ -2115,8 +2083,6 @@ paths:
               schema:
                 type: string
           description: OK
-        "400":
-          description: Bad Request
         "401":
           description: Not Authorized
         "403":
@@ -2641,20 +2607,12 @@ paths:
             default: -1
             format: int64
             type: integer
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/HttpServerResponse'
-        required: true
       responses:
         "200":
           content:
             application/json:
               schema: {}
           description: OK
-        "400":
-          description: Bad Request
         "401":
           description: Not Authorized
         "403":
@@ -3227,20 +3185,12 @@ paths:
           schema:
             default: true
             type: boolean
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/HttpServerResponse'
-        required: true
       responses:
         "200":
           content:
             application/json:
               schema: {}
           description: OK
-        "400":
-          description: Bad Request
         "401":
           description: Not Authorized
         "403":
@@ -3914,12 +3864,6 @@ paths:
           required: true
           schema:
             type: string
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/HttpServerResponse'
-        required: true
       responses:
         "200":
           content:
@@ -3927,8 +3871,6 @@ paths:
               schema:
                 type: string
           description: OK
-        "400":
-          description: Bad Request
         "401":
           description: Not Authorized
         "403":
@@ -4265,12 +4207,6 @@ paths:
           schema:
             default: ""
             type: string
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/HttpServerResponse'
-        required: true
       responses:
         "200":
           content:
@@ -5064,9 +5000,9 @@ paths:
             type: integer
       requestBody:
         content:
-          application/json:
+          text/plain:
             schema:
-              $ref: '#/components/schemas/HttpServerResponse'
+              type: string
         required: true
       responses:
         "200":
@@ -5102,12 +5038,6 @@ paths:
           schema:
             format: int64
             type: integer
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/HttpServerResponse'
-        required: true
       responses:
         "200":
           content:
@@ -5115,8 +5045,6 @@ paths:
               schema:
                 type: string
           description: OK
-        "400":
-          description: Bad Request
         "401":
           description: Not Authorized
         "403":
@@ -5151,12 +5079,6 @@ paths:
           schema:
             default: ""
             type: string
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/HttpServerResponse'
-        required: true
       responses:
         "200":
           content:
