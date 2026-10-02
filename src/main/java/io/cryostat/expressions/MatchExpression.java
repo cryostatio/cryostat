@@ -44,6 +44,8 @@ import jakarta.persistence.PostUpdate;
 import jakarta.persistence.PrePersist;
 import jakarta.validation.ValidationException;
 import jakarta.validation.constraints.NotBlank;
+import org.eclipse.microprofile.openapi.annotations.enums.SchemaType;
+import org.eclipse.microprofile.openapi.annotations.media.Schema;
 import org.hibernate.envers.Audited;
 import org.jboss.logging.Logger;
 import org.projectnessie.cel.tools.ScriptException;
@@ -60,6 +62,15 @@ import org.projectnessie.cel.tools.ScriptException;
 @Entity
 @EntityListeners(MatchExpression.Listener.class)
 @Cacheable
+// The @JsonValue/@JsonCreator pair below means this entity is both written and read as a bare
+// string, so the OpenAPI document must describe it that way rather than as a bean.
+@Schema(
+        type = SchemaType.STRING,
+        description =
+                """
+                A Common Expression Language snippet evaluated against a target JVM's properties.
+                """,
+        examples = {"true", "target.alias == 'my-app'"})
 public class MatchExpression extends PanacheEntity {
     public static final String EXPRESSION_ADDRESS = "io.cryostat.expressions.MatchExpression";
 
