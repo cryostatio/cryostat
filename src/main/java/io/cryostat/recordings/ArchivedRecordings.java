@@ -36,6 +36,7 @@ import io.cryostat.recordings.ActiveRecordings.Metadata;
 import io.cryostat.recordings.LongRunningRequestGenerator.GrafanaArchiveUploadRequest;
 import io.cryostat.security.rbac.UserAuthorizer;
 import io.cryostat.targets.Target;
+import io.cryostat.util.FormLabels;
 import io.cryostat.util.HttpMimeType;
 import io.cryostat.util.ResponseDispatch;
 
@@ -44,12 +45,9 @@ import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.security.PermissionsAllowed;
 import io.smallrye.common.annotation.Blocking;
 import io.vertx.core.http.HttpServerResponse;
-import io.vertx.core.json.DecodeException;
-import io.vertx.core.json.JsonObject;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.inject.Inject;
 import jakarta.validation.constraints.NotNull;
-import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.NotFoundException;
@@ -142,7 +140,7 @@ public class ArchivedRecordings {
                             examples = {"{\"key\":\"value\"}"})
                     String rawLabels)
             throws Exception {
-        Map<String, String> labels = parseLabels(rawLabels);
+        Map<String, String> labels = FormLabels.parse(rawLabels);
         labels.put("jvmId", "uploads");
         labels.put("connectUrl", "uploads");
         Metadata metadata = new Metadata(labels);
@@ -195,7 +193,7 @@ public class ArchivedRecordings {
             userAuthorizer.assertAuthorized("archivedrecordings", "delete");
             max = maxFiles;
         }
-        Map<String, String> labels = parseLabels(rawLabels);
+        Map<String, String> labels = FormLabels.parse(rawLabels);
         labels.put("jvmId", id);
         resolveActiveRecordingId(id, labels)
                 .ifPresent(
@@ -555,24 +553,6 @@ public class ArchivedRecordings {
                         String.format("attachment; filename=\"%s\"", contentName))
                 .location(uri)
                 .build();
-    }
-
-    /**
-     * Parse the {@code labels} form field, which arrives as the raw text of a JSON object because
-     * it is sent as a urlencoded form value. Values are stringified. A blank or absent field yields
-     * no labels.
-     */
-    private static Map<String, String> parseLabels(String rawLabels) {
-        Map<String, String> labels = new HashMap<>();
-        if (StringUtils.isBlank(rawLabels)) {
-            return labels;
-        }
-        try {
-            new JsonObject(rawLabels).getMap().forEach((k, v) -> labels.put(k, v.toString()));
-        } catch (DecodeException e) {
-            throw new BadRequestException("labels must be a JSON object", e);
-        }
-        return labels;
     }
 
     public record ArchivedRecording(
