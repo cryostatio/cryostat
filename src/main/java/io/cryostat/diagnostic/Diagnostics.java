@@ -44,7 +44,6 @@ import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.security.PermissionsAllowed;
 import io.smallrye.common.annotation.Blocking;
 import io.vertx.core.http.HttpServerResponse;
-import io.vertx.core.json.JsonObject;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
@@ -424,6 +423,8 @@ public class Diagnostics {
             @Parameter(required = false)
                     @RestForm("labels")
                     @Schema(
+                            // the explicit type is required so that the example below is read as a
+                            // string literal rather than parsed as a JSON object
                             type = SchemaType.STRING,
                             description =
                                     """
@@ -431,7 +432,7 @@ public class Diagnostics {
                                     the form field.
                                     """,
                             examples = {"{\"key\":\"value\"}"})
-                    JsonObject rawLabels) {
+                    String rawLabels) {
         log.tracev(
                 "Received heap dump upload request for target: {0} with job ID {1}", jvmId, jobId);
         jvmId = jvmId.strip();

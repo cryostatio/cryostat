@@ -44,10 +44,12 @@ import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.security.PermissionsAllowed;
 import io.smallrye.common.annotation.Blocking;
 import io.vertx.core.http.HttpServerResponse;
+import io.vertx.core.json.DecodeException;
 import io.vertx.core.json.JsonObject;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.inject.Inject;
 import jakarta.validation.constraints.NotNull;
+import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.NotFoundException;
@@ -129,6 +131,8 @@ public class ArchivedRecordings {
             @Parameter(required = false)
                     @RestForm("labels")
                     @Schema(
+                            // the explicit type is required so that the example below is read as a
+                            // string literal rather than parsed as a JSON object
                             type = SchemaType.STRING,
                             description =
                                     """
@@ -136,12 +140,9 @@ public class ArchivedRecordings {
                                     the form field.
                                     """,
                             examples = {"{\"key\":\"value\"}"})
-                    JsonObject rawLabels)
+                    String rawLabels)
             throws Exception {
-        Map<String, String> labels = new HashMap<>();
-        if (rawLabels != null) {
-            rawLabels.getMap().forEach((k, v) -> labels.put(k, v.toString()));
-        }
+        Map<String, String> labels = parseLabels(rawLabels);
         labels.put("jvmId", "uploads");
         labels.put("connectUrl", "uploads");
         Metadata metadata = new Metadata(labels);
@@ -167,6 +168,8 @@ public class ArchivedRecordings {
             @Parameter(required = false)
                     @RestForm("labels")
                     @Schema(
+                            // the explicit type is required so that the example below is read as a
+                            // string literal rather than parsed as a JSON object
                             type = SchemaType.STRING,
                             description =
                                     """
@@ -174,7 +177,7 @@ public class ArchivedRecordings {
                                     the form field.
                                     """,
                             examples = {"{\"key\":\"value\"}"})
-                    JsonObject rawLabels,
+                    String rawLabels,
             @Parameter(
                             required = false,
                             description =
@@ -192,10 +195,7 @@ public class ArchivedRecordings {
             userAuthorizer.assertAuthorized("archivedrecordings", "delete");
             max = maxFiles;
         }
-        Map<String, String> labels = new HashMap<>();
-        if (rawLabels != null) {
-            rawLabels.getMap().forEach((k, v) -> labels.put(k, v.toString()));
-        }
+        Map<String, String> labels = parseLabels(rawLabels);
         labels.put("jvmId", id);
         resolveActiveRecordingId(id, labels)
                 .ifPresent(
@@ -555,6 +555,24 @@ public class ArchivedRecordings {
                         String.format("attachment; filename=\"%s\"", contentName))
                 .location(uri)
                 .build();
+    }
+
+    /**
+     * Parse the {@code labels} form field, which arrives as the raw text of a JSON object because
+     * it is sent as a urlencoded form value. Values are stringified. A blank or absent field yields
+     * no labels.
+     */
+    private static Map<String, String> parseLabels(String rawLabels) {
+        Map<String, String> labels = new HashMap<>();
+        if (StringUtils.isBlank(rawLabels)) {
+            return labels;
+        }
+        try {
+            new JsonObject(rawLabels).getMap().forEach((k, v) -> labels.put(k, v.toString()));
+        } catch (DecodeException e) {
+            throw new BadRequestException("labels must be a JSON object", e);
+        }
+        return labels;
     }
 
     public record ArchivedRecording(

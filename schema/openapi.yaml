@@ -650,14 +650,6 @@ components:
           format: int64
           type: integer
       type: object
-    JsonObject:
-      items:
-        properties:
-          key:
-            type: string
-          value: {}
-        type: object
-      type: array
     KeyValue:
       description: |
         A single entry of a string-to-string map. Cryostat emits such maps as arrays of
@@ -1915,7 +1907,6 @@ paths:
                 jobId:
                   type: string
                 labels:
-                  $ref: '#/components/schemas/JsonObject'
                   description: |
                     A JSON object of string key-value labels, sent as the raw text of
                     the form field.
@@ -2752,7 +2743,6 @@ paths:
             schema:
               properties:
                 labels:
-                  $ref: '#/components/schemas/JsonObject'
                   description: |
                     A JSON object of string key-value labels, sent as the raw text of
                     the form field.
@@ -4208,7 +4198,6 @@ paths:
             schema:
               properties:
                 labels:
-                  $ref: '#/components/schemas/JsonObject'
                   description: |
                     A JSON object of string key-value labels, sent as the raw text of
                     the form field.
