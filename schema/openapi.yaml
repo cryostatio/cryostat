@@ -4,15 +4,23 @@ components:
     AgentCredentialRequest:
       properties:
         matchExpression:
+          pattern: \S
           type: string
         password:
+          pattern: \S
           type: string
         username:
+          pattern: \S
           type: string
+      required:
+        - matchExpression
+        - username
+        - password
       type: object
     AgentRegistrationRequest:
       properties:
         callback:
+          pattern: \S
           type: string
         context:
           additionalProperties:
@@ -27,7 +35,12 @@ components:
             $ref: '#/components/schemas/DiscoveryNodeRequest'
           type: array
         realm:
+          pattern: \S
           type: string
+      required:
+        - realm
+        - callback
+        - credential
       type: object
     AggregateLockInfoResult:
       properties:
@@ -36,6 +49,9 @@ components:
           type: integer
         data:
           type: string
+      required:
+        - data
+        - count
       type: object
     AggregateMethodResult:
       properties:
@@ -44,6 +60,9 @@ components:
           type: integer
         data:
           type: string
+      required:
+        - data
+        - count
       type: object
     AggregateStackTraceResult:
       properties:
@@ -54,6 +73,9 @@ components:
           items:
             $ref: '#/components/schemas/StackFrame'
           type: array
+      required:
+        - data
+        - count
       type: object
     AggregateThreadStateResult:
       properties:
@@ -62,6 +84,9 @@ components:
           type: integer
         data:
           type: object
+      required:
+        - data
+        - count
       type: object
     AnalysisResult:
       properties:
@@ -72,6 +97,10 @@ components:
         score:
           format: int32
           type: integer
+      required:
+        - resultName
+        - explanation
+        - score
       type: object
     AnalysisResult1:
       properties:
@@ -95,6 +124,9 @@ components:
           items:
             $ref: '#/components/schemas/KeyValue'
           type: array
+      required:
+        - platform
+        - cryostat
       type: object
     AnnotationsRequest:
       description: Annotations as accepted in request bodies
@@ -118,6 +150,9 @@ components:
           items:
             $ref: '#/components/schemas/KeyValue_Flat'
           type: array
+      required:
+        - platform
+        - cryostat
       type: object
     ApplicationHealth:
       properties:
@@ -137,6 +172,15 @@ components:
           type: boolean
         reportsConfigured:
           type: boolean
+      required:
+        - cryostatVersion
+        - build
+        - dashboardConfigured
+        - dashboardAvailable
+        - datasourceConfigured
+        - datasourceAvailable
+        - reportsConfigured
+        - reportsAvailable
       type: object
     ArchivedHeapDumpDirectory:
       properties:
@@ -146,6 +190,9 @@ components:
           type: array
         jvmId:
           type: string
+      required:
+        - jvmId
+        - heapDumps
       type: object
     ArchivedRecording:
       properties:
@@ -165,6 +212,14 @@ components:
         size:
           format: int64
           type: integer
+      required:
+        - jvmId
+        - name
+        - downloadUrl
+        - reportUrl
+        - metadata
+        - size
+        - archivedTime
       type: object
     ArchivedRecordingDirectory:
       properties:
@@ -176,6 +231,10 @@ components:
           items:
             $ref: '#/components/schemas/ArchivedRecording'
           type: array
+      required:
+        - connectUrl
+        - jvmId
+        - recordings
       type: object
     ArchivedThreadDumpDirectory:
       properties:
@@ -185,6 +244,9 @@ components:
           items:
             $ref: '#/components/schemas/ThreadDump'
           type: array
+      required:
+        - jvmId
+        - threadDumps
       type: object
     ArchivedUnifiedLogDirectory:
       properties:
@@ -194,6 +256,9 @@ components:
           items:
             $ref: '#/components/schemas/UnifiedLog'
           type: array
+      required:
+        - jvmId
+        - unifiedLogs
       type: object
     AsyncProfile:
       properties:
@@ -208,6 +273,11 @@ components:
         startTime:
           format: int64
           type: integer
+      required:
+        - id
+        - startTime
+        - duration
+        - size
       type: object
     AsyncProfilerStatus:
       properties:
@@ -221,11 +291,16 @@ components:
           $ref: '#/components/schemas/StartProfileRequest'
         status:
           $ref: '#/components/schemas/ProfilerStatus'
+      required:
+        - status
+        - availableEvents
       type: object
     AuthResponse:
       properties:
         username:
           type: string
+      required:
+        - username
       type: object
     BuildInfo:
       properties:
@@ -280,6 +355,10 @@ components:
           items:
             $ref: '#/components/schemas/Target'
           type: array
+      required:
+        - id
+        - matchExpression
+        - targets
       type: object
     CredentialTestResult:
       enum:
@@ -291,11 +370,15 @@ components:
       properties:
         grafanaDashboardUrl:
           type: string
+      required:
+        - grafanaDashboardUrl
       type: object
     DatasourceUrl:
       properties:
         grafanaDatasourceUrl:
           type: string
+      required:
+        - grafanaDatasourceUrl
       type: object
     Date:
       examples:
@@ -560,6 +643,13 @@ components:
         size:
           format: int64
           type: integer
+      required:
+        - jvmId
+        - downloadUrl
+        - heapDumpId
+        - lastModified
+        - size
+        - metadata
       type: object
     HttpServerResponse:
       properties:
@@ -650,6 +740,21 @@ components:
           $ref: '#/components/schemas/RecordingState'
         toDisk:
           type: boolean
+      required:
+        - id
+        - remoteId
+        - state
+        - duration
+        - startTime
+        - archiveOnStop
+        - continuous
+        - toDisk
+        - maxSize
+        - maxAge
+        - name
+        - downloadUrl
+        - reportUrl
+        - metadata
       type: object
     Location:
       enum:
@@ -694,6 +799,9 @@ components:
           items:
             $ref: '#/components/schemas/Target'
           type: array
+      required:
+        - expression
+        - targets
       type: object
     Metadata:
       properties:
@@ -701,6 +809,8 @@ components:
           items:
             $ref: '#/components/schemas/KeyValue'
           type: array
+      required:
+        - labels
       type: object
     MetadataBody:
       properties:
@@ -708,6 +818,8 @@ components:
           additionalProperties:
             type: string
           type: object
+      required:
+        - labels
       type: object
     MetadataRequest:
       description: Recording metadata as accepted in request bodies
@@ -716,6 +828,8 @@ components:
           additionalProperties:
             type: string
           type: object
+      required:
+        - labels
       type: object
     MethodParameter:
       properties:
@@ -760,6 +874,10 @@ components:
           type: string
         token:
           type: string
+      required:
+        - id
+        - token
+        - env
       type: object
     ProbeResponse:
       properties:
@@ -767,6 +885,8 @@ components:
           type: string
         name:
           type: string
+      required:
+        - name
       type: object
     ProbeTemplate:
       properties:
@@ -789,6 +909,9 @@ components:
           type: string
         xml:
           type: string
+      required:
+        - name
+        - xml
       type: object
     ProfilerStatus:
       enum:
@@ -816,6 +939,11 @@ components:
           type: object
         topic:
           type: string
+      required:
+        - id
+        - name
+        - topic
+        - requiredEvents
       type: object
     RequestData:
       properties:
@@ -826,6 +954,8 @@ components:
             format: int64
             type: integer
           type: array
+      required:
+        - matchExpression
       type: object
     RevisionDetail:
       properties:
@@ -842,6 +972,10 @@ components:
           type: integer
         username:
           type: string
+      required:
+        - rev
+        - revtstmp
+        - entities
       type: object
     RevisionSummary:
       properties:
@@ -853,6 +987,9 @@ components:
           type: integer
         username:
           type: string
+      required:
+        - rev
+        - revtstmp
       type: object
     RevisionsResponse:
       properties:
@@ -863,6 +1000,9 @@ components:
         totalCount:
           format: int64
           type: integer
+      required:
+        - revisions
+        - totalCount
       type: object
     Rule:
       properties:
@@ -973,6 +1113,12 @@ components:
           type: object
         typeId:
           type: string
+      required:
+        - typeId
+        - name
+        - description
+        - category
+        - options
       type: object
     SerializableOptionDescriptor:
       properties:
@@ -982,6 +1128,10 @@ components:
           type: string
         name:
           type: string
+      required:
+        - name
+        - description
+        - defaultValue
       type: object
     SmartTrigger:
       properties:
@@ -1044,6 +1194,10 @@ components:
         startTime:
           format: int64
           type: integer
+      required:
+        - startTime
+        - events
+        - duration
       type: object
     Suggestion:
       properties:
@@ -1126,6 +1280,9 @@ components:
           type: string
         username:
           type: string
+      required:
+        - connectUrl
+        - alias
       type: object
     Target_Flat:
       properties:
@@ -1188,6 +1345,13 @@ components:
           type: integer
         threadDumpId:
           type: string
+      required:
+        - jvmId
+        - downloadUrl
+        - threadDumpId
+        - lastModified
+        - size
+        - metadata
       type: object
     ThreadDumpAnalysis:
       properties:
@@ -1223,6 +1387,13 @@ components:
           items:
             $ref: '#/components/schemas/ThreadInfo'
           type: array
+      required:
+        - aggregateThreadStates
+        - aggregateLockInfo
+        - aggregateStackTraces
+        - runningMethods
+        - threads
+        - specificFindings
       type: object
     ThreadInfo:
       properties:
@@ -1290,6 +1461,11 @@ components:
         size:
           format: int64
           type: integer
+      required:
+        - jvmId
+        - lastModified
+        - size
+        - metadata
       type: object
     UnifiedLogStatus:
       properties:
@@ -1301,6 +1477,8 @@ components:
           type: string
         what:
           type: string
+      required:
+        - enabled
       type: object
     ViewList:
       properties:
@@ -1316,6 +1494,10 @@ components:
           items:
             type: string
           type: array
+      required:
+        - vm
+        - env
+        - app
       type: object
 info:
   contact:
