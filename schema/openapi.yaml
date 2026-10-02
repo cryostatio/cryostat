@@ -90,20 +90,6 @@ components:
       type: object
     AnalysisResult:
       properties:
-        explanation:
-          type: string
-        resultName:
-          type: string
-        score:
-          format: int32
-          type: integer
-      required:
-        - resultName
-        - explanation
-        - score
-      type: object
-    AnalysisResult1:
-      properties:
         evaluation:
           $ref: '#/components/schemas/Evaluation'
         name:
@@ -1369,7 +1355,7 @@ components:
           type: array
         specificFindings:
           items:
-            $ref: '#/components/schemas/AnalysisResult'
+            $ref: '#/components/schemas/ThreadDumpAnalysisResult'
           type: array
         threads:
           items:
@@ -1382,6 +1368,20 @@ components:
         - runningMethods
         - threads
         - specificFindings
+      type: object
+    ThreadDumpAnalysisResult:
+      properties:
+        explanation:
+          type: string
+        resultName:
+          type: string
+        score:
+          format: int32
+          type: integer
+      required:
+        - resultName
+        - explanation
+        - score
       type: object
     ThreadInfo:
       properties:
@@ -3153,7 +3153,7 @@ paths:
             application/json:
               schema:
                 additionalProperties:
-                  $ref: '#/components/schemas/AnalysisResult1'
+                  $ref: '#/components/schemas/AnalysisResult'
                 type: object
           description: OK
         "401":

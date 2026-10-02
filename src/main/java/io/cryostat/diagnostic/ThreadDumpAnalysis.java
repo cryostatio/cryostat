@@ -42,7 +42,7 @@ public class ThreadDumpAnalysis {
     @NotNull public List<AggregateMethodResult> runningMethods;
     public List<DeadlockInfo> deadlockInfos;
     @NotNull public List<ThreadInfo> threads;
-    @NotNull public List<AnalysisResult> specificFindings;
+    @NotNull public List<ThreadDumpAnalysisResult> specificFindings;
 
     // jniInfo and jvmInfo are passed straight through from the parsed thread dump, which does not
     // guarantee either section is present.
@@ -120,7 +120,7 @@ public class ThreadDumpAnalysis {
         }
         if (copyOfCount > 0) {
             specificFindings.add(
-                    new AnalysisResult(
+                    new ThreadDumpAnalysisResult(
                             "java.util.Arrays.copyOf calls",
                             String.format(
                                     "The amount of threads in java.util.Arrays.copyOf is {0}."
@@ -136,7 +136,7 @@ public class ThreadDumpAnalysis {
         }
         if (logCount > 0) {
             specificFindings.add(
-                    new AnalysisResult(
+                    new ThreadDumpAnalysisResult(
                             "Log Contention",
                             String.format(
                                     "The amount of threads in"
@@ -152,7 +152,7 @@ public class ThreadDumpAnalysis {
         }
         if (dataSourceContention > 0) {
             specificFindings.add(
-                    new AnalysisResult(
+                    new ThreadDumpAnalysisResult(
                             "Datasource Exhaustion",
                             String.format(
                                     "The amount of threads waiting for a datasource connection in"
@@ -166,7 +166,7 @@ public class ThreadDumpAnalysis {
         }
         if (strictMaxCount > 0) {
             specificFindings.add(
-                    new AnalysisResult(
+                    new ThreadDumpAnalysisResult(
                             "EJB strict max pool exhaustion",
                             String.format(
                                     "The amount of threads waiting for an EJB instance in"
@@ -195,7 +195,7 @@ public class ThreadDumpAnalysis {
         }
     }
 
-    public record AnalysisResult(
+    public record ThreadDumpAnalysisResult(
             @NotNull String resultName,
             @NotNull String explanation,
             @Schema(required = true) int score) {}
