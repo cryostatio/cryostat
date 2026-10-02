@@ -56,6 +56,7 @@ import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.UriBuilder;
@@ -117,7 +118,7 @@ public class Reports {
     // or a job ID String along with setting different Status codes.
     // TODO: Is there a cleaner way to accomplish this?
     public Response get(
-            HttpServerResponse response,
+            @Context HttpServerResponse response,
             @RestPath String encodedKey,
             @QueryParam("filter") @DefaultValue("") String filter) {
         var pair = helper.decodedKey(encodedKey);
@@ -183,7 +184,7 @@ public class Reports {
                     be retrieved, which may require the client to wait for a Job UUID notification.
                     """)
     public Response analyze(
-            HttpServerResponse resp,
+            @Context HttpServerResponse resp,
             @RestPath long targetId,
             @QueryParam("clean") @DefaultValue("true") boolean clean) {
         if (clean) {
@@ -269,7 +270,7 @@ public class Reports {
     // or a job ID String along with setting different Status codes.
     // TODO: Is there a cleaner way to accomplish this?
     public Response getActive(
-            HttpServerResponse response,
+            @Context HttpServerResponse response,
             @RestPath long targetId,
             @RestPath long recordingId,
             @QueryParam("filter") @DefaultValue("") String filter)

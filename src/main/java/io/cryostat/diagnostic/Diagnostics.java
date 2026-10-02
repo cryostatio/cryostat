@@ -57,6 +57,7 @@ import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
@@ -148,7 +149,7 @@ public class Diagnostics {
     @Transactional
     @POST
     public String threadDump(
-            HttpServerResponse response,
+            @Context HttpServerResponse response,
             @RestPath long targetId,
             @QueryParam("format") @DefaultValue(DiagnosticsHelper.DUMP_THREADS) String format) {
         log.tracev("Creating new thread dump request for target: {0}", targetId);
@@ -184,7 +185,9 @@ public class Diagnostics {
     @Transactional
     @POST
     public Response analyzeHeapDump(
-            HttpServerResponse response, @RestPath String jvmId, @RestPath String heapDumpId) {
+            @Context HttpServerResponse response,
+            @RestPath String jvmId,
+            @RestPath String heapDumpId) {
         String key = DiagnosticsHelper.storageKey(jvmId, heapDumpId);
         storage.headObject(HeadObjectRequest.builder().bucket(heapDumpsBucket).key(key).build())
                 .sdkHttpResponse();
@@ -390,7 +393,7 @@ public class Diagnostics {
                     """
                     Request the remote target to perform a heap dump.
                     """)
-    public String heapDump(HttpServerResponse response, @RestPath long targetId) {
+    public String heapDump(@Context HttpServerResponse response, @RestPath long targetId) {
         log.tracev("Initiating heap dump for target: {0}", targetId);
         Target target = Target.getTargetById(targetId);
         if (!target.isAgent()) {
