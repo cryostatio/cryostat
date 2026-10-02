@@ -66,6 +66,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.openapi.annotations.Operation;
+import org.eclipse.microprofile.openapi.annotations.enums.SchemaType;
 import org.eclipse.microprofile.openapi.annotations.media.Schema;
 import org.eclipse.microprofile.openapi.annotations.parameters.Parameter;
 import org.jboss.logging.Logger;
@@ -420,7 +421,17 @@ public class Diagnostics {
             @RestPath String jvmId,
             @Parameter(required = true) @RestForm("heapDump") FileUpload heapDump,
             @Parameter(required = true) @RestForm("jobId") String jobId,
-            @Parameter(required = false) @RestForm("labels") JsonObject rawLabels) {
+            @Parameter(required = false)
+                    @RestForm("labels")
+                    @Schema(
+                            type = SchemaType.STRING,
+                            description =
+                                    """
+                                    A JSON object of string key-value labels, sent as the raw text of
+                                    the form field.
+                                    """,
+                            examples = {"{\"key\":\"value\"}"})
+                    JsonObject rawLabels) {
         log.tracev(
                 "Received heap dump upload request for target: {0} with job ID {1}", jvmId, jobId);
         jvmId = jvmId.strip();

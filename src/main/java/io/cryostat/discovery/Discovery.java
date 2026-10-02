@@ -252,6 +252,11 @@ public class Discovery {
                     additionally require the id and token fields, which are supplied in the response to the original
                     registration.
                     """)
+    @RequestBody(
+            content =
+                    @Content(
+                            mediaType = MediaType.APPLICATION_JSON,
+                            schema = @Schema(implementation = PluginRegistrationRequest.class)))
     public PluginRegistration register(@Context RoutingContext ctx, JsonObject body)
             throws SchedulerException {
         String pluginId = body.getString("id");
@@ -1551,6 +1556,21 @@ public class Discovery {
             List<DiscoveryNode> nodes,
             DiscoveryFillStrategy fillStrategy,
             Map<String, String> context) {}
+
+    /**
+     * The {@code register} endpoint reads its body as a raw {@link JsonObject}, which the OpenAPI
+     * scanner would otherwise render as an array of map entries. {@code id} and {@code token} are
+     * supplied only when refreshing an existing registration.
+     */
+    @Schema(
+            name = "PluginRegistrationRequest",
+            description = "A discovery plugin registration or registration refresh",
+            requiredProperties = {"realm", "callback"})
+    static record PluginRegistrationRequest(
+            @Schema(implementation = UUID.class) String id,
+            String token,
+            @Schema(pattern = "\\S") String realm,
+            @Schema(pattern = "\\S") String callback) {}
 
     @Schema(
             name = "AgentCredentialRequest",

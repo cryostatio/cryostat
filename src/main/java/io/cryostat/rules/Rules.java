@@ -168,6 +168,11 @@ public class Rules {
                     """
                     Update Automated Rule parameters, such as whether the rule is currently active or not.
                     """)
+    @RequestBody(
+            content =
+                    @Content(
+                            mediaType = MediaType.APPLICATION_JSON,
+                            schema = @Schema(implementation = RuleUpdateRequest.class)))
     public Rule update(
             @RestPath String name,
             @QueryParam("clean") @DefaultValue("false") boolean clean,
@@ -306,6 +311,28 @@ public class Rules {
             description = "Recording metadata as accepted in request bodies",
             requiredProperties = {"labels"})
     record MetadataRequest(Map<String, String> labels) {}
+
+    /**
+     * The {@code update} endpoint reads its body as a raw {@link JsonObject}, which the OpenAPI
+     * scanner would otherwise render as an array of map entries. Every property is optional: only
+     * the keys actually present are applied. {@code name} may be sent but must match the existing
+     * rule, as rules cannot be renamed.
+     */
+    @Schema(
+            name = "RuleUpdateRequest",
+            description = "A partial update to an existing Automated Rule")
+    record RuleUpdateRequest(
+            @Schema(pattern = "\\S") String name,
+            String description,
+            MatchExpression matchExpression,
+            @Schema(pattern = "\\S") String eventSpecifier,
+            @Schema(minimum = "0") Integer archivalPeriodSeconds,
+            @Schema(minimum = "0") Integer initialDelaySeconds,
+            @Schema(minimum = "0") Integer preservedArchives,
+            @Schema(minimum = "-1") Integer maxAgeSeconds,
+            @Schema(minimum = "-1") Integer maxSizeBytes,
+            MetadataRequest metadata,
+            Boolean enabled) {}
 
     @Schema(
             name = "RuleRequest",

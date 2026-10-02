@@ -59,6 +59,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.openapi.annotations.Operation;
+import org.eclipse.microprofile.openapi.annotations.enums.SchemaType;
 import org.eclipse.microprofile.openapi.annotations.media.Schema;
 import org.eclipse.microprofile.openapi.annotations.parameters.Parameter;
 import org.jboss.logging.Logger;
@@ -125,7 +126,17 @@ public class ArchivedRecordings {
                     """)
     public Map<String, Object> upload(
             @Parameter(required = true) @RestForm("recording") FileUpload recording,
-            @Parameter(required = false) @RestForm("labels") JsonObject rawLabels)
+            @Parameter(required = false)
+                    @RestForm("labels")
+                    @Schema(
+                            type = SchemaType.STRING,
+                            description =
+                                    """
+                                    A JSON object of string key-value labels, sent as the raw text of
+                                    the form field.
+                                    """,
+                            examples = {"{\"key\":\"value\"}"})
+                    JsonObject rawLabels)
             throws Exception {
         Map<String, String> labels = new HashMap<>();
         if (rawLabels != null) {
@@ -153,7 +164,17 @@ public class ArchivedRecordings {
     public void agentPush(
             @Parameter(required = true) @RestPath String jvmId,
             @Parameter(required = true) @RestForm("recording") FileUpload recording,
-            @Parameter(required = false) @RestForm("labels") JsonObject rawLabels,
+            @Parameter(required = false)
+                    @RestForm("labels")
+                    @Schema(
+                            type = SchemaType.STRING,
+                            description =
+                                    """
+                                    A JSON object of string key-value labels, sent as the raw text of
+                                    the form field.
+                                    """,
+                            examples = {"{\"key\":\"value\"}"})
+                    JsonObject rawLabels,
             @Parameter(
                             required = false,
                             description =
