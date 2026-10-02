@@ -140,6 +140,7 @@ public class Target extends PanacheEntity {
     public DiscoveryNode discoveryNode;
 
     @JsonProperty(access = JsonProperty.Access.READ_ONLY)
+    @Schema(required = true)
     public boolean isAgent() {
         return AgentConnection.isAgentConnection(connectUrl);
     }
