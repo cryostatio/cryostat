@@ -53,6 +53,7 @@ import jakarta.ws.rs.GET;
 import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
+import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.HttpHeaders;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
@@ -455,8 +456,8 @@ public class ArchivedRecordings {
                     Upload an archived recording to the jfr-datasource for later online analysis in the associated
                     Grafana dashboard.
                     """)
-    public String uploadArchivedToGrafana(HttpServerResponse response, @RestPath String encodedKey)
-            throws Exception {
+    public String uploadArchivedToGrafana(
+            @Context HttpServerResponse response, @RestPath String encodedKey) throws Exception {
         var pair = recordingHelper.decodedKey(encodedKey);
         recordingHelper.assertArchivedRecordingExists(pair.getKey(), pair.getValue());
         // Send an intermediate response back to the client while another thread handles the upload

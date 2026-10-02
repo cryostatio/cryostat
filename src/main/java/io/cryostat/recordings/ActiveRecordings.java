@@ -145,7 +145,7 @@ public class ActiveRecordings {
                     sending the request body "save". The body is case-insensitive.
                     """)
     public String patch(
-            HttpServerResponse response,
+            @Context HttpServerResponse response,
             @RestPath long targetId,
             @RestPath long remoteId,
             String body)
@@ -310,7 +310,7 @@ public class ActiveRecordings {
                     in the associated Grafana dashboard.
                     """)
     public String uploadToGrafana(
-            HttpServerResponse response, @RestPath long targetId, @RestPath long remoteId)
+            @Context HttpServerResponse response, @RestPath long targetId, @RestPath long remoteId)
             throws Exception {
         // Send an intermediate response back to the client while another thread handles the upload
         // request
