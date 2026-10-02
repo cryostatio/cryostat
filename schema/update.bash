@@ -1,58 +1,99 @@
 #!/usr/bin/env bash
 
-set -x
+# Regenerates the committed API schema documents.
+#
+# A single application build feeds all three generators, which then run concurrently:
+#   - OpenAPI       reads target/generated/openapi.yaml, written during augmentation
+#   - GraphQL       reads target/classes
+#   - Notifications resolves types against target/classes and target/quarkus-app/lib/main
+
+set -euo pipefail
 
 DIR="$(dirname "$(readlink -f "$0")")"
+ROOT="$(dirname "${DIR}")"
+MVNW="${ROOT}/mvnw"
 
-if ! command -v http && ! command -v wget; then
-    echo "No HTTPie or wget?"
+if ! command -v yq > /dev/null; then
+    echo "yq is required to normalize the OpenAPI document" >&2
     exit 1
 fi
 
-"${DIR}"/../mvnw -B \
+LOGS="$(mktemp -d)"
+trap 'rm -rf "${LOGS}"' EXIT
+
+echo "Resolving build versions..."
+DEPS="$(mktemp)"
+trap 'rm -rf "${LOGS}" "${DEPS}"' EXIT
+"${MVNW}" -B -q dependency:list \
+    -DincludeGroupIds=io.smallrye \
+    -DincludeArtifactIds=smallrye-graphql \
+    -DoutputFile="${DEPS}"
+SMALLRYE_GRAPHQL_VERSION="$(sed -n 's/.*io\.smallrye:smallrye-graphql:jar:\([^:[:space:]]*\).*/\1/p' "${DEPS}" | head -1)"
+if [ -z "${SMALLRYE_GRAPHQL_VERSION}" ]; then
+    echo "Could not determine the io.smallrye:smallrye-graphql version" >&2
+    exit 1
+fi
+CRYOSTAT_VERSION="$("${MVNW}" -B -q -DforceStdout help:evaluate -Dexpression=project.version)"
+export CRYOSTAT_VERSION
+echo "Cryostat ${CRYOSTAT_VERSION}, smallrye-graphql-maven-plugin ${SMALLRYE_GRAPHQL_VERSION}"
+
+echo "Building application..."
+"${MVNW}" -B \
     -Dquarkus.quinoa=false \
-    -Dquarkus.log.level=warn \
-    -Dquarkus.http.access-log.enabled=false \
-    -Dquarkus.hibernate-orm.log.sql=false \
     -Dmaven.test.skip \
     -Dspotless.check.skip \
+    -Dspotbugs.skip \
+    -Dquarkus.smallrye-openapi.store-schema-directory=target/generated \
     -Dquarkus.smallrye-openapi.info-title="Cryostat API" \
-    clean quarkus:generate-code compile test-compile quarkus:dev &
+    clean package
 
-pid="$!"
-function cleanup() {
-    kill $pid || true
+generate_openapi() {
+    yq -P 'del(.servers) | sort_keys(..)' "${ROOT}/target/generated/openapi.yaml" > "${DIR}/openapi.yaml"
 }
-trap cleanup EXIT
-set +e
-sleep "${1:-30}"
-counter=0
-while true; do
-    if [ "${counter}" -gt "${MAX_REPEATS:-60}" ]; then
-        exit 1
-    fi
-    if command -v http; then
-        if http :8181/health/liveness; then
-            break
-        else
-            counter=$((counter + 1))
-            sleep "${2:-10}"
-        fi
-    elif command -v wget; then
-        if wget --tries=1 --spider http://localhost:8181/health/liveness; then
-            break
-        else
-            counter=$((counter + 1))
-            sleep "${2:-10}"
-        fi
-    fi
-done
-if command -v http; then
-    http --pretty=format --body :8181/api | yq -P 'sort_keys(..)' > "${DIR}/openapi.yaml"
-    http --pretty=format --body :8181/api/v4/graphql/schema.graphql > "${DIR}/schema.graphql"
-elif command -v wget; then
-    wget http://localhost:8181/api -O - | yq -P 'sort_keys(..)' > "${DIR}/openapi.yaml"
-    wget http://localhost:8181/api/v4/graphql/schema.graphql -O "${DIR}/schema.graphql"
-fi
 
-"${DIR}"/generate-notifications.bash || true
+generate_graphql() {
+    # The plugin indexes target/classes by default; dependency jars must be opted in so
+    # that types from libcryostat and cryostat-core resolve.
+    "${MVNW}" -B "io.smallrye:smallrye-graphql-maven-plugin:${SMALLRYE_GRAPHQL_VERSION}:generate-schema" \
+        -DincludeDependencies=true \
+        -DincludeDependenciesScopes=compile,system,runtime,provided
+    cp "${ROOT}/target/generated/schema.graphql" "${DIR}/schema.graphql"
+}
+
+generate_notifications() {
+    SKIP_APP_BUILD=true "${DIR}/generate-notifications.bash"
+}
+
+pids=()
+names=()
+start() {
+    local name="$1"
+    shift
+    "$@" > "${LOGS}/${name}.log" 2>&1 &
+    pids+=("$!")
+    names+=("${name}")
+}
+
+echo "Generating schemas..."
+start openapi generate_openapi
+start graphql generate_graphql
+start notifications generate_notifications
+
+status=0
+for i in "${!pids[@]}"; do
+    name="${names[$i]}"
+    if wait "${pids[$i]}"; then
+        result="ok"
+    else
+        result="FAILED"
+        if [ "${name}" = "notifications" ]; then
+            result="FAILED (ignored)"
+        else
+            status=1
+        fi
+    fi
+    echo "=== ${name}: ${result} ==="
+    cat "${LOGS}/${name}.log"
+done
+
+exit "${status}"
