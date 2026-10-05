@@ -417,7 +417,7 @@ public class DiagnosticsHelper {
                 target, conn -> ((AgentConnection) conn).unifiedLogStatus(), uploadFailedTimeout);
     }
 
-    public Optional<UnifiedLogs.UnifiedLog> pullUnifiedLog(Target target) {
+    public Optional<UnifiedLogs.UnifiedLog> pullUnifiedLog(Target target) throws IOException {
         Optional<InputStream> streamOpt =
                 targetConnectionManager.executeConnectedTask(
                         target,
@@ -446,13 +446,9 @@ public class DiagnosticsHelper {
                 req = req.metadata(Map.of());
                 break;
             case BUCKET:
-                try {
-                    unifiedLogsMetadataService
-                            .get()
-                            .create(target.jvmId, filename, new Metadata(Map.of()));
-                } catch (IOException ioe) {
-                    log.warn(ioe);
-                }
+                unifiedLogsMetadataService
+                        .get()
+                        .create(target.jvmId, filename, new Metadata(Map.of()));
                 break;
             default:
                 throw new IllegalStateException();
@@ -598,7 +594,7 @@ public class DiagnosticsHelper {
                 metadata.orElse(new Metadata(Map.of())));
     }
 
-    public ThreadDump addThreadDump(Target target, String content) {
+    public ThreadDump addThreadDump(Target target, String content) throws IOException {
         String uuid = UUID.randomUUID().toString();
         log.tracev(
                 "Putting Thread dump into storage with key: {0}", storageKey(target.jvmId, uuid));
@@ -620,13 +616,7 @@ public class DiagnosticsHelper {
                 req = req.metadata(Map.of());
                 break;
             case BUCKET:
-                try {
-                    threadDumpsMetadataService
-                            .get()
-                            .create(target.jvmId, uuid, new Metadata(Map.of()));
-                } catch (IOException ioe) {
-                    log.warn(ioe);
-                }
+                threadDumpsMetadataService.get().create(target.jvmId, uuid, new Metadata(Map.of()));
                 break;
             default:
                 throw new IllegalStateException();
