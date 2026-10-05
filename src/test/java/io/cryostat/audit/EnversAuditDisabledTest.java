@@ -63,7 +63,7 @@ public class EnversAuditDisabledTest extends EnversAuditTestBase {
 
         JsonObject updateRule = createRuleJson(ruleName);
         updateRule.put("enabled", false);
-        updateRuleViaApi(ruleName, updateRule);
+        updateRuleViaApi(ruleId, updateRule);
 
         List<Object[]> auditRecords = queryAuditRecords(ruleId);
         MatcherAssert.assertThat(auditRecords, Matchers.empty());
@@ -77,7 +77,7 @@ public class EnversAuditDisabledTest extends EnversAuditTestBase {
         var response = createRuleViaApi(rule);
         UUID ruleId = UUID.fromString((String) response.get("id"));
 
-        deleteRuleViaApi(ruleName);
+        deleteRuleViaApi(ruleId);
 
         List<Object[]> auditRecords = queryAuditRecords(ruleId);
         MatcherAssert.assertThat(auditRecords, Matchers.empty());
@@ -97,13 +97,13 @@ public class EnversAuditDisabledTest extends EnversAuditTestBase {
         UUID ruleBId = UUID.fromString((String) responseB.get("id"));
 
         JsonObject updateRuleA = createRuleJson(ruleAName);
-        updateRuleViaApi(ruleAName, updateRuleA);
+        updateRuleViaApi(ruleAId, updateRuleA);
 
-        deleteRuleViaApi(ruleBName);
+        deleteRuleViaApi(ruleBId);
 
         JsonObject updateRuleA2 = createRuleJson(ruleAName);
         updateRuleA2.put("enabled", false);
-        updateRuleViaApi(ruleAName, updateRuleA2);
+        updateRuleViaApi(ruleAId, updateRuleA2);
 
         List<Object[]> auditRecordsA = queryAuditRecords(ruleAId);
         MatcherAssert.assertThat(auditRecordsA, Matchers.empty());

@@ -98,7 +98,7 @@ public class Reports {
 
     @GET
     @Blocking
-    @Path("/api/v4/reports/{encodedKey}")
+    @Path("/api/v5/reports/{encodedKey}")
     @PermissionsAllowed(value = "reports:read", inclusive = true)
     @Operation(
             summary = "Get an automated analysis report",
@@ -146,12 +146,12 @@ public class Reports {
         return Response.ok(request.id(), MediaType.TEXT_PLAIN)
                 .status(202)
                 .location(
-                        UriBuilder.fromUri(String.format("/api/v4/reports/%s", encodedKey)).build())
+                        UriBuilder.fromUri(String.format("/api/v5/reports/%s", encodedKey)).build())
                 .build();
     }
 
     @GET
-    @Path("/api/v4.1/reports_rules")
+    @Path("/api/v5/reports/rules")
     @PermissionsAllowed(value = "reports:read", inclusive = true)
     public Stream<ReportRule> listReportRules() {
         return RuleRegistry.getRules().stream()
@@ -162,7 +162,7 @@ public class Reports {
     @POST
     @Blocking
     @Transactional
-    @Path("/api/v4.1/targets/{targetId}/reports")
+    @Path("/api/v5/targets/{jvmId}/reports")
     @PermissionsAllowed(
             value = {
                 "targets:read",
@@ -183,12 +183,12 @@ public class Reports {
                     """)
     public Response analyze(
             HttpServerResponse resp,
-            @RestPath UUID targetId,
+            @RestPath String jvmId,
             @QueryParam("clean") @DefaultValue("true") boolean clean) {
         if (clean) {
             userAuthorizer.assertAuthorized("activerecordings", "delete");
         }
-        var target = Target.getTargetById(targetId);
+        var target = Target.getTargetByJvmId(jvmId).orElseThrow();
         var jobId = UUID.randomUUID().toString();
         resp.bodyEndHandler(
                 (v) -> {
@@ -212,14 +212,15 @@ public class Reports {
         return Response.ok(jobId, MediaType.TEXT_PLAIN)
                 .status(Response.Status.ACCEPTED)
                 .location(
-                        UriBuilder.fromUri(String.format("/api/v4.1/targets/%s/reports", targetId))
+                        UriBuilder.fromUri(
+                                        String.format("/api/v5/targets/%s/reports", target.jvmId))
                                 .build())
                 .build();
     }
 
     @GET
     @Blocking
-    @Path("/api/v4.1/targets/{targetId}/reports")
+    @Path("/api/v5/targets/{jvmId}/reports")
     @Produces(MediaType.APPLICATION_JSON)
     @PermissionsAllowed(value = "reports:read", inclusive = true)
     @Operation(
@@ -230,8 +231,8 @@ public class Reports {
                     report currently exists for the specified target then the response will be an HTTP 404 Not Found,
                     and automated analysis report generation will not be triggered.
                     """)
-    public Uni<RestResponse<Map<String, AnalysisResult>>> getCached(@RestPath UUID targetId) {
-        var target = Target.getTargetById(targetId);
+    public Uni<RestResponse<Map<String, AnalysisResult>>> getCached(@RestPath String jvmId) {
+        var target = Target.getTargetByJvmId(jvmId).orElseThrow();
         return reportAggregator
                 .getEntry(target.jvmId)
                 .onItem()
@@ -251,7 +252,7 @@ public class Reports {
 
     @GET
     @Blocking
-    @Path("/api/v4/targets/{targetId}/reports/{recordingId}")
+    @Path("/api/v5/targets/{jvmId}/reports/{recordingId}")
     @PermissionsAllowed(value = "reports:read", inclusive = true)
     @Operation(
             summary =
@@ -269,11 +270,11 @@ public class Reports {
     // TODO: Is there a cleaner way to accomplish this?
     public Response getActive(
             HttpServerResponse response,
-            @RestPath UUID targetId,
+            @RestPath String jvmId,
             @RestPath long recordingId,
             @QueryParam("filter") @DefaultValue("") String filter)
             throws Exception {
-        var target = Target.getTargetById(targetId);
+        var target = Target.getTargetByJvmId(jvmId).orElseThrow();
         var recording = target.getRecordingById(recordingId);
         if (recording == null) {
             throw new NotFoundException();
@@ -306,8 +307,8 @@ public class Reports {
                 .location(
                         UriBuilder.fromUri(
                                         String.format(
-                                                "/api/v4/targets/%s/reports/%d",
-                                                target.id, recordingId))
+                                                "/api/v5/targets/%s/reports/%d",
+                                                target.jvmId, recordingId))
                                 .build())
                 .build();
     }

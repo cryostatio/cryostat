@@ -50,9 +50,9 @@ public class AgentExternalRecordingAlreadyStoppedTest extends AgentTestBase {
         var response =
                 given().log()
                         .all()
-                        .pathParams("targetId", target.id())
+                        .pathParams("jvmId", target.jvmId())
                         .when()
-                        .get("/api/v4/targets/{targetId}/recordings")
+                        .get("/api/v5/targets/{jvmId}/recordings")
                         .then()
                         .log()
                         .all()

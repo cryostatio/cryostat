@@ -18,7 +18,6 @@ package io.cryostat.recordings;
 import static io.restassured.RestAssured.given;
 
 import java.util.Map;
-import java.util.UUID;
 
 import io.cryostat.AbstractTransactionalTestBase;
 import io.cryostat.resources.S3StorageResource;
@@ -44,11 +43,11 @@ public class SnapshotsTest extends AbstractTransactionalTestBase {
 
     @Test
     void testNoSource() {
-        UUID id = defineSelfCustomTarget();
+        defineSelfCustomTarget();
         given().log()
                 .all()
                 .when()
-                .pathParams(Map.of("targetId", id))
+                .pathParam("jvmId", selfJvmId)
                 .post()
                 .then()
                 .log()
@@ -63,7 +62,7 @@ public class SnapshotsTest extends AbstractTransactionalTestBase {
         given().log()
                 .all()
                 .when()
-                .pathParams(Map.of("targetId", UUID.randomUUID()))
+                .pathParams(Map.of("jvmId", "invalid-jvm-id"))
                 .post()
                 .then()
                 .log()
@@ -75,7 +74,7 @@ public class SnapshotsTest extends AbstractTransactionalTestBase {
 
     @Test
     void testWithSource() throws SchedulerException {
-        UUID targetId = defineSelfCustomTarget();
+        defineSelfCustomTarget();
 
         // defining the target schedules a target-update job which fires one second later and syncs
         // recording state back from the target, mutating the metadata asserted on below. Nothing
@@ -87,8 +86,8 @@ public class SnapshotsTest extends AbstractTransactionalTestBase {
         given().log()
                 .all()
                 .when()
-                .basePath("/api/v4/targets/{targetId}/recordings")
-                .pathParams(Map.of("targetId", targetId))
+                .basePath("/api/v5/targets/{jvmId}/recordings")
+                .pathParams(Map.of("jvmId", selfJvmId))
                 .get()
                 .then()
                 .log()
@@ -104,8 +103,8 @@ public class SnapshotsTest extends AbstractTransactionalTestBase {
                 given().log()
                         .all()
                         .when()
-                        .basePath("/api/v4/targets/{targetId}/recordings")
-                        .pathParams(Map.of("targetId", targetId))
+                        .basePath("/api/v5/targets/{jvmId}/recordings")
+                        .pathParam("jvmId", selfJvmId)
                         .formParam("recordingName", "snapshotsTest")
                         .formParam("events", "template=Continuous")
                         .post()
@@ -146,7 +145,7 @@ public class SnapshotsTest extends AbstractTransactionalTestBase {
                 given().log()
                         .all()
                         .when()
-                        .pathParams(Map.of("targetId", targetId))
+                        .pathParam("jvmId", selfJvmId)
                         .post()
                         .then()
                         .log()
@@ -182,8 +181,8 @@ public class SnapshotsTest extends AbstractTransactionalTestBase {
         given().log()
                 .all()
                 .when()
-                .basePath("/api/v4/targets/{targetId}/recordings")
-                .pathParams(Map.of("targetId", targetId))
+                .basePath("/api/v5/targets/{jvmId}/recordings")
+                .pathParams(Map.of("jvmId", selfJvmId))
                 .get()
                 .then()
                 .log()
@@ -238,8 +237,8 @@ public class SnapshotsTest extends AbstractTransactionalTestBase {
         given().log()
                 .all()
                 .when()
-                .basePath("/api/v4/targets/{targetId}/recordings")
-                .pathParams(Map.of("targetId", targetId))
+                .basePath("/api/v5/targets/{jvmId}/recordings")
+                .pathParams(Map.of("jvmId", selfJvmId))
                 .delete(Integer.toString(recordingId))
                 .then()
                 .log()
@@ -251,8 +250,8 @@ public class SnapshotsTest extends AbstractTransactionalTestBase {
         given().log()
                 .all()
                 .when()
-                .basePath("/api/v4/targets/{targetId}/recordings")
-                .pathParams(Map.of("targetId", targetId))
+                .basePath("/api/v5/targets/{jvmId}/recordings")
+                .pathParams(Map.of("jvmId", selfJvmId))
                 .delete(Integer.toString(snapshotId))
                 .then()
                 .log()

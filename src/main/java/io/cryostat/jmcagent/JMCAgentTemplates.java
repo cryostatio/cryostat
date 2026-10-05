@@ -44,7 +44,7 @@ import org.jboss.resteasy.reactive.RestResponse.ResponseBuilder;
 import org.jboss.resteasy.reactive.multipart.FileUpload;
 import org.xml.sax.SAXException;
 
-@Path("/api/v4/probes")
+@Path("/api/v5/jmc-agent/probe-templates")
 public class JMCAgentTemplates {
 
     @Inject Logger logger;

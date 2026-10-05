@@ -18,7 +18,6 @@ package io.cryostat.recordings;
 import static io.restassured.RestAssured.given;
 
 import java.util.Map;
-import java.util.UUID;
 
 import io.cryostat.AbstractTransactionalTestBase;
 import io.cryostat.resources.S3StorageResource;
@@ -36,13 +35,13 @@ public class ActiveRecordingsDownloadTest extends AbstractTransactionalTestBase 
 
     @Test
     void testCreateDownloadAndDelete() throws InterruptedException {
-        UUID targetId = defineSelfCustomTarget();
+        defineSelfCustomTarget();
         var json =
                 given().log()
                         .all()
                         .when()
-                        .basePath("/api/v4/targets/{targetId}/recordings")
-                        .pathParams(Map.of("targetId", targetId))
+                        .basePath("/api/v5/targets/{jvmId}/recordings")
+                        .pathParams(Map.of("jvmId", selfJvmId))
                         .formParam("recordingName", "activeRecordingsDownloadTest")
                         .formParam("events", "template=Continuous")
                         .post()
@@ -57,7 +56,8 @@ public class ActiveRecordingsDownloadTest extends AbstractTransactionalTestBase 
         given().log()
                 .all()
                 .when()
-                .pathParams(Map.of("targetId", targetId))
+                .basePath("/api/v5/targets/{jvmId}/recordings")
+                .pathParams(Map.of("jvmId", selfJvmId))
                 .get(Integer.toString(json.getInt("remoteId")))
                 .then()
                 .log()
@@ -70,8 +70,8 @@ public class ActiveRecordingsDownloadTest extends AbstractTransactionalTestBase 
         given().log()
                 .all()
                 .when()
-                .basePath("/api/v4/targets/{targetId}/recordings")
-                .pathParams(Map.of("targetId", targetId))
+                .basePath("/api/v5/targets/{jvmId}/recordings")
+                .pathParams(Map.of("jvmId", selfJvmId))
                 .delete(Integer.toString(json.getInt("remoteId")))
                 .then()
                 .log()

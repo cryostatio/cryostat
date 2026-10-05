@@ -42,7 +42,7 @@ public class PresetRulesIT {
     @Test
     public void shouldListPresetRules() throws Exception {
         Response response =
-                given().when().get("/api/v4/rules").then().statusCode(200).extract().response();
+                given().when().get("/api/v5/rules").then().statusCode(200).extract().response();
 
         JsonArray list = new JsonArray(response.body().asString());
         MatcherAssert.assertThat(list.size(), Matchers.equalTo(RULE_NAMES.length));
@@ -55,7 +55,22 @@ public class PresetRulesIT {
     @ParameterizedTest
     @MethodSource("ruleNames")
     public void shouldHavePresetRules(String ruleName) throws Exception {
-        String url = String.format("/api/v4/rules/%s", ruleName);
+        // First, get all rules and find the one matching this name
+        Response listResponse =
+                given().when().get("/api/v5/rules").then().statusCode(200).extract().response();
+        JsonArray rulesList = new JsonArray(listResponse.body().asString());
+        String ruleId = null;
+        for (int i = 0; i < rulesList.size(); i++) {
+            JsonNode rule = new ObjectMapper().readTree(rulesList.getJsonObject(i).encode());
+            if (ruleName.equals(rule.get("name").asText())) {
+                ruleId = rule.get("id").asText();
+                break;
+            }
+        }
+        MatcherAssert.assertThat(
+                "Rule with name " + ruleName + " should exist", ruleId, Matchers.notNullValue());
+
+        String url = String.format("/api/v5/rules/%s", ruleId);
 
         Response response =
                 given().redirects()
