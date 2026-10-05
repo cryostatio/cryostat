@@ -1021,7 +1021,6 @@ components:
         matchExpression:
           $ref: '#/components/schemas/MatchExpression'
           pattern: \S
-          type: string
         maxAgeSeconds:
           format: int32
           minimum: -1
