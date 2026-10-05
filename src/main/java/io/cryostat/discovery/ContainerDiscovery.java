@@ -42,6 +42,7 @@ import io.cryostat.libcryostat.sys.FileSystem;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.Target.Annotations;
 import io.cryostat.targets.Target.EventKind;
+import io.cryostat.targets.TargetConnectionManager;
 import io.cryostat.util.URIUtil;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -375,6 +376,7 @@ public abstract class ContainerDiscovery {
         @Inject ObjectMapper mapper;
         @Inject EventBus bus;
         @Inject URIUtil uriUtil;
+        @Inject TargetConnectionManager connectionManager;
         @Inject Logger logger;
 
         private JobExecutionContext context;
@@ -535,6 +537,14 @@ public abstract class ContainerDiscovery {
                                     hostname,
                                     "PORT", // "AnnotationKey.PORT,
                                     Integer.toString(jmxPort)));
+
+            try {
+                target.jvmId = connectionManager.getJvmId(target);
+            } catch (Exception e) {
+                logger.warnv(
+                        e, "Failed to retrieve JVM ID for {0} container {1}", getRealm(), desc.Id);
+                return null;
+            }
 
             return target;
         }

@@ -42,6 +42,7 @@ import io.cryostat.libcryostat.sys.FileSystem;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.Target.Annotations;
 import io.cryostat.targets.Target.EventKind;
+import io.cryostat.targets.TargetConnectionManager;
 
 import io.fabric8.kubernetes.api.model.HasMetadata;
 import io.fabric8.kubernetes.api.model.Namespace;
@@ -145,6 +146,8 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
     @Inject EventBus bus;
 
     @Inject EntityManager entityManager;
+
+    @Inject TargetConnectionManager connectionManager;
 
     @ConfigProperty(name = "cryostat.discovery.kubernetes.enabled")
     boolean enabled;
@@ -1632,6 +1635,13 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
         target.labels = new HashMap<>(targetDto.labels());
         target.annotations = targetDto.annotations();
 
+        try {
+            target.jvmId = connectionManager.getJvmId(target);
+        } catch (Exception e) {
+            logger.warnv(e, "Failed to retrieve JVM ID for Kubernetes target {0}", connectUrl);
+            return;
+        }
+
         // Link Target to its DiscoveryNode
         target.discoveryNode = leafNode;
         leafNode.target = target;
@@ -1849,6 +1859,17 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
                                         "CONDITION_TERMINATING",
                                         String.valueOf(
                                                 Boolean.TRUE.equals(conditions.getTerminating()))));
+
+                try {
+                    target.jvmId = connectionManager.getJvmId(target);
+                } catch (Exception e) {
+                    logger.warnv(
+                            e,
+                            "Failed to retrieve JVM ID for Kubernetes endpoint {0}:{1}",
+                            addr,
+                            port.getPort());
+                    return null;
+                }
 
                 return target;
             } catch (Exception e) {

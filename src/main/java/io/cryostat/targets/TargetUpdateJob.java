@@ -19,14 +19,12 @@ import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-import io.cryostat.core.net.JFRConnection;
 import io.cryostat.recordings.RecordingHelper;
 
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import jakarta.inject.Inject;
 import jakarta.persistence.NoResultException;
 import jakarta.persistence.PersistenceException;
-import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.hibernate.ObjectDeletedException;
 import org.jboss.logging.Logger;
@@ -36,16 +34,12 @@ import org.quartz.JobExecutionContext;
 import org.quartz.JobExecutionException;
 
 /**
- * Attempt to connect to a remote target JVM to retrieve {@link java.lang.management.RuntimeMXBean}
- * data and calculate the JVM hash ID.
- *
- * @see io.cryostat.target.Target
+ * Synchronize the activeRecordings state for a remote target JVM by querying the target connection.
  */
 @DisallowConcurrentExecution
 public class TargetUpdateJob implements Job {
 
     @Inject Logger logger;
-    @Inject TargetConnectionManager connectionManager;
     @Inject RecordingHelper recordingHelper;
     @Inject TargetUpdateService updateService;
     ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
@@ -57,7 +51,6 @@ public class TargetUpdateJob implements Job {
             Target target =
                     QuarkusTransaction.joiningExisting()
                             .call(() -> Target.getTargetById(UUID.fromString(targetIdStr)));
-            updateTargetJvmId(target);
             updateTargetRecordings(target);
         } catch (Exception e) {
             boolean targetLost =
@@ -79,35 +72,6 @@ public class TargetUpdateJob implements Job {
             logger.warn(e);
             throw e;
         }
-    }
-
-    private void updateTargetJvmId(Target target) {
-        if (StringUtils.isNotBlank(target.jvmId)) {
-            return;
-        }
-        final String jvmId =
-                connectionManager
-                        .executeConnectedTask(
-                                QuarkusTransaction.joiningExisting()
-                                        .call(() -> Target.getTargetById(target.id)),
-                                JFRConnection::getJvmIdentifier)
-                        .getHash();
-        QuarkusTransaction.joiningExisting()
-                .run(
-                        () -> {
-                            Target t = Target.getTargetById(target.id);
-                            try {
-                                t.jvmId = jvmId;
-                                logger.debugv(
-                                        "Updated JVM ID for target {0} ({1}) = {2}",
-                                        target.connectUrl, target.alias, t.jvmId);
-                            } catch (Exception e) {
-                                t.jvmId = null;
-                                t.persist();
-                                logger.error(e);
-                                throw e;
-                            }
-                        });
     }
 
     private void updateTargetRecordings(Target target) {

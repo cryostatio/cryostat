@@ -29,6 +29,7 @@ import io.cryostat.core.net.discovery.JvmDiscoveryClient;
 import io.cryostat.core.net.discovery.JvmDiscoveryClient.JvmDiscoveryEvent;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.Target.Annotations;
+import io.cryostat.targets.TargetConnectionManager;
 import io.cryostat.util.URIUtil;
 
 import io.quarkus.runtime.ShutdownEvent;
@@ -62,6 +63,7 @@ public class JDPDiscovery implements Consumer<JvmDiscoveryEvent> {
     @Inject Vertx vertx;
     @Inject EventBus eventBus;
     @Inject URIUtil uriUtil;
+    @Inject TargetConnectionManager connectionManager;
 
     @ConfigProperty(name = "cryostat.discovery.jdp.enabled")
     boolean enabled;
@@ -130,6 +132,13 @@ public class JDPDiscovery implements Consumer<JvmDiscoveryEvent> {
                                         rmiTarget.getHost(),
                                         "PORT", // "AnnotationKey.PORT,
                                         Integer.toString(rmiTarget.getPort())));
+
+                try {
+                    target.jvmId = connectionManager.getJvmId(target);
+                } catch (Exception e) {
+                    logger.warnv(e, "Failed to retrieve JVM ID for JDP target {0}", connectUrl);
+                    return;
+                }
 
                 DiscoveryNode node = DiscoveryNode.target(target, NodeType.BaseNodeType.JVM);
 
