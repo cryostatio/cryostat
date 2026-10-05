@@ -44,7 +44,16 @@ public final class FormLabels {
             return labels;
         }
         try {
-            new JsonObject(rawLabels).getMap().forEach((k, v) -> labels.put(k, v.toString()));
+            new JsonObject(rawLabels)
+                    .getMap()
+                    .forEach(
+                            (k, v) -> {
+                                if (v == null) {
+                                    throw new BadRequestException(
+                                            String.format("label \"%s\" must not be null", k));
+                                }
+                                labels.put(k, v.toString());
+                            });
         } catch (DecodeException e) {
             throw new BadRequestException("labels must be a JSON object", e);
         }
