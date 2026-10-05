@@ -15,6 +15,7 @@
  */
 package io.cryostat.diagnostic;
 
+import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.time.Duration;
@@ -232,7 +233,7 @@ public class UnifiedLogs {
             inclusive = true)
     @Blocking
     @POST
-    public RestResponse<UnifiedLog> pullUnifiedLog(@RestPath long targetId) {
+    public RestResponse<UnifiedLog> pullUnifiedLog(@RestPath long targetId) throws IOException {
         Target target =
                 QuarkusTransaction.requiringNew().call(() -> Target.getTargetById(targetId));
         if (!target.isAgent()) {
