@@ -38,8 +38,8 @@ public abstract class EnversAuditTestBase extends AuditTestBase {
     @AfterEach
     void cleanup() {
         given().get().then().extract().body().jsonPath().getList("$", Map.class).stream()
-                .map(m -> (String) m.get("name"))
-                .forEach(name -> given().delete("/" + name));
+                .map(m -> (String) m.get("id"))
+                .forEach(id -> given().delete("/" + id));
     }
 
     protected JsonObject createRuleJson(String name) {
@@ -64,16 +64,16 @@ public abstract class EnversAuditTestBase extends AuditTestBase {
                 .as(Map.class);
     }
 
-    protected void updateRuleViaApi(String ruleName, JsonObject updateJson) {
+    protected void updateRuleViaApi(UUID id, JsonObject updateJson) {
         given().body(updateJson.toString())
                 .contentType(ContentType.JSON)
-                .patch("/" + ruleName)
+                .patch(id.toString())
                 .then()
                 .statusCode(200);
     }
 
-    protected void deleteRuleViaApi(String ruleName) {
-        given().delete("/" + ruleName).then().statusCode(204);
+    protected void deleteRuleViaApi(UUID id) {
+        given().delete(id.toString()).then().statusCode(204);
     }
 
     @SuppressWarnings("unchecked")

@@ -21,11 +21,9 @@ import java.util.List;
 import java.util.UUID;
 
 import io.cryostat.audit.AuditTestBase;
-import io.cryostat.diagnostic.Diagnostics;
 import io.cryostat.diagnostic.GarbageCollection;
 import io.cryostat.targets.Target;
 
-import io.quarkus.test.common.http.TestHTTPEndpoint;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.TestProfile;
 import jakarta.inject.Inject;
@@ -38,7 +36,6 @@ import org.junit.jupiter.api.Test;
 
 @QuarkusTest
 @TestProfile(GarbageCollectionTest.class)
-@TestHTTPEndpoint(Diagnostics.class)
 public class GarbageCollectionTest extends AuditTestBase {
 
     @Inject EntityManager em;
@@ -50,8 +47,8 @@ public class GarbageCollectionTest extends AuditTestBase {
         given().log()
                 .all()
                 .when()
-                .pathParam("targetId", targetId)
-                .post("targets/{targetId}/gc")
+                .pathParam("jvmId", selfJvmId)
+                .post("/api/v5/targets/{jvmId}/diagnostics/gc")
                 .then()
                 .log()
                 .all()
@@ -83,8 +80,8 @@ public class GarbageCollectionTest extends AuditTestBase {
         given().log()
                 .all()
                 .when()
-                .pathParam("targetId", targetId)
-                .post("targets/{targetId}/gc")
+                .pathParam("jvmId", selfJvmId)
+                .post("/api/v5/targets/{jvmId}/diagnostics/gc")
                 .then()
                 .log()
                 .all()
@@ -119,8 +116,8 @@ public class GarbageCollectionTest extends AuditTestBase {
         given().log()
                 .all()
                 .when()
-                .pathParam("targetId", targetId)
-                .post("targets/{targetId}/gc")
+                .pathParam("jvmId", selfJvmId)
+                .post("/api/v5/targets/{jvmId}/diagnostics/gc")
                 .then()
                 .log()
                 .all()
@@ -151,12 +148,11 @@ public class GarbageCollectionTest extends AuditTestBase {
     @Test
     public void testGcEntityHasCorrectTargetReference() {
         UUID targetId = defineSelfCustomTarget();
-
         given().log()
                 .all()
                 .when()
-                .pathParam("targetId", targetId)
-                .post("targets/{targetId}/gc")
+                .pathParam("jvmId", selfJvmId)
+                .post("/api/v5/targets/{jvmId}/diagnostics/gc")
                 .then()
                 .log()
                 .all()
@@ -186,8 +182,8 @@ public class GarbageCollectionTest extends AuditTestBase {
             given().log()
                     .all()
                     .when()
-                    .pathParam("targetId", targetId)
-                    .post("targets/{targetId}/gc")
+                    .pathParam("jvmId", selfJvmId)
+                    .post("/api/v5/targets/{jvmId}/diagnostics/gc")
                     .then()
                     .log()
                     .all()
@@ -220,8 +216,8 @@ public class GarbageCollectionTest extends AuditTestBase {
         given().log()
                 .all()
                 .when()
-                .pathParam("targetId", UUID.randomUUID())
-                .post("targets/{targetId}/gc")
+                .pathParam("jvmId", UUID.randomUUID().toString())
+                .post("/api/v5/targets/{jvmId}/diagnostics/gc")
                 .then()
                 .log()
                 .all()
@@ -236,7 +232,7 @@ public class GarbageCollectionTest extends AuditTestBase {
     @Transactional
     public void testGcEntityPersistence() {
         UUID targetId = defineSelfCustomTarget();
-        Target target = Target.getTargetById(targetId);
+        Target target = Target.getTargetByJvmId(selfJvmId).orElseThrow();
 
         GarbageCollection gc = GarbageCollection.of(target);
         gc.persist();
@@ -258,8 +254,8 @@ public class GarbageCollectionTest extends AuditTestBase {
         given().log()
                 .all()
                 .when()
-                .pathParam("targetId", targetId)
-                .post("targets/{targetId}/gc")
+                .pathParam("jvmId", selfJvmId)
+                .post("/api/v5/targets/{jvmId}/diagnostics/gc")
                 .then()
                 .log()
                 .all()
@@ -278,7 +274,7 @@ public class GarbageCollectionTest extends AuditTestBase {
                         .queryParam("endTime", endTime)
                         .queryParam("pageSize", 10)
                         .when()
-                        .get("/api/beta/audit/revisions")
+                        .get("/api/v5/audit/revisions")
                         .then()
                         .log()
                         .all()
@@ -295,7 +291,7 @@ public class GarbageCollectionTest extends AuditTestBase {
                 .log()
                 .all()
                 .when()
-                .get("/api/beta/audit/revisions/{rev}", revisionNumber)
+                .get("/api/v5/audit/revisions/{rev}", revisionNumber)
                 .then()
                 .log()
                 .all()

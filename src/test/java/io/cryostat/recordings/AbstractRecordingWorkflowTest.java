@@ -58,8 +58,8 @@ public abstract class AbstractRecordingWorkflowTest extends AbstractTransactiona
                 given().log()
                         .all()
                         .when()
-                        .basePath("/api/v4/targets/{targetId}/recordings")
-                        .pathParam("targetId", selfId)
+                        .basePath("/api/v5/targets/{jvmId}/recordings")
+                        .pathParam("jvmId", selfJvmId)
                         .get()
                         .then()
                         .log()
@@ -75,8 +75,8 @@ public abstract class AbstractRecordingWorkflowTest extends AbstractTransactiona
         given().log()
                 .all()
                 .when()
-                .basePath("/api/v4/targets/{targetId}/recordings")
-                .pathParam("targetId", selfId)
+                .basePath("/api/v5/targets/{jvmId}/recordings")
+                .pathParam("jvmId", selfJvmId)
                 .formParam("recordingName", TEST_RECORDING_NAME)
                 .formParam("duration", "20")
                 .formParam("events", "template=ALL")
@@ -96,8 +96,8 @@ public abstract class AbstractRecordingWorkflowTest extends AbstractTransactiona
                 given().log()
                         .all()
                         .when()
-                        .basePath("/api/v4/targets/{targetId}/recordings")
-                        .pathParam("targetId", selfId)
+                        .basePath("/api/v5/targets/{jvmId}/recordings")
+                        .pathParam("jvmId", selfJvmId)
                         .get()
                         .then()
                         .log()
@@ -124,8 +124,8 @@ public abstract class AbstractRecordingWorkflowTest extends AbstractTransactiona
         given().log()
                 .all()
                 .when()
-                .basePath("/api/v4/targets/{targetId}/recordings/{remoteId}")
-                .pathParam("targetId", selfId)
+                .basePath("/api/v5/targets/{jvmId}/recordings/{remoteId}")
+                .pathParam("jvmId", selfJvmId)
                 .pathParam("remoteId", remoteId)
                 .contentType(HttpMimeType.PLAINTEXT.mime())
                 .body("SAVE")
@@ -148,8 +148,8 @@ public abstract class AbstractRecordingWorkflowTest extends AbstractTransactiona
                 given().log()
                         .all()
                         .when()
-                        .basePath("/api/v4/targets/{targetId}/recordings")
-                        .pathParam("targetId", selfId)
+                        .basePath("/api/v5/targets/{jvmId}/recordings")
+                        .pathParam("jvmId", selfJvmId)
                         .get()
                         .then()
                         .log()
@@ -175,7 +175,7 @@ public abstract class AbstractRecordingWorkflowTest extends AbstractTransactiona
                 given().log()
                         .all()
                         .when()
-                        .basePath("/api/v4/recordings")
+                        .basePath("/api/v5/recordings")
                         .get()
                         .then()
                         .log()
@@ -191,7 +191,8 @@ public abstract class AbstractRecordingWorkflowTest extends AbstractTransactiona
                 "list-saved should have size 1 after recording save",
                 archivedList.size(),
                 Matchers.equalTo(1));
-        JsonObject archivedRecordingInfo = archivedList.getJsonObject(0);
+        JsonObject archivedRecordingInfo =
+                archivedList.getJsonObject(0).getJsonArray("recordings").getJsonObject(0);
         String archivedRecordingName = archivedRecordingInfo.getString("name");
         MatcherAssert.assertThat(
                 archivedRecordingName,
@@ -213,8 +214,8 @@ public abstract class AbstractRecordingWorkflowTest extends AbstractTransactiona
                 given().log()
                         .all()
                         .when()
-                        .basePath("/api/v4/targets/{targetId}/recordings")
-                        .pathParam("targetId", selfId)
+                        .basePath("/api/v5/targets/{jvmId}/recordings")
+                        .pathParam("jvmId", selfJvmId)
                         .get()
                         .then()
                         .log()

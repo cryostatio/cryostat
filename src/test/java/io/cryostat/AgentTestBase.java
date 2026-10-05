@@ -189,7 +189,7 @@ public abstract class AgentTestBase extends AbstractTestBase {
                                     given().log()
                                             .all()
                                             .when()
-                                            .get("/api/v4/targets")
+                                            .get("/api/v5/targets")
                                             .then()
                                             .log()
                                             .all()
@@ -265,10 +265,10 @@ public abstract class AgentTestBase extends AbstractTestBase {
         }
     }
 
-    protected void triggerGcAndWait(String targetId) throws InterruptedException {
-        given().pathParam("targetId", targetId)
+    protected void triggerGcAndWait(String jvmId) throws InterruptedException {
+        given().pathParam("jvmId", jvmId)
                 .when()
-                .post("/api/beta/diagnostics/targets/{targetId}/gc")
+                .post("/api/v5/targets/{jvmId}/diagnostics/gc")
                 .then()
                 .assertThat()
                 .statusCode(204);

@@ -53,7 +53,7 @@ public class AuditCacheControlFilterTest extends AuditTestBase {
         given().log()
                 .all()
                 .when()
-                .get("target_lineage/{jvmId}", selfJvmId)
+                .get("target-lineage/{jvmId}", selfJvmId)
                 .then()
                 .log()
                 .all()

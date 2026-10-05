@@ -145,7 +145,7 @@ public class UnifiedLogsGraphQLTest extends AgentTestBase {
         generateWorkloadActivity(Duration.ofSeconds(3), Duration.ofMillis(100));
 
         // Trigger GC to create log entries
-        triggerGcAndWait(target.id());
+        triggerGcAndWait(target.jvmId());
 
         // Pull a unified log
         given().log()

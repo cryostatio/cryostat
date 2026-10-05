@@ -16,8 +16,6 @@
 
 package io.cryostat.recordings;
 
-import java.util.UUID;
-
 import io.cryostat.targets.Target;
 
 import io.quarkus.security.PermissionsAllowed;
@@ -30,7 +28,7 @@ import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.eclipse.microprofile.openapi.annotations.responses.APIResponse;
 import org.jboss.resteasy.reactive.RestPath;
 
-@Path("/api/v4.3/targets/{targetId}/recordings_sync")
+@Path("/api/v5/targets/{jvmId}/recordings-sync")
 public class RecordingSync {
 
     @Inject RecordingHelper recordingHelper;
@@ -38,7 +36,7 @@ public class RecordingSync {
     /**
      * Synchronizes Cryostat's active recording model with the specified target.
      *
-     * @param targetId the database identifier of the target to synchronize
+     * @param jvmId the identifier of the target to synchronize
      */
     @POST
     @Blocking
@@ -52,7 +50,7 @@ public class RecordingSync {
                     "Reconcile Cryostat's active recording model with the recordings present on the"
                             + " target.")
     @APIResponse(responseCode = "204", description = "Active recordings synchronized")
-    public void sync(@RestPath UUID targetId) {
-        recordingHelper.syncActiveRecordings(Target.getTargetById(targetId));
+    public void sync(@RestPath String jvmId) {
+        recordingHelper.syncActiveRecordings(Target.getTargetByJvmId(jvmId).orElseThrow());
     }
 }

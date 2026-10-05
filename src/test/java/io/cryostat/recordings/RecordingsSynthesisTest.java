@@ -29,6 +29,7 @@ import io.cryostat.AbstractTransactionalTestBase;
 import io.cryostat.resources.S3StorageResource;
 
 import io.quarkus.test.common.QuarkusTestResource;
+import io.quarkus.test.common.http.TestHTTPEndpoint;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
 import jakarta.inject.Inject;
@@ -37,6 +38,7 @@ import org.junit.jupiter.api.Test;
 
 @QuarkusTest
 @QuarkusTestResource(value = S3StorageResource.class, restrictToAnnotatedClass = true)
+@TestHTTPEndpoint(RecordingsSynthesis.class)
 public class RecordingsSynthesisTest extends AbstractTransactionalTestBase {
 
     @Inject RecordingHelper recordingHelper;
@@ -99,13 +101,13 @@ public class RecordingsSynthesisTest extends AbstractTransactionalTestBase {
     @Test
     void testFromTimestampEqualToToTimestampReturns400() {
         defineSelfCustomTarget();
-        given().basePath("/")
-                .log()
+        given().log()
                 .all()
+                .pathParam("jvmId", selfJvmId)
                 .queryParam("fromTimestamp", 1000L)
                 .queryParam("toTimestamp", 1000L)
                 .when()
-                .post("/api/beta/recording_synthesis/{jvmId}", selfJvmId)
+                .post()
                 .then()
                 .log()
                 .all()
@@ -116,13 +118,13 @@ public class RecordingsSynthesisTest extends AbstractTransactionalTestBase {
     @Test
     void testFromTimestampAfterToTimestampReturns400() {
         defineSelfCustomTarget();
-        given().basePath("/")
-                .log()
+        given().log()
                 .all()
+                .pathParam("jvmId", selfJvmId)
                 .queryParam("fromTimestamp", 2000L)
                 .queryParam("toTimestamp", 1000L)
                 .when()
-                .post("/api/beta/recording_synthesis/{jvmId}", selfJvmId)
+                .post()
                 .then()
                 .log()
                 .all()
@@ -137,13 +139,13 @@ public class RecordingsSynthesisTest extends AbstractTransactionalTestBase {
     @Test
     void testNoArchivesForJvmIdReturns400() {
         defineSelfCustomTarget();
-        given().basePath("/")
-                .log()
+        given().log()
                 .all()
+                .pathParam("jvmId", selfJvmId)
                 .queryParam("fromTimestamp", 1000L)
                 .queryParam("toTimestamp", 2000L)
                 .when()
-                .post("/api/beta/recording_synthesis/{jvmId}", selfJvmId)
+                .post()
                 .then()
                 .log()
                 .all()
@@ -170,13 +172,13 @@ public class RecordingsSynthesisTest extends AbstractTransactionalTestBase {
             Files.deleteIfExists(file);
         }
 
-        given().basePath("/")
-                .log()
+        given().log()
                 .all()
+                .pathParam("jvmId", selfJvmId)
                 .queryParam("fromTimestamp", 1000L)
                 .queryParam("toTimestamp", 2000L)
                 .when()
-                .post("/api/beta/recording_synthesis/{jvmId}", selfJvmId)
+                .post()
                 .then()
                 .log()
                 .all()
@@ -203,13 +205,13 @@ public class RecordingsSynthesisTest extends AbstractTransactionalTestBase {
             Files.deleteIfExists(file);
         }
 
-        given().basePath("/")
-                .log()
+        given().log()
                 .all()
+                .pathParam("jvmId", selfJvmId)
                 .queryParam("fromTimestamp", 1000L)
                 .queryParam("toTimestamp", 2000L)
                 .when()
-                .post("/api/beta/recording_synthesis/{jvmId}", selfJvmId)
+                .post()
                 .then()
                 .log()
                 .all()
@@ -240,13 +242,13 @@ public class RecordingsSynthesisTest extends AbstractTransactionalTestBase {
             Files.deleteIfExists(file);
         }
 
-        given().basePath("/")
-                .log()
+        given().log()
                 .all()
+                .pathParam("jvmId", selfJvmId)
                 .queryParam("fromTimestamp", 1000L)
                 .queryParam("toTimestamp", 2000L)
                 .when()
-                .post("/api/beta/recording_synthesis/{jvmId}", selfJvmId)
+                .post()
                 .then()
                 .log()
                 .all()
@@ -280,13 +282,13 @@ public class RecordingsSynthesisTest extends AbstractTransactionalTestBase {
             Files.deleteIfExists(file);
         }
 
-        given().basePath("/")
-                .log()
+        given().log()
                 .all()
+                .pathParam("jvmId", selfJvmId)
                 .queryParam("fromTimestamp", 1000L)
                 .queryParam("toTimestamp", 2000L)
                 .when()
-                .post("/api/beta/recording_synthesis/{jvmId}", selfJvmId)
+                .post()
                 .then()
                 .log()
                 .all()
@@ -331,13 +333,13 @@ public class RecordingsSynthesisTest extends AbstractTransactionalTestBase {
             Files.deleteIfExists(dense);
         }
 
-        given().basePath("/")
-                .log()
+        given().log()
                 .all()
+                .pathParam("jvmId", selfJvmId)
                 .queryParam("fromTimestamp", 1000L)
                 .queryParam("toTimestamp", 2000L)
                 .when()
-                .post("/api/beta/recording_synthesis/{jvmId}", selfJvmId)
+                .post()
                 .then()
                 .log()
                 .all()
@@ -370,13 +372,13 @@ public class RecordingsSynthesisTest extends AbstractTransactionalTestBase {
             Files.deleteIfExists(file);
         }
 
-        given().basePath("/")
-                .log()
+        given().log()
                 .all()
+                .pathParam("jvmId", selfJvmId)
                 .queryParam("fromTimestamp", 1000L)
                 .queryParam("toTimestamp", 2000L)
                 .when()
-                .post("/api/beta/recording_synthesis/{jvmId}", selfJvmId)
+                .post()
                 .then()
                 .log()
                 .all()
@@ -422,13 +424,13 @@ public class RecordingsSynthesisTest extends AbstractTransactionalTestBase {
             Files.deleteIfExists(file2);
         }
 
-        given().basePath("/")
-                .log()
+        given().log()
                 .all()
+                .pathParam("jvmId", selfJvmId)
                 .queryParam("fromTimestamp", 1000L)
                 .queryParam("toTimestamp", 2000L)
                 .when()
-                .post("/api/beta/recording_synthesis/{jvmId}", selfJvmId)
+                .post()
                 .then()
                 .log()
                 .all()
@@ -481,13 +483,13 @@ public class RecordingsSynthesisTest extends AbstractTransactionalTestBase {
             Files.deleteIfExists(inc2);
         }
 
-        given().basePath("/")
-                .log()
+        given().log()
                 .all()
+                .pathParam("jvmId", selfJvmId)
                 .queryParam("fromTimestamp", 1000L)
                 .queryParam("toTimestamp", 2000L)
                 .when()
-                .post("/api/beta/recording_synthesis/{jvmId}", selfJvmId)
+                .post()
                 .then()
                 .log()
                 .all()

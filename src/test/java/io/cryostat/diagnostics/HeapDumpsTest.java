@@ -17,14 +17,12 @@ package io.cryostat.diagnostics;
 
 import static io.restassured.RestAssured.given;
 
-import java.util.UUID;
+import java.util.Base64;
 
 import io.cryostat.AbstractTransactionalTestBase;
-import io.cryostat.diagnostic.Diagnostics;
 import io.cryostat.resources.S3StorageResource;
 
 import io.quarkus.test.common.QuarkusTestResource;
-import io.quarkus.test.common.http.TestHTTPEndpoint;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
 import org.hamcrest.Matchers;
@@ -32,24 +30,23 @@ import org.junit.jupiter.api.Test;
 
 @QuarkusTest
 @QuarkusTestResource(value = S3StorageResource.class, restrictToAnnotatedClass = true)
-@TestHTTPEndpoint(Diagnostics.class)
 public class HeapDumpsTest extends AbstractTransactionalTestBase {
 
     @Test
     public void testListNone() {
-        UUID id = defineSelfCustomTarget();
+        defineSelfCustomTarget();
         given().log()
                 .all()
                 .when()
-                .pathParam("targetId", id)
-                .get("targets/{targetId}/heapdump")
+                .pathParam("jvmId", selfJvmId)
+                .get("/api/v5/targets/{jvmId}/diagnostics/heap-dump")
                 .then()
                 .log()
                 .all()
                 .and()
                 .assertThat()
-                .contentType(ContentType.JSON)
                 .statusCode(200)
+                .contentType(ContentType.JSON)
                 .body("size()", Matchers.equalTo(0));
     }
 
@@ -58,25 +55,26 @@ public class HeapDumpsTest extends AbstractTransactionalTestBase {
         given().log()
                 .all()
                 .when()
-                .pathParam("targetId", UUID.randomUUID())
-                .get("targets/{targetId}/heapdump")
+                .pathParam("jvmId", "nonexistent")
+                .get("/api/v5/targets/{jvmId}/diagnostics/heap-dump")
                 .then()
                 .log()
                 .all()
                 .and()
                 .assertThat()
-                .statusCode(404);
+                .statusCode(200)
+                .body("$.size()", Matchers.equalTo(0));
     }
 
     @Test
     public void testDeleteInvalid() {
-        UUID id = defineSelfCustomTarget();
+        defineSelfCustomTarget();
         given().log()
                 .all()
                 .when()
-                .pathParam("targetId", id)
+                .pathParam("jvmId", selfJvmId)
                 .pathParam("heapDumpId", "foo")
-                .delete("targets/{targetId}/heapdump/{heapDumpId}")
+                .delete("/api/v5/targets/{jvmId}/diagnostics/heap-dump/{heapDumpId}")
                 .then()
                 .log()
                 .all()
@@ -87,21 +85,26 @@ public class HeapDumpsTest extends AbstractTransactionalTestBase {
 
     @Test
     public void testDownloadInvalid() {
+        String encodedKey = "abcd1234";
         given().log()
                 .all()
                 .when()
-                .get("/api/beta/diagnostics/heapdump/download/abcd1234")
+                .pathParam("encodedKey", encodedKey)
+                .get("/api/v5/diagnostics/heap-dump/download/{encodedKey}")
                 .then()
                 .assertThat()
-                .statusCode(404);
+                .statusCode(400);
     }
 
     @Test
     public void testDownloadNotFound() {
+        String encodedKey =
+                Base64.getEncoder().encodeToString(String.format("nonexistent/file").getBytes());
         given().log()
                 .all()
                 .when()
-                .get("/api/v4/download/Zm9vL2Jhcg==")
+                .pathParam("encodedKey", encodedKey)
+                .get("/api/v5/diagnostics/heap-dump/download/{encodedKey}")
                 .then()
                 .assertThat()
                 .statusCode(404);
@@ -114,7 +117,7 @@ public class HeapDumpsTest extends AbstractTransactionalTestBase {
                 .when()
                 .pathParam("jvmId", "bar")
                 .pathParam("heapDumpId", "foo")
-                .post("targets/{jvmId}/heapdump/{heapDumpId}/analyze")
+                .post("/api/v5/targets/{jvmId}/diagnostics/heap-dump/{heapDumpId}/analyze")
                 .then()
                 .assertThat()
                 .statusCode(404);

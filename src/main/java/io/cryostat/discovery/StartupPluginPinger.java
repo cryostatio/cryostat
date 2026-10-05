@@ -190,8 +190,10 @@ public class StartupPluginPinger {
                                                     () -> {
                                                         try {
                                                             JobKey jobKey =
-                                                                    Discovery.getPeriodicJobKey(
-                                                                            pluginData.id());
+                                                                    DiscoveryPlugins
+                                                                            .getPeriodicJobKey(
+                                                                                    pluginData
+                                                                                            .id());
                                                             if (!scheduler.checkExists(jobKey)) {
                                                                 logger.warnv(
                                                                         "Job not found for plugin"

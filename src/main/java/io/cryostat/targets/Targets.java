@@ -36,21 +36,21 @@ public class Targets {
     @Inject Logger logger;
 
     @GET
-    @Path("/api/v4/targets")
+    @Path("/api/v5/targets")
     @PermissionsAllowed(value = "targets:read", inclusive = true)
     @Operation(
             summary = "List currently discovered targets",
             description =
                     """
                     Get a list of the currently discovered targets. These are essentialy the same as the leaf nodes of
-                    the discovery tree. See 'GET /api/v4/discovery'.
+                    the discovery tree. See 'GET /api/v5/discovery'.
                     """)
     public List<Target> list() {
         return Target.listAll();
     }
 
     @GET
-    @Path("/api/v4/targets/{id}")
+    @Path("/api/v5/targets/{id}")
     @PermissionsAllowed(value = "targets:read", inclusive = true)
     @Operation(
             summary = "Get a target by ID",

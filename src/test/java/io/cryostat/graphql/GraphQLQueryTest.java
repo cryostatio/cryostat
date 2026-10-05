@@ -60,7 +60,7 @@ class GraphQLQueryTest extends AbstractGraphQLTestBase {
                 given().contentType(ContentType.JSON)
                         .body(query.encode())
                         .when()
-                        .post("/api/v4/graphql")
+                        .post("/api/v5/graphql")
                         .then()
                         .statusCode(allOf(greaterThanOrEqualTo(200), lessThan(300)))
                         .extract()
@@ -118,7 +118,7 @@ class GraphQLQueryTest extends AbstractGraphQLTestBase {
                 given().contentType(ContentType.JSON)
                         .body(query.encode())
                         .when()
-                        .post("/api/v4/graphql")
+                        .post("/api/v5/graphql")
                         .then()
                         .statusCode(allOf(greaterThanOrEqualTo(200), lessThan(300)))
                         .extract()
@@ -160,7 +160,7 @@ class GraphQLQueryTest extends AbstractGraphQLTestBase {
                 given().contentType(ContentType.JSON)
                         .body(query.encode())
                         .when()
-                        .post("/api/v4/graphql")
+                        .post("/api/v5/graphql")
                         .then()
                         .statusCode(allOf(greaterThanOrEqualTo(200), lessThan(300)))
                         .extract()
@@ -196,7 +196,7 @@ class GraphQLQueryTest extends AbstractGraphQLTestBase {
                 given().contentType(ContentType.JSON)
                         .body(query.encode())
                         .when()
-                        .post("/api/v4/graphql")
+                        .post("/api/v5/graphql")
                         .then()
                         .statusCode(allOf(greaterThanOrEqualTo(200), lessThan(300)))
                         .extract()
@@ -255,7 +255,7 @@ class GraphQLQueryTest extends AbstractGraphQLTestBase {
                 given().contentType(ContentType.JSON)
                         .body(query2.encode())
                         .when()
-                        .post("/api/v4/graphql")
+                        .post("/api/v5/graphql")
                         .then()
                         .statusCode(allOf(greaterThanOrEqualTo(200), lessThan(300)))
                         .extract()
@@ -313,7 +313,7 @@ class GraphQLQueryTest extends AbstractGraphQLTestBase {
                 given().contentType(ContentType.JSON)
                         .body(query1.encode())
                         .when()
-                        .post("/api/v4/graphql")
+                        .post("/api/v5/graphql")
                         .then()
                         .statusCode(allOf(greaterThanOrEqualTo(200), lessThan(300)))
                         .extract()
@@ -329,18 +329,41 @@ class GraphQLQueryTest extends AbstractGraphQLTestBase {
         assertThat(archivedRecordings, not(empty()));
         assertThat(archivedRecordings, hasSize(1));
 
-        // Retrieve archived recording name via REST API
+        String archivedRecordingName = archivedRecordings.get(0).name;
+
+        // Retrieve archived recording via REST API and verify it's in the correct directory
         Response archivedListResponse =
                 given().when()
-                        .get("/api/v4/recordings")
+                        .get("/api/v5/recordings")
                         .then()
                         .statusCode(200)
                         .extract()
                         .response();
         JsonArray retrievedArchivedRecordings =
                 new JsonArray(archivedListResponse.body().asString());
-        JsonObject retrievedArchivedRecording = retrievedArchivedRecordings.getJsonObject(0);
-        String retrievedArchivedRecordingsName = retrievedArchivedRecording.getString("name");
+        String retrievedArchivedRecordingsName =
+                retrievedArchivedRecordings.stream()
+                        .filter(o -> o instanceof JsonObject)
+                        .map(JsonObject.class::cast)
+                        .filter(dir -> selfJvmId.equals(dir.getString("jvmId")))
+                        .findFirst()
+                        .flatMap(
+                                dir ->
+                                        dir.getJsonArray("recordings").stream()
+                                                .filter(o -> o instanceof JsonObject)
+                                                .map(JsonObject.class::cast)
+                                                .filter(
+                                                        r ->
+                                                                archivedRecordingName.equals(
+                                                                        r.getString("name")))
+                                                .findFirst())
+                        .map(r -> r.getString("name"))
+                        .orElseThrow(
+                                () ->
+                                        new AssertionError(
+                                                "Recording not found in archived recording"
+                                                        + " directory for recording name: "
+                                                        + archivedRecordingName));
 
         // GraphQL Query to filter Archived recordings by names
         JsonObject query = new JsonObject();
@@ -364,7 +387,7 @@ class GraphQLQueryTest extends AbstractGraphQLTestBase {
                 given().contentType(ContentType.JSON)
                         .body(query.encode())
                         .when()
-                        .post("/api/v4/graphql")
+                        .post("/api/v5/graphql")
                         .then()
                         .statusCode(allOf(greaterThanOrEqualTo(200), lessThan(300)))
                         .extract()
@@ -418,7 +441,7 @@ class GraphQLQueryTest extends AbstractGraphQLTestBase {
         given().contentType(ContentType.JSON)
                 .body(archiveMutation.encode())
                 .when()
-                .post("/api/v4/graphql")
+                .post("/api/v5/graphql")
                 .then()
                 .statusCode(allOf(greaterThanOrEqualTo(200), lessThan(300)));
 
@@ -458,7 +481,7 @@ class GraphQLQueryTest extends AbstractGraphQLTestBase {
                 given().contentType(ContentType.JSON)
                         .body(query.encode())
                         .when()
-                        .post("/api/v4/graphql")
+                        .post("/api/v5/graphql")
                         .then()
                         .statusCode(allOf(greaterThanOrEqualTo(200), lessThan(300)))
                         .extract()
@@ -494,7 +517,7 @@ class GraphQLQueryTest extends AbstractGraphQLTestBase {
                 given().contentType(ContentType.JSON)
                         .body(query.encode())
                         .when()
-                        .post("/api/v4/graphql")
+                        .post("/api/v5/graphql")
                         .then()
                         .statusCode(allOf(greaterThanOrEqualTo(200), lessThan(300)))
                         .extract()

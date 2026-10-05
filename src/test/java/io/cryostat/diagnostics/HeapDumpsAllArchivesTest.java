@@ -18,11 +18,9 @@ package io.cryostat.diagnostics;
 import static io.restassured.RestAssured.given;
 
 import io.cryostat.AbstractTransactionalTestBase;
-import io.cryostat.diagnostic.Diagnostics;
 import io.cryostat.resources.S3StorageResource;
 
 import io.quarkus.test.common.QuarkusTestResource;
-import io.quarkus.test.common.http.TestHTTPEndpoint;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
 import jakarta.inject.Inject;
@@ -32,7 +30,6 @@ import org.junit.jupiter.api.Test;
 
 @QuarkusTest
 @QuarkusTestResource(value = S3StorageResource.class, restrictToAnnotatedClass = true)
-@TestHTTPEndpoint(Diagnostics.class)
 public class HeapDumpsAllArchivesTest extends AbstractTransactionalTestBase {
 
     @Inject Logger logger;
@@ -42,7 +39,7 @@ public class HeapDumpsAllArchivesTest extends AbstractTransactionalTestBase {
         given().log()
                 .all()
                 .when()
-                .get("fs/heapdumps")
+                .get("/api/v5/diagnostics/heap-dump")
                 .then()
                 .log()
                 .all()

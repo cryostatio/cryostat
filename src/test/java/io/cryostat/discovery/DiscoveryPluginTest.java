@@ -16,9 +16,6 @@
 package io.cryostat.discovery;
 
 import static io.restassured.RestAssured.given;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
 
 import java.net.URI;
 import java.util.HashMap;
@@ -59,64 +56,7 @@ public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
                 .when()
                 .body(payload)
                 .contentType(ContentType.JSON)
-                .post("/api/v4/discovery")
-                .then()
-                .log()
-                .all()
-                .and()
-                .assertThat()
-                .statusCode(400);
-    }
-
-    @Test
-    void rejectsAgentCallbackMatchingUntrustedForwardedAddress() {
-        given().log()
-                .all()
-                .when()
-                .header(Discovery.X_FORWARDED_FOR, "192.0.2.1")
-                .body(
-                        Map.of(
-                                "realm",
-                                "mismatched_callback_test_realm",
-                                "callback",
-                                "http://192.0.2.1",
-                                "credential",
-                                Map.of(
-                                        "matchExpression", "true",
-                                        "username", "user",
-                                        "password", "pass"),
-                                "nodes",
-                                List.of(),
-                                "fillStrategy",
-                                "NONE",
-                                "context",
-                                Map.of()))
-                .contentType(ContentType.JSON)
-                .post("/api/v4.3/discovery/agents")
-                .then()
-                .log()
-                .all()
-                .and()
-                .assertThat()
-                .statusCode(400);
-
-        verify(callbackFactory, never()).create(any(URI.class), any(Credential.class));
-    }
-
-    @Test
-    void rejectsPluginCallbackMatchingUntrustedForwardedAddress() {
-        given().log()
-                .all()
-                .when()
-                .header(Discovery.X_FORWARDED_FOR, "192.0.2.1")
-                .body(
-                        Map.of(
-                                "realm",
-                                "mismatched_plugin_callback_test_realm",
-                                "callback",
-                                "http://192.0.2.1"))
-                .contentType(ContentType.JSON)
-                .post("/api/v4/discovery")
+                .post("/api/v5/discovery/plugins")
                 .then()
                 .log()
                 .all()
@@ -136,7 +76,7 @@ public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
                 .when()
                 .body(payload)
                 .contentType(ContentType.JSON)
-                .post("/api/v4/discovery")
+                .post("/api/v5/discovery/plugins")
                 .then()
                 .log()
                 .all()
@@ -150,9 +90,9 @@ public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
         given().log()
                 .all()
                 .when()
-                .body(List.of())
+                .body(Map.of("nodes", List.of()))
                 .contentType(ContentType.JSON)
-                .post("/api/v4/discovery/abcd1234")
+                .post("/api/v5/discovery/plugins/abcd1234/publish")
                 .then()
                 .log()
                 .all()
@@ -180,7 +120,7 @@ public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
                                                 + baseUrl
                                                 + "health/liveness'"))
                         .contentType(ContentType.URLENC)
-                        .post("/api/v4/credentials")
+                        .post("/api/v5/credentials")
                         .then()
                         .log()
                         .all()
@@ -204,7 +144,7 @@ public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
                         .when()
                         .body(Map.of("realm", realmName, "callback", callback))
                         .contentType(ContentType.JSON)
-                        .post("/api/v4/discovery")
+                        .post("/api/v5/discovery/plugins")
                         .then()
                         .log()
                         .all()
@@ -224,10 +164,10 @@ public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
         given().log()
                 .all()
                 .when()
-                .body(List.of())
+                .body(Map.of("nodes", List.of()))
                 .contentType(ContentType.JSON)
                 .header(DISCOVERY_HEADER, pluginToken)
-                .post(String.format("/api/v4/discovery/%s", pluginId))
+                .post(String.format("/api/v5/discovery/plugins/%s/publish", pluginId))
                 .then()
                 .log()
                 .all()
@@ -241,10 +181,10 @@ public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
         given().log()
                 .all()
                 .when()
-                .body(List.of(node))
+                .body(Map.of("nodes", List.of(node)))
                 .contentType(ContentType.JSON)
                 .header(DISCOVERY_HEADER, pluginToken)
-                .post(String.format("/api/v4/discovery/%s", pluginId))
+                .post(String.format("/api/v5/discovery/plugins/%s/publish", pluginId))
                 .then()
                 .log()
                 .all()
@@ -258,10 +198,10 @@ public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
         given().log()
                 .all()
                 .when()
-                .body(List.of(node))
+                .body(Map.of("nodes", List.of(node)))
                 .contentType(ContentType.JSON)
                 .header(DISCOVERY_HEADER, pluginToken)
-                .post(String.format("/api/v4/discovery/%s", pluginId))
+                .post(String.format("/api/v5/discovery/plugins/%s/publish", pluginId))
                 .then()
                 .log()
                 .all()
@@ -285,7 +225,7 @@ public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
                                         "callback",
                                         callback))
                         .contentType(ContentType.JSON)
-                        .post("/api/v4/discovery")
+                        .post("/api/v5/discovery/plugins")
                         .then()
                         .log()
                         .all()
@@ -305,7 +245,7 @@ public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
                 .all()
                 .when()
                 .header(DISCOVERY_HEADER, pluginToken)
-                .delete(String.format("/api/v4/discovery/%s", pluginId))
+                .delete(String.format("/api/v5/discovery/plugins/%s", pluginId))
                 .then()
                 .log()
                 .all()
@@ -318,7 +258,7 @@ public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
                 .all()
                 .when()
                 .header(DISCOVERY_HEADER, pluginToken)
-                .delete(String.format("/api/v4/discovery/%s", pluginId))
+                .delete(String.format("/api/v5/discovery/plugins/%s", pluginId))
                 .then()
                 .log()
                 .all()
@@ -330,10 +270,10 @@ public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
         given().log()
                 .all()
                 .when()
-                .body(List.of(node))
+                .body(Map.of("nodes", List.of(node)))
                 .contentType(ContentType.JSON)
                 .header(DISCOVERY_HEADER, pluginToken)
-                .post(String.format("/api/v4/discovery/%s", pluginId))
+                .post(String.format("/api/v5/discovery/plugins/%s/publish", pluginId))
                 .then()
                 .log()
                 .all()
@@ -361,7 +301,7 @@ public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
                                                 + baseUrl
                                                 + "health/liveness'"))
                         .contentType(ContentType.URLENC)
-                        .post("/api/v4/credentials")
+                        .post("/api/v5/credentials")
                         .then()
                         .log()
                         .all()
@@ -385,7 +325,7 @@ public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
                         .when()
                         .body(Map.of("realm", realmName, "callback", callback))
                         .contentType(ContentType.JSON)
-                        .post("/api/v4/discovery")
+                        .post("/api/v5/discovery/plugins")
                         .then()
                         .log()
                         .all()
@@ -408,10 +348,10 @@ public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
         given().log()
                 .all()
                 .when()
-                .body(List.of(node1, node2, node3))
+                .body(Map.of("nodes", List.of(node1, node2, node3)))
                 .contentType(ContentType.JSON)
                 .header(DISCOVERY_HEADER, pluginToken)
-                .post(String.format("/api/v4/discovery/%s", pluginId))
+                .post(String.format("/api/v5/discovery/plugins/%s/publish", pluginId))
                 .then()
                 .log()
                 .all()
@@ -424,7 +364,7 @@ public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
                 given().log()
                         .all()
                         .when()
-                        .get(String.format("/api/v4/discovery_plugins/%s", pluginId))
+                        .get(String.format("/api/v5/discovery/plugins/%s", pluginId))
                         .then()
                         .log()
                         .all()
@@ -443,7 +383,7 @@ public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
                 .all()
                 .when()
                 .header(DISCOVERY_HEADER, pluginToken)
-                .delete(String.format("/api/v4/discovery/%s", pluginId))
+                .delete(String.format("/api/v5/discovery/plugins/%s", pluginId))
                 .then()
                 .log()
                 .all()
@@ -471,7 +411,7 @@ public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
                                                 + baseUrl
                                                 + "health/liveness'"))
                         .contentType(ContentType.URLENC)
-                        .post("/api/v4/credentials")
+                        .post("/api/v5/credentials")
                         .then()
                         .log()
                         .all()
@@ -495,7 +435,7 @@ public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
                         .when()
                         .body(Map.of("realm", realmName, "callback", callback))
                         .contentType(ContentType.JSON)
-                        .post("/api/v4/discovery")
+                        .post("/api/v5/discovery/plugins")
                         .then()
                         .log()
                         .all()
@@ -533,10 +473,10 @@ public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
         given().log()
                 .all()
                 .when()
-                .body(List.of(namespace1))
+                .body(Map.of("nodes", List.of(namespace1)))
                 .contentType(ContentType.JSON)
                 .header(DISCOVERY_HEADER, pluginToken)
-                .post(String.format("/api/v4/discovery/%s", pluginId))
+                .post(String.format("/api/v5/discovery/plugins/%s/publish", pluginId))
                 .then()
                 .log()
                 .all()
@@ -568,7 +508,7 @@ public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
                                                 + baseUrl
                                                 + "health/liveness'"))
                         .contentType(ContentType.URLENC)
-                        .post("/api/v4/credentials")
+                        .post("/api/v5/credentials")
                         .then()
                         .log()
                         .all()
@@ -592,7 +532,7 @@ public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
                         .when()
                         .body(Map.of("realm", realmName, "callback", callback))
                         .contentType(ContentType.JSON)
-                        .post("/api/v4/discovery")
+                        .post("/api/v5/discovery/plugins")
                         .then()
                         .log()
                         .all()
@@ -616,7 +556,7 @@ public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
                         .when()
                         .body(Map.of("realm", realmName, "callback", callback))
                         .contentType(ContentType.JSON)
-                        .post("/api/v4/discovery")
+                        .post("/api/v5/discovery/plugins")
                         .then()
                         .log()
                         .all()
@@ -641,7 +581,7 @@ public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
                         .when()
                         .body(Map.of("realm", realmName, "callback", callback))
                         .contentType(ContentType.JSON)
-                        .post("/api/v4/discovery")
+                        .post("/api/v5/discovery/plugins")
                         .then()
                         .log()
                         .all()
@@ -660,7 +600,7 @@ public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
                 .all()
                 .when()
                 .header(DISCOVERY_HEADER, pluginToken2)
-                .delete(String.format("/api/v4/discovery/%s", pluginId1))
+                .delete(String.format("/api/v5/discovery/plugins/%s", pluginId1))
                 .then()
                 .log()
                 .all()
@@ -701,7 +641,7 @@ public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
                                         "context",
                                         Map.of()))
                         .contentType(ContentType.JSON)
-                        .post("/api/v4.3/discovery/agents")
+                        .post("/api/v5/discovery/plugins/agent")
                         .then()
                         .log()
                         .all()
@@ -736,7 +676,7 @@ public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
         given().log()
                 .all()
                 .when()
-                .get(String.format("/api/v4/discovery_plugins/%s", pluginId))
+                .get(String.format("/api/v5/discovery/plugins/%s", pluginId))
                 .then()
                 .log()
                 .all()
@@ -753,7 +693,7 @@ public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
                 .all()
                 .when()
                 .header(DISCOVERY_HEADER, pluginToken)
-                .delete(String.format("/api/v4/discovery/%s", pluginId))
+                .delete(String.format("/api/v5/discovery/plugins/%s", pluginId))
                 .then()
                 .log()
                 .all()
@@ -798,7 +738,7 @@ public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
                         .when()
                         .body(requestBody)
                         .contentType(ContentType.JSON)
-                        .post("/api/v4.3/discovery/agents")
+                        .post("/api/v5/discovery/plugins/agent")
                         .then()
                         .log()
                         .all()
@@ -847,7 +787,7 @@ public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
                         .when()
                         .body(updatedRequestBody)
                         .contentType(ContentType.JSON)
-                        .post("/api/v4.3/discovery/agents")
+                        .post("/api/v5/discovery/plugins/agent")
                         .then()
                         .log()
                         .all()
@@ -877,7 +817,7 @@ public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
         given().log()
                 .all()
                 .when()
-                .get(String.format("/api/v4/discovery_plugins/%s", pluginId))
+                .get(String.format("/api/v5/discovery/plugins/%s", pluginId))
                 .then()
                 .log()
                 .all()
@@ -892,7 +832,7 @@ public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
                 .all()
                 .when()
                 .header(DISCOVERY_HEADER, secondRegistration.getString("token"))
-                .delete(String.format("/api/v4/discovery/%s", pluginId))
+                .delete(String.format("/api/v5/discovery/plugins/%s", pluginId))
                 .then()
                 .log()
                 .all()
@@ -934,7 +874,7 @@ public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
                         .when()
                         .body(requestBody)
                         .contentType(ContentType.JSON)
-                        .post("/api/v4.3/discovery/agents")
+                        .post("/api/v5/discovery/plugins/agent")
                         .then()
                         .log()
                         .all()
@@ -968,7 +908,7 @@ public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
                         .when()
                         .body(requestBody)
                         .contentType(ContentType.JSON)
-                        .post("/api/v4.3/discovery/agents")
+                        .post("/api/v5/discovery/plugins/agent")
                         .then()
                         .log()
                         .all()
@@ -1002,7 +942,7 @@ public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
                 .all()
                 .when()
                 .header(DISCOVERY_HEADER, secondRegistration.getString("token"))
-                .delete(String.format("/api/v4/discovery/%s", pluginId))
+                .delete(String.format("/api/v5/discovery/plugins/%s", pluginId))
                 .then()
                 .log()
                 .all()

@@ -182,8 +182,8 @@ public abstract class AbstractTestBase {
     public static String cleanupQuery(boolean storageEnabled) {
         String query =
                 """
-                query TestCleanup($targetIds: [ String! ]) {
-                  targetNodes(filter: { targetIds: $targetIds }) {
+                query TestCleanup($jvmIds: [ String! ]) {
+                  targetNodes(filter: { jvmIds: $jvmIds }) {
                     descendantTargets {
                       target {
                         recordings {
@@ -241,7 +241,7 @@ public abstract class AbstractTestBase {
                         .formParam("connectUrl", SELF_JMX_URL)
                         .formParam("alias", SELFTEST_ALIAS)
                         .when()
-                        .post("/api/v4/targets")
+                        .post("/api/v5/targets")
                         .then()
                         .log()
                         .all()
@@ -266,10 +266,10 @@ public abstract class AbstractTestBase {
         var spec = given().log().all().when().basePath("");
         formParams.forEach(spec::formParam);
         var jp =
-                spec.pathParam("targetId", this.selfId)
+                spec.pathParam("jvmId", this.selfJvmId)
                         .formParam("recordingName", name)
                         .formParam("replace", "ALWAYS")
-                        .post("/api/v4/targets/{targetId}/recordings")
+                        .post("/api/v5/targets/{jvmId}/recordings")
                         .then()
                         .log()
                         .all()
@@ -292,8 +292,8 @@ public abstract class AbstractTestBase {
                 .all()
                 .when()
                 .basePath("")
-                .pathParams("targetId", selfId, "remoteId", selfRecordingId)
-                .delete("/api/v4/targets/{targetId}/recordings/{remoteId}")
+                .pathParams("jvmId", selfJvmId, "remoteId", selfRecordingId)
+                .delete("/api/v5/targets/{jvmId}/recordings/{remoteId}")
                 .then()
                 .log()
                 .all()
@@ -304,21 +304,21 @@ public abstract class AbstractTestBase {
 
     protected void cleanupSelfActiveAndArchivedRecordings() {
         if (selfId != null) {
-            cleanupActiveAndArchivedRecordingsForTarget(this.selfId);
+            cleanupActiveAndArchivedRecordingsForTarget(this.selfJvmId);
         }
         // If selfId is null, there's nothing to clean up, so just return
     }
 
-    protected void cleanupActiveAndArchivedRecordingsForTarget(UUID... ids) {
+    protected void cleanupActiveAndArchivedRecordingsForTarget(String... ids) {
         cleanupActiveAndArchivedRecordingsForTarget(Arrays.asList(ids));
     }
 
-    protected void cleanupActiveAndArchivedRecordingsForTarget(List<UUID> ids) {
+    protected void cleanupActiveAndArchivedRecordingsForTarget(List<String> ids) {
         var variables = new HashMap<String, Object>();
         if (ids == null || ids.isEmpty()) {
-            variables.put("targetIds", null);
+            variables.put("jvmIds", null);
         } else {
-            variables.put("targetIds", ids);
+            variables.put("jvmIds", ids);
         }
         Response response =
                 given().basePath("/")
@@ -327,7 +327,7 @@ public abstract class AbstractTestBase {
                         .log()
                         .all()
                         .when()
-                        .post("/api/v4/graphql")
+                        .post("/api/v5/graphql")
                         .then()
                         .log()
                         .all()
@@ -347,7 +347,7 @@ public abstract class AbstractTestBase {
                         .basePath("")
                         .contentType(ContentType.JSON)
                         .body(Map.of("query", query))
-                        .post("/api/v4/graphql")
+                        .post("/api/v5/graphql")
                         .then()
                         .log()
                         .all()

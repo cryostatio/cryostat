@@ -17,11 +17,8 @@ package io.cryostat.reports;
 
 import static io.restassured.RestAssured.given;
 
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Map;
-import java.util.UUID;
 
 import io.cryostat.AbstractTransactionalTestBase;
 import io.cryostat.resources.S3StorageResource;
@@ -30,11 +27,9 @@ import io.cryostat.util.HttpMimeType;
 import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.response.Response;
-import io.restassured.response.ValidatableResponse;
 import io.vertx.core.json.JsonObject;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -43,37 +38,16 @@ import org.junit.jupiter.api.Test;
 @QuarkusTestResource(value = S3StorageResource.class, restrictToAnnotatedClass = true)
 public class ReportGenerationTest extends AbstractTransactionalTestBase {
 
-    @AfterEach
-    void cleanupReportGenerationTest() {
-        cleanupSelfActiveAndArchivedRecordings();
-    }
-
-    private UUID getSelfReferenceTargetId() {
-        if (selfId == null) {
-            defineSelfCustomTarget();
-        }
-        return selfId;
-    }
-
-    private String getSelfReferenceConnectUrlEncoded() {
-        return URLEncoder.encode(SELF_JMX_URL, StandardCharsets.UTF_8);
-    }
-
-    private String archivedReportRequestURL() {
-        return String.format("/api/beta/reports/%s", getSelfReferenceConnectUrlEncoded());
-    }
-
     @Test
     void testGetActiveReport() throws Exception {
-        UUID targetId = getSelfReferenceTargetId();
-
+        defineSelfCustomTarget();
         // Create a recording
         Response postResponse =
                 given().log()
                         .all()
                         .when()
-                        .basePath("/api/v4/targets/{targetId}/recordings")
-                        .pathParam("targetId", targetId)
+                        .basePath("/api/v5/targets/{jvmId}/recordings")
+                        .pathParam("jvmId", selfJvmId)
                         .formParam("recordingName", "testGetActiveReport")
                         .formParam("duration", "5")
                         .formParam("events", "template=ALL")
@@ -119,15 +93,14 @@ public class ReportGenerationTest extends AbstractTransactionalTestBase {
 
     @Test
     void testGetArchivedReport() throws Exception {
-        UUID targetId = getSelfReferenceTargetId();
-
+        defineSelfCustomTarget();
         // Create a recording
         Response postResponse =
                 given().log()
                         .all()
                         .when()
-                        .basePath("/api/v4/targets/{targetId}/recordings")
-                        .pathParam("targetId", targetId)
+                        .basePath("/api/v5/targets/{jvmId}/recordings")
+                        .pathParam("jvmId", selfJvmId)
                         .formParam("recordingName", "testGetArchivedReport")
                         .formParam("duration", "5")
                         .formParam("events", "template=ALL")
@@ -152,8 +125,8 @@ public class ReportGenerationTest extends AbstractTransactionalTestBase {
                 given().log()
                         .all()
                         .when()
-                        .basePath("/api/v4/targets/{targetId}/recordings/{remoteId}")
-                        .pathParam("targetId", targetId)
+                        .basePath("/api/v5/targets/{jvmId}/recordings/{remoteId}")
+                        .pathParam("jvmId", selfJvmId)
                         .pathParam("remoteId", activeRecording.getLong("remoteId"))
                         .contentType("text/plain;charset=UTF-8")
                         .body("SAVE")
@@ -175,20 +148,25 @@ public class ReportGenerationTest extends AbstractTransactionalTestBase {
         // Wait for archiving to complete
         JsonObject notification =
                 webSocketClient.expectNotification(
-                        "ArchiveRecordingSuccess", Duration.ofSeconds(15));
+                        "ArchiveRecordingSuccess",
+                        Duration.ofSeconds(15),
+                        n -> archiveJobId.equals(n.getJsonObject("message").getString("jobId")));
         MatcherAssert.assertThat(
                 notification.getJsonObject("message").getMap(),
                 Matchers.hasEntry("jobId", archiveJobId));
         String archivedRecordingName = notification.getJsonObject("message").getString("recording");
         MatcherAssert.assertThat(archivedRecordingName, Matchers.not(Matchers.blankOrNullString()));
+        String archivedReportUrl = notification.getJsonObject("message").getString("reportUrl");
+        MatcherAssert.assertThat(archivedReportUrl, Matchers.not(Matchers.blankOrNullString()));
 
         // Request a report for the archived recording
         Response jobIdResponse =
-                given().log()
+                given().basePath("/")
+                        .log()
                         .all()
                         .when()
                         .header("Accept", HttpMimeType.JSON.mime())
-                        .get(activeRecording.getString("reportUrl"))
+                        .get(archivedReportUrl)
                         .then()
                         .log()
                         .all()
@@ -203,7 +181,11 @@ public class ReportGenerationTest extends AbstractTransactionalTestBase {
 
         // Wait for report generation to complete
         String reportJobId = jobIdResponse.body().asString();
-        notification = webSocketClient.expectNotification("ReportSuccess", Duration.ofSeconds(15));
+        notification =
+                webSocketClient.expectNotification(
+                        "ReportSuccess",
+                        Duration.ofSeconds(15),
+                        n -> reportJobId.equals(n.getJsonObject("message").getString("jobId")));
         MatcherAssert.assertThat(
                 notification.getJsonObject("message").getMap(),
                 Matchers.equalTo(Map.of("jobId", reportJobId, "jvmId", selfJvmId)));
@@ -212,15 +194,14 @@ public class ReportGenerationTest extends AbstractTransactionalTestBase {
     @Test
     @Disabled("TODO query parameter filter is not implemented")
     void testGetFilteredActiveReport() throws Exception {
-        UUID targetId = getSelfReferenceTargetId();
-
+        defineSelfCustomTarget();
         // Create a recording
         Response postResponse =
                 given().log()
                         .all()
                         .when()
-                        .basePath("/api/v4/targets/{targetId}/recordings")
-                        .pathParam("targetId", targetId)
+                        .basePath("/api/v5/targets/{jvmId}/recordings")
+                        .pathParam("jvmId", selfJvmId)
                         .formParam("recordingName", "testGetFilteredActiveReport")
                         .formParam("duration", "5")
                         .formParam("events", "template=ALL")
@@ -293,20 +274,17 @@ public class ReportGenerationTest extends AbstractTransactionalTestBase {
 
     @Test
     void testGetReportThrowsWithNonExistentRecordingName() {
-        ValidatableResponse response =
-                given().log()
-                        .all()
-                        .when()
-                        .header("Accept", HttpMimeType.HTML.mime())
-                        .get(
-                                String.format(
-                                        "%s/%s",
-                                        archivedReportRequestURL(),
-                                        "testGetReportThrowsWithNonExistentRecordingName"))
-                        .then()
-                        .log()
-                        .all();
-
-        response.assertThat().statusCode(404);
+        defineSelfCustomTarget();
+        given().log()
+                .all()
+                .when()
+                .pathParams("jvmId", selfJvmId, "recordingId", String.valueOf(Long.MAX_VALUE))
+                .get("/api/v5/targets/{jvmId}/reports/{recordingId}")
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(404);
     }
 }

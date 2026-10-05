@@ -48,7 +48,7 @@ public class DiscoveryPluginGracePeriodTest extends AbstractTransactionalTestBas
     @ConfigProperty(name = ConfigProperties.DISCOVERY_PLUGINS_MAX_FAILURES)
     int maxConsecutiveFailures;
 
-    @Inject Discovery.RefreshPluginJob refreshPluginJob;
+    @Inject DiscoveryPlugins.RefreshPluginJob refreshPluginJob;
     @Inject AgentClient.Factory agentClientFactory;
 
     @InjectMock PluginCallbackFactory callbackFactory;
@@ -106,7 +106,7 @@ public class DiscoveryPluginGracePeriodTest extends AbstractTransactionalTestBas
                                         "matchExpression",
                                         "target.connectUrl == 'http://localhost:9999/nonexistent'"))
                         .contentType(ContentType.URLENC)
-                        .post("/api/v4/credentials")
+                        .post("/api/v5/credentials")
                         .then()
                         .log()
                         .all()
@@ -190,7 +190,7 @@ public class DiscoveryPluginGracePeriodTest extends AbstractTransactionalTestBas
                                         "matchExpression",
                                         "target.connectUrl == 'http://localhost:9999/nonexistent'"))
                         .contentType(ContentType.URLENC)
-                        .post("/api/v4/credentials")
+                        .post("/api/v5/credentials")
                         .then()
                         .log()
                         .all()
@@ -250,7 +250,7 @@ public class DiscoveryPluginGracePeriodTest extends AbstractTransactionalTestBas
                                                 + baseUrl
                                                 + "health/liveness'"))
                         .contentType(ContentType.URLENC)
-                        .post("/api/v4/credentials")
+                        .post("/api/v5/credentials")
                         .then()
                         .log()
                         .all()
@@ -273,7 +273,7 @@ public class DiscoveryPluginGracePeriodTest extends AbstractTransactionalTestBas
                         .when()
                         .body(Map.of("realm", "test_reset_realm", "callback", callback))
                         .contentType(ContentType.JSON)
-                        .post("/api/v4/discovery")
+                        .post("/api/v5/discovery/plugins")
                         .then()
                         .log()
                         .all()
@@ -336,7 +336,7 @@ public class DiscoveryPluginGracePeriodTest extends AbstractTransactionalTestBas
                                         "matchExpression",
                                         "target.connectUrl == 'http://localhost:9999/nonexistent'"))
                         .contentType(ContentType.URLENC)
-                        .post("/api/v4/credentials")
+                        .post("/api/v5/credentials")
                         .then()
                         .log()
                         .all()
@@ -410,7 +410,7 @@ public class DiscoveryPluginGracePeriodTest extends AbstractTransactionalTestBas
                                         "matchExpression",
                                         "target.connectUrl == 'http://localhost:9999/nonexistent'"))
                         .contentType(ContentType.URLENC)
-                        .post("/api/v4/credentials")
+                        .post("/api/v5/credentials")
                         .then()
                         .log()
                         .all()
@@ -466,7 +466,7 @@ public class DiscoveryPluginGracePeriodTest extends AbstractTransactionalTestBas
                                         "matchExpression",
                                         "target.connectUrl == 'http://localhost:9999/nonexistent'"))
                         .contentType(ContentType.URLENC)
-                        .post("/api/v4/credentials")
+                        .post("/api/v5/credentials")
                         .then()
                         .log()
                         .all()
@@ -548,7 +548,7 @@ public class DiscoveryPluginGracePeriodTest extends AbstractTransactionalTestBas
                                         "matchExpression",
                                         "target.connectUrl == 'http://localhost:9999/nonexistent'"))
                         .contentType(ContentType.URLENC)
-                        .post("/api/v4/credentials")
+                        .post("/api/v5/credentials")
                         .then()
                         .log()
                         .all()
@@ -632,7 +632,7 @@ public class DiscoveryPluginGracePeriodTest extends AbstractTransactionalTestBas
                                                 + baseUrl
                                                 + "health/liveness'"))
                         .contentType(ContentType.URLENC)
-                        .post("/api/v4/credentials")
+                        .post("/api/v5/credentials")
                         .then()
                         .log()
                         .all()
@@ -655,7 +655,7 @@ public class DiscoveryPluginGracePeriodTest extends AbstractTransactionalTestBas
                         .when()
                         .body(Map.of("realm", "test_backoff_reset_realm", "callback", callback))
                         .contentType(ContentType.JSON)
-                        .post("/api/v4/discovery")
+                        .post("/api/v5/discovery/plugins")
                         .then()
                         .log()
                         .all()
