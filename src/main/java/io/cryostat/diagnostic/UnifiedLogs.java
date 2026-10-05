@@ -218,6 +218,9 @@ public class UnifiedLogs {
     public AgentClient.UnifiedLogStatus unifiedLoggingStatus(@RestPath long targetId) {
         Target target =
                 QuarkusTransaction.requiringNew().call(() -> Target.getTargetById(targetId));
+        if (!target.isAgent()) {
+            throw new BadRequestException("Log collection requires an Agent-monitored target");
+        }
         return helper.unifiedLogStatus(target);
     }
 
