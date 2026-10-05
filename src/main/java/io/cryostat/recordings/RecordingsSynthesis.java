@@ -34,9 +34,9 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
 import jakarta.ws.rs.BadRequestException;
+import jakarta.ws.rs.DefaultValue;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
-import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import org.apache.commons.lang3.StringUtils;
@@ -45,6 +45,7 @@ import org.hibernate.envers.AuditReaderFactory;
 import org.hibernate.envers.query.AuditEntity;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestPath;
+import org.jboss.resteasy.reactive.RestQuery;
 
 @ApplicationScoped
 @Path("")
@@ -64,14 +65,15 @@ public class RecordingsSynthesis {
     public Response synthesize(
             HttpServerResponse response,
             @RestPath String jvmId,
-            @Parameter(required = true) @QueryParam("fromTimestamp") long fromTimestamp,
-            @Parameter(required = true) @QueryParam("toTimestamp") long toTimestamp,
-            @QueryParam("tag") String tag) {
+            @RestQuery @Parameter(required = true) @DefaultValue("-1") long fromTimestamp,
+            @RestQuery @Parameter(required = true) @DefaultValue("-1") long toTimestamp,
+            @RestQuery @DefaultValue("false") boolean autoanalyze,
+            @RestQuery String tag) {
 
         // Reject values that are clearly not epoch-seconds (negative, zero, or above year 2106).
         long MAX_EPOCH_SECONDS = BigInteger.TWO.pow(32).longValueExact();
-        if (fromTimestamp <= 0
-                || toTimestamp <= 0
+        if (fromTimestamp < 0
+                || toTimestamp < 0
                 || fromTimestamp > MAX_EPOCH_SECONDS
                 || toTimestamp > MAX_EPOCH_SECONDS) {
             throw new BadRequestException("Timestamp out of valid epoch-seconds range");
@@ -116,7 +118,8 @@ public class RecordingsSynthesis {
         String jobId = UUID.randomUUID().toString();
         incompleteCandidates.sort(Comparator.comparingLong(r -> startTimeMs(r)));
         SynthesisRequest request =
-                new SynthesisRequest(jobId, jvmId, fromMs, toMs, resolvedTag, incompleteCandidates);
+                new SynthesisRequest(
+                        jobId, jvmId, fromMs, toMs, resolvedTag, autoanalyze, incompleteCandidates);
         ResponseDispatch.onComplete(
                 response,
                 () -> bus.publish(LongRunningRequestGenerator.SYNTHESIS_REQUEST_ADDRESS, request));

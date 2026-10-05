@@ -25,6 +25,7 @@ import java.nio.file.StandardOpenOption;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
@@ -65,6 +66,7 @@ import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
@@ -597,7 +599,9 @@ public class LongRunningRequestGenerator {
             labelsMap.put("jvmId", request.jvmId());
             labelsMap.put(RecordingHelper.START_TIME_LABEL, String.valueOf(minStart));
             labelsMap.put(RecordingHelper.DURATION_LABEL, String.valueOf(syntheticDuration));
-            labelsMap.put(AnalysisReportAggregator.AUTOANALYZE_LABEL, "true");
+            labelsMap.put(
+                    AnalysisReportAggregator.AUTOANALYZE_LABEL,
+                    Boolean.toString(request.autoanalyze()));
             labelsMap.put("synthetic", "true");
             ActiveRecordings.Metadata metadata = new ActiveRecordings.Metadata(labelsMap);
 
@@ -748,15 +752,22 @@ public class LongRunningRequestGenerator {
             long fromMs,
             long toMs,
             String tag,
+            boolean autoanalyze,
             List<ArchivedRecording> candidates) {
         public SynthesisRequest {
-            Objects.requireNonNull(id);
-            Objects.requireNonNull(jvmId);
-            Objects.requireNonNull(tag);
-            if (fromMs <= 0 || toMs <= 0 || fromMs >= toMs) {
+            if (StringUtils.isBlank(id)) {
+                throw new IllegalArgumentException();
+            }
+            if (StringUtils.isBlank(jvmId)) {
+                throw new IllegalArgumentException();
+            }
+            if (StringUtils.isBlank(tag)) {
+                throw new IllegalArgumentException();
+            }
+            if (fromMs < 0 || toMs < 0 || fromMs >= toMs) {
                 throw new IllegalArgumentException("Invalid millisecond timestamps");
             }
-            candidates = List.copyOf(candidates);
+            candidates = Collections.unmodifiableList(List.copyOf(candidates));
         }
     }
 }
