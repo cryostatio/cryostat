@@ -650,7 +650,8 @@ public class DiagnosticsHelper {
     }
 
     public HeapDump addHeapDump(
-            String jvmId, FileUpload heapDump, String requestId, Metadata metadata) {
+            String jvmId, FileUpload heapDump, String requestId, Metadata metadata)
+            throws IOException {
         boolean uploadStarted = false;
         try {
             String filename = heapDump.fileName().strip();
@@ -677,11 +678,7 @@ public class DiagnosticsHelper {
                     req = req.metadata(metadata.labels());
                     break;
                 case BUCKET:
-                    try {
-                        heapDumpsMetadataService.get().create(jvmId, filename, metadata);
-                    } catch (IOException ioe) {
-                        log.warn(ioe);
-                    }
+                    heapDumpsMetadataService.get().create(jvmId, filename, metadata);
                     break;
                 default:
                     throw new IllegalStateException();

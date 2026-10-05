@@ -433,7 +433,8 @@ public class Diagnostics {
                                     the form field.
                                     """,
                             examples = {"{\"key\":\"value\"}"})
-                    String rawLabels) {
+                    String rawLabels)
+            throws IOException {
         log.tracev(
                 "Received heap dump upload request for target: {0} with job ID {1}", jvmId, jobId);
         jvmId = jvmId.strip();
@@ -443,8 +444,8 @@ public class Diagnostics {
     @Blocking
     @Transactional
     @SuppressFBWarnings("DLS_DEAD_LOCAL_STORE")
-    Map<String, Object> doUpload(
-            FileUpload heapDump, String jvmId, String jobId, Metadata metadata) {
+    Map<String, Object> doUpload(FileUpload heapDump, String jvmId, String jobId, Metadata metadata)
+            throws IOException {
         var dump = helper.addHeapDump(jvmId, heapDump, jobId, metadata);
 
         io.cryostat.diagnostic.HeapDump.<io.cryostat.diagnostic.HeapDump>find("jobId", jobId)
