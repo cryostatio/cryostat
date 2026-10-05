@@ -30,6 +30,7 @@ import io.restassured.path.json.JsonPath;
 import io.vertx.core.json.JsonObject;
 import jakarta.inject.Inject;
 import jakarta.websocket.DeploymentException;
+import org.apache.commons.lang3.StringUtils;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterEach;
@@ -62,13 +63,13 @@ public abstract class AbstractReportsTest extends AbstractTransactionalTestBase 
         }
 
         // Clean up archived recording if created
-        if (archivedRecordingName != null) {
+        if (StringUtils.isNotBlank(selfJvmId) && archivedRecordingName != null) {
             try {
                 given().log()
                         .all()
                         .when()
-                        .pathParams("connectUrl", SELF_JMX_URL, "filename", archivedRecordingName)
-                        .delete("/api/beta/recordings/{connectUrl}/{filename}")
+                        .pathParams("jvmId", selfJvmId, "filename", archivedRecordingName)
+                        .delete("/api/v5/recordings/{jvmId}/{filename}")
                         .then()
                         .log()
                         .all()
@@ -88,7 +89,7 @@ public abstract class AbstractReportsTest extends AbstractTransactionalTestBase 
                 given().log()
                         .all()
                         .when()
-                        .get("/api/v4.1/reports_rules")
+                        .get("/api/v5/reports/rules")
                         .then()
                         .log()
                         .all()
@@ -109,7 +110,7 @@ public abstract class AbstractReportsTest extends AbstractTransactionalTestBase 
         given().log()
                 .all()
                 .when()
-                .get("/api/v4/reports/nonexistent")
+                .get("/api/v5/reports/nonexistent")
                 .then()
                 .log()
                 .all()
@@ -123,8 +124,8 @@ public abstract class AbstractReportsTest extends AbstractTransactionalTestBase 
         given().log()
                 .all()
                 .when()
-                .pathParams("targetId", UUID.randomUUID(), "recordingName", "foo")
-                .get("/api/v4/targets/{targetId}/reports/{recordingName}")
+                .pathParams("jvmId", UUID.randomUUID(), "recordingId", "0")
+                .get("/api/v5/targets/{jvmId}/reports/{recordingId}")
                 .then()
                 .log()
                 .all()
@@ -139,8 +140,8 @@ public abstract class AbstractReportsTest extends AbstractTransactionalTestBase 
         given().log()
                 .all()
                 .when()
-                .pathParams("targetId", targetId, "recordingName", "foo")
-                .get("/api/v4/targets/{targetId}/reports/{recordingName}")
+                .pathParams("jvmId", selfJvmId, "recordingId", "0")
+                .get("/api/v5/targets/{jvmId}/reports/{recordingId}")
                 .then()
                 .log()
                 .all()
@@ -158,8 +159,8 @@ public abstract class AbstractReportsTest extends AbstractTransactionalTestBase 
                 given().log()
                         .all()
                         .when()
-                        .pathParams("targetId", selfId)
-                        .post("/api/v4.1/targets/{targetId}/reports")
+                        .pathParams("jvmId", selfJvmId)
+                        .post("/api/v5/targets/{jvmId}/reports")
                         .then()
                         .log()
                         .all()
@@ -175,7 +176,7 @@ public abstract class AbstractReportsTest extends AbstractTransactionalTestBase 
                         // Verify we get a location header from a 202.
                         .header(
                                 "Location",
-                                String.format("%sapi/v4.1/targets/%s/reports", baseUrl, selfId))
+                                String.format("%sapi/v5/targets/%s/reports", baseUrl, selfJvmId))
                         .and()
                         .extract()
                         .body()
@@ -199,8 +200,8 @@ public abstract class AbstractReportsTest extends AbstractTransactionalTestBase 
         given().log()
                 .all()
                 .when()
-                .pathParams("targetId", selfId, "remoteId", remoteId)
-                .get("/api/v4/targets/{targetId}/reports/{remoteId}")
+                .pathParams("jvmId", selfJvmId, "recordingId", remoteId)
+                .get("/api/v5/targets/{jvmId}/reports/{recordingId}")
                 .then()
                 .log()
                 .all()
@@ -213,7 +214,9 @@ public abstract class AbstractReportsTest extends AbstractTransactionalTestBase 
                 // 202 Indicates report generation is in progress and sends an intermediate
                 // response.
                 // Verify we get a location header from a 202.
-                .header("Location", baseUrl + "api/v4/targets/" + selfId + "/reports/" + remoteId);
+                .header(
+                        "Location",
+                        baseUrl + "api/v5/targets/" + selfJvmId + "/reports/" + remoteId);
     }
 
     @Test
@@ -254,10 +257,10 @@ public abstract class AbstractReportsTest extends AbstractTransactionalTestBase 
                 given().log()
                         .all()
                         .when()
-                        .pathParam("targetId", selfId)
+                        .pathParam("jvmId", selfJvmId)
                         .pathParam("remoteId", remoteId)
                         .body("SAVE")
-                        .patch("/api/v4/targets/{targetId}/recordings/{remoteId}")
+                        .patch("/api/v5/targets/{jvmId}/recordings/{remoteId}")
                         .then()
                         .log()
                         .all()

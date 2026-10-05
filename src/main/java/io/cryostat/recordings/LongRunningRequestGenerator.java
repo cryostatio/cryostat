@@ -298,7 +298,7 @@ public class LongRunningRequestGenerator {
         try {
             logger.trace("Job ID: " + request.id() + " submitted.");
             return recordingHelper
-                    .uploadToJFRDatasource(request.targetId(), request.remoteId())
+                    .uploadToJFRDatasource(request.jvmId(), request.remoteId())
                     .onItem()
                     .<Void>transform((v) -> null)
                     .invoke(
@@ -668,11 +668,11 @@ public class LongRunningRequestGenerator {
         }
     }
 
-    public record GrafanaActiveUploadRequest(String id, long remoteId, UUID targetId) {
+    public record GrafanaActiveUploadRequest(String id, long remoteId, String jvmId) {
         public GrafanaActiveUploadRequest {
             Objects.requireNonNull(id);
             Objects.requireNonNull(remoteId);
-            Objects.requireNonNull(targetId);
+            Objects.requireNonNull(jvmId);
         }
     }
 

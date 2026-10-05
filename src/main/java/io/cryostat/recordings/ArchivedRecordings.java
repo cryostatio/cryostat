@@ -92,25 +92,9 @@ public class ArchivedRecordings {
     @ConfigProperty(name = ConfigProperties.STORAGE_EXT_URL)
     Optional<String> externalStorageUrl;
 
-    @GET
-    @Blocking
-    @Path("/api/v4/recordings")
-    @PermissionsAllowed(
-            value = {"archivedrecordings:read"},
-            inclusive = true)
-    @Operation(
-            summary = "List all archived recordings",
-            description =
-                    """
-                    List all archived recordings from all targets, including (re-)uploaded files.
-                    """)
-    public List<ArchivedRecording> listArchivesV4() {
-        return recordingHelper.listArchivedRecordings();
-    }
-
     @POST
     @Blocking
-    @Path("/api/v4/recordings")
+    @Path("/api/v5/recordings/uploads")
     @PermissionsAllowed(value = "archivedrecordings:write", inclusive = true)
     @Operation(
             summary = "Upload a JFR binary file to archives",
@@ -130,14 +114,13 @@ public class ArchivedRecordings {
             rawLabels.getMap().forEach((k, v) -> labels.put(k, v.toString()));
         }
         labels.put("jvmId", "uploads");
-        labels.put("connectUrl", "uploads");
         Metadata metadata = new Metadata(labels);
         return doUpload(recording, metadata, "uploads");
     }
 
     @POST
     @Blocking
-    @Path("/api/beta/recordings/{jvmId}")
+    @Path("/api/v5/recordings/{jvmId}")
     @PermissionsAllowed(
             value = {"targets:read", "archivedrecordings:write"},
             inclusive = true)
@@ -257,59 +240,17 @@ public class ArchivedRecordings {
         return Optional.of(recording.get().id);
     }
 
-    @GET
-    @Blocking
-    @Path("/api/beta/recordings/{jvmId}")
-    @PermissionsAllowed(
-            value = {"targets:read", "archivedrecordings:read"},
-            inclusive = true)
-    @Operation(summary = "List archived recordings belonging to the specified target")
-    public List<ArchivedRecording> agentGet(@Parameter(required = true) @RestPath String jvmId) {
-        var result = new ArrayList<ArchivedRecording>();
-        recordingHelper
-                .listArchivedRecordingObjects(jvmId)
-                .forEach(
-                        item -> {
-                            String objectName = item.key().strip();
-                            String filename = objectName.split("/")[1];
-                            Metadata metadata =
-                                    recordingHelper
-                                            .getArchivedRecordingMetadata(jvmId, filename)
-                                            .orElseGet(Metadata::empty);
-                            result.add(
-                                    new ArchivedRecording(
-                                            jvmId,
-                                            filename,
-                                            recordingHelper.downloadUrl(jvmId, filename),
-                                            recordingHelper.reportUrl(jvmId, filename),
-                                            metadata,
-                                            item.size(),
-                                            item.lastModified().getEpochSecond()));
-                        });
-        return result;
-    }
-
     @DELETE
     @Blocking
-    @Path("/api/beta/recordings/{connectUrl}/{filename}")
+    @Path("/api/v5/recordings/{jvmId}/{filename}")
     @PermissionsAllowed(
             value = {"targets:read", "archivedrecordings:delete"},
             inclusive = true)
     @Operation(summary = "Delete an archived recording belonging to the specified target")
-    public void agentDelete(
-            @Parameter(
-                            required = true,
-                            description = "the connection URL associated with the target")
-                    @RestPath
-                    String connectUrl,
+    public void delete(
+            @Parameter(required = true, description = "the target JVM ID") @RestPath String jvmId,
             @Parameter(required = true) @RestPath String filename)
             throws Exception {
-        String jvmId;
-        if ("uploads".equals(connectUrl)) {
-            jvmId = "uploads";
-        } else {
-            jvmId = Target.getTargetByConnectUrl(URI.create(connectUrl)).jvmId;
-        }
         if (!recordingHelper.listArchivedRecordingObjects(jvmId).stream()
                 .map(item -> item.key().strip().split("/")[1])
                 .anyMatch(fn -> Objects.equals(fn, filename))) {
@@ -340,24 +281,14 @@ public class ArchivedRecordings {
                 archivedRecording.metadata().labels());
     }
 
-    @DELETE
-    @Blocking
-    @Path("/api/v4/recordings/{filename}")
-    @PermissionsAllowed(value = "archivedrecordings:delete", inclusive = true)
-    @Operation(deprecated = true, summary = "Delete an archived recording by filename")
-    public void delete(@RestPath String filename) throws Exception {
-        // TODO scan all prefixes for matching filename? This is an old v1 API problem.
-        recordingHelper.deleteArchivedRecording("uploads", filename);
-    }
-
     @GET
     @Blocking
-    @Path("/api/beta/fs/recordings")
+    @Path("/api/v5/recordings")
     @PermissionsAllowed(
             value = {"targets:read", "archivedrecordings:read"},
             inclusive = true)
     @Operation(summary = "List all archived recordings grouped by target")
-    public Collection<ArchivedRecordingDirectory> listFsArchives() {
+    public Collection<ArchivedRecordingDirectory> listArchives() {
         var map = new HashMap<String, ArchivedRecordingDirectory>();
         recordingHelper
                 .listArchivedRecordingObjects()
@@ -373,14 +304,12 @@ public class ArchivedRecordings {
                                             .getArchivedRecordingMetadata(jvmId, filename)
                                             .orElseGet(Metadata::empty);
 
-                            String connectUrl =
-                                    metadata.labels().computeIfAbsent("connectUrl", k -> jvmId);
                             var dir =
                                     map.computeIfAbsent(
                                             jvmId,
                                             id ->
                                                     new ArchivedRecordingDirectory(
-                                                            connectUrl, id, new ArrayList<>()));
+                                                            id, new ArrayList<>()));
                             dir.recordings.add(
                                     new ArchivedRecording(
                                             jvmId,
@@ -396,33 +325,25 @@ public class ArchivedRecordings {
 
     @GET
     @Blocking
-    @Path("/api/beta/fs/recordings/{jvmId}")
+    @Path("/api/v5/recordings/{jvmId}")
     @PermissionsAllowed(
             value = {"targets:read", "archivedrecordings:read"},
             inclusive = true)
-    @Operation(summary = "List all archived recordings belonging to the specified target")
-    public Collection<ArchivedRecordingDirectory> listFsArchives(@RestPath String jvmId) {
-        var map = new HashMap<String, ArchivedRecordingDirectory>();
+    @Operation(summary = "List archived recordings belonging to the specified target")
+    public List<ArchivedRecording> getTargetRecordings(
+            @Parameter(required = true) @RestPath String jvmId) {
+        var result = new ArrayList<ArchivedRecording>();
         recordingHelper
                 .listArchivedRecordingObjects(jvmId)
                 .forEach(
                         item -> {
-                            String filename = item.key().strip().replace(jvmId + "/", "");
-
+                            String objectName = item.key().strip();
+                            String filename = objectName.split("/")[1];
                             Metadata metadata =
                                     recordingHelper
                                             .getArchivedRecordingMetadata(jvmId, filename)
                                             .orElseGet(Metadata::empty);
-
-                            String connectUrl =
-                                    metadata.labels().computeIfAbsent("connectUrl", k -> jvmId);
-                            var dir =
-                                    map.computeIfAbsent(
-                                            jvmId,
-                                            id ->
-                                                    new ArchivedRecordingDirectory(
-                                                            connectUrl, id, new ArrayList<>()));
-                            dir.recordings.add(
+                            result.add(
                                     new ArchivedRecording(
                                             jvmId,
                                             filename,
@@ -432,24 +353,12 @@ public class ArchivedRecordings {
                                             item.size(),
                                             item.lastModified().getEpochSecond()));
                         });
-        return map.values();
-    }
-
-    @DELETE
-    @Blocking
-    @Path("/api/beta/fs/recordings/{jvmId}/{filename}")
-    @PermissionsAllowed(
-            value = {"targets:read", "archivedrecordings:delete"},
-            inclusive = true)
-    @Operation(summary = "Delete an archived recording by name belonging to the specified target")
-    public void deleteArchivedRecording(@RestPath String jvmId, @RestPath String filename)
-            throws Exception {
-        recordingHelper.deleteArchivedRecording(jvmId, filename);
+        return result;
     }
 
     @POST
     @Blocking
-    @Path("/api/v4/grafana/{encodedKey}")
+    @Path("/api/v5/grafana/{encodedKey}")
     @PermissionsAllowed(value = "archivedrecordings:read", inclusive = true)
     @Operation(
             summary = "Upload an archived recording to Grafana for online analysis",
@@ -479,7 +388,7 @@ public class ArchivedRecordings {
 
     @GET
     @Blocking
-    @Path("/api/v4/download/{encodedKey}")
+    @Path("/api/v5/download/{encodedKey}")
     @PermissionsAllowed(value = "archivedrecordings:read", inclusive = true)
     @Operation(
             summary = "Get a download URL for an archived recording",
@@ -556,10 +465,8 @@ public class ArchivedRecordings {
     }
 
     @SuppressFBWarnings("EI_EXPOSE_REP")
-    public record ArchivedRecordingDirectory(
-            String connectUrl, String jvmId, List<ArchivedRecording> recordings) {
+    public record ArchivedRecordingDirectory(String jvmId, List<ArchivedRecording> recordings) {
         public ArchivedRecordingDirectory {
-            Objects.requireNonNull(connectUrl);
             Objects.requireNonNull(jvmId);
             if (recordings == null) {
                 recordings = Collections.emptyList();

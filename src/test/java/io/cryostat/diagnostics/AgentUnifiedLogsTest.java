@@ -20,6 +20,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.*;
 
 import java.time.Duration;
+import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -54,9 +55,9 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
             return;
         }
         try {
-            given().pathParam("targetId", target.id())
+            given().pathParam("jvmId", target.jvmId())
                     .when()
-                    .delete("/api/beta/diagnostics/targets/{targetId}/unified-logging")
+                    .delete("/api/v5/targets/{jvmId}/diagnostics/unified-logging")
                     .then()
                     .log()
                     .all();
@@ -74,9 +75,9 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
         try {
             given().log()
                     .all()
-                    .pathParam("targetId", target.id())
+                    .pathParam("jvmId", target.jvmId())
                     .when()
-                    .delete("/api/beta/diagnostics/targets/{targetId}/unified-logging")
+                    .delete("/api/v5/targets/{jvmId}/diagnostics/unified-logging")
                     .then()
                     .log()
                     .all();
@@ -94,9 +95,9 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
             List<Map<String, Object>> logs =
                     given().log()
                             .all()
-                            .pathParam("targetId", target.id())
+                            .pathParam("jvmId", target.jvmId())
                             .when()
-                            .get("/api/beta/diagnostics/targets/{targetId}/unified-logs")
+                            .get("/api/v5/targets/{jvmId}/diagnostics/unified-logs")
                             .then()
                             .log()
                             .all()
@@ -107,12 +108,14 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
                             .jsonPath()
                             .getList("$");
             for (Map<String, Object> entry : logs) {
+                String jvmId = (String) entry.get("jvmId");
                 String logId = (String) entry.get("logId");
                 given().log()
                         .all()
-                        .pathParams("targetId", target.id(), "logId", logId)
+                        .pathParam("jvmId", jvmId)
+                        .pathParam("id", logId)
                         .when()
-                        .delete("/api/beta/diagnostics/targets/{targetId}/unified-logs/{logId}")
+                        .delete("/api/v5/targets/{jvmId}/diagnostics/unified-logs/{id}")
                         .then()
                         .log()
                         .all();
@@ -127,9 +130,9 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
     void testListUnifiedLogsInitiallyEmpty() {
         given().log()
                 .all()
-                .pathParam("targetId", target.id())
+                .pathParam("jvmId", target.jvmId())
                 .when()
-                .get("/api/beta/diagnostics/targets/{targetId}/unified-logs")
+                .get("/api/v5/targets/{jvmId}/diagnostics/unified-logs")
                 .then()
                 .log()
                 .all()
@@ -144,9 +147,9 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
         Map<String, Object> status =
                 given().log()
                         .all()
-                        .pathParam("targetId", target.id())
+                        .pathParam("jvmId", target.jvmId())
                         .when()
-                        .get("/api/beta/diagnostics/targets/{targetId}/unified-logging")
+                        .get("/api/v5/targets/{jvmId}/diagnostics/unified-logging")
                         .then()
                         .log()
                         .all()
@@ -167,15 +170,15 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
     @Test
     void testEnableUnifiedLoggingCreatesSessionRow()
             throws InterruptedException, ExecutionException, TimeoutException {
-        String targetId = target.id();
+        String jvmId = target.jvmId();
 
         given().log()
                 .all()
-                .pathParam("targetId", targetId)
+                .pathParam("jvmId", jvmId)
                 .queryParam("what", "gc")
                 .queryParam("decorators", "time,level")
                 .when()
-                .post("/api/beta/diagnostics/targets/{targetId}/unified-logging")
+                .post("/api/v5/targets/{jvmId}/diagnostics/unified-logging")
                 .then()
                 .log()
                 .all()
@@ -186,7 +189,10 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
 
         long count =
                 QuarkusTransaction.requiringNew()
-                        .call(() -> UnifiedLog.count("target.id = ?1", UUID.fromString(targetId)));
+                        .call(
+                                () ->
+                                        UnifiedLog.count(
+                                                "target.id = ?1", UUID.fromString(target.id())));
         assertThat(count, equalTo(1L));
 
         UnifiedLog session =
@@ -194,7 +200,7 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
                         .call(
                                 () ->
                                         UnifiedLog.<UnifiedLog>find(
-                                                        "target.id", UUID.fromString(targetId))
+                                                        "target.id", UUID.fromString(target.id()))
                                                 .firstResult());
         assertThat(session, notNullValue());
         assertThat(session.status, equalTo(UnifiedLog.Status.ACTIVE));
@@ -205,15 +211,15 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
 
     @Test
     void testEnableUnifiedLoggingWithCustomParams() {
-        String targetId = target.id();
+        String jvmId = target.jvmId();
 
         given().log()
                 .all()
-                .pathParam("targetId", targetId)
+                .pathParam("jvmId", jvmId)
                 .queryParam("what", "gc+heap")
                 .queryParam("decorators", "time,level,pid")
                 .when()
-                .post("/api/beta/diagnostics/targets/{targetId}/unified-logging")
+                .post("/api/v5/targets/{jvmId}/diagnostics/unified-logging")
                 .then()
                 .log()
                 .all()
@@ -226,7 +232,7 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
                         .call(
                                 () ->
                                         UnifiedLog.<UnifiedLog>find(
-                                                        "target.id", UUID.fromString(targetId))
+                                                        "target.id", UUID.fromString(target.id()))
                                                 .firstResult());
         assertThat(session, notNullValue());
         assertThat(session.what, equalTo("gc+heap"));
@@ -235,15 +241,15 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
 
     @Test
     void testGetUnifiedLoggingStatusAfterEnable() {
-        String targetId = target.id();
+        String jvmId = target.jvmId();
 
         given().log()
                 .all()
-                .pathParam("targetId", targetId)
+                .pathParam("jvmId", jvmId)
                 .queryParam("what", "gc")
                 .queryParam("decorators", "time,level")
                 .when()
-                .post("/api/beta/diagnostics/targets/{targetId}/unified-logging")
+                .post("/api/v5/targets/{jvmId}/diagnostics/unified-logging")
                 .then()
                 .log()
                 .all()
@@ -256,9 +262,9 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
         // internal state propagation; we verify the endpoint works rather than the value.
         given().log()
                 .all()
-                .pathParam("targetId", targetId)
+                .pathParam("jvmId", jvmId)
                 .when()
-                .get("/api/beta/diagnostics/targets/{targetId}/unified-logging")
+                .get("/api/v5/targets/{jvmId}/diagnostics/unified-logging")
                 .then()
                 .log()
                 .all()
@@ -272,15 +278,15 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
 
     @Test
     void testReconfigureUnifiedLoggingUpdatesSessionRow() {
-        String targetId = target.id();
+        String jvmId = target.jvmId();
 
         given().log()
                 .all()
-                .pathParam("targetId", targetId)
+                .pathParam("jvmId", jvmId)
                 .queryParam("what", "gc")
                 .queryParam("decorators", "time,level")
                 .when()
-                .post("/api/beta/diagnostics/targets/{targetId}/unified-logging")
+                .post("/api/v5/targets/{jvmId}/diagnostics/unified-logging")
                 .then()
                 .log()
                 .all()
@@ -290,11 +296,11 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
 
         given().log()
                 .all()
-                .pathParam("targetId", targetId)
+                .pathParam("jvmId", jvmId)
                 .queryParam("what", "gc+heap")
                 .queryParam("decorators", "time,level,uptime")
                 .when()
-                .request("PATCH", "/api/beta/diagnostics/targets/{targetId}/unified-logging")
+                .request("PATCH", "/api/v5/targets/{jvmId}/diagnostics/unified-logging")
                 .then()
                 .log()
                 .all()
@@ -307,7 +313,7 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
                         .call(
                                 () ->
                                         UnifiedLog.<UnifiedLog>find(
-                                                        "target.id", UUID.fromString(targetId))
+                                                        "target.id", UUID.fromString(target.id()))
                                                 .firstResult());
         assertThat(after, notNullValue());
         assertThat(after.what, equalTo("gc+heap"));
@@ -315,7 +321,10 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
 
         long count =
                 QuarkusTransaction.requiringNew()
-                        .call(() -> UnifiedLog.count("target.id = ?1", UUID.fromString(targetId)));
+                        .call(
+                                () ->
+                                        UnifiedLog.count(
+                                                "target.id = ?1", UUID.fromString(target.id())));
         assertThat("Session row count must remain at 1 after reconfigure", count, equalTo(1L));
     }
 
@@ -323,11 +332,11 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
     void testReconfigureUnifiedLoggingWhenNotEnabledReturns409() {
         given().log()
                 .all()
-                .pathParam("targetId", target.id())
+                .pathParam("jvmId", target.jvmId())
                 .queryParam("what", "gc")
                 .queryParam("decorators", "time,level")
                 .when()
-                .request("PATCH", "/api/beta/diagnostics/targets/{targetId}/unified-logging")
+                .request("PATCH", "/api/v5/targets/{jvmId}/diagnostics/unified-logging")
                 .then()
                 .log()
                 .all()
@@ -338,10 +347,10 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
 
     // ── Pull ──────────────────────────────────────────────────────────────────────
 
-    private void triggerGcAndWait(String targetId) throws InterruptedException {
-        given().pathParam("targetId", targetId)
+    private void triggerGcAndWait(String jvmId) throws InterruptedException {
+        given().pathParam("jvmId", jvmId)
                 .when()
-                .post("/api/beta/diagnostics/targets/{targetId}/gc")
+                .post("/api/v5/targets/{jvmId}/diagnostics/gc")
                 .then()
                 .assertThat()
                 .statusCode(204);
@@ -351,15 +360,15 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
     @Test
     void testPullUnifiedLogUploadsToS3AndUpdatesSessionRow()
             throws InterruptedException, ExecutionException, TimeoutException {
-        String targetId = target.id();
+        String jvmId = target.jvmId();
 
         given().log()
                 .all()
-                .pathParam("targetId", targetId)
+                .pathParam("jvmId", jvmId)
                 .queryParam("what", "gc")
                 .queryParam("decorators", "time,level")
                 .when()
-                .post("/api/beta/diagnostics/targets/{targetId}/unified-logging")
+                .post("/api/v5/targets/{jvmId}/diagnostics/unified-logging")
                 .then()
                 .log()
                 .all()
@@ -367,16 +376,15 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
                 .assertThat()
                 .statusCode(200);
 
-        triggerGcAndWait(targetId);
+        triggerGcAndWait(jvmId);
 
         JsonObject pullResponse =
                 new JsonObject(
                         given().log()
                                 .all()
-                                .pathParam("targetId", targetId)
+                                .pathParam("jvmId", jvmId)
                                 .when()
-                                .post(
-                                        "/api/beta/diagnostics/targets/{targetId}/unified-logging/pull")
+                                .post("/api/v5/targets/{jvmId}/diagnostics/unified-logs/pull")
                                 .then()
                                 .log()
                                 .all()
@@ -397,16 +405,16 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
                         .call(
                                 () ->
                                         UnifiedLog.<UnifiedLog>find(
-                                                        "target.id", UUID.fromString(targetId))
+                                                        "target.id", UUID.fromString(target.id()))
                                                 .firstResult());
         assertThat(session, notNullValue());
 
         List<Map<String, Object>> logs =
                 given().log()
                         .all()
-                        .pathParam("targetId", targetId)
+                        .pathParam("jvmId", jvmId)
                         .when()
-                        .get("/api/beta/diagnostics/targets/{targetId}/unified-logs")
+                        .get("/api/v5/targets/{jvmId}/diagnostics/unified-logs")
                         .then()
                         .log()
                         .all()
@@ -428,15 +436,15 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
     @Test
     void testUnifiedLogNotificationPublishedOnPull()
             throws InterruptedException, ExecutionException, TimeoutException {
-        String targetId = target.id();
+        String jvmId = target.jvmId();
 
         given().log()
                 .all()
-                .pathParam("targetId", targetId)
+                .pathParam("jvmId", jvmId)
                 .queryParam("what", "gc")
                 .queryParam("decorators", "time,level")
                 .when()
-                .post("/api/beta/diagnostics/targets/{targetId}/unified-logging")
+                .post("/api/v5/targets/{jvmId}/diagnostics/unified-logging")
                 .then()
                 .log()
                 .all()
@@ -444,13 +452,13 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
                 .assertThat()
                 .statusCode(200);
 
-        triggerGcAndWait(targetId);
+        triggerGcAndWait(jvmId);
 
         given().log()
                 .all()
-                .pathParam("targetId", targetId)
+                .pathParam("jvmId", jvmId)
                 .when()
-                .post("/api/beta/diagnostics/targets/{targetId}/unified-logging/pull")
+                .post("/api/v5/targets/{jvmId}/diagnostics/unified-logs/pull")
                 .then()
                 .log()
                 .all()
@@ -466,15 +474,15 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
 
     @Test
     void testPullUnifiedLogWithNoContentReturns204() {
-        String targetId = target.id();
+        String jvmId = target.jvmId();
 
         given().log()
                 .all()
-                .pathParam("targetId", targetId)
+                .pathParam("jvmId", jvmId)
                 .queryParam("what", "gc")
                 .queryParam("decorators", "time,level")
                 .when()
-                .post("/api/beta/diagnostics/targets/{targetId}/unified-logging")
+                .post("/api/v5/targets/{jvmId}/diagnostics/unified-logging")
                 .then()
                 .log()
                 .all()
@@ -488,9 +496,9 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
         int statusCode =
                 given().log()
                         .all()
-                        .pathParam("targetId", targetId)
+                        .pathParam("jvmId", jvmId)
                         .when()
-                        .post("/api/beta/diagnostics/targets/{targetId}/unified-logging/pull")
+                        .post("/api/v5/targets/{jvmId}/diagnostics/unified-logs/pull")
                         .then()
                         .log()
                         .all()
@@ -507,7 +515,7 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
                         .call(
                                 () ->
                                         UnifiedLog.<UnifiedLog>find(
-                                                        "target.id", UUID.fromString(targetId))
+                                                        "target.id", UUID.fromString(target.id()))
                                                 .firstResult());
         assertThat(session, notNullValue());
         assertThat(session.status, equalTo(UnifiedLog.Status.ACTIVE));
@@ -516,9 +524,9 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
             // Nothing must have been stored in S3.
             given().log()
                     .all()
-                    .pathParam("targetId", targetId)
+                    .pathParam("jvmId", jvmId)
                     .when()
-                    .get("/api/beta/diagnostics/targets/{targetId}/unified-logs")
+                    .get("/api/v5/targets/{jvmId}/diagnostics/unified-logs")
                     .then()
                     .log()
                     .all()
@@ -532,15 +540,15 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
 
     @Test
     void testDisableUnifiedLoggingDeletesSessionRow() {
-        String targetId = target.id();
+        String jvmId = target.jvmId();
 
         given().log()
                 .all()
-                .pathParam("targetId", targetId)
+                .pathParam("jvmId", jvmId)
                 .queryParam("what", "gc")
                 .queryParam("decorators", "time,level")
                 .when()
-                .post("/api/beta/diagnostics/targets/{targetId}/unified-logging")
+                .post("/api/v5/targets/{jvmId}/diagnostics/unified-logging")
                 .then()
                 .log()
                 .all()
@@ -550,14 +558,17 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
 
         long countAfterEnable =
                 QuarkusTransaction.requiringNew()
-                        .call(() -> UnifiedLog.count("target.id = ?1", UUID.fromString(targetId)));
+                        .call(
+                                () ->
+                                        UnifiedLog.count(
+                                                "target.id = ?1", UUID.fromString(target.id())));
         assertThat(countAfterEnable, equalTo(1L));
 
         given().log()
                 .all()
-                .pathParam("targetId", targetId)
+                .pathParam("jvmId", jvmId)
                 .when()
-                .delete("/api/beta/diagnostics/targets/{targetId}/unified-logging")
+                .delete("/api/v5/targets/{jvmId}/diagnostics/unified-logging")
                 .then()
                 .log()
                 .all()
@@ -567,7 +578,10 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
 
         long countAfterDisable =
                 QuarkusTransaction.requiringNew()
-                        .call(() -> UnifiedLog.count("target.id = ?1", UUID.fromString(targetId)));
+                        .call(
+                                () ->
+                                        UnifiedLog.count(
+                                                "target.id = ?1", UUID.fromString(target.id())));
         assertThat("Session row should be deleted after disable", countAfterDisable, equalTo(0L));
     }
 
@@ -576,16 +590,16 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
     @Test
     void testFullUnifiedLogLifecycle()
             throws InterruptedException, ExecutionException, TimeoutException {
-        String targetId = target.id();
+        String jvmId = target.jvmId();
 
         // 1. Enable
         given().log()
                 .all()
-                .pathParam("targetId", targetId)
+                .pathParam("jvmId", jvmId)
                 .queryParam("what", "gc")
                 .queryParam("decorators", "time,level")
                 .when()
-                .post("/api/beta/diagnostics/targets/{targetId}/unified-logging")
+                .post("/api/v5/targets/{jvmId}/diagnostics/unified-logging")
                 .then()
                 .log()
                 .all()
@@ -595,17 +609,20 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
 
         assertThat(
                 QuarkusTransaction.requiringNew()
-                        .call(() -> UnifiedLog.count("target.id = ?1", UUID.fromString(targetId))),
+                        .call(
+                                () ->
+                                        UnifiedLog.count(
+                                                "target.id = ?1", UUID.fromString(target.id()))),
                 equalTo(1L));
 
         // 2. Reconfigure
         given().log()
                 .all()
-                .pathParam("targetId", targetId)
+                .pathParam("jvmId", jvmId)
                 .queryParam("what", "gc+heap")
                 .queryParam("decorators", "time,level,uptime")
                 .when()
-                .request("PATCH", "/api/beta/diagnostics/targets/{targetId}/unified-logging")
+                .request("PATCH", "/api/v5/targets/{jvmId}/diagnostics/unified-logging")
                 .then()
                 .log()
                 .all()
@@ -613,14 +630,14 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
                 .assertThat()
                 .statusCode(200);
 
-        triggerGcAndWait(targetId);
+        triggerGcAndWait(jvmId);
 
         // 3. Pull
         given().log()
                 .all()
-                .pathParam("targetId", targetId)
+                .pathParam("jvmId", jvmId)
                 .when()
-                .post("/api/beta/diagnostics/targets/{targetId}/unified-logging/pull")
+                .post("/api/v5/targets/{jvmId}/diagnostics/unified-logs/pull")
                 .then()
                 .log()
                 .all()
@@ -631,9 +648,9 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
         List<Map<String, Object>> logs =
                 given().log()
                         .all()
-                        .pathParam("targetId", targetId)
+                        .pathParam("jvmId", jvmId)
                         .when()
-                        .get("/api/beta/diagnostics/targets/{targetId}/unified-logs")
+                        .get("/api/v5/targets/{jvmId}/diagnostics/unified-logs")
                         .then()
                         .log()
                         .all()
@@ -649,28 +666,30 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
         String logId = (String) logs.get(0).get("logId");
         assertThat(logId, notNullValue());
 
-        // 4. Download the pulled log via redirect
+        // 4. Download the pulled log
+        String encodedKey =
+                Base64.getEncoder().encodeToString(String.format("%s/%s", jvmId, logId).getBytes());
         given().log()
                 .all()
-                .pathParam("targetId", targetId)
-                .pathParam("logId", logId)
+                .pathParam("encodedKey", encodedKey)
                 .redirects()
                 .follow(false)
                 .when()
-                .get("/api/beta/diagnostics/targets/{targetId}/unified-logs/{logId}")
+                .get("/api/v5/diagnostics/unified-logs/download/{encodedKey}")
                 .then()
                 .log()
                 .all()
                 .and()
                 .assertThat()
-                .statusCode(303);
+                .statusCode(200);
 
         // 5. Delete the pulled log from S3 — session row must remain
         given().log()
                 .all()
-                .pathParams("targetId", targetId, "logId", logId)
+                .pathParam("jvmId", jvmId)
+                .pathParam("id", logId)
                 .when()
-                .delete("/api/beta/diagnostics/targets/{targetId}/unified-logs/{logId}")
+                .delete("/api/v5/targets/{jvmId}/diagnostics/unified-logs/{id}")
                 .then()
                 .log()
                 .all()
@@ -681,15 +700,18 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
         assertThat(
                 "Session row must survive S3 delete",
                 QuarkusTransaction.requiringNew()
-                        .call(() -> UnifiedLog.count("target.id = ?1", UUID.fromString(targetId))),
+                        .call(
+                                () ->
+                                        UnifiedLog.count(
+                                                "target.id = ?1", UUID.fromString(target.id()))),
                 equalTo(1L));
 
         // 6. Disable — session row must be deleted
         given().log()
                 .all()
-                .pathParam("targetId", targetId)
+                .pathParam("jvmId", jvmId)
                 .when()
-                .delete("/api/beta/diagnostics/targets/{targetId}/unified-logging")
+                .delete("/api/v5/targets/{jvmId}/diagnostics/unified-logging")
                 .then()
                 .log()
                 .all()
@@ -700,7 +722,10 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
         assertThat(
                 "Session row should be absent after disable",
                 QuarkusTransaction.requiringNew()
-                        .call(() -> UnifiedLog.count("target.id = ?1", UUID.fromString(targetId))),
+                        .call(
+                                () ->
+                                        UnifiedLog.count(
+                                                "target.id = ?1", UUID.fromString(target.id()))),
                 equalTo(0L));
     }
 
@@ -709,15 +734,15 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
     @Test
     void testListAllUnifiedLogsAfterPull()
             throws InterruptedException, ExecutionException, TimeoutException {
-        String targetId = target.id();
+        String jvmId = target.jvmId();
 
         given().log()
                 .all()
-                .pathParam("targetId", targetId)
+                .pathParam("jvmId", jvmId)
                 .queryParam("what", "gc")
                 .queryParam("decorators", "time,level")
                 .when()
-                .post("/api/beta/diagnostics/targets/{targetId}/unified-logging")
+                .post("/api/v5/targets/{jvmId}/diagnostics/unified-logging")
                 .then()
                 .log()
                 .all()
@@ -725,13 +750,13 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
                 .assertThat()
                 .statusCode(200);
 
-        triggerGcAndWait(targetId);
+        triggerGcAndWait(jvmId);
 
         given().log()
                 .all()
-                .pathParam("targetId", targetId)
+                .pathParam("jvmId", jvmId)
                 .when()
-                .post("/api/beta/diagnostics/targets/{targetId}/unified-logging/pull")
+                .post("/api/v5/targets/{jvmId}/diagnostics/unified-logs/pull")
                 .then()
                 .log()
                 .all()
@@ -742,7 +767,7 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
         given().log()
                 .all()
                 .when()
-                .get("/api/beta/diagnostics/fs/unified-logs")
+                .get("/api/v5/diagnostics/unified-logs")
                 .then()
                 .log()
                 .all()
@@ -761,15 +786,15 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
     @Test
     void testDeleteUnifiedLogByPath()
             throws InterruptedException, ExecutionException, TimeoutException {
-        String targetId = target.id();
+        String jvmId = target.jvmId();
 
         given().log()
                 .all()
-                .pathParam("targetId", targetId)
+                .pathParam("jvmId", jvmId)
                 .queryParam("what", "gc")
                 .queryParam("decorators", "time,level")
                 .when()
-                .post("/api/beta/diagnostics/targets/{targetId}/unified-logging")
+                .post("/api/v5/targets/{jvmId}/diagnostics/unified-logging")
                 .then()
                 .log()
                 .all()
@@ -777,13 +802,13 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
                 .assertThat()
                 .statusCode(200);
 
-        triggerGcAndWait(targetId);
+        triggerGcAndWait(jvmId);
 
         given().log()
                 .all()
-                .pathParam("targetId", targetId)
+                .pathParam("jvmId", jvmId)
                 .when()
-                .post("/api/beta/diagnostics/targets/{targetId}/unified-logging/pull")
+                .post("/api/v5/targets/{jvmId}/diagnostics/unified-logs/pull")
                 .then()
                 .log()
                 .all()
@@ -794,9 +819,9 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
         List<Map<String, Object>> logs =
                 given().log()
                         .all()
-                        .pathParam("targetId", targetId)
+                        .pathParam("jvmId", jvmId)
                         .when()
-                        .get("/api/beta/diagnostics/targets/{targetId}/unified-logs")
+                        .get("/api/v5/targets/{jvmId}/diagnostics/unified-logs")
                         .then()
                         .log()
                         .all()
@@ -813,9 +838,10 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
 
         given().log()
                 .all()
-                .pathParams("jvmId", target.jvmId(), "logId", logId)
+                .pathParam("jvmId", jvmId)
+                .pathParam("id", logId)
                 .when()
-                .delete("/api/beta/diagnostics/fs/unified-logs/{jvmId}/{logId}")
+                .delete("/api/v5/targets/{jvmId}/diagnostics/unified-logs/{id}")
                 .then()
                 .log()
                 .all()
@@ -825,9 +851,9 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
 
         given().log()
                 .all()
-                .pathParam("targetId", targetId)
+                .pathParam("jvmId", jvmId)
                 .when()
-                .get("/api/beta/diagnostics/targets/{targetId}/unified-logs")
+                .get("/api/v5/targets/{jvmId}/diagnostics/unified-logs")
                 .then()
                 .log()
                 .all()
@@ -842,15 +868,15 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
     @Test
     void testPullUnifiedLogUploadsToS3AndUpdatesSessionRowIncludesMetadata()
             throws InterruptedException, ExecutionException, TimeoutException {
-        String targetId = target.id();
+        String jvmId = target.jvmId();
 
         given().log()
                 .all()
-                .pathParam("targetId", targetId)
+                .pathParam("jvmId", jvmId)
                 .queryParam("what", "gc")
                 .queryParam("decorators", "time,level")
                 .when()
-                .post("/api/beta/diagnostics/targets/{targetId}/unified-logging")
+                .post("/api/v5/targets/{jvmId}/diagnostics/unified-logging")
                 .then()
                 .log()
                 .all()
@@ -858,16 +884,15 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
                 .assertThat()
                 .statusCode(200);
 
-        triggerGcAndWait(targetId);
+        triggerGcAndWait(jvmId);
 
         JsonObject pullResponse =
                 new JsonObject(
                         given().log()
                                 .all()
-                                .pathParam("targetId", targetId)
+                                .pathParam("jvmId", jvmId)
                                 .when()
-                                .post(
-                                        "/api/beta/diagnostics/targets/{targetId}/unified-logging/pull")
+                                .post("/api/v5/targets/{jvmId}/diagnostics/unified-logs/pull")
                                 .then()
                                 .log()
                                 .all()
@@ -887,9 +912,9 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
         List<Map<String, Object>> logs =
                 given().log()
                         .all()
-                        .pathParam("targetId", targetId)
+                        .pathParam("jvmId", jvmId)
                         .when()
-                        .get("/api/beta/diagnostics/targets/{targetId}/unified-logs")
+                        .get("/api/v5/targets/{jvmId}/diagnostics/unified-logs")
                         .then()
                         .log()
                         .all()
@@ -912,15 +937,15 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
     @Test
     void testPatchUnifiedLogMetadataReturnsUpdatedLabels()
             throws InterruptedException, ExecutionException, TimeoutException {
-        String targetId = target.id();
+        String jvmId = target.jvmId();
 
         given().log()
                 .all()
-                .pathParam("targetId", targetId)
+                .pathParam("jvmId", jvmId)
                 .queryParam("what", "gc")
                 .queryParam("decorators", "time,level")
                 .when()
-                .post("/api/beta/diagnostics/targets/{targetId}/unified-logging")
+                .post("/api/v5/targets/{jvmId}/diagnostics/unified-logging")
                 .then()
                 .log()
                 .all()
@@ -928,16 +953,16 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
                 .assertThat()
                 .statusCode(200);
 
-        triggerGcAndWait(targetId);
+        triggerGcAndWait(jvmId);
 
         String logId =
                 new JsonObject(
                                 given().log()
                                         .all()
-                                        .pathParam("targetId", targetId)
+                                        .pathParam("jvmId", jvmId)
                                         .when()
                                         .post(
-                                                "/api/beta/diagnostics/targets/{targetId}/unified-logging/pull")
+                                                "/api/v5/targets/{jvmId}/diagnostics/unified-logs/pull")
                                         .then()
                                         .log()
                                         .all()
@@ -953,12 +978,12 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
                 new JsonObject(
                         given().log()
                                 .all()
-                                .pathParams("targetId", targetId, "logId", logId)
+                                .pathParam("jvmId", jvmId)
+                                .pathParam("id", logId)
                                 .contentType(ContentType.JSON)
                                 .body("{\"labels\":{\"env\":\"prod\"}}")
                                 .when()
-                                .patch(
-                                        "/api/beta/diagnostics/targets/{targetId}/unified-logs/{logId}")
+                                .patch("/api/v5/targets/{jvmId}/diagnostics/unified-logs/{id}")
                                 .then()
                                 .log()
                                 .all()
@@ -981,15 +1006,15 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
     @Test
     void testPatchFsUnifiedLogMetadataReturnsUpdatedLabels()
             throws InterruptedException, ExecutionException, TimeoutException {
-        String targetId = target.id();
+        String jvmId = target.jvmId();
 
         given().log()
                 .all()
-                .pathParam("targetId", targetId)
+                .pathParam("jvmId", jvmId)
                 .queryParam("what", "gc")
                 .queryParam("decorators", "time,level")
                 .when()
-                .post("/api/beta/diagnostics/targets/{targetId}/unified-logging")
+                .post("/api/v5/targets/{jvmId}/diagnostics/unified-logging")
                 .then()
                 .log()
                 .all()
@@ -997,13 +1022,13 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
                 .assertThat()
                 .statusCode(200);
 
-        triggerGcAndWait(targetId);
+        triggerGcAndWait(jvmId);
 
         given().log()
                 .all()
-                .pathParam("targetId", targetId)
+                .pathParam("jvmId", jvmId)
                 .when()
-                .post("/api/beta/diagnostics/targets/{targetId}/unified-logging/pull")
+                .post("/api/v5/targets/{jvmId}/diagnostics/unified-logs/pull")
                 .then()
                 .log()
                 .all()
@@ -1014,9 +1039,9 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
         List<Map<String, Object>> logs =
                 given().log()
                         .all()
-                        .pathParam("targetId", targetId)
+                        .pathParam("jvmId", jvmId)
                         .when()
-                        .get("/api/beta/diagnostics/targets/{targetId}/unified-logs")
+                        .get("/api/v5/targets/{jvmId}/diagnostics/unified-logs")
                         .then()
                         .log()
                         .all()
@@ -1035,11 +1060,12 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
                 new JsonObject(
                         given().log()
                                 .all()
-                                .pathParams("jvmId", target.jvmId(), "logId", logId)
+                                .pathParam("jvmId", jvmId)
+                                .pathParam("id", logId)
                                 .contentType(ContentType.JSON)
                                 .body("{\"labels\":{\"env\":\"staging\"}}")
                                 .when()
-                                .patch("/api/beta/diagnostics/fs/unified-logs/{jvmId}/{logId}")
+                                .patch("/api/v5/targets/{jvmId}/diagnostics/unified-logs/{id}")
                                 .then()
                                 .log()
                                 .all()
@@ -1062,15 +1088,15 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
     @Test
     void testPatchUnifiedLogMetadataIsPersisted()
             throws InterruptedException, ExecutionException, TimeoutException {
-        String targetId = target.id();
+        String jvmId = target.jvmId();
 
         given().log()
                 .all()
-                .pathParam("targetId", targetId)
+                .pathParam("jvmId", jvmId)
                 .queryParam("what", "gc")
                 .queryParam("decorators", "time,level")
                 .when()
-                .post("/api/beta/diagnostics/targets/{targetId}/unified-logging")
+                .post("/api/v5/targets/{jvmId}/diagnostics/unified-logging")
                 .then()
                 .log()
                 .all()
@@ -1078,16 +1104,16 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
                 .assertThat()
                 .statusCode(200);
 
-        triggerGcAndWait(targetId);
+        triggerGcAndWait(jvmId);
 
         String logId =
                 new JsonObject(
                                 given().log()
                                         .all()
-                                        .pathParam("targetId", targetId)
+                                        .pathParam("jvmId", jvmId)
                                         .when()
                                         .post(
-                                                "/api/beta/diagnostics/targets/{targetId}/unified-logging/pull")
+                                                "/api/v5/targets/{jvmId}/diagnostics/unified-logs/pull")
                                         .then()
                                         .log()
                                         .all()
@@ -1101,11 +1127,12 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
 
         given().log()
                 .all()
-                .pathParams("targetId", targetId, "logId", logId)
+                .pathParam("jvmId", jvmId)
+                .pathParam("id", logId)
                 .contentType(ContentType.JSON)
                 .body("{\"labels\":{\"env\":\"prod\"}}")
                 .when()
-                .patch("/api/beta/diagnostics/targets/{targetId}/unified-logs/{logId}")
+                .patch("/api/v5/targets/{jvmId}/diagnostics/unified-logs/{id}")
                 .then()
                 .log()
                 .all()
@@ -1116,9 +1143,9 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
         List<Map<String, Object>> logs =
                 given().log()
                         .all()
-                        .pathParam("targetId", targetId)
+                        .pathParam("jvmId", jvmId)
                         .when()
-                        .get("/api/beta/diagnostics/targets/{targetId}/unified-logs")
+                        .get("/api/v5/targets/{jvmId}/diagnostics/unified-logs")
                         .then()
                         .log()
                         .all()
@@ -1151,15 +1178,15 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
     @Test
     void testPatchUnifiedLogMetadataNotFoundReturns404()
             throws InterruptedException, ExecutionException, TimeoutException {
-        String targetId = target.id();
+        String jvmId = target.jvmId();
 
         given().log()
                 .all()
-                .pathParam("targetId", targetId)
+                .pathParam("jvmId", jvmId)
                 .queryParam("what", "gc")
                 .queryParam("decorators", "time,level")
                 .when()
-                .post("/api/beta/diagnostics/targets/{targetId}/unified-logging")
+                .post("/api/v5/targets/{jvmId}/diagnostics/unified-logging")
                 .then()
                 .log()
                 .all()
@@ -1169,11 +1196,12 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
 
         given().log()
                 .all()
-                .pathParams("targetId", targetId, "logId", "nonexistent-log-id.log")
+                .pathParam("jvmId", jvmId)
+                .pathParam("id", "nonexistent-log-id")
                 .contentType(ContentType.JSON)
                 .body("{\"labels\":{\"env\":\"prod\"}}")
                 .when()
-                .patch("/api/beta/diagnostics/targets/{targetId}/unified-logs/{logId}")
+                .patch("/api/v5/targets/{jvmId}/diagnostics/unified-logs/{id}")
                 .then()
                 .log()
                 .all()
@@ -1185,15 +1213,15 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
     @Test
     void testPatchUnifiedLogMetadataNotificationPublished()
             throws InterruptedException, ExecutionException, TimeoutException {
-        String targetId = target.id();
+        String jvmId = target.jvmId();
 
         given().log()
                 .all()
-                .pathParam("targetId", targetId)
+                .pathParam("jvmId", jvmId)
                 .queryParam("what", "gc")
                 .queryParam("decorators", "time,level")
                 .when()
-                .post("/api/beta/diagnostics/targets/{targetId}/unified-logging")
+                .post("/api/v5/targets/{jvmId}/diagnostics/unified-logging")
                 .then()
                 .log()
                 .all()
@@ -1201,16 +1229,16 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
                 .assertThat()
                 .statusCode(200);
 
-        triggerGcAndWait(targetId);
+        triggerGcAndWait(jvmId);
 
         String logId =
                 new JsonObject(
                                 given().log()
                                         .all()
-                                        .pathParam("targetId", targetId)
+                                        .pathParam("jvmId", jvmId)
                                         .when()
                                         .post(
-                                                "/api/beta/diagnostics/targets/{targetId}/unified-logging/pull")
+                                                "/api/v5/targets/{jvmId}/diagnostics/unified-logs/pull")
                                         .then()
                                         .log()
                                         .all()
@@ -1224,11 +1252,12 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
 
         given().log()
                 .all()
-                .pathParams("targetId", targetId, "logId", logId)
+                .pathParam("jvmId", jvmId)
+                .pathParam("id", logId)
                 .contentType(ContentType.JSON)
                 .body("{\"labels\":{\"env\":\"prod\"}}")
                 .when()
-                .patch("/api/beta/diagnostics/targets/{targetId}/unified-logs/{logId}")
+                .patch("/api/v5/targets/{jvmId}/diagnostics/unified-logs/{id}")
                 .then()
                 .log()
                 .all()

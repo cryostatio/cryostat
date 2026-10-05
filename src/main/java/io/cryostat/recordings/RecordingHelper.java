@@ -1220,20 +1220,20 @@ public class RecordingHelper {
     }
 
     public String downloadUrl(ActiveRecording recording) {
-        return String.format("/api/v4/activedownload/%s", recording.id);
+        return String.format("/api/v5/active-download/%s", recording.id);
     }
 
     public String downloadUrl(String jvmId, String filename) {
-        return String.format("/api/v4/download/%s", encodedKey(jvmId, filename));
+        return String.format("/api/v5/download/%s", encodedKey(jvmId, filename));
     }
 
     public String reportUrl(ActiveRecording recording) {
         return String.format(
-                "/api/v4/targets/%s/reports/%d", recording.target.id, recording.remoteId);
+                "/api/v5/targets/%s/reports/%d", recording.target.jvmId, recording.remoteId);
     }
 
     public String reportUrl(String jvmId, String filename) {
-        return String.format("/api/v4/reports/%s", encodedKey(jvmId, filename));
+        return String.format("/api/v5/reports/%s", encodedKey(jvmId, filename));
     }
 
     void safeCloseRecording(JFRConnection conn, IRecordingDescriptor rec) {
@@ -1620,14 +1620,12 @@ public class RecordingHelper {
                 new Notification(event.category().category(), event.payload()));
     }
 
-    public Uni<String> uploadToJFRDatasource(UUID targetEntityId, long remoteId) throws Exception {
+    public Uni<String> uploadToJFRDatasource(String jvmId, long remoteId) throws Exception {
         InputStream is =
                 QuarkusTransaction.joiningExisting()
                         .call(
                                 () -> {
-                                    Target target = Target.getTargetById(targetEntityId);
-                                    Objects.requireNonNull(
-                                            target, "Target from targetId not found");
+                                    Target target = Target.getTargetByJvmId(jvmId).orElseThrow();
                                     ActiveRecording recording = target.getRecordingById(remoteId);
                                     Objects.requireNonNull(
                                             recording, "ActiveRecording from remoteId not found");

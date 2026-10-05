@@ -21,6 +21,7 @@ import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -160,7 +161,9 @@ public class Target extends PanacheUuidEntity {
     }
 
     public static Optional<Target> getTargetByJvmId(String jvmId) {
-        return find("jvmId", jvmId).firstResultOptional();
+        return find("jvmId", jvmId).<Target>stream()
+                .sorted(Comparator.comparing(Target::isAgent).reversed())
+                .findFirst();
     }
 
     public static List<Target> findByRealm(String realm) {

@@ -23,16 +23,17 @@ import java.util.stream.Stream;
 
 import io.cryostat.audit.AuditTestBase;
 import io.cryostat.diagnostic.UnifiedLog;
-import io.cryostat.diagnostic.UnifiedLogs;
+import io.cryostat.resources.S3StorageResource;
 import io.cryostat.targets.Target;
 
 import io.quarkus.narayana.jta.QuarkusTransaction;
-import io.quarkus.test.common.http.TestHTTPEndpoint;
+import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.TestProfile;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
 import jakarta.transaction.Transactional;
+import org.hamcrest.Matchers;
 import org.hibernate.envers.AuditReader;
 import org.hibernate.envers.AuditReaderFactory;
 import org.junit.jupiter.api.Assertions;
@@ -43,7 +44,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 @QuarkusTest
 @TestProfile(UnifiedLogsTest.class)
-@TestHTTPEndpoint(UnifiedLogs.class)
+@QuarkusTestResource(value = S3StorageResource.class, restrictToAnnotatedClass = true)
 public class UnifiedLogsTest extends AuditTestBase {
 
     @Inject EntityManager em;
@@ -52,14 +53,15 @@ public class UnifiedLogsTest extends AuditTestBase {
 
     @Test
     public void testEnableUnifiedLoggingOnJmxTargetReturns400() {
-        UUID targetId = defineSelfCustomTarget();
-        given().log()
+        defineSelfCustomTarget();
+        given().basePath("")
+                .log()
                 .all()
                 .when()
-                .pathParam("targetId", targetId)
+                .pathParam("jvmId", selfJvmId)
                 .queryParam("what", "gc")
                 .queryParam("decorators", "time,level")
-                .post("targets/{targetId}/unified-logging")
+                .post("/api/v5/targets/{jvmId}/diagnostics/unified-logging")
                 .then()
                 .log()
                 .all()
@@ -69,14 +71,15 @@ public class UnifiedLogsTest extends AuditTestBase {
 
     @Test
     public void testPatchUnifiedLoggingOnJmxTargetReturns400() {
-        UUID targetId = defineSelfCustomTarget();
-        given().log()
+        defineSelfCustomTarget();
+        given().basePath("")
+                .log()
                 .all()
                 .when()
-                .pathParam("targetId", targetId)
+                .pathParam("jvmId", selfJvmId)
                 .queryParam("what", "gc")
                 .queryParam("decorators", "time,level")
-                .request("PATCH", "targets/{targetId}/unified-logging")
+                .request("PATCH", "/api/v5/targets/{jvmId}/diagnostics/unified-logging")
                 .then()
                 .log()
                 .all()
@@ -86,12 +89,13 @@ public class UnifiedLogsTest extends AuditTestBase {
 
     @Test
     public void testDisableUnifiedLoggingOnJmxTargetReturns400() {
-        UUID targetId = defineSelfCustomTarget();
-        given().log()
+        defineSelfCustomTarget();
+        given().basePath("")
+                .log()
                 .all()
                 .when()
-                .pathParam("targetId", targetId)
-                .delete("targets/{targetId}/unified-logging")
+                .pathParam("jvmId", selfJvmId)
+                .delete("/api/v5/targets/{jvmId}/diagnostics/unified-logging")
                 .then()
                 .log()
                 .all()
@@ -101,12 +105,13 @@ public class UnifiedLogsTest extends AuditTestBase {
 
     @Test
     public void testPullUnifiedLogOnJmxTargetReturns400() {
-        UUID targetId = defineSelfCustomTarget();
-        given().log()
+        defineSelfCustomTarget();
+        given().basePath("")
+                .log()
                 .all()
                 .when()
-                .pathParam("targetId", targetId)
-                .post("targets/{targetId}/unified-logging/pull")
+                .pathParam("jvmId", selfJvmId)
+                .post("/api/v5/targets/{jvmId}/diagnostics/unified-logs/pull")
                 .then()
                 .log()
                 .all()
@@ -138,14 +143,15 @@ public class UnifiedLogsTest extends AuditTestBase {
     @MethodSource("invalidParams")
     public void testEnableUnifiedLoggingWithInvalidParamsReturns400(
             String what, String decorators) {
-        UUID targetId = defineSelfCustomTarget();
-        given().log()
+        defineSelfCustomTarget();
+        given().basePath("")
+                .log()
                 .all()
                 .when()
-                .pathParam("targetId", targetId)
+                .pathParam("jvmId", selfJvmId)
                 .queryParam("what", what)
                 .queryParam("decorators", decorators)
-                .post("targets/{targetId}/unified-logging")
+                .post("/api/v5/targets/{jvmId}/diagnostics/unified-logging")
                 .then()
                 .log()
                 .all()
@@ -157,14 +163,15 @@ public class UnifiedLogsTest extends AuditTestBase {
     @MethodSource("invalidParams")
     public void testReconfigureUnifiedLoggingWithInvalidParamsReturns400(
             String what, String decorators) {
-        UUID targetId = defineSelfCustomTarget();
-        given().log()
+        defineSelfCustomTarget();
+        given().basePath("")
+                .log()
                 .all()
                 .when()
-                .pathParam("targetId", targetId)
+                .pathParam("jvmId", selfJvmId)
                 .queryParam("what", what)
                 .queryParam("decorators", decorators)
-                .request("PATCH", "targets/{targetId}/unified-logging")
+                .request("PATCH", "/api/v5/targets/{jvmId}/diagnostics/unified-logging")
                 .then()
                 .log()
                 .all()
@@ -176,13 +183,14 @@ public class UnifiedLogsTest extends AuditTestBase {
 
     @Test
     public void testEnableUnifiedLoggingOnInvalidTargetReturns404() {
-        given().log()
+        given().basePath("")
+                .log()
                 .all()
                 .when()
-                .pathParam("targetId", UUID.randomUUID())
+                .pathParam("jvmId", "invalid-jvm-id")
                 .queryParam("what", "gc")
                 .queryParam("decorators", "time,level")
-                .post("targets/{targetId}/unified-logging")
+                .post("/api/v5/targets/{jvmId}/diagnostics/unified-logging")
                 .then()
                 .log()
                 .all()
@@ -195,8 +203,8 @@ public class UnifiedLogsTest extends AuditTestBase {
     @Test
     @Transactional
     public void testUnifiedLogEntityEnableCreatesActiveRow() {
-        UUID targetId = defineSelfCustomTarget();
-        Target target = Target.getTargetById(targetId);
+        defineSelfCustomTarget();
+        Target target = Target.getTargetByJvmId(selfJvmId).orElseThrow();
 
         long before = System.currentTimeMillis();
         UnifiedLog session = UnifiedLog.enable(target, "gc", "time,level");
@@ -213,14 +221,15 @@ public class UnifiedLogsTest extends AuditTestBase {
 
     @Test
     public void testUnifiedLogSessionLifecycleCreatesAuditRevisions() {
-        UUID targetId = defineSelfCustomTarget();
+        defineSelfCustomTarget();
 
         // Persist a UnifiedLog session and immediately delete it (simulating enable + disable).
         UUID sessionId =
                 QuarkusTransaction.requiringNew()
                         .call(
                                 () -> {
-                                    Target target = Target.getTargetById(targetId);
+                                    Target target =
+                                            Target.getTargetByJvmId(selfJvmId).orElseThrow();
                                     UnifiedLog session =
                                             UnifiedLog.enable(target, "gc", "time,level");
                                     session.persist();
@@ -256,27 +265,32 @@ public class UnifiedLogsTest extends AuditTestBase {
     }
 
     @Test
-    public void testListUnifiedLogsForInvalidTargetReturns404() {
-        given().log()
+    public void testListUnifiedLogsForInvalidTarget() {
+        given().basePath("")
+                .log()
                 .all()
                 .when()
-                .pathParam("targetId", UUID.randomUUID())
-                .get("targets/{targetId}/unified-logs")
+                .pathParam("jvmId", "invalid-jvm-id")
+                .get("/api/v5/targets/{jvmId}/diagnostics/unified-logs")
                 .then()
                 .log()
                 .all()
                 .assertThat()
-                .statusCode(404);
+                .statusCode(200)
+                .body("$.size()", Matchers.equalTo(0));
     }
 
     @Test
-    public void testDownloadInvalidUnifiedLogKeyReturns404() {
-        given().log()
+    public void testDownloadInvalidUnifiedLogKeyReturns400() {
+        String encodedKey = "abcd1234";
+        given().basePath("")
+                .log()
                 .all()
                 .when()
-                .get("/api/beta/diagnostics/unified-log/download/abcd1234")
+                .pathParam("encodedKey", encodedKey)
+                .get("/api/v5/diagnostics/unified-logs/download/{encodedKey}")
                 .then()
                 .assertThat()
-                .statusCode(404);
+                .statusCode(400);
     }
 }
