@@ -1020,7 +1020,6 @@ components:
           type: integer
         matchExpression:
           $ref: '#/components/schemas/MatchExpression'
-          pattern: \S
         maxAgeSeconds:
           format: int32
           minimum: -1
