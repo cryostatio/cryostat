@@ -43,6 +43,7 @@ import jakarta.persistence.PostRemove;
 import jakarta.persistence.PostUpdate;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -77,7 +78,7 @@ public class Rule extends PanacheEntity {
     @OneToOne(fetch = FetchType.EAGER, cascade = CascadeType.ALL)
     @JoinColumn(name = "matchExpression")
     @NotNull
-    @NotBlank
+    @Valid
     public MatchExpression matchExpression;
 
     @Column(nullable = false)
