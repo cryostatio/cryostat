@@ -49,7 +49,7 @@ public class UnifiedLogsTest extends AuditTestBase {
 
     @Inject EntityManager em;
 
-    // ── Non-agent target: all session management endpoints must return 400 ────────
+    // Non-agent target: all session management endpoints must return 400
 
     @Test
     public void testEnableUnifiedLoggingOnJmxTargetReturns400() {
@@ -121,12 +121,13 @@ public class UnifiedLogsTest extends AuditTestBase {
 
     @Test
     public void testUnifiedLogStatusOnJmxTargetReturns400() {
-        int targetId = defineSelfCustomTarget();
-        given().log()
+        defineSelfCustomTarget();
+        given().basePath("")
+                .log()
                 .all()
                 .when()
-                .pathParam("targetId", targetId)
-                .get("targets/{targetId}/unified-logging")
+                .pathParam("jvmId", selfJvmId)
+                .get("/api/v5/targets/{jvmId}/unified-logging")
                 .then()
                 .log()
                 .all()
@@ -134,7 +135,7 @@ public class UnifiedLogsTest extends AuditTestBase {
                 .statusCode(400);
     }
 
-    // ── Invalid query parameter characters ───────────────────────────────────────
+    // Invalid query parameter characters
 
     static Stream<Arguments> invalidParams() {
         return Stream.of(
@@ -194,7 +195,7 @@ public class UnifiedLogsTest extends AuditTestBase {
                 .statusCode(400);
     }
 
-    // ── Invalid target ID ─────────────────────────────────────────────────────────
+    // Invalid target ID
 
     @Test
     public void testEnableUnifiedLoggingOnInvalidTargetReturns404() {
@@ -213,7 +214,7 @@ public class UnifiedLogsTest extends AuditTestBase {
                 .statusCode(404);
     }
 
-    // ── UnifiedLog entity lifecycle — Envers-based assertions ─────────────────────────
+    // UnifiedLog entity lifecycle - Envers-based assertions
 
     @Test
     @Transactional
