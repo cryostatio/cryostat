@@ -17,6 +17,8 @@ package io.cryostat.events;
 
 import static io.restassured.RestAssured.given;
 
+import java.util.UUID;
+
 import io.cryostat.audit.AuditTestBase;
 import io.cryostat.resources.S3StorageResource;
 
@@ -91,7 +93,7 @@ public class EventTemplateAuditTest extends AuditTestBase {
                         .queryParam("endTime", endTime)
                         .queryParam("pageSize", 10)
                         .when()
-                        .get("/api/beta/audit/revisions")
+                        .get("/api/v5/audit/revisions")
                         .then()
                         .log()
                         .all()
@@ -107,7 +109,7 @@ public class EventTemplateAuditTest extends AuditTestBase {
                 .log()
                 .all()
                 .when()
-                .get("/api/beta/audit/revisions/{rev}", revisionNumber)
+                .get("/api/v5/audit/revisions/{rev}", revisionNumber)
                 .then()
                 .log()
                 .all()
@@ -159,7 +161,7 @@ public class EventTemplateAuditTest extends AuditTestBase {
                                 "templateName = ?1 and templateType = ?2", templateName, "CUSTOM")
                         .firstResult();
         Assertions.assertNotNull(template, "EventTemplate entity should exist before deletion");
-        Long templateId = template.id;
+        UUID templateId = template.id;
 
         long startTime = System.currentTimeMillis();
 
@@ -196,7 +198,7 @@ public class EventTemplateAuditTest extends AuditTestBase {
                         .queryParam("endTime", endTime)
                         .queryParam("pageSize", 10)
                         .when()
-                        .get("/api/beta/audit/revisions")
+                        .get("/api/v5/audit/revisions")
                         .then()
                         .log()
                         .all()
@@ -210,7 +212,7 @@ public class EventTemplateAuditTest extends AuditTestBase {
                 .log()
                 .all()
                 .when()
-                .get("/api/beta/audit/revisions/{rev}", revisionNumber)
+                .get("/api/v5/audit/revisions/{rev}", revisionNumber)
                 .then()
                 .log()
                 .all()
@@ -221,7 +223,7 @@ public class EventTemplateAuditTest extends AuditTestBase {
                 .body("entities.EventTemplate", org.hamcrest.Matchers.notNullValue())
                 .body(
                         "entities.EventTemplate[0].id",
-                        org.hamcrest.Matchers.equalTo(templateId.intValue()))
+                        org.hamcrest.Matchers.equalTo(templateId.toString()))
                 .body("entities.EventTemplate[0].revtype", org.hamcrest.Matchers.equalTo(2));
     }
 

@@ -65,7 +65,7 @@ import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestPath;
 import org.jboss.resteasy.reactive.RestResponse;
 
-@Path("/api/v4.1/metrics/reports")
+@Path("/api/v5/metrics/reports")
 public class AnalysisReportAggregator {
 
     @Inject EventBus bus;

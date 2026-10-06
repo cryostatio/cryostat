@@ -56,7 +56,7 @@ public class RecordingSyncTest extends AbstractTransactionalTestBase {
     /** Verifies that a missing target returns 404 without invoking synchronization. */
     @Test
     void testSyncOnMissingTarget() {
-        given().pathParam("targetId", Integer.MAX_VALUE).when().post().then().statusCode(404);
+        given().pathParam("jvmId", "nonexistent").when().post().then().statusCode(404);
 
         verify(recordingHelper, org.mockito.Mockito.never())
                 .syncActiveRecordings(any(Target.class));
@@ -65,13 +65,13 @@ public class RecordingSyncTest extends AbstractTransactionalTestBase {
     /** Verifies that a successful request returns 204 and synchronizes the requested target. */
     @Test
     void testSync() {
-        int targetId = defineSelfCustomTarget();
+        defineSelfCustomTarget();
         clearInvocations(recordingHelper);
 
-        given().pathParam("targetId", targetId).when().post().then().statusCode(204);
+        given().pathParam("jvmId", selfJvmId).when().post().then().statusCode(204);
 
         ArgumentCaptor<Target> targetCaptor = ArgumentCaptor.forClass(Target.class);
         verify(recordingHelper).syncActiveRecordings(targetCaptor.capture());
-        assertEquals((long) targetId, targetCaptor.getValue().id.longValue());
+        assertEquals(selfJvmId, targetCaptor.getValue().jvmId);
     }
 }

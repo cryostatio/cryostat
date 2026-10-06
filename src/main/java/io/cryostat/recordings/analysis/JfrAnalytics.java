@@ -52,7 +52,7 @@ public class JfrAnalytics {
     @Inject AnalysisCache cache;
     @Inject Logger logger;
 
-    @jakarta.ws.rs.Path("/api/beta/recording_analytics/{jvmId}/{filename}")
+    @jakarta.ws.rs.Path("/api/v5/recordings/{jvmId}/{filename}/analytics")
     @POST
     @Blocking
     @PermissionsAllowed(value = "archivedrecordings:read", inclusive = true)

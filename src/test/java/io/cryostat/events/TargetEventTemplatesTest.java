@@ -32,11 +32,11 @@ public class TargetEventTemplatesTest extends AbstractTransactionalTestBase {
 
     @Test
     void testList() {
-        int id = defineSelfCustomTarget();
+        defineSelfCustomTarget();
         given().log()
                 .all()
                 .when()
-                .get("/api/v4/targets/{id}/event_templates", id)
+                .get("/api/v5/targets/{jvmId}/event-templates", selfJvmId)
                 .then()
                 .log()
                 .all()
@@ -58,13 +58,13 @@ public class TargetEventTemplatesTest extends AbstractTransactionalTestBase {
 
     @Test
     void testGetInvalid() {
-        int id = defineSelfCustomTarget();
+        defineSelfCustomTarget();
         given().log()
                 .all()
                 .when()
                 .get(
-                        "/api/v4/targets/{id}/event_templates/{templateType}/{templateName}",
-                        id,
+                        "/api/v5/targets/{jvmId}/event-templates/{templateType}/{templateName}",
+                        selfJvmId,
                         "TARGET",
                         "ALL")
                 .then()
@@ -77,13 +77,13 @@ public class TargetEventTemplatesTest extends AbstractTransactionalTestBase {
 
     @Test
     void testGetNotFound() {
-        int id = defineSelfCustomTarget();
+        defineSelfCustomTarget();
         given().log()
                 .all()
                 .when()
                 .get(
-                        "/api/v4/targets/{id}/event_templates/{templateType}/{templateName}",
-                        id,
+                        "/api/v5/targets/{jvmId}/event-templates/{templateType}/{templateName}",
+                        selfJvmId,
                         "CUSTOM",
                         "None")
                 .then()
@@ -96,13 +96,13 @@ public class TargetEventTemplatesTest extends AbstractTransactionalTestBase {
 
     @Test
     void testGet() {
-        int id = defineSelfCustomTarget();
+        defineSelfCustomTarget();
         given().log()
                 .all()
                 .when()
                 .get(
-                        "/api/v4/targets/{id}/event_templates/{templateType}/{templateName}",
-                        id,
+                        "/api/v5/targets/{jvmId}/event-templates/{templateType}/{templateName}",
+                        selfJvmId,
                         "TARGET",
                         "Profiling")
                 .then()

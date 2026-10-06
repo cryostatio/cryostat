@@ -27,6 +27,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.TimeoutException;
 
 import io.cryostat.util.HttpStatusCodeIdentifier;
@@ -78,7 +79,7 @@ public abstract class AbstractTestBase {
     @Inject Logger logger;
     @Inject Scheduler scheduler;
 
-    protected int selfId = -1;
+    protected UUID selfId = null;
     protected String selfJvmId = "";
     protected int selfRecordingId = -1;
 
@@ -181,8 +182,8 @@ public abstract class AbstractTestBase {
     public static String cleanupQuery(boolean storageEnabled) {
         String query =
                 """
-                query TestCleanup($targetIds: [ BigInteger! ]) {
-                  targetNodes(filter: { targetIds: $targetIds }) {
+                query TestCleanup($jvmIds: [ String! ]) {
+                  targetNodes(filter: { jvmIds: $jvmIds }) {
                     descendantTargets {
                       target {
                         recordings {
@@ -228,8 +229,8 @@ public abstract class AbstractTestBase {
         return exists;
     }
 
-    protected int defineSelfCustomTarget() {
-        if (selfId > 0) {
+    protected UUID defineSelfCustomTarget() {
+        if (selfId != null) {
             return selfId;
         }
         var jp =
@@ -240,14 +241,14 @@ public abstract class AbstractTestBase {
                         .formParam("connectUrl", SELF_JMX_URL)
                         .formParam("alias", SELFTEST_ALIAS)
                         .when()
-                        .post("/api/v4/targets")
+                        .post("/api/v5/targets")
                         .then()
                         .log()
                         .all()
                         .extract()
                         .jsonPath();
 
-        this.selfId = jp.getInt("id");
+        this.selfId = UUID.fromString(jp.getString("id"));
         this.selfJvmId = jp.getString("jvmId");
 
         return this.selfId;
@@ -259,16 +260,16 @@ public abstract class AbstractTestBase {
 
     protected JsonPath startSelfRecording(String name, Map<String, Object> formParams) {
         // must have called defineSelfCustomTarget first!
-        if (selfId < 1) {
+        if (selfId == null) {
             throw new IllegalStateException();
         }
         var spec = given().log().all().when().basePath("");
         formParams.forEach(spec::formParam);
         var jp =
-                spec.pathParam("targetId", this.selfId)
+                spec.pathParam("jvmId", this.selfJvmId)
                         .formParam("recordingName", name)
                         .formParam("replace", "ALWAYS")
-                        .post("/api/v4/targets/{targetId}/recordings")
+                        .post("/api/v5/targets/{jvmId}/recordings")
                         .then()
                         .log()
                         .all()
@@ -284,15 +285,15 @@ public abstract class AbstractTestBase {
     }
 
     protected void cleanupSelfRecording() {
-        if (selfId < 1 || selfRecordingId < 1) {
+        if (selfId == null || selfRecordingId < 1) {
             throw new IllegalStateException();
         }
         given().log()
                 .all()
                 .when()
                 .basePath("")
-                .pathParams("targetId", selfId, "remoteId", selfRecordingId)
-                .delete("/api/v4/targets/{targetId}/recordings/{remoteId}")
+                .pathParams("jvmId", selfJvmId, "remoteId", selfRecordingId)
+                .delete("/api/v5/targets/{jvmId}/recordings/{remoteId}")
                 .then()
                 .log()
                 .all()
@@ -302,22 +303,22 @@ public abstract class AbstractTestBase {
     }
 
     protected void cleanupSelfActiveAndArchivedRecordings() {
-        if (selfId > 0) {
-            cleanupActiveAndArchivedRecordingsForTarget(this.selfId);
+        if (selfId != null) {
+            cleanupActiveAndArchivedRecordingsForTarget(this.selfJvmId);
         }
-        // If selfId <= 0, there's nothing to clean up, so just return
+        // If selfId is null, there's nothing to clean up, so just return
     }
 
-    protected void cleanupActiveAndArchivedRecordingsForTarget(int... ids) {
-        cleanupActiveAndArchivedRecordingsForTarget(Arrays.stream(ids).boxed().toList());
+    protected void cleanupActiveAndArchivedRecordingsForTarget(String... ids) {
+        cleanupActiveAndArchivedRecordingsForTarget(Arrays.asList(ids));
     }
 
-    protected void cleanupActiveAndArchivedRecordingsForTarget(List<Integer> ids) {
+    protected void cleanupActiveAndArchivedRecordingsForTarget(List<String> ids) {
         var variables = new HashMap<String, Object>();
         if (ids == null || ids.isEmpty()) {
-            variables.put("targetIds", null);
+            variables.put("jvmIds", null);
         } else {
-            variables.put("targetIds", ids);
+            variables.put("jvmIds", ids);
         }
         Response response =
                 given().basePath("/")
@@ -326,7 +327,7 @@ public abstract class AbstractTestBase {
                         .log()
                         .all()
                         .when()
-                        .post("/api/v4/graphql")
+                        .post("/api/v5/graphql")
                         .then()
                         .log()
                         .all()
@@ -346,7 +347,7 @@ public abstract class AbstractTestBase {
                         .basePath("")
                         .contentType(ContentType.JSON)
                         .body(Map.of("query", query))
-                        .post("/api/v4/graphql")
+                        .post("/api/v5/graphql")
                         .then()
                         .log()
                         .all()

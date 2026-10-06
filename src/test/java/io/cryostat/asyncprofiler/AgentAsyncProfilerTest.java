@@ -22,6 +22,7 @@ import static org.hamcrest.Matchers.*;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 
@@ -53,9 +54,9 @@ public class AgentAsyncProfilerTest extends AgentTestBase {
         List<Map<String, Object>> profiles =
                 given().log()
                         .all()
-                        .pathParams("targetId", target.id())
+                        .pathParams("jvmId", target.jvmId())
                         .when()
-                        .get("/api/beta/targets/{targetId}/async-profiler")
+                        .get("/api/v5/targets/{jvmId}/async-profiler")
                         .then()
                         .extract()
                         .body()
@@ -66,9 +67,9 @@ public class AgentAsyncProfilerTest extends AgentTestBase {
             String profileId = (String) profile.get("id");
             given().log()
                     .all()
-                    .pathParams("targetId", target.id(), "profileId", profileId)
+                    .pathParams("jvmId", target.jvmId(), "profileId", profileId)
                     .when()
-                    .delete("/api/beta/targets/{targetId}/async-profiler/{profileId}")
+                    .delete("/api/v5/targets/{jvmId}/async-profiler/{profileId}")
                     .then()
                     .log()
                     .all();
@@ -81,9 +82,9 @@ public class AgentAsyncProfilerTest extends AgentTestBase {
                 (List<?>)
                         given().log()
                                 .all()
-                                .pathParams("targetId", target.id())
+                                .pathParams("jvmId", target.jvmId())
                                 .when()
-                                .get("/api/beta/targets/{targetId}/async-profiler")
+                                .get("/api/v5/targets/{jvmId}/async-profiler")
                                 .then()
                                 .log()
                                 .all()
@@ -103,9 +104,9 @@ public class AgentAsyncProfilerTest extends AgentTestBase {
         Map<String, Object> status =
                 given().log()
                         .all()
-                        .pathParams("targetId", target.id())
+                        .pathParams("jvmId", target.jvmId())
                         .when()
-                        .get("/api/beta/targets/{targetId}/async-profiler/status")
+                        .get("/api/v5/targets/{jvmId}/async-profiler/status")
                         .then()
                         .log()
                         .all()
@@ -146,18 +147,18 @@ public class AgentAsyncProfilerTest extends AgentTestBase {
     @Test
     void testCreateProfileWithCpu()
             throws InterruptedException, ExecutionException, TimeoutException {
-        long targetId = target.id();
+        String jvmId = target.jvmId();
 
         Map<String, Object> requestBody = Map.of("events", List.of("cpu"), "duration", 5);
 
         String profileId =
                 given().log()
                         .all()
-                        .pathParams("targetId", targetId)
+                        .pathParams("jvmId", jvmId)
                         .contentType(ContentType.JSON)
                         .body(requestBody)
                         .when()
-                        .post("/api/beta/targets/{targetId}/async-profiler")
+                        .post("/api/v5/targets/{jvmId}/async-profiler")
                         .then()
                         .log()
                         .all()
@@ -184,9 +185,9 @@ public class AgentAsyncProfilerTest extends AgentTestBase {
         List<Map<String, Object>> profiles =
                 given().log()
                         .all()
-                        .pathParams("targetId", targetId)
+                        .pathParams("jvmId", jvmId)
                         .when()
-                        .get("/api/beta/targets/{targetId}/async-profiler")
+                        .get("/api/v5/targets/{jvmId}/async-profiler")
                         .then()
                         .log()
                         .all()
@@ -210,18 +211,18 @@ public class AgentAsyncProfilerTest extends AgentTestBase {
     @Test
     void testCreateProfileWithCpuAlloc()
             throws InterruptedException, ExecutionException, TimeoutException {
-        long targetId = target.id();
+        String jvmId = target.jvmId();
 
         Map<String, Object> requestBody = Map.of("events", List.of("cpu", "alloc"), "duration", 5);
 
         String profileId =
                 given().log()
                         .all()
-                        .pathParams("targetId", targetId)
+                        .pathParams("jvmId", jvmId)
                         .contentType(ContentType.JSON)
                         .body(requestBody)
                         .when()
-                        .post("/api/beta/targets/{targetId}/async-profiler")
+                        .post("/api/v5/targets/{jvmId}/async-profiler")
                         .then()
                         .log()
                         .all()
@@ -248,9 +249,9 @@ public class AgentAsyncProfilerTest extends AgentTestBase {
         List<Map<String, Object>> profiles =
                 given().log()
                         .all()
-                        .pathParams("targetId", targetId)
+                        .pathParams("jvmId", jvmId)
                         .when()
-                        .get("/api/beta/targets/{targetId}/async-profiler")
+                        .get("/api/v5/targets/{jvmId}/async-profiler")
                         .then()
                         .log()
                         .all()
@@ -272,7 +273,7 @@ public class AgentAsyncProfilerTest extends AgentTestBase {
     @Test
     void testCreateProfileWithCpuNativemem()
             throws InterruptedException, ExecutionException, TimeoutException {
-        long targetId = target.id();
+        String jvmId = target.jvmId();
 
         Map<String, Object> requestBody =
                 Map.of("events", List.of("cpu", "nativemem"), "duration", 5);
@@ -280,11 +281,11 @@ public class AgentAsyncProfilerTest extends AgentTestBase {
         String profileId =
                 given().log()
                         .all()
-                        .pathParams("targetId", targetId)
+                        .pathParams("jvmId", jvmId)
                         .contentType(ContentType.JSON)
                         .body(requestBody)
                         .when()
-                        .post("/api/beta/targets/{targetId}/async-profiler")
+                        .post("/api/v5/targets/{jvmId}/async-profiler")
                         .then()
                         .log()
                         .all()
@@ -311,9 +312,9 @@ public class AgentAsyncProfilerTest extends AgentTestBase {
         List<Map<String, Object>> profiles =
                 given().log()
                         .all()
-                        .pathParams("targetId", targetId)
+                        .pathParams("jvmId", jvmId)
                         .when()
-                        .get("/api/beta/targets/{targetId}/async-profiler")
+                        .get("/api/v5/targets/{jvmId}/async-profiler")
                         .then()
                         .log()
                         .all()
@@ -335,18 +336,18 @@ public class AgentAsyncProfilerTest extends AgentTestBase {
     @Test
     void testCreateListDownloadAndDeleteProfile()
             throws InterruptedException, ExecutionException, TimeoutException {
-        long targetId = target.id();
+        String jvmId = target.jvmId();
 
         Map<String, Object> requestBody = Map.of("events", List.of("cpu"), "duration", 5);
 
         String profileId =
                 given().log()
                         .all()
-                        .pathParams("targetId", targetId)
+                        .pathParams("jvmId", jvmId)
                         .contentType(ContentType.JSON)
                         .body(requestBody)
                         .when()
-                        .post("/api/beta/targets/{targetId}/async-profiler")
+                        .post("/api/v5/targets/{jvmId}/async-profiler")
                         .then()
                         .log()
                         .all()
@@ -383,9 +384,9 @@ public class AgentAsyncProfilerTest extends AgentTestBase {
         List<Map<String, Object>> profiles =
                 given().log()
                         .all()
-                        .pathParams("targetId", targetId)
+                        .pathParams("jvmId", jvmId)
                         .when()
-                        .get("/api/beta/targets/{targetId}/async-profiler")
+                        .get("/api/v5/targets/{jvmId}/async-profiler")
                         .then()
                         .log()
                         .all()
@@ -405,9 +406,9 @@ public class AgentAsyncProfilerTest extends AgentTestBase {
 
         given().log()
                 .all()
-                .pathParams("targetId", targetId, "profileId", profileId)
+                .pathParams("jvmId", jvmId, "profileId", profileId)
                 .when()
-                .get("/api/beta/targets/{targetId}/async-profiler/{profileId}")
+                .get("/api/v5/targets/{jvmId}/async-profiler/{profileId}")
                 .then()
                 .log()
                 .all()
@@ -422,9 +423,9 @@ public class AgentAsyncProfilerTest extends AgentTestBase {
 
         given().log()
                 .all()
-                .pathParams("targetId", targetId, "profileId", profileId)
+                .pathParams("jvmId", jvmId, "profileId", profileId)
                 .when()
-                .delete("/api/beta/targets/{targetId}/async-profiler/{profileId}")
+                .delete("/api/v5/targets/{jvmId}/async-profiler/{profileId}")
                 .then()
                 .log()
                 .all()
@@ -444,9 +445,9 @@ public class AgentAsyncProfilerTest extends AgentTestBase {
     void testDeleteNonExistentProfile() {
         given().log()
                 .all()
-                .pathParams("targetId", target.id(), "profileId", "nonexistent")
+                .pathParams("jvmId", target.jvmId(), "profileId", "nonexistent")
                 .when()
-                .delete("/api/beta/targets/{targetId}/async-profiler/{profileId}")
+                .delete("/api/v5/targets/{jvmId}/async-profiler/{profileId}")
                 .then()
                 .log()
                 .all()
@@ -459,9 +460,9 @@ public class AgentAsyncProfilerTest extends AgentTestBase {
     void testDownloadNonExistentProfile() {
         given().log()
                 .all()
-                .pathParams("targetId", target.id(), "profileId", "nonexistent")
+                .pathParams("jvmId", target.jvmId(), "profileId", "nonexistent")
                 .when()
-                .get("/api/beta/targets/{targetId}/async-profiler/{profileId}")
+                .get("/api/v5/targets/{jvmId}/async-profiler/{profileId}")
                 .then()
                 .log()
                 .all()
@@ -474,9 +475,9 @@ public class AgentAsyncProfilerTest extends AgentTestBase {
     void testListProfilesForNonExistentTarget() {
         given().log()
                 .all()
-                .pathParams("targetId", Integer.MAX_VALUE)
+                .pathParams("jvmId", UUID.randomUUID())
                 .when()
-                .get("/api/beta/targets/{targetId}/async-profiler")
+                .get("/api/v5/targets/{jvmId}/async-profiler")
                 .then()
                 .log()
                 .all()
@@ -489,9 +490,9 @@ public class AgentAsyncProfilerTest extends AgentTestBase {
     void testGetStatusForNonExistentTarget() {
         given().log()
                 .all()
-                .pathParams("targetId", Integer.MAX_VALUE)
+                .pathParams("jvmId", UUID.randomUUID())
                 .when()
-                .get("/api/beta/targets/{targetId}/async-profiler/status")
+                .get("/api/v5/targets/{jvmId}/async-profiler/status")
                 .then()
                 .log()
                 .all()
@@ -506,11 +507,11 @@ public class AgentAsyncProfilerTest extends AgentTestBase {
 
         given().log()
                 .all()
-                .pathParams("targetId", Integer.MAX_VALUE)
+                .pathParams("jvmId", UUID.randomUUID())
                 .contentType(ContentType.JSON)
                 .body(requestBody)
                 .when()
-                .post("/api/beta/targets/{targetId}/async-profiler")
+                .post("/api/v5/targets/{jvmId}/async-profiler")
                 .then()
                 .log()
                 .all()
@@ -525,11 +526,11 @@ public class AgentAsyncProfilerTest extends AgentTestBase {
 
         given().log()
                 .all()
-                .pathParams("targetId", target.id())
+                .pathParams("jvmId", target.jvmId())
                 .contentType(ContentType.JSON)
                 .body(requestBody)
                 .when()
-                .post("/api/beta/targets/{targetId}/async-profiler")
+                .post("/api/v5/targets/{jvmId}/async-profiler")
                 .then()
                 .log()
                 .all()
@@ -544,11 +545,11 @@ public class AgentAsyncProfilerTest extends AgentTestBase {
 
         given().log()
                 .all()
-                .pathParams("targetId", target.id())
+                .pathParams("jvmId", target.jvmId())
                 .contentType(ContentType.JSON)
                 .body(requestBody)
                 .when()
-                .post("/api/beta/targets/{targetId}/async-profiler")
+                .post("/api/v5/targets/{jvmId}/async-profiler")
                 .then()
                 .log()
                 .all()
@@ -563,11 +564,11 @@ public class AgentAsyncProfilerTest extends AgentTestBase {
 
         given().log()
                 .all()
-                .pathParams("targetId", target.id())
+                .pathParams("jvmId", target.jvmId())
                 .contentType(ContentType.JSON)
                 .body(requestBody)
                 .when()
-                .post("/api/beta/targets/{targetId}/async-profiler")
+                .post("/api/v5/targets/{jvmId}/async-profiler")
                 .then()
                 .log()
                 .all()
@@ -578,18 +579,18 @@ public class AgentAsyncProfilerTest extends AgentTestBase {
 
     @Test
     void testCreateProfileWithMultipleEvents() {
-        long targetId = target.id();
+        String jvmId = target.jvmId();
 
         Map<String, Object> requestBody =
                 Map.of("events", List.of("cpu", "itimer", "ctimer"), "duration", 5);
 
         given().log()
                 .all()
-                .pathParams("targetId", targetId)
+                .pathParams("jvmId", jvmId)
                 .contentType(ContentType.JSON)
                 .body(requestBody)
                 .when()
-                .post("/api/beta/targets/{targetId}/async-profiler")
+                .post("/api/v5/targets/{jvmId}/async-profiler")
                 .then()
                 .log()
                 .all()
@@ -601,18 +602,18 @@ public class AgentAsyncProfilerTest extends AgentTestBase {
     @Test
     void testCreateProfileWithAllocOnly()
             throws InterruptedException, ExecutionException, TimeoutException {
-        long targetId = target.id();
+        String jvmId = target.jvmId();
 
         Map<String, Object> requestBody = Map.of("events", List.of("alloc"), "duration", 5);
 
         String profileId =
                 given().log()
                         .all()
-                        .pathParams("targetId", targetId)
+                        .pathParams("jvmId", jvmId)
                         .contentType(ContentType.JSON)
                         .body(requestBody)
                         .when()
-                        .post("/api/beta/targets/{targetId}/async-profiler")
+                        .post("/api/v5/targets/{jvmId}/async-profiler")
                         .then()
                         .log()
                         .all()
@@ -639,9 +640,9 @@ public class AgentAsyncProfilerTest extends AgentTestBase {
         List<Map<String, Object>> profiles =
                 given().log()
                         .all()
-                        .pathParams("targetId", targetId)
+                        .pathParams("jvmId", jvmId)
                         .when()
-                        .get("/api/beta/targets/{targetId}/async-profiler")
+                        .get("/api/v5/targets/{jvmId}/async-profiler")
                         .then()
                         .log()
                         .all()
@@ -663,18 +664,18 @@ public class AgentAsyncProfilerTest extends AgentTestBase {
     @Test
     void testCreateMultipleProfilesSequentially()
             throws InterruptedException, ExecutionException, TimeoutException {
-        long targetId = target.id();
+        String jvmId = target.jvmId();
 
         Map<String, Object> requestBody1 = Map.of("events", List.of("cpu"), "duration", 3);
 
         String profileId1 =
                 given().log()
                         .all()
-                        .pathParams("targetId", targetId)
+                        .pathParams("jvmId", jvmId)
                         .contentType(ContentType.JSON)
                         .body(requestBody1)
                         .when()
-                        .post("/api/beta/targets/{targetId}/async-profiler")
+                        .post("/api/v5/targets/{jvmId}/async-profiler")
                         .then()
                         .log()
                         .all()
@@ -701,11 +702,11 @@ public class AgentAsyncProfilerTest extends AgentTestBase {
         String profileId2 =
                 given().log()
                         .all()
-                        .pathParams("targetId", targetId)
+                        .pathParams("jvmId", jvmId)
                         .contentType(ContentType.JSON)
                         .body(requestBody2)
                         .when()
-                        .post("/api/beta/targets/{targetId}/async-profiler")
+                        .post("/api/v5/targets/{jvmId}/async-profiler")
                         .then()
                         .log()
                         .all()
@@ -729,9 +730,9 @@ public class AgentAsyncProfilerTest extends AgentTestBase {
 
         given().log()
                 .all()
-                .pathParams("targetId", targetId)
+                .pathParams("jvmId", jvmId)
                 .when()
-                .get("/api/beta/targets/{targetId}/async-profiler")
+                .get("/api/v5/targets/{jvmId}/async-profiler")
                 .then()
                 .log()
                 .all()
@@ -744,18 +745,18 @@ public class AgentAsyncProfilerTest extends AgentTestBase {
 
     @Test
     void testGraphQL() throws InterruptedException, TimeoutException {
-        long targetId = target.id();
+        String jvmId = target.jvmId();
 
         Map<String, Object> requestBody = Map.of("events", List.of("alloc"), "duration", 5);
 
         String profileId =
                 given().log()
                         .all()
-                        .pathParams("targetId", targetId)
+                        .pathParams("jvmId", jvmId)
                         .contentType(ContentType.JSON)
                         .body(requestBody)
                         .when()
-                        .post("/api/beta/targets/{targetId}/async-profiler")
+                        .post("/api/v5/targets/{jvmId}/async-profiler")
                         .then()
                         .log()
                         .all()
@@ -777,9 +778,9 @@ public class AgentAsyncProfilerTest extends AgentTestBase {
         JsonObject query = new JsonObject();
         query.put(
                 "query",
-                "query TargetAsyncProfiles {targetNodes(filter: { id: "
-                        + targetId
-                        + " }) {target {agent id connectUrl alias jvmId asyncProfiles { data {"
+                "query TargetAsyncProfiles {targetNodes(filter: { jvmId: \""
+                        + jvmId
+                        + "\" }) {target {agent id connectUrl alias jvmId asyncProfiles { data {"
                         + " duration id startTime size } aggregate { count } } } } }");
         Response resp =
                 given().basePath("/")
@@ -788,7 +789,7 @@ public class AgentAsyncProfilerTest extends AgentTestBase {
                         .log()
                         .all()
                         .when()
-                        .post("/api/v4/graphql")
+                        .post("/api/v5/graphql")
                         .then()
                         .log()
                         .all()
@@ -811,14 +812,14 @@ public class AgentAsyncProfilerTest extends AgentTestBase {
 
     @Test
     void testCreateMutation() throws InterruptedException, TimeoutException {
-        long targetId = target.id();
+        String jvmId = target.jvmId();
 
         JsonObject query = new JsonObject();
         query.put(
                 "query",
-                "mutation {createAsyncProfile(nodes:{id:"
-                        + targetId
-                        + "},id: \"profile\",startTime: 1,events: [\"alloc\"],duration: 5)}");
+                "mutation {createAsyncProfile(nodes:{jvmId:\""
+                        + jvmId
+                        + "\"},id: \"profile\",startTime: 1,events: [\"alloc\"],duration: 5)}");
 
         Response response =
                 given().basePath("/")
@@ -827,7 +828,7 @@ public class AgentAsyncProfilerTest extends AgentTestBase {
                         .log()
                         .all()
                         .when()
-                        .post("/api/v4/graphql")
+                        .post("/api/v5/graphql")
                         .then()
                         .log()
                         .all()
@@ -858,18 +859,18 @@ public class AgentAsyncProfilerTest extends AgentTestBase {
 
     @Test
     void testDeleteMutation() throws Exception {
-        long targetId = target.id();
+        String jvmId = target.jvmId();
 
         Map<String, Object> requestBody = Map.of("events", List.of("alloc"), "duration", 5);
 
         String profileId =
                 given().log()
                         .all()
-                        .pathParams("targetId", targetId)
+                        .pathParams("jvmId", jvmId)
                         .contentType(ContentType.JSON)
                         .body(requestBody)
                         .when()
-                        .post("/api/beta/targets/{targetId}/async-profiler")
+                        .post("/api/v5/targets/{jvmId}/async-profiler")
                         .then()
                         .log()
                         .all()
@@ -898,16 +899,16 @@ public class AgentAsyncProfilerTest extends AgentTestBase {
         deleteQuery.put(
                 "query",
                 String.format(
-                        "mutation { deleteAsyncProfiles (nodes: { id:"
-                                + targetId
-                                + "}) { id size duration startTime }}",
+                        "mutation { deleteAsyncProfiles (nodes: { jvmId:\""
+                                + jvmId
+                                + "\"}) { id size duration startTime }}",
                         profileId));
 
         Response deleteResponse =
                 given().contentType(ContentType.JSON)
                         .body(deleteQuery.encode())
                         .when()
-                        .post("/api/v4/graphql")
+                        .post("/api/v5/graphql")
                         .then()
                         .log()
                         .all()
@@ -920,9 +921,9 @@ public class AgentAsyncProfilerTest extends AgentTestBase {
 
         given().log()
                 .all()
-                .pathParams("targetId", targetId)
+                .pathParams("jvmId", jvmId)
                 .when()
-                .get("/api/beta/targets/{targetId}/async-profiler")
+                .get("/api/v5/targets/{jvmId}/async-profiler")
                 .then()
                 .log()
                 .all()

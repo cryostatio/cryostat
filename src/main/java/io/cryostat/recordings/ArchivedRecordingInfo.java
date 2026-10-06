@@ -15,7 +15,10 @@
  */
 package io.cryostat.recordings;
 
-import io.quarkus.hibernate.orm.panache.PanacheEntity;
+import java.util.UUID;
+
+import io.cryostat.PanacheUuidEntity;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
@@ -29,17 +32,17 @@ import org.hibernate.envers.Audited;
 @Table(
         name = "ArchivedRecording",
         uniqueConstraints = {@UniqueConstraint(columnNames = {"jvmId", "filename"})})
-public class ArchivedRecordingInfo extends PanacheEntity {
+public class ArchivedRecordingInfo extends PanacheUuidEntity {
 
     @NotBlank public String jvmId;
 
     @NotBlank public String filename;
 
-    @Column public Long activeRecordingId;
+    @Column public UUID activeRecordingId;
 
     @NotNull public Long createdAt;
 
-    public static ArchivedRecordingInfo of(String jvmId, String filename, Long activeRecordingId) {
+    public static ArchivedRecordingInfo of(String jvmId, String filename, UUID activeRecordingId) {
         ArchivedRecordingInfo recording = new ArchivedRecordingInfo();
         recording.jvmId = jvmId;
         recording.filename = filename;

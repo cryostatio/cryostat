@@ -19,7 +19,6 @@ import static io.restassured.RestAssured.given;
 
 import java.io.IOException;
 import java.time.Duration;
-import java.util.Map;
 import java.util.concurrent.TimeoutException;
 
 import io.cryostat.AbstractTransactionalTestBase;
@@ -65,13 +64,13 @@ public class RulesArchiverTest extends AbstractTransactionalTestBase {
     @Test
     public void test()
             throws TimeoutException, InterruptedException, IOException, DeploymentException {
-        int id = defineSelfCustomTarget();
+        defineSelfCustomTarget();
 
         given().log()
                 .all()
                 .when()
-                .pathParams(Map.of("targetId", id))
-                .get("/api/v4/targets/{targetId}/recordings")
+                .pathParams("jvmId", selfJvmId)
+                .get("/api/v5/targets/{jvmId}/recordings")
                 .then()
                 .log()
                 .all()
@@ -84,8 +83,8 @@ public class RulesArchiverTest extends AbstractTransactionalTestBase {
         given().log()
                 .all()
                 .when()
-                .pathParams(Map.of("jvmId", this.selfJvmId))
-                .get("/api/beta/recordings/{jvmId}")
+                .pathParam("jvmId", this.selfJvmId)
+                .get("/api/v5/recordings/{jvmId}")
                 .then()
                 .log()
                 .all()
@@ -95,11 +94,17 @@ public class RulesArchiverTest extends AbstractTransactionalTestBase {
                 .statusCode(200)
                 .body("size()", Matchers.equalTo(0));
 
-        given().body(rule)
-                .contentType(ContentType.JSON)
-                .post("/api/v4/rules")
-                .then()
-                .statusCode(201);
+        String ruleId =
+                given().body(rule)
+                        .contentType(ContentType.JSON)
+                        .post("/api/v5/rules")
+                        .then()
+                        .statusCode(201)
+                        .and()
+                        .extract()
+                        .body()
+                        .jsonPath()
+                        .getString("id");
 
         // Wait for rule creation to be processed
         webSocketClient.expectNotification("RuleCreated", Duration.ofSeconds(5));
@@ -131,8 +136,8 @@ public class RulesArchiverTest extends AbstractTransactionalTestBase {
                 // do not clean, or else Cryostat will archive the recording on stop and
                 // create an additional copy
                 .queryParam("clean", false)
-                .pathParam("ruleName", RULE_NAME)
-                .delete("/api/v4/rules/{ruleName}")
+                .pathParam("id", ruleId)
+                .delete("/api/v5/rules/{id}")
                 .then()
                 .log()
                 .all()
@@ -146,8 +151,8 @@ public class RulesArchiverTest extends AbstractTransactionalTestBase {
         given().log()
                 .all()
                 .when()
-                .pathParams(Map.of("jvmId", this.selfJvmId))
-                .get("/api/beta/recordings/{jvmId}")
+                .pathParam("jvmId", this.selfJvmId)
+                .get("/api/v5/recordings/{jvmId}")
                 .then()
                 .log()
                 .all()

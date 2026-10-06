@@ -34,14 +34,7 @@ public class TargetEventsGetTest extends AbstractTransactionalTestBase {
 
     @BeforeEach
     void setupTargetEventsGetTest() {
-        getSelfReferenceTargetId();
-    }
-
-    private long getSelfReferenceTargetId() {
-        if (selfId < 1) {
-            defineSelfCustomTarget();
-        }
-        return selfId;
+        defineSelfCustomTarget();
     }
 
     @Test
@@ -50,7 +43,7 @@ public class TargetEventsGetTest extends AbstractTransactionalTestBase {
                 given().log()
                         .all()
                         .when()
-                        .get("/api/v4/targets/{targetId}/events", getSelfReferenceTargetId())
+                        .get("/api/v5/targets/{jvmId}/events", selfJvmId)
                         .then()
                         .log()
                         .all()
@@ -78,7 +71,7 @@ public class TargetEventsGetTest extends AbstractTransactionalTestBase {
                         .all()
                         .queryParam("q", "TargetConnectionOpened")
                         .when()
-                        .get("/api/v4/targets/{targetId}/events", getSelfReferenceTargetId())
+                        .get("/api/v5/targets/{jvmId}/events", selfJvmId)
                         .then()
                         .log()
                         .all()
@@ -134,7 +127,7 @@ public class TargetEventsGetTest extends AbstractTransactionalTestBase {
                         .all()
                         .queryParam("q", "thisEventDoesNotExist")
                         .when()
-                        .get("/api/v4/targets/{targetId}/events", getSelfReferenceTargetId())
+                        .get("/api/v5/targets/{jvmId}/events", selfJvmId)
                         .then()
                         .log()
                         .all()

@@ -15,7 +15,8 @@
  */
 package io.cryostat.events;
 
-import io.quarkus.hibernate.orm.panache.PanacheEntity;
+import io.cryostat.PanacheUuidEntity;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
@@ -27,7 +28,7 @@ import org.hibernate.envers.Audited;
 @Entity
 @Audited
 @Table(uniqueConstraints = {@UniqueConstraint(columnNames = {"templateName", "templateType"})})
-public class EventTemplate extends PanacheEntity {
+public class EventTemplate extends PanacheUuidEntity {
 
     @NotBlank public String templateName;
 

@@ -15,8 +15,10 @@
  */
 package io.cryostat.events;
 
+import java.util.UUID;
+
 public abstract class EntityDeletedEvent<T, S> extends EntityLifecycleEventBase<T, S> {
-    protected EntityDeletedEvent(long entityId, S snapshot) {
+    protected EntityDeletedEvent(UUID entityId, S snapshot) {
         super(entityId, snapshot);
     }
 }

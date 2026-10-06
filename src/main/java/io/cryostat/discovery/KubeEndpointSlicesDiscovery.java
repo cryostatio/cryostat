@@ -28,6 +28,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Function;
@@ -105,7 +106,7 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
     public static final String REALM = "KubernetesApi";
 
     public static final String DISCOVERY_NAMESPACE_LABEL_KEY =
-            Discovery.DISCOVERY_PLUGIN_LABEL_PREFIX + "namespace";
+            DiscoveryPlugins.DISCOVERY_PLUGIN_LABEL_PREFIX + "namespace";
 
     // SQL query to find orphaned nodes - nodes with no children and no associated Target
     // Uses native SQL to access JSONB map keys/values which HQL doesn't support well
@@ -1453,7 +1454,7 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
         }
 
         // Add to namespace children if not already present
-        final Long topmostId = topmost.id;
+        final UUID topmostId = topmost.id;
         final DiscoveryNode topmostNode = topmost;
         boolean alreadyChild =
                 nsNode.children.stream()

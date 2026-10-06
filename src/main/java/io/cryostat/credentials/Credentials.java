@@ -25,6 +25,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.UUID;
 
 import io.cryostat.ConfigProperties;
 import io.cryostat.DeclarativeConfiguration;
@@ -44,12 +45,14 @@ import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
 import jakarta.persistence.PersistenceException;
 import jakarta.transaction.Transactional;
+import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.InternalServerErrorException;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.core.Context;
+import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.UriInfo;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.faulttolerance.Bulkhead;
@@ -63,7 +66,7 @@ import org.jboss.resteasy.reactive.RestResponse;
 import org.jboss.resteasy.reactive.RestResponse.ResponseBuilder;
 import org.projectnessie.cel.tools.ScriptException;
 
-@Path("/api/v4/credentials")
+@Path("/api/v5/credentials")
 public class Credentials {
 
     @ConfigProperty(name = ConfigProperties.CREDENTIALS_DIR)
@@ -111,7 +114,7 @@ public class Credentials {
                     "Test if the supplied username/password are valid credentials for the specified"
                             + " target.")
     public Uni<CredentialTestResult> checkCredentialForTarget(
-            @RestPath long targetId, @RestForm String username, @RestForm String password)
+            @RestPath UUID targetId, @RestForm String username, @RestForm String password)
             throws URISyntaxException {
         Target target = Target.getTargetById(targetId);
         return connectionManager
@@ -194,7 +197,7 @@ public class Credentials {
                     Credential's ID, its Match Expression, and a list of currently discovered Targets which match that
                     expression and are therefore candidates for Cryostat to select this Credential.
                     """)
-    public CredentialMatchResult get(@RestPath long id) {
+    public CredentialMatchResult get(@RestPath UUID id) {
         try {
             Credential credential = Credential.find("id", id).singleResult();
             return safeResult(credential, targetMatcher);
@@ -209,6 +212,7 @@ public class Credentials {
     @Timeout
     @Retry(retryOn = {SQLException.class, PersistenceException.class})
     @RateLimit
+    @Blocking
     @POST
     @PermissionsAllowed(value = "credentials:write", inclusive = true)
     @Operation(
@@ -233,20 +237,45 @@ public class Credentials {
         credential.password = password;
         credential.persist();
         return ResponseBuilder.<Credential>created(
-                        uriInfo.getAbsolutePathBuilder().path(Long.toString(credential.id)).build())
+                        uriInfo.getAbsolutePathBuilder().path(credential.id.toString()).build())
                 .entity(credential)
                 .build();
+    }
+
+    @Bulkhead
+    @Timeout
+    @RateLimit
+    @POST
+    @Blocking
+    @PermissionsAllowed(
+            value = {"credentials:read", "matchexpressions:read"},
+            inclusive = true)
+    @Consumes({MediaType.MULTIPART_FORM_DATA, MediaType.APPLICATION_FORM_URLENCODED})
+    @Path("/check-exists")
+    @Operation(
+            summary =
+                    """
+                    Check if a Credential already exists with an identical MatchExpression
+                            script.
+                    """)
+    public RestResponse<Credential> checkCredentialExists(@RestForm String script) {
+        var result = Credential.find("matchExpression.script", script);
+        if (result.count() == 0) {
+            return RestResponse.notFound();
+        }
+        return RestResponse.ok(result.firstResult());
     }
 
     @Transactional
     @Bulkhead
     @Timeout
     @RateLimit
+    @Blocking
     @DELETE
     @PermissionsAllowed(value = "credentials:delete", inclusive = true)
     @Path("/{id}")
     @Operation(summary = "Delete a Stored Credential")
-    public void delete(@RestPath long id) {
+    public void delete(@RestPath UUID id) {
         Credential.find("id", id).singleResult().delete();
     }
 
@@ -265,7 +294,7 @@ public class Credentials {
     }
 
     static record CredentialMatchResult(
-            long id, MatchExpression matchExpression, Collection<Target> targets) {
+            UUID id, MatchExpression matchExpression, Collection<Target> targets) {
         CredentialMatchResult(Credential credential, Collection<Target> targets) {
             this(credential.id, credential.matchExpression, new ArrayList<>(targets));
         }

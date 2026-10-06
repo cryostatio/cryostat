@@ -27,6 +27,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 import org.openjdk.jmc.flightrecorder.configuration.IRecordingDescriptor;
 
@@ -54,8 +55,8 @@ class RecordingHelperTest extends AbstractTransactionalTestBase {
 
     @Test
     void shouldListArchivedRecordingsAcrossJvmIdsWhenSourceTargetIsNull() throws Exception {
-        int firstTargetId = defineSelfCustomTarget();
-        assertThat(firstTargetId, greaterThan(0));
+        UUID firstTargetId = defineSelfCustomTarget();
+        assertThat(firstTargetId, notNullValue());
 
         Path firstRecording = Files.createTempFile("recording-helper-first-target", ".jfr");
         Path secondRecording = Files.createTempFile("recording-helper-second-target", ".jfr");
@@ -99,7 +100,7 @@ class RecordingHelperTest extends AbstractTransactionalTestBase {
 
     @Test
     void shouldIncludeConfiguredDurationInActiveRecordingMetadata() throws Exception {
-        long recordingId = 42L;
+        UUID recordingId = UUID.randomUUID();
         long startTime = 123456789L;
         long duration = 98765L;
         ActiveRecording recording = new ActiveRecording();
@@ -132,7 +133,7 @@ class RecordingHelperTest extends AbstractTransactionalTestBase {
     @Test
     void shouldUseElapsedDurationInActiveRecordingMetadataForContinuousRecording()
             throws Exception {
-        long recordingId = 43L;
+        UUID recordingId = UUID.randomUUID();
         long startTime = Instant.now().minusSeconds(5).toEpochMilli();
         ActiveRecording recording = new ActiveRecording();
         recording.id = recordingId;
@@ -156,7 +157,7 @@ class RecordingHelperTest extends AbstractTransactionalTestBase {
 
     @Test
     void shouldUseMaxAgeAsDurationApproximationForContinuousRecording() throws Exception {
-        long recordingId = 44L;
+        UUID recordingId = UUID.randomUUID();
         long startTime = Instant.now().minusSeconds(3600).toEpochMilli();
         long maxAge = 5 * 60 * 1000L;
         ActiveRecording recording = new ActiveRecording();
@@ -230,12 +231,12 @@ class RecordingHelperTest extends AbstractTransactionalTestBase {
 
     @Test
     void shouldCloseRemoteSnapshotWhenStreamCannotBeOpened() throws Exception {
-        int targetId = defineSelfCustomTarget();
+        UUID targetId = defineSelfCustomTarget();
         shutdownScheduler();
 
         Target target =
                 QuarkusTransaction.requiringNew()
-                        .call(() -> Target.<Target>find("id", (long) targetId).singleResult());
+                        .call(() -> Target.<Target>find("id", targetId).singleResult());
 
         Mockito.doThrow(new IOException("openDirect failed"))
                 .when(remoteRecordingStreamFactory)

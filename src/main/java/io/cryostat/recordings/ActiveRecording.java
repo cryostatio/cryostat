@@ -25,12 +25,12 @@ import org.openjdk.jmc.common.unit.UnitLookup;
 import org.openjdk.jmc.flightrecorder.configuration.IRecordingDescriptor;
 
 import io.cryostat.ConfigProperties;
+import io.cryostat.PanacheUuidEntity;
 import io.cryostat.recordings.ActiveRecordings.Metadata;
 import io.cryostat.recordings.events.ActiveRecordingEvents;
 import io.cryostat.targets.Target;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Event;
@@ -70,7 +70,7 @@ import org.jboss.logging.Logger;
             // IDs, they will not be unique across different JVMs.
             @UniqueConstraint(columnNames = {"target_id", "remoteId"})
         })
-public class ActiveRecording extends PanacheEntity {
+public class ActiveRecording extends PanacheUuidEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "target_id")
@@ -202,7 +202,7 @@ public class ActiveRecording extends PanacheEntity {
             if (!activeRecording.external) {
                 createdEvent.fire(
                         new ActiveRecordingEvents.ActiveRecordingCreated(
-                                activeRecording.id.longValue(),
+                                activeRecording.id,
                                 new ActiveRecordingEvents.ActiveRecordingSnapshot(
                                         activeRecording.target.connectUrl.toString(),
                                         recordingHelper.toExternalForm(activeRecording),
@@ -218,7 +218,7 @@ public class ActiveRecording extends PanacheEntity {
             if (RecordingState.STOPPED.equals(activeRecording.state)) {
                 stoppedEvent.fire(
                         new ActiveRecordingEvents.ActiveRecordingStopped(
-                                activeRecording.id.longValue(),
+                                activeRecording.id,
                                 new ActiveRecordingEvents.ActiveRecordingSnapshot(
                                         activeRecording.target.connectUrl.toString(),
                                         recordingHelper.toExternalForm(activeRecording),
@@ -263,7 +263,7 @@ public class ActiveRecording extends PanacheEntity {
         public void postRemove(ActiveRecording activeRecording) {
             deletedEvent.fire(
                     new ActiveRecordingEvents.ActiveRecordingDeleted(
-                            activeRecording.id.longValue(),
+                            activeRecording.id,
                             new ActiveRecordingEvents.ActiveRecordingSnapshot(
                                     activeRecording.target.connectUrl.toString(),
                                     recordingHelper.toExternalForm(activeRecording),
