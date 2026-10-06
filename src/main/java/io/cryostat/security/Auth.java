@@ -19,6 +19,7 @@ import java.net.URI;
 
 import io.vertx.ext.web.RoutingContext;
 import jakarta.annotation.security.PermitAll;
+import jakarta.validation.constraints.NotNull;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
@@ -76,5 +77,6 @@ public class Auth {
         return new AuthResponse(user);
     }
 
-    static record AuthResponse(String username) {}
+    /** {@code username} is the empty string, not null, when no user can be determined. */
+    static record AuthResponse(@NotNull String username) {}
 }

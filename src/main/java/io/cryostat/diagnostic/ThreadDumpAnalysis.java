@@ -25,22 +25,22 @@ import java.util.Map.Entry;
 import java.util.Objects;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-import me.bechberger.jthreaddump.model.DeadlockInfo;
-import me.bechberger.jthreaddump.model.JniInfo;
-import me.bechberger.jthreaddump.model.LockInfo;
-import me.bechberger.jthreaddump.model.StackFrame;
+import jakarta.validation.constraints.NotNull;
 import me.bechberger.jthreaddump.model.ThreadDump;
-import me.bechberger.jthreaddump.model.ThreadInfo;
+import org.eclipse.microprofile.openapi.annotations.media.Schema;
 
 public class ThreadDumpAnalysis {
 
-    public List<AggregateThreadStateResult> aggregateThreadStates;
-    public List<AggregateLockInfoResult> aggregateLockInfo;
-    public List<AggregateStackTraceResult> aggregateStackTraces;
-    public List<AggregateMethodResult> runningMethods;
+    @NotNull public List<AggregateThreadStateResult> aggregateThreadStates;
+    @NotNull public List<AggregateLockInfoResult> aggregateLockInfo;
+    @NotNull public List<AggregateStackTraceResult> aggregateStackTraces;
+    @NotNull public List<AggregateMethodResult> runningMethods;
     public List<DeadlockInfo> deadlockInfos;
-    public List<ThreadInfo> threads;
-    public List<AnalysisResult> specificFindings;
+    @NotNull public List<ThreadInfo> threads;
+    @NotNull public List<ThreadDumpAnalysisResult> specificFindings;
+
+    // jniInfo and jvmInfo are passed straight through from the parsed thread dump, which does not
+    // guarantee either section is present.
     public JniInfo jniInfo;
     public String jvmInfo;
 
@@ -51,10 +51,10 @@ public class ThreadDumpAnalysis {
         this.aggregateStackTraces = new ArrayList<>();
         this.runningMethods = new ArrayList<>();
         this.specificFindings = new ArrayList<>();
-        this.jniInfo = dump.jniInfo();
+        this.jniInfo = JniInfo.from(dump.jniInfo());
         this.jvmInfo = dump.jvmInfo();
-        this.deadlockInfos = dump.deadlockInfos();
-        this.threads = dump.threads();
+        this.deadlockInfos = dump.deadlockInfos().stream().map(DeadlockInfo::from).toList();
+        this.threads = dump.threads().stream().map(ThreadInfo::from).toList();
         analyzeThreadDump(dump);
     }
 
@@ -74,16 +74,16 @@ public class ThreadDumpAnalysis {
                                 State.WAITING, 0l));
         ;
         Map<String, Long> lockInfo = new HashMap<>();
-        Map<List<StackFrame>, Long> stackTraces = new HashMap<>();
+        Map<List<me.bechberger.jthreaddump.model.StackFrame>, Long> stackTraces = new HashMap<>();
         Map<String, Long> aggregateMethods = new HashMap<>();
-        for (ThreadInfo t : dump.threads()) {
+        for (me.bechberger.jthreaddump.model.ThreadInfo t : dump.threads()) {
             // Populate the aggregate thread states map
             // Thread state, along with several other fields are null for VM Threads
             if (Objects.nonNull(t.state())) {
                 threadStates.put(t.state(), Long.valueOf(threadStates.get(t.state()) + 1));
             }
             // Populate the aggregate synchronizers map
-            for (LockInfo l : t.locks()) {
+            for (me.bechberger.jthreaddump.model.LockInfo l : t.locks()) {
                 lockInfo.merge(l.className(), 1l, Long::sum);
             }
             // Populate the aggregate stack traces map and method map
@@ -115,7 +115,7 @@ public class ThreadDumpAnalysis {
         }
         if (copyOfCount > 0) {
             specificFindings.add(
-                    new AnalysisResult(
+                    new ThreadDumpAnalysisResult(
                             "java.util.Arrays.copyOf calls",
                             String.format(
                                     "The amount of threads in java.util.Arrays.copyOf is {0}."
@@ -131,7 +131,7 @@ public class ThreadDumpAnalysis {
         }
         if (logCount > 0) {
             specificFindings.add(
-                    new AnalysisResult(
+                    new ThreadDumpAnalysisResult(
                             "Log Contention",
                             String.format(
                                     "The amount of threads in"
@@ -147,7 +147,7 @@ public class ThreadDumpAnalysis {
         }
         if (dataSourceContention > 0) {
             specificFindings.add(
-                    new AnalysisResult(
+                    new ThreadDumpAnalysisResult(
                             "Datasource Exhaustion",
                             String.format(
                                     "The amount of threads waiting for a datasource connection in"
@@ -161,7 +161,7 @@ public class ThreadDumpAnalysis {
         }
         if (strictMaxCount > 0) {
             specificFindings.add(
-                    new AnalysisResult(
+                    new ThreadDumpAnalysisResult(
                             "EJB strict max pool exhaustion",
                             String.format(
                                     "The amount of threads waiting for an EJB instance in"
@@ -177,7 +177,8 @@ public class ThreadDumpAnalysis {
                             1));
         }
         for (Entry<State, Long> t : threadStates.entrySet()) {
-            aggregateThreadStates.add(new AggregateThreadStateResult(t.getKey(), t.getValue()));
+            aggregateThreadStates.add(
+                    new AggregateThreadStateResult(ThreadState.from(t.getKey()), t.getValue()));
         }
         for (Entry<String, Long> t : lockInfo.entrySet()) {
             aggregateLockInfo.add(new AggregateLockInfoResult(t.getKey(), t.getValue()));
@@ -185,19 +186,29 @@ public class ThreadDumpAnalysis {
         for (Entry<String, Long> t : aggregateMethods.entrySet()) {
             runningMethods.add(new AggregateMethodResult(t.getKey(), t.getValue()));
         }
-        for (Entry<List<StackFrame>, Long> t : stackTraces.entrySet()) {
-            aggregateStackTraces.add(new AggregateStackTraceResult(t.getKey(), t.getValue()));
+        for (Entry<List<me.bechberger.jthreaddump.model.StackFrame>, Long> t :
+                stackTraces.entrySet()) {
+            aggregateStackTraces.add(
+                    new AggregateStackTraceResult(
+                            t.getKey().stream().map(StackFrame::from).toList(), t.getValue()));
         }
     }
 
-    public record AnalysisResult(String resultName, String explanation, int score) {}
+    public record ThreadDumpAnalysisResult(
+            @NotNull String resultName,
+            @NotNull String explanation,
+            @Schema(required = true) int score) {}
 
-    public record AggregateThreadStateResult(State data, long count) {}
+    public record AggregateThreadStateResult(
+            @NotNull ThreadState data, @Schema(required = true) long count) {}
 
-    public record AggregateLockInfoResult(String data, long count) {}
+    public record AggregateLockInfoResult(
+            @NotNull String data, @Schema(required = true) long count) {}
 
-    public record AggregateMethodResult(String data, long count) {}
+    public record AggregateMethodResult(
+            @NotNull String data, @Schema(required = true) long count) {}
 
     @SuppressFBWarnings("EI_EXPOSE_REP")
-    public record AggregateStackTraceResult(List<StackFrame> data, long count) {}
+    public record AggregateStackTraceResult(
+            @NotNull List<StackFrame> data, @Schema(required = true) long count) {}
 }

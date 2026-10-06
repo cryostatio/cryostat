@@ -43,10 +43,12 @@ import jakarta.persistence.PostRemove;
 import jakarta.persistence.PostUpdate;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.PositiveOrZero;
+import org.eclipse.microprofile.openapi.annotations.media.Schema;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.envers.Audited;
 import org.hibernate.type.SqlTypes;
@@ -67,6 +69,7 @@ public class Rule extends PanacheEntity {
     public static final String RULE_ADDRESS = "io.cryostat.rules.Rule";
 
     @Column(unique = true, updatable = false)
+    @NotNull
     @NotBlank
     public String name;
 
@@ -75,6 +78,7 @@ public class Rule extends PanacheEntity {
     @OneToOne(fetch = FetchType.EAGER, cascade = CascadeType.ALL)
     @JoinColumn(name = "matchExpression")
     @NotNull
+    @Valid
     public MatchExpression matchExpression;
 
     @Column(nullable = false)
@@ -82,24 +86,30 @@ public class Rule extends PanacheEntity {
     public String eventSpecifier;
 
     @PositiveOrZero(message = "archivalPeriodSeconds must be positive or zero")
+    @Schema(required = true)
     public int archivalPeriodSeconds;
 
     @PositiveOrZero(message = "initialDelaySeconds must be positive or zero")
+    @Schema(required = true)
     public int initialDelaySeconds;
 
     @PositiveOrZero(message = "archivalPeriodSeconds must be positive or zero")
+    @Schema(required = true)
     public int preservedArchives;
 
     @Min(message = "maxAgeSeconds must be greater than -1", value = -1)
+    @Schema(required = true)
     public int maxAgeSeconds;
 
     @Min(message = "maxAgeSeconds must be greater than -1", value = -1)
+    @Schema(required = true)
     public int maxSizeBytes;
 
     @JdbcTypeCode(SqlTypes.JSON)
     @NotNull
     public Metadata metadata;
 
+    @Schema(required = true)
     public boolean enabled;
 
     public String getName() {

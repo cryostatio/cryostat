@@ -417,7 +417,7 @@ public class DiagnosticsHelper {
                 target, conn -> ((AgentConnection) conn).unifiedLogStatus(), uploadFailedTimeout);
     }
 
-    public Optional<UnifiedLogs.UnifiedLog> pullUnifiedLog(Target target) {
+    public Optional<UnifiedLogs.UnifiedLog> pullUnifiedLog(Target target) throws IOException {
         Optional<InputStream> streamOpt =
                 targetConnectionManager.executeConnectedTask(
                         target,
@@ -446,13 +446,9 @@ public class DiagnosticsHelper {
                 req = req.metadata(Map.of());
                 break;
             case BUCKET:
-                try {
-                    unifiedLogsMetadataService
-                            .get()
-                            .create(target.jvmId, filename, new Metadata(Map.of()));
-                } catch (IOException ioe) {
-                    log.warn(ioe);
-                }
+                unifiedLogsMetadataService
+                        .get()
+                        .create(target.jvmId, filename, new Metadata(Map.of()));
                 break;
             default:
                 throw new IllegalStateException();
@@ -598,7 +594,7 @@ public class DiagnosticsHelper {
                 metadata.orElse(new Metadata(Map.of())));
     }
 
-    public ThreadDump addThreadDump(Target target, String content) {
+    public ThreadDump addThreadDump(Target target, String content) throws IOException {
         String uuid = UUID.randomUUID().toString();
         log.tracev(
                 "Putting Thread dump into storage with key: {0}", storageKey(target.jvmId, uuid));
@@ -620,13 +616,7 @@ public class DiagnosticsHelper {
                 req = req.metadata(Map.of());
                 break;
             case BUCKET:
-                try {
-                    threadDumpsMetadataService
-                            .get()
-                            .create(target.jvmId, uuid, new Metadata(Map.of()));
-                } catch (IOException ioe) {
-                    log.warn(ioe);
-                }
+                threadDumpsMetadataService.get().create(target.jvmId, uuid, new Metadata(Map.of()));
                 break;
             default:
                 throw new IllegalStateException();
@@ -649,7 +639,9 @@ public class DiagnosticsHelper {
                 new Metadata(Map.of()));
     }
 
-    public HeapDump addHeapDump(String jvmId, FileUpload heapDump, String requestId) {
+    public HeapDump addHeapDump(
+            String jvmId, FileUpload heapDump, String requestId, Metadata metadata)
+            throws IOException {
         boolean uploadStarted = false;
         try {
             String filename = heapDump.fileName().strip();
@@ -670,19 +662,13 @@ public class DiagnosticsHelper {
 
             switch (storageMode()) {
                 case TAGGING:
-                    req = req.tagging(createMetadataTagging(new Metadata(Map.of())));
+                    req = req.tagging(createMetadataTagging(metadata));
                     break;
                 case METADATA:
-                    req = req.metadata(Map.of());
+                    req = req.metadata(metadata.labels());
                     break;
                 case BUCKET:
-                    try {
-                        heapDumpsMetadataService
-                                .get()
-                                .create(jvmId, filename, new Metadata(Map.of()));
-                    } catch (IOException ioe) {
-                        log.warn(ioe);
-                    }
+                    heapDumpsMetadataService.get().create(jvmId, filename, metadata);
                     break;
                 default:
                     throw new IllegalStateException();
@@ -718,7 +704,7 @@ public class DiagnosticsHelper {
                             filename,
                             clock.now().getEpochSecond(),
                             fileSize,
-                            new Metadata(Map.of()));
+                            metadata);
             var event =
                     new HeapDumpEvent(
                             EventCategory.HEAP_DUMP_UPLOADED,

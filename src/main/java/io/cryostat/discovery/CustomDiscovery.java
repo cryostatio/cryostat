@@ -43,6 +43,7 @@ import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.LockModeType;
 import jakarta.transaction.Transactional;
+import jakarta.validation.constraints.NotNull;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.DELETE;
@@ -291,7 +292,9 @@ public class CustomDiscovery {
         return out;
     }
 
-    record TargetStub(URI connectUrl, String alias, String username, String password) {
+    /** {@code username} and {@code password} are optional; supplying both stores a Credential. */
+    record TargetStub(
+            @NotNull URI connectUrl, @NotNull String alias, String username, String password) {
         Target asTarget() {
             var t = new Target();
             t.alias = alias;

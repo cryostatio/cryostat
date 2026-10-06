@@ -18,6 +18,7 @@ package io.cryostat.jmcagent;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.util.List;
+import java.util.Objects;
 
 import io.cryostat.core.jmcagent.ProbeTemplate;
 import io.cryostat.libcryostat.sys.FileSystem;
@@ -25,6 +26,7 @@ import io.cryostat.libcryostat.sys.FileSystem;
 import io.quarkus.security.PermissionsAllowed;
 import io.smallrye.common.annotation.Blocking;
 import jakarta.inject.Inject;
+import jakarta.validation.constraints.NotNull;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
@@ -124,7 +126,12 @@ public class JMCAgentTemplates {
         }
     }
 
-    static record ProbeTemplateResponse(String name, String xml) {
+    static record ProbeTemplateResponse(@NotNull String name, @NotNull String xml) {
+        ProbeTemplateResponse {
+            Objects.requireNonNull(name);
+            Objects.requireNonNull(xml);
+        }
+
         ProbeTemplateResponse(SerializableProbeTemplateInfo templateInfo) {
             this(templateInfo.name(), templateInfo.xml());
         }

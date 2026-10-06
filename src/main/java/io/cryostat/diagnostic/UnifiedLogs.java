@@ -15,6 +15,7 @@
  */
 package io.cryostat.diagnostic;
 
+import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.time.Duration;
@@ -38,6 +39,7 @@ import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.security.PermissionsAllowed;
 import io.smallrye.common.annotation.Blocking;
 import jakarta.inject.Inject;
+import jakarta.validation.constraints.NotNull;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.ClientErrorException;
 import jakarta.ws.rs.Consumes;
@@ -53,6 +55,7 @@ import jakarta.ws.rs.core.Response;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.eclipse.microprofile.openapi.annotations.media.Schema;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestPath;
 import org.jboss.resteasy.reactive.RestQuery;
@@ -230,7 +233,7 @@ public class UnifiedLogs {
             inclusive = true)
     @Blocking
     @POST
-    public RestResponse<UnifiedLog> pullUnifiedLog(@RestPath long targetId) {
+    public RestResponse<UnifiedLog> pullUnifiedLog(@RestPath long targetId) throws IOException {
         Target target =
                 QuarkusTransaction.requiringNew().call(() -> Target.getTargetById(targetId));
         if (!target.isAgent()) {
@@ -449,7 +452,7 @@ public class UnifiedLogs {
     }
 
     @SuppressFBWarnings("EI_EXPOSE_REP")
-    public record MetadataBody(Map<String, String> labels) {
+    public record MetadataBody(@NotNull Map<String, String> labels) {
         public MetadataBody {
             Objects.requireNonNull(labels);
         }
@@ -468,20 +471,26 @@ public class UnifiedLogs {
     }
 
     @SuppressFBWarnings("EI_EXPOSE_REP")
-    public record ArchivedUnifiedLogDirectory(String jvmId, List<UnifiedLog> unifiedLogs) {
+    public record ArchivedUnifiedLogDirectory(
+            @NotNull String jvmId, @NotNull List<UnifiedLog> unifiedLogs) {
         public ArchivedUnifiedLogDirectory {
             Objects.requireNonNull(jvmId);
             Objects.requireNonNull(unifiedLogs);
         }
     }
 
+    /**
+     * {@code downloadUrl} and {@code logId} are null for the sessions returned by the enable and
+     * reconfigure endpoints, which describe a live logging session that has no archived artifact
+     * yet. They are only populated when listing or pulling archived logs.
+     */
     public record UnifiedLog(
-            String jvmId,
+            @NotNull String jvmId,
             String downloadUrl,
             String logId,
-            long lastModified,
-            long size,
-            Metadata metadata) {
+            @Schema(required = true) long lastModified,
+            @Schema(required = true) long size,
+            @NotNull Metadata metadata) {
         public UnifiedLog {
             Objects.requireNonNull(jvmId);
             Objects.requireNonNull(metadata);

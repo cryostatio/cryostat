@@ -47,6 +47,7 @@ import io.cryostat.expressions.MatchExpression;
 import io.cryostat.security.rbac.RbacHttpAuthenticationMechanism;
 import io.cryostat.targets.Target.Annotations;
 import io.cryostat.targets.TargetConnectionManager;
+import io.cryostat.util.KeyValue;
 import io.cryostat.util.URIUtil;
 
 import com.fasterxml.jackson.annotation.JsonView;
@@ -71,6 +72,7 @@ import jakarta.persistence.LockModeType;
 import jakarta.persistence.NoResultException;
 import jakarta.persistence.OptimisticLockException;
 import jakarta.transaction.Transactional;
+import jakarta.validation.constraints.NotNull;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.DELETE;
@@ -94,6 +96,10 @@ import org.eclipse.microprofile.faulttolerance.Bulkhead;
 import org.eclipse.microprofile.faulttolerance.Retry;
 import org.eclipse.microprofile.faulttolerance.Timeout;
 import org.eclipse.microprofile.openapi.annotations.Operation;
+import org.eclipse.microprofile.openapi.annotations.enums.SchemaType;
+import org.eclipse.microprofile.openapi.annotations.media.Content;
+import org.eclipse.microprofile.openapi.annotations.media.Schema;
+import org.eclipse.microprofile.openapi.annotations.parameters.RequestBody;
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestForm;
@@ -246,6 +252,11 @@ public class Discovery {
                     additionally require the id and token fields, which are supplied in the response to the original
                     registration.
                     """)
+    @RequestBody(
+            content =
+                    @Content(
+                            mediaType = MediaType.APPLICATION_JSON,
+                            schema = @Schema(implementation = PluginRegistrationRequest.class)))
     public PluginRegistration register(@Context RoutingContext ctx, JsonObject body)
             throws SchedulerException {
         String pluginId = body.getString("id");
@@ -346,6 +357,11 @@ public class Discovery {
                     general Discovery Plugin registration and publication endpoints remain available for other
                     Discovery Plugin implementations.
                     """)
+    @RequestBody(
+            content =
+                    @Content(
+                            mediaType = MediaType.APPLICATION_JSON,
+                            schema = @Schema(implementation = AgentRegistrationRequest.class)))
     public PluginRegistration registerAgent(@Context RoutingContext ctx, AgentRegistration body)
             throws SchedulerException {
         if (body == null) {
@@ -436,6 +452,14 @@ public class Discovery {
                     the overall discovery tree, so the published list of nodes here will replace the plugin Realm
                     node's list of children.
                     """)
+    @RequestBody(
+            content =
+                    @Content(
+                            mediaType = MediaType.APPLICATION_JSON,
+                            schema =
+                                    @Schema(
+                                            type = SchemaType.ARRAY,
+                                            implementation = DiscoveryNodeRequest.class)))
     public void publish(
             @Context RoutingContext ctx,
             @RestPath UUID id,
@@ -470,6 +494,11 @@ public class Discovery {
                     the overall discovery tree, so the published list of nodes here will replace the plugin Realm
                     node's list of children.
                     """)
+    @RequestBody(
+            content =
+                    @Content(
+                            mediaType = MediaType.APPLICATION_JSON,
+                            schema = @Schema(implementation = DiscoveryPublicationRequest.class)))
     public void publishWithContext(
             @Context RoutingContext ctx,
             @RestPath UUID id,
@@ -1514,7 +1543,11 @@ public class Discovery {
         return addr;
     }
 
-    static record PluginRegistration(String id, String token, Map<String, String> env) {}
+    static record PluginRegistration(
+            @NotNull String id,
+            @NotNull String token,
+            @NotNull @Schema(type = SchemaType.ARRAY, implementation = KeyValue.class)
+                    Map<String, String> env) {}
 
     static record AgentRegistration(
             String realm,
@@ -1524,8 +1557,28 @@ public class Discovery {
             DiscoveryFillStrategy fillStrategy,
             Map<String, String> context) {}
 
+    /**
+     * The {@code register} endpoint reads its body as a raw {@link JsonObject}, which the OpenAPI
+     * scanner would otherwise render as an array of map entries. {@code id} and {@code token} are
+     * supplied only when refreshing an existing registration.
+     */
+    @Schema(
+            name = "PluginRegistrationRequest",
+            description = "A discovery plugin registration or registration refresh",
+            requiredProperties = {"realm", "callback"})
+    static record PluginRegistrationRequest(
+            @Schema(implementation = UUID.class) String id,
+            String token,
+            @Schema(pattern = "\\S") String realm,
+            @Schema(pattern = "\\S") String callback) {}
+
+    @Schema(
+            name = "AgentCredentialRequest",
+            requiredProperties = {"matchExpression", "username", "password"})
     static record AgentCredentialRequest(
-            String matchExpression, String username, String password) {}
+            @Schema(pattern = "\\S") String matchExpression,
+            @Schema(pattern = "\\S") String username,
+            @Schema(pattern = "\\S") String password) {}
 
     static record DiscoveryPublication(
             List<DiscoveryNode> nodes,
@@ -1534,6 +1587,59 @@ public class Discovery {
 
     private static record CallbackValidation(
             URI callbackUri, URI unauthCallback, InetAddress remoteAddress) {}
+
+    /*
+     * The records below exist only to describe discovery request bodies in the generated OpenAPI
+     * document. Responses render every Map<String, String> as an array of KeyValue objects, but
+     * deserialization is untouched by ObjectMapperCustomization and still expects the plain JSON
+     * object form, so the request schemas cannot reuse DiscoveryNode/Target directly. Keep them in
+     * sync with the entities they mirror.
+     */
+
+    @Schema(name = "AnnotationsRequest", description = "Annotations as accepted in request bodies")
+    static record AnnotationsRequest(Map<String, String> platform, Map<String, String> cryostat) {}
+
+    @Schema(
+            name = "TargetRequest",
+            description = "A target as accepted in request bodies",
+            requiredProperties = {"connectUrl", "alias", "labels", "annotations"})
+    static record TargetRequest(
+            Long id,
+            @Schema(readOnly = true) boolean agent,
+            URI connectUrl,
+            @Schema(pattern = "\\S") String alias,
+            String jvmId,
+            Map<String, String> labels,
+            AnnotationsRequest annotations) {}
+
+    @Schema(
+            name = "DiscoveryNodeRequest",
+            description = "A discovery node as accepted in request bodies",
+            requiredProperties = {"name", "nodeType", "labels"})
+    static record DiscoveryNodeRequest(
+            Long id,
+            @Schema(pattern = "\\S") String name,
+            @Schema(pattern = "\\S") String nodeType,
+            Map<String, String> labels,
+            List<DiscoveryNodeRequest> children,
+            TargetRequest target) {}
+
+    @Schema(name = "DiscoveryPublicationRequest")
+    static record DiscoveryPublicationRequest(
+            List<DiscoveryNodeRequest> nodes,
+            Optional<DiscoveryFillStrategy> fillStrategy,
+            Optional<Map<String, String>> context) {}
+
+    @Schema(
+            name = "AgentRegistrationRequest",
+            requiredProperties = {"realm", "callback", "credential"})
+    static record AgentRegistrationRequest(
+            @Schema(pattern = "\\S") String realm,
+            @Schema(pattern = "\\S") String callback,
+            AgentCredentialRequest credential,
+            List<DiscoveryNodeRequest> nodes,
+            DiscoveryFillStrategy fillStrategy,
+            Map<String, String> context) {}
 
     enum DiscoveryFillStrategy {
         NONE,

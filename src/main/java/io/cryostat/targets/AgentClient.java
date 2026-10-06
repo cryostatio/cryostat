@@ -51,6 +51,7 @@ import io.cryostat.discovery.DiscoveryPlugin;
 import io.cryostat.discovery.DiscoveryPlugin.PluginCallback.DiscoveryPluginAuthorizationHeaderFactory;
 import io.cryostat.libcryostat.net.MBeanMetrics;
 import io.cryostat.libcryostat.triggers.SmartTrigger;
+import io.cryostat.recordings.RecordingState;
 import io.cryostat.targets.AgentJFRService.StartRecordingRequest;
 import io.cryostat.util.HttpStatusCodeIdentifier;
 
@@ -67,13 +68,14 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.ext.auth.authentication.UsernamePasswordCredentials;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import jakarta.validation.constraints.NotNull;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.ext.ContextResolver;
-import jdk.jfr.RecordingState;
 import org.apache.commons.io.input.ProxyInputStream;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.eclipse.microprofile.openapi.annotations.media.Schema;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.client.handlers.RedirectHandler;
 
@@ -862,7 +864,10 @@ public class AgentClient {
 
     @SuppressFBWarnings("EI_EXPOSE_REP")
     public static record StartProfileRequest(
-            String id, long startTime, List<String> events, long duration) {
+            String id,
+            @Schema(required = true) long startTime,
+            @NotNull List<String> events,
+            @Schema(required = true) long duration) {
         public StartProfileRequest(List<String> events, Duration duration) {
             this(null, 0, events, duration.toSeconds());
         }
@@ -878,13 +883,27 @@ public class AgentClient {
         }
     }
 
-    public static record AsyncProfile(String id, long startTime, long duration, long size) {}
+    public static record AsyncProfile(
+            @NotNull String id,
+            @Schema(required = true) long startTime,
+            @Schema(required = true) long duration,
+            @Schema(required = true) long size) {
+        public AsyncProfile {
+            Objects.requireNonNull(id);
+        }
+    }
 
+    /** {@code currentProfile} is null unless a profile is actively being recorded. */
     @SuppressFBWarnings("EI_EXPOSE_REP")
     public static record AsyncProfilerStatus(
             StartProfileRequest currentProfile,
-            ProfilerStatus status,
-            Map<String, List<String>> availableEvents) {}
+            @NotNull ProfilerStatus status,
+            @NotNull Map<String, List<String>> availableEvents) {
+        public AsyncProfilerStatus {
+            Objects.requireNonNull(status);
+            Objects.requireNonNull(availableEvents);
+        }
+    }
 
     public enum ProfilerStatus {
         STOPPED,
@@ -893,6 +912,13 @@ public class AgentClient {
         ;
     }
 
+    /**
+     * {@code what}, {@code decorators} and {@code logFilePath} only describe a configured logging
+     * session, so they are absent when {@code enabled} is false.
+     */
     public static record UnifiedLogStatus(
-            boolean enabled, String what, String decorators, String logFilePath) {}
+            @Schema(required = true) boolean enabled,
+            String what,
+            String decorators,
+            String logFilePath) {}
 }

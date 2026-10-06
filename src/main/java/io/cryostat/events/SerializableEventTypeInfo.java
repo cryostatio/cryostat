@@ -24,14 +24,15 @@ import org.openjdk.jmc.common.unit.IOptionDescriptor;
 import org.openjdk.jmc.flightrecorder.configuration.events.IEventTypeInfo;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import jakarta.validation.constraints.NotNull;
 
 @SuppressFBWarnings("EI_EXPOSE_REP")
 public record SerializableEventTypeInfo(
-        String typeId,
-        String name,
-        String description,
-        String[] category,
-        Map<String, SerializableOptionDescriptor> options) {
+        @NotNull String typeId,
+        @NotNull String name,
+        @NotNull String description,
+        @NotNull String[] category,
+        @NotNull Map<String, SerializableOptionDescriptor> options) {
 
     public SerializableEventTypeInfo {
         Objects.requireNonNull(typeId);

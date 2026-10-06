@@ -19,6 +19,7 @@ import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -53,6 +54,9 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.UriInfo;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.openapi.annotations.Operation;
+import org.eclipse.microprofile.openapi.annotations.media.Content;
+import org.eclipse.microprofile.openapi.annotations.media.Schema;
+import org.eclipse.microprofile.openapi.annotations.parameters.RequestBody;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestForm;
 import org.jboss.resteasy.reactive.RestPath;
@@ -126,6 +130,11 @@ public class Rules {
             inclusive = true)
     @Consumes(MediaType.APPLICATION_JSON)
     @Operation(summary = "Create a new Automated Rule")
+    @RequestBody(
+            content =
+                    @Content(
+                            mediaType = MediaType.APPLICATION_JSON,
+                            schema = @Schema(implementation = RuleRequest.class)))
     public RestResponse<Rule> create(@Context UriInfo uriInfo, Rule rule) {
         // TODO validate the incoming rule
         if (rule == null) {
@@ -159,6 +168,11 @@ public class Rules {
                     """
                     Update Automated Rule parameters, such as whether the rule is currently active or not.
                     """)
+    @RequestBody(
+            content =
+                    @Content(
+                            mediaType = MediaType.APPLICATION_JSON,
+                            schema = @Schema(implementation = RuleUpdateRequest.class)))
     public Rule update(
             @RestPath String name,
             @QueryParam("clean") @DefaultValue("false") boolean clean,
@@ -284,4 +298,63 @@ public class Rules {
         }
         rule.delete();
     }
+
+    /*
+     * The records below exist only to describe the JSON request body in the generated OpenAPI
+     * document. Responses render Metadata's labels as an array of KeyValue objects, but
+     * deserialization is untouched by ObjectMapperCustomization and still expects the plain JSON
+     * object form, so the request schema cannot reuse Rule directly. Keep them in sync with Rule.
+     */
+
+    @Schema(
+            name = "MetadataRequest",
+            description = "Recording metadata as accepted in request bodies",
+            requiredProperties = {"labels"})
+    record MetadataRequest(Map<String, String> labels) {}
+
+    /**
+     * The {@code update} endpoint reads its body as a raw {@link JsonObject}, which the OpenAPI
+     * scanner would otherwise render as an array of map entries. Every property is optional: only
+     * the keys actually present are applied. {@code name} may be sent but must match the existing
+     * rule, as rules cannot be renamed.
+     */
+    @Schema(
+            name = "RuleUpdateRequest",
+            description = "A partial update to an existing Automated Rule")
+    record RuleUpdateRequest(
+            @Schema(pattern = "\\S") String name,
+            String description,
+            MatchExpression matchExpression,
+            @Schema(pattern = "\\S") String eventSpecifier,
+            @Schema(minimum = "0") Integer archivalPeriodSeconds,
+            @Schema(minimum = "0") Integer initialDelaySeconds,
+            @Schema(minimum = "0") Integer preservedArchives,
+            @Schema(minimum = "-1") Integer maxAgeSeconds,
+            @Schema(minimum = "-1") Integer maxSizeBytes,
+            MetadataRequest metadata,
+            Boolean enabled) {}
+
+    @Schema(
+            name = "RuleRequest",
+            description = "An Automated Rule as accepted in request bodies",
+            requiredProperties = {
+                "name",
+                "description",
+                "matchExpression",
+                "eventSpecifier",
+                "metadata"
+            })
+    record RuleRequest(
+            Long id,
+            @Schema(pattern = "\\S") String name,
+            String description,
+            MatchExpression matchExpression,
+            @Schema(pattern = "\\S") String eventSpecifier,
+            @Schema(minimum = "0") int archivalPeriodSeconds,
+            @Schema(minimum = "0") int initialDelaySeconds,
+            @Schema(minimum = "0") int preservedArchives,
+            @Schema(minimum = "-1") int maxAgeSeconds,
+            @Schema(minimum = "-1") int maxSizeBytes,
+            MetadataRequest metadata,
+            boolean enabled) {}
 }

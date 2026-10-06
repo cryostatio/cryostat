@@ -32,6 +32,7 @@ import java.util.stream.Collectors;
 import io.cryostat.discovery.DiscoveryNode;
 import io.cryostat.recordings.ActiveRecording;
 import io.cryostat.targets.events.TargetEvents;
+import io.cryostat.util.KeyValue;
 import io.cryostat.util.URIUtil;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
@@ -61,6 +62,8 @@ import jakarta.persistence.Table;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import org.apache.commons.lang3.StringUtils;
+import org.eclipse.microprofile.openapi.annotations.enums.SchemaType;
+import org.eclipse.microprofile.openapi.annotations.media.Schema;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.envers.Audited;
 import org.hibernate.envers.NotAudited;
@@ -112,6 +115,7 @@ public class Target extends PanacheEntity {
 
     @JdbcTypeCode(SqlTypes.JSON)
     @NotNull
+    @Schema(type = SchemaType.ARRAY, implementation = KeyValue.class)
     public Map<String, String> labels = new HashMap<>();
 
     @JdbcTypeCode(SqlTypes.JSON)
@@ -136,6 +140,7 @@ public class Target extends PanacheEntity {
     public DiscoveryNode discoveryNode;
 
     @JsonProperty(access = JsonProperty.Access.READ_ONLY)
+    @Schema(required = true)
     public boolean isAgent() {
         return AgentConnection.isAgentConnection(connectUrl);
     }
@@ -178,7 +183,11 @@ public class Target extends PanacheEntity {
     }
 
     @SuppressFBWarnings("EI_EXPOSE_REP")
-    public static record Annotations(Map<String, String> platform, Map<String, String> cryostat)
+    public static record Annotations(
+            @NotNull @Schema(type = SchemaType.ARRAY, implementation = KeyValue.class)
+                    Map<String, String> platform,
+            @NotNull @Schema(type = SchemaType.ARRAY, implementation = KeyValue.class)
+                    Map<String, String> cryostat)
             implements Serializable {
 
         private static final long serialVersionUID = 1L;
