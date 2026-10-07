@@ -96,7 +96,7 @@ public class CustomDiscovery {
     @Path("/api/v5/targets")
     @Consumes(MediaType.APPLICATION_JSON)
     @PermissionsAllowed(
-            value = {"targets:read", "targets:write"},
+            value = {"targets:read", "targets:write", "customtargets:write"},
             inclusive = true)
     @Operation(
             summary = "Create a target definition",
@@ -120,7 +120,7 @@ public class CustomDiscovery {
     @Path("/api/v5/targets")
     @Consumes({MediaType.MULTIPART_FORM_DATA, MediaType.APPLICATION_FORM_URLENCODED})
     @PermissionsAllowed(
-            value = {"targets:read", "targets:write"},
+            value = {"targets:read", "targets:write", "customtargets:write"},
             inclusive = true)
     @Operation(
             summary = "Create a target definition",
@@ -251,7 +251,9 @@ public class CustomDiscovery {
     @Transactional
     @DELETE
     @Path("/api/v5/targets/{jvmId}")
-    @PermissionsAllowed(value = "targets:delete", inclusive = true)
+    @PermissionsAllowed(
+            value = {"customtargets:delete", "targets:delete"},
+            inclusive = true)
     @Operation(
             summary = "Delete a custom target by JVM ID",
             description =
