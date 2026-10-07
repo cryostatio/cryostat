@@ -110,8 +110,7 @@ public class Diagnostics {
     @Path("fs/threaddumps")
     @PermissionsAllowed(value = "threaddumps:read", inclusive = true)
     @AuthorizationFiltered(
-            resourceType = "threaddumps",
-            verb = "read",
+            permissions = {"threaddumps:read"},
             jvmIdAccessorName = "jvmId",
             jvmIdAccessorType = AccessorType.METHOD)
     @GET
@@ -352,8 +351,7 @@ public class Diagnostics {
     @Path("fs/heapdumps")
     @PermissionsAllowed(value = "heapdumps:read", inclusive = true)
     @AuthorizationFiltered(
-            resourceType = "heapdumps",
-            verb = "read",
+            permissions = {"heapdumps:read"},
             jvmIdAccessorName = "jvmId",
             jvmIdAccessorType = AccessorType.METHOD)
     @GET

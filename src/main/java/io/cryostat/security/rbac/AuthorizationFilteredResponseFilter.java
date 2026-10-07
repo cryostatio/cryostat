@@ -42,8 +42,8 @@ import org.jboss.logging.Logger;
  * <ol>
  *   <li>Extracts the jvmId using the accessor declared in the annotation.
  *   <li>Resolves the Kubernetes namespace via {@link SecurityContextResolver}.
- *   <li>Checks the primary permission and any additional permissions via {@link
- *       UserAuthorizer#isAuthorized(String, String, String, String)}.
+ *   <li>Checks each declared permission via {@link UserAuthorizer#isAuthorized(String, String,
+ *       String, String)}.
  *   <li>Retains the item only if all checks pass.
  * </ol>
  *
@@ -86,11 +86,10 @@ public class AuthorizationFilteredResponseFilter implements ContainerResponseFil
         }
         logger.debugf(
                 "AuthorizationFilteredResponseFilter: @AuthorizationFiltered found on %s.%s"
-                        + " (resourceType=%s, verb=%s)",
+                        + " (permissions=%s)",
                 method.getDeclaringClass().getSimpleName(),
                 method.getName(),
-                annotation.resourceType(),
-                annotation.verb());
+                String.join(",", annotation.permissions()));
         String rawToken = (String) routingContext.get(SsarAuthorizer.ATTR_RAW_ACCESS_TOKEN);
         if (StringUtils.isBlank(rawToken)) {
             logger.debugf(
@@ -114,36 +113,28 @@ public class AuthorizationFilteredResponseFilter implements ContainerResponseFil
         for (Object item : items) {
             String jvmId = extractJvmId(item, annotation);
             String namespace = securityContextResolver.resolveNamespace(jvmId);
-            if (!userAuthorizer.isAuthorized(
-                    annotation.resourceType(), annotation.verb(), namespace, rawToken)) {
-                logger.debugf(
-                        "AuthorizationFilteredResponseFilter: DENIED %s:%s in namespace '%s' for"
-                                + " jvmId '%s'",
-                        annotation.resourceType(), annotation.verb(), namespace, jvmId);
-                continue;
-            }
-            boolean additionalGranted = true;
-            for (String extra : annotation.additionalPermissions()) {
-                int colon = extra.indexOf(':');
+            boolean granted = true;
+            for (String permission : annotation.permissions()) {
+                int colon = permission.indexOf(':');
                 if (colon < 0) {
                     logger.warnf(
-                            "AuthorizationFilteredResponseFilter: malformed additional permission"
-                                    + " '%s', skipping",
-                            extra);
+                            "AuthorizationFilteredResponseFilter: malformed permission '%s',"
+                                    + " skipping",
+                            permission);
                     continue;
                 }
-                String extraResource = extra.substring(0, colon);
-                String extraVerb = extra.substring(colon + 1);
-                if (!userAuthorizer.isAuthorized(extraResource, extraVerb, namespace, rawToken)) {
+                String resource = permission.substring(0, colon);
+                String verb = permission.substring(colon + 1);
+                if (!userAuthorizer.isAuthorized(resource, verb, namespace, rawToken)) {
                     logger.debugf(
-                            "AuthorizationFilteredResponseFilter: DENIED additional permission"
-                                    + " %s:%s in namespace '%s' for jvmId '%s'",
-                            extraResource, extraVerb, namespace, jvmId);
-                    additionalGranted = false;
+                            "AuthorizationFilteredResponseFilter: DENIED %s:%s in namespace '%s'"
+                                    + " for jvmId '%s'",
+                            resource, verb, namespace, jvmId);
+                    granted = false;
                     break;
                 }
             }
-            if (additionalGranted) {
+            if (granted) {
                 logger.debugf(
                         "AuthorizationFilteredResponseFilter: ALLOWED jvmId '%s' in namespace"
                                 + " '%s'",

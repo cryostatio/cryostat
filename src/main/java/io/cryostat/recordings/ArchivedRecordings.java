@@ -100,8 +100,7 @@ public class ArchivedRecordings {
             value = {"archivedrecordings:read"},
             inclusive = true)
     @AuthorizationFiltered(
-            resourceType = "archivedrecordings",
-            verb = "read",
+            permissions = {"archivedrecordings:read"},
             jvmIdAccessorName = "jvmId",
             jvmIdAccessorType = AccessorType.METHOD)
     @Operation(

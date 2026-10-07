@@ -38,16 +38,10 @@ import java.lang.annotation.Target;
 public @interface AuthorizationFiltered {
 
     /**
-     * The Cryostat resource type, e.g. {@code "targets"} or {@code "archivedrecordings"}. Combined
-     * with {@link #verb()} to form the {@code resource:verb} permission checked per item.
+     * The {@code resource:verb} permission strings to check per item in its resolved namespace. All
+     * permissions must be granted for the item to be included.
      */
-    String resourceType();
-
-    /**
-     * The RBAC verb, e.g. {@code "read"}. Combined with {@link #resourceType()} to form the {@code
-     * resource:verb} permission checked per item.
-     */
-    String verb();
+    String[] permissions();
 
     /**
      * Name of the field or method on each collection item that returns the jvmId {@code String}.
@@ -61,11 +55,4 @@ public @interface AuthorizationFiltered {
      * method ({@link AccessorType#METHOD}, e.g. a record accessor).
      */
     AccessorType jvmIdAccessorType();
-
-    /**
-     * Optional additional {@code resource:verb} permission strings to check per item in the same
-     * resolved namespace. All permissions must be granted for the item to be included. Defaults to
-     * empty (no additional checks).
-     */
-    String[] additionalPermissions() default {};
 }

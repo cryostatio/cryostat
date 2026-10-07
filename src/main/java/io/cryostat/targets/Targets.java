@@ -40,11 +40,9 @@ public class Targets {
     @Path("/api/v4/targets")
     @PermissionsAllowed(value = "targets:read", inclusive = true)
     @AuthorizationFiltered(
-            resourceType = "targets",
-            verb = "read",
+            permissions = {"targets:read", "discoverynodes:read"},
             jvmIdAccessorName = "getJvmId",
-            jvmIdAccessorType = AccessorType.METHOD,
-            additionalPermissions = {"discoverynodes:read"})
+            jvmIdAccessorType = AccessorType.METHOD)
     @Operation(
             summary = "List currently discovered targets",
             description =
