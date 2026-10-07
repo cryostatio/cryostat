@@ -15,6 +15,9 @@
  */
 package io.cryostat.security.rbac;
 
+import java.util.Optional;
+
+import io.fabric8.kubernetes.api.model.authorization.v1.SelfSubjectAccessReview;
 import io.quarkus.security.identity.SecurityIdentity;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -32,6 +35,9 @@ public class UserAuthorizer {
 
     @Inject RbacConfig rbacConfig;
     @Inject SecurityIdentity securityIdentity;
+    @Inject PermissionMapper permissionMapper;
+    @Inject SsarDecisionCache ssarDecisionCache;
+    @Inject SsarClientCache ssarClientCache;
 
     /**
      * Asserts that the current security identity holds the named permission.
@@ -56,5 +62,50 @@ public class UserAuthorizer {
         if (!allowed) {
             throw new ForbiddenException(resource + ":" + action);
         }
+    }
+
+    /**
+     * Checks whether the caller identified by {@code rawToken} holds the named permission in the
+     * specified {@code namespace}, returning a boolean rather than throwing.
+     *
+     * <p>In {@link RbacMode#PERMISSIVE} and {@link RbacMode#BASIC} modes this always returns {@code
+     * true}. In {@link RbacMode#OPENSHIFT} mode a namespace-scoped SelfSubjectAccessReview is
+     * performed (or a cache hit is returned).
+     *
+     * @param resource the resource part of the permission, e.g. {@code archivedrecordings}
+     * @param action the action part of the permission, e.g. {@code read}
+     * @param namespace the Kubernetes namespace in which to scope the SSAR; empty for
+     *     cluster-scoped
+     * @param rawToken the caller's raw bearer token
+     * @return {@code true} if the permission is granted (or mode is not OPENSHIFT)
+     */
+    public boolean isAuthorized(String resource, String action, String namespace, String rawToken) {
+        if (rbacConfig.mode() != RbacMode.OPENSHIFT) {
+            return true;
+        }
+        var mapping = permissionMapper.resolve(resource + ":" + action);
+        if (mapping.isEmpty()) {
+            return false;
+        }
+        var k8s = mapping.get();
+        return ssarDecisionCache.get(
+                rawToken,
+                k8s.resource(),
+                k8s.subresource(),
+                k8s.verb(),
+                namespace,
+                key -> {
+                    SelfSubjectAccessReview ssar =
+                            SsarAuthorizer.buildSsar(k8s, Optional.of(namespace));
+                    var result =
+                            ssarClientCache.withClient(
+                                    rawToken,
+                                    client ->
+                                            client.authorization()
+                                                    .v1()
+                                                    .selfSubjectAccessReview()
+                                                    .create(ssar));
+                    return Boolean.TRUE.equals(result.getStatus().getAllowed());
+                });
     }
 }
