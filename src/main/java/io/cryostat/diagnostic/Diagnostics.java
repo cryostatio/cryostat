@@ -34,6 +34,8 @@ import io.cryostat.recordings.LongRunningRequestGenerator;
 import io.cryostat.recordings.LongRunningRequestGenerator.HeapDumpAnalysisRequest;
 import io.cryostat.recordings.LongRunningRequestGenerator.HeapDumpRequest;
 import io.cryostat.recordings.LongRunningRequestGenerator.ThreadDumpRequest;
+import io.cryostat.security.rbac.AccessorType;
+import io.cryostat.security.rbac.AuthorizationFiltered;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.TargetConnectionManager;
 import io.cryostat.util.HttpMimeType;
@@ -107,6 +109,11 @@ public class Diagnostics {
 
     @Path("fs/threaddumps")
     @PermissionsAllowed(value = "threaddumps:read", inclusive = true)
+    @AuthorizationFiltered(
+            resourceType = "threaddumps",
+            verb = "read",
+            jvmIdAccessorName = "jvmId",
+            jvmIdAccessorType = AccessorType.METHOD)
     @GET
     public Collection<ArchivedThreadDumpDirectory> listFsThreadDumps() {
         var map = new HashMap<String, ArchivedThreadDumpDirectory>();
@@ -344,6 +351,11 @@ public class Diagnostics {
 
     @Path("fs/heapdumps")
     @PermissionsAllowed(value = "heapdumps:read", inclusive = true)
+    @AuthorizationFiltered(
+            resourceType = "heapdumps",
+            verb = "read",
+            jvmIdAccessorName = "jvmId",
+            jvmIdAccessorType = AccessorType.METHOD)
     @GET
     public Collection<ArchivedHeapDumpDirectory> listFsHeapDumps() {
         var map = new HashMap<String, ArchivedHeapDumpDirectory>();

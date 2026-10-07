@@ -34,6 +34,8 @@ import io.cryostat.StorageBuckets;
 import io.cryostat.libcryostat.sys.Clock;
 import io.cryostat.recordings.ActiveRecordings.Metadata;
 import io.cryostat.recordings.LongRunningRequestGenerator.GrafanaArchiveUploadRequest;
+import io.cryostat.security.rbac.AccessorType;
+import io.cryostat.security.rbac.AuthorizationFiltered;
 import io.cryostat.security.rbac.UserAuthorizer;
 import io.cryostat.targets.Target;
 import io.cryostat.util.HttpMimeType;
@@ -97,6 +99,11 @@ public class ArchivedRecordings {
     @PermissionsAllowed(
             value = {"archivedrecordings:read"},
             inclusive = true)
+    @AuthorizationFiltered(
+            resourceType = "archivedrecordings",
+            verb = "read",
+            jvmIdAccessorName = "jvmId",
+            jvmIdAccessorType = AccessorType.METHOD)
     @Operation(
             summary = "List all archived recordings",
             description =
