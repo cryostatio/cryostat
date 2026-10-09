@@ -184,7 +184,7 @@ jobs:
           clean test > test.log 2>&1
     - run: tail -500l test.log
       if: always()
-    - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+    - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
       if: always()
       with:
         name: cryostat-unittest.log
@@ -203,7 +203,7 @@ jobs:
           echo "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
         } | tee comment.txt
         cat comment.txt >> "$GITHUB_STEP_SUMMARY"
-    - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+    - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
       if: always()
       with:
         name: unittest-comment
@@ -325,14 +325,14 @@ jobs:
           clean verify > test.log 2>&1
     - run: tail -500l test.log
       if: always()
-    - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+    - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
       if: always()
       with:
         name: cryostat-itest-harness.log
         path: test.log
     - run: tail -500l target/quarkus.log
       if: always()
-    - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+    - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
       if: always()
       with:
         name: cryostat-itest-server.log
@@ -351,7 +351,7 @@ jobs:
           echo "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
         } | tee comment.txt
         cat comment.txt >> "$GITHUB_STEP_SUMMARY"
-    - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+    - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
       if: always()
       with:
         name: itest-comment
@@ -443,12 +443,12 @@ jobs:
         GRAPHQL_STATUS=$([ -s /home/runner/work/graphql.diff ] && echo 1 || echo 0)
         echo "openapi_status=${OPENAPI_STATUS}" >> "$GITHUB_OUTPUT"
         echo "graphql_status=${GRAPHQL_STATUS}" >> "$GITHUB_OUTPUT"
-    - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+    - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
       if: always()
       with:
         name: openapi-diff
         path: /home/runner/work/openapi.diff
-    - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+    - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
       if: always()
       with:
         name: graphql-diff
@@ -489,7 +489,7 @@ jobs:
         git diff -U10 /home/runner/work/cryostat/cryostat/schema/notifications.yaml > /home/runner/work/notifications.diff
         NOTIFICATIONS_STATUS=$([ -s /home/runner/work/notifications.diff ] && echo 1 || echo 0)
         echo "notifications_status=${NOTIFICATIONS_STATUS}" >> "$GITHUB_OUTPUT"
-    - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+    - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
       if: always()
       with:
         name: notifications-diff
