@@ -23,7 +23,6 @@ import java.util.function.Function;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.jboss.logging.Logger;
@@ -54,9 +53,6 @@ public class SsarDecisionCache {
     private final String namespace;
     private final Logger logger;
 
-    @SuppressFBWarnings(
-            value = "EI_EXPOSE_REP2",
-            justification = "SpotBugs thinks Logger instance is externally modifiable")
     @Inject
     public SsarDecisionCache(Logger logger, RbacConfig config) {
         this.logger = logger;
