@@ -474,7 +474,9 @@ public class RecordingHelper {
             RecordingOptions options,
             Map<String, String> rawLabels,
             List<String> asprofEvents) {
-        if (!asprofEvents.isEmpty() && !target.isAgent()) {
+        List<String> filteredAsprofEvents =
+                asprofEvents.stream().filter(e -> StringUtils.isNotBlank(e)).toList();
+        if (!filteredAsprofEvents.isEmpty() && !target.isAgent()) {
             throw new BadRequestException(
                     "asprofEvents is only supported for Cryostat Agent-connected targets");
         }
@@ -530,7 +532,7 @@ public class RecordingHelper {
                                 }
                                 IConstrainedMap<String> recordingOptions = optionsBuilder.build();
 
-                                if (!asprofEvents.isEmpty()) {
+                                if (!filteredAsprofEvents.isEmpty()) {
                                     AgentConnection agentConn = (AgentConnection) conn;
                                     switch (template.getType()) {
                                         case PRESET:
@@ -541,7 +543,7 @@ public class RecordingHelper {
                                                                     template.getName(),
                                                                     TemplateType.CUSTOM)
                                                             .orElseThrow(),
-                                                    asprofEvents);
+                                                    filteredAsprofEvents);
                                         case CUSTOM:
                                             return agentConn.startJfrSyncRecording(
                                                     recordingOptions,
@@ -550,10 +552,12 @@ public class RecordingHelper {
                                                                     template.getName(),
                                                                     TemplateType.CUSTOM)
                                                             .orElseThrow(),
-                                                    asprofEvents);
+                                                    filteredAsprofEvents);
                                         case TARGET:
                                             return agentConn.startJfrSyncRecording(
-                                                    recordingOptions, template, asprofEvents);
+                                                    recordingOptions,
+                                                    template,
+                                                    filteredAsprofEvents);
                                         default:
                                             throw new IllegalStateException(
                                                     "Unknown template type: " + template.getType());
@@ -598,8 +602,8 @@ public class RecordingHelper {
         Map<String, String> labels = new HashMap<>(rawLabels);
         labels.put("template.name", template.getName());
         labels.put("template.type", template.getType().toString());
-        if (!asprofEvents.isEmpty()) {
-            labels.put("asprof.events", String.join(",", asprofEvents));
+        if (!filteredAsprofEvents.isEmpty()) {
+            labels.put("asprof.events", String.join(",", filteredAsprofEvents));
         }
         Metadata meta = new Metadata(labels);
 
