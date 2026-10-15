@@ -20,6 +20,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 
 import javax.management.InstanceNotFoundException;
 
@@ -37,6 +38,7 @@ import io.quarkus.security.PermissionsAllowed;
 import io.smallrye.common.annotation.Blocking;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.inject.Inject;
+import jakarta.validation.constraints.NotNull;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
@@ -218,7 +220,15 @@ public class JMCAgentProbes {
                 });
     }
 
-    static record ProbeResponse(String name, String description) {
+    /**
+     * {@code description} is null when the probe template's {@code <event>} element carries no
+     * {@code <description>} child, which the JMC Agent template schema permits.
+     */
+    static record ProbeResponse(@NotNull String name, String description) {
+        ProbeResponse {
+            Objects.requireNonNull(name);
+        }
+
         ProbeResponse(Event e) {
             this(e.name, e.description);
         }

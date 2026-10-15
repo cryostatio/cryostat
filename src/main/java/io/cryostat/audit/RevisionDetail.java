@@ -20,8 +20,15 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import jakarta.validation.constraints.NotNull;
+import org.eclipse.microprofile.openapi.annotations.media.Schema;
+
+/** {@code username} is null for revisions not attributable to an authenticated user. */
 public record RevisionDetail(
-        long rev, long revtstmp, String username, Map<String, List<Object>> entities) {
+        @Schema(required = true) long rev,
+        @Schema(required = true) long revtstmp,
+        String username,
+        @NotNull Map<String, List<Object>> entities) {
     public RevisionDetail(
             long rev, long revtstmp, String username, Map<String, List<Object>> entities) {
         this.rev = rev;
