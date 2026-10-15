@@ -69,6 +69,7 @@ import io.vertx.ext.auth.authentication.UsernamePasswordCredentials;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.validation.constraints.NotNull;
+import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.ext.ContextResolver;
 import org.apache.commons.io.input.ProxyInputStream;
@@ -269,6 +270,15 @@ public class AgentClient {
                                                     Response.Status.FORBIDDEN.getStatusCode(),
                                                     new UnsupportedOperationException(
                                                             "startRecording"));
+                                        } else if (statusCode == 400) {
+                                            logger.errorv(
+                                                    "startRecording for {0} failed: HTTP 400",
+                                                    getUri());
+                                            throw new BadRequestException(
+                                                    "Recording start request rejected by agent"
+                                                            + " (invalid event template, or"
+                                                            + " invalid async-profiler state for"
+                                                            + " a jfrsync-enabled recording)");
                                         } else {
                                             logger.errorv(
                                                     "startRecording for {0} failed: HTTP {1}",
@@ -526,9 +536,17 @@ public class AgentClient {
                 .map(
                         Unchecked.function(
                                 resp -> {
+                                    int statusCode = resp.getStatus();
                                     try (resp;
                                             var is = (InputStream) resp.getEntity()) {
-                                        return mapper.readValue(is, AsyncProfilerStatus.class);
+                                        if (HttpStatusCodeIdentifier.isSuccessCode(statusCode)) {
+                                            return mapper.readValue(is, AsyncProfilerStatus.class);
+                                        } else {
+                                            logger.errorv(
+                                                    "asyncProfilerStatus for {0} failed: HTTP {1}",
+                                                    getUri(), statusCode);
+                                            throw new AgentApiException(statusCode);
+                                        }
                                     }
                                 }));
     }
@@ -568,10 +586,18 @@ public class AgentClient {
                 .map(
                         Unchecked.function(
                                 resp -> {
+                                    int statusCode = resp.getStatus();
                                     try (resp;
                                             var is = (InputStream) resp.getEntity()) {
-                                        return mapper.readValue(
-                                                is, new TypeReference<List<AsyncProfile>>() {});
+                                        if (HttpStatusCodeIdentifier.isSuccessCode(statusCode)) {
+                                            return mapper.readValue(
+                                                    is, new TypeReference<List<AsyncProfile>>() {});
+                                        } else {
+                                            logger.errorv(
+                                                    "listAsyncProfiles for {0} failed: HTTP {1}",
+                                                    getUri(), statusCode);
+                                            throw new AgentApiException(statusCode);
+                                        }
                                     }
                                 }));
     }
