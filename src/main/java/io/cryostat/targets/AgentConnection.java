@@ -29,6 +29,12 @@ import javax.management.IntrospectionException;
 import javax.management.ReflectionException;
 import javax.management.remote.JMXServiceURL;
 
+import org.openjdk.jmc.common.unit.IConstrainedMap;
+import org.openjdk.jmc.common.unit.ITypedQuantity;
+import org.openjdk.jmc.common.unit.QuantityConversionException;
+import org.openjdk.jmc.common.unit.UnitLookup;
+import org.openjdk.jmc.flightrecorder.configuration.IRecordingDescriptor;
+import org.openjdk.jmc.flightrecorder.configuration.recording.RecordingOptionsBuilder;
 import org.openjdk.jmc.rjmx.common.ConnectionException;
 import org.openjdk.jmc.rjmx.common.IConnectionHandle;
 import org.openjdk.jmc.rjmx.common.ServiceNotAvailableException;
@@ -44,10 +50,13 @@ import io.cryostat.libcryostat.net.CryostatAgentMXBean;
 import io.cryostat.libcryostat.net.IDException;
 import io.cryostat.libcryostat.net.MBeanMetrics;
 import io.cryostat.libcryostat.sys.Clock;
+import io.cryostat.libcryostat.templates.Template;
+import io.cryostat.libcryostat.templates.TemplateType;
 import io.cryostat.libcryostat.triggers.SmartTrigger;
 import io.cryostat.targets.AgentClient.AsyncProfile;
 import io.cryostat.targets.AgentClient.AsyncProfilerStatus;
 import io.cryostat.targets.AgentClient.StartProfileRequest;
+import io.cryostat.targets.AgentJFRService.StartRecordingRequest;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -109,6 +118,66 @@ public class AgentConnection implements JFRConnection {
 
     public InputStream streamAsyncProfile(String id) {
         return client.streamAsyncProfile(id).await().atMost(client.getTimeout());
+    }
+
+    /**
+     * Starts a recording driven by async-profiler's {@code jfrsync} mode using an already-resolved
+     * PRESET/CUSTOM template XML string, mirroring {@link AgentJFRService#start(IConstrainedMap,
+     * String)} but additionally threading through the requested async-profiler event list.
+     */
+    public IRecordingDescriptor startJfrSyncRecording(
+            IConstrainedMap<String> recordingOptions, String template, List<String> asprofEvents)
+            throws QuantityConversionException {
+        StartRecordingRequest req =
+                new StartRecordingRequest(
+                        recordingOptions.get("name").toString(),
+                        null,
+                        template,
+                        extractMillis(recordingOptions, RecordingOptionsBuilder.KEY_DURATION),
+                        extractBytes(recordingOptions, RecordingOptionsBuilder.KEY_MAX_SIZE),
+                        extractMillis(recordingOptions, RecordingOptionsBuilder.KEY_MAX_AGE),
+                        asprofEvents);
+        return client.startRecording(req).await().atMost(client.getTimeout());
+    }
+
+    /**
+     * Starts a recording driven by async-profiler's {@code jfrsync} mode using a {@code TARGET}
+     * template (already resident on the target, referenced by name), mirroring {@link
+     * AgentJFRService#start(IConstrainedMap, Template)}. Only {@code TemplateType.TARGET} is
+     * supported here - PRESET/CUSTOM templates must be resolved to XML by the caller and passed via
+     * {@link #startJfrSyncRecording(IConstrainedMap, String, List)} instead.
+     */
+    public IRecordingDescriptor startJfrSyncRecording(
+            IConstrainedMap<String> recordingOptions, Template template, List<String> asprofEvents)
+            throws QuantityConversionException {
+        if (!TemplateType.TARGET.equals(template.getType())) {
+            throw new IllegalArgumentException(
+                    "Expected a TARGET template, got: " + template.getType());
+        }
+        StartRecordingRequest req =
+                new StartRecordingRequest(
+                        recordingOptions.get("name").toString(),
+                        template.getName(),
+                        null,
+                        extractMillis(recordingOptions, RecordingOptionsBuilder.KEY_DURATION),
+                        extractBytes(recordingOptions, RecordingOptionsBuilder.KEY_MAX_SIZE),
+                        extractMillis(recordingOptions, RecordingOptionsBuilder.KEY_MAX_AGE),
+                        asprofEvents);
+        return client.startRecording(req).await().atMost(client.getTimeout());
+    }
+
+    private static long extractMillis(IConstrainedMap<String> recordingOptions, String key)
+            throws QuantityConversionException {
+        return Optional.ofNullable((ITypedQuantity) recordingOptions.get(key))
+                .orElse(UnitLookup.MILLISECOND.quantity(0))
+                .longValueIn(UnitLookup.MILLISECOND);
+    }
+
+    private static long extractBytes(IConstrainedMap<String> recordingOptions, String key)
+            throws QuantityConversionException {
+        return Optional.ofNullable((ITypedQuantity) recordingOptions.get(key))
+                .orElse(UnitLookup.BYTE.quantity(0))
+                .longValueIn(UnitLookup.BYTE);
     }
 
     public AgentClient.UnifiedLogStatus unifiedLogStatus() {

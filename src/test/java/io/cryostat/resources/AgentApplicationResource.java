@@ -39,6 +39,11 @@ public class AgentApplicationResource
     public static final int PORT = 9977;
     public static final String ALIAS = "quarkus-cryostat-agent";
 
+    // Only populated for the non-networked (plain unit test) setup, where the sample
+    // application's own Quarkus HTTP port is directly reachable from the test JVM via host
+    // networking. Not populated for the networked (integration test) setup.
+    public static volatile int appPort = -1;
+
     protected Map<String, String> getEnvMap() {
         // Network- and port-specific settings (QUARKUS_HTTP_PORT,
         // CRYOSTAT_AGENT_WEBSERVER_PORT, CRYOSTAT_AGENT_BASEURI, CRYOSTAT_AGENT_CALLBACK) are
@@ -132,6 +137,7 @@ public class AgentApplicationResource
             // callback remains directly reachable by the host-side Cryostat.
             int agentWebserverPort = findFreePort();
             int agentAppPort = findFreePort();
+            appPort = agentAppPort;
             container
                     .withNetworkMode("host")
                     .waitingFor(Wait.forLogMessage(".*Installed features.*", 1));
