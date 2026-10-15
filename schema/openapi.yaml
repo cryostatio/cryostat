@@ -4976,6 +4976,12 @@ paths:
                   type:
                     - boolean
                     - "null"
+                asprofEvents:
+                  items:
+                    type: string
+                  type:
+                    - array
+                    - "null"
                 duration:
                   format: int64
                   type:
