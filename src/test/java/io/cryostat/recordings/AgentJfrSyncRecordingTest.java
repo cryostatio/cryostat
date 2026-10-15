@@ -286,7 +286,10 @@ public class AgentJfrSyncRecordingTest extends AgentTestBase {
                         .delete("/api/beta/recordings/{connectUrl}/{filename}")
                         .then()
                         .log()
-                        .all();
+                        .all()
+                        .and()
+                        .assertThat()
+                        .statusCode(204);
             }
             given().log()
                     .all()
