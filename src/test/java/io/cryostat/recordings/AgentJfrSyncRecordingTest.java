@@ -902,6 +902,67 @@ public class AgentJfrSyncRecordingTest extends AgentTestBase {
                 .statusCode(204);
     }
 
+    @Test
+    void testJfrSyncRecordingRejectedWhenOtherRecordingsActive() {
+        long targetId = target.id();
+        String firstRecordingName = RECORDING_NAME + "First";
+        String jfrSyncRecordingName = RECORDING_NAME + "JfrSync";
+
+        // Start a regular recording first
+        int firstRecordingId =
+                given().log()
+                        .all()
+                        .pathParams("targetId", targetId)
+                        .when()
+                        .formParam("recordingName", firstRecordingName)
+                        .formParam("events", CONTINUOUS_TEMPLATE)
+                        .formParam("duration", 20)
+                        .post("/api/v4/targets/{targetId}/recordings")
+                        .then()
+                        .log()
+                        .all()
+                        .and()
+                        .assertThat()
+                        .statusCode(201)
+                        .contentType(ContentType.JSON)
+                        .body("state", Matchers.equalTo("RUNNING"))
+                        .and()
+                        .extract()
+                        .jsonPath()
+                        .getInt("remoteId");
+
+        // Attempt to start a jfrsync recording while the first one is still active
+        // This should be rejected with 400 Bad Request
+        given().log()
+                .all()
+                .pathParams("targetId", targetId)
+                .when()
+                .formParam("recordingName", jfrSyncRecordingName)
+                .formParam("events", CONTINUOUS_TEMPLATE)
+                .formParam("duration", 10)
+                .formParam("asprofEvents", "cpu,alloc")
+                .post("/api/v4/targets/{targetId}/recordings")
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(400);
+
+        // Clean up the first recording
+        given().log()
+                .all()
+                .pathParams("targetId", targetId, "recordingId", firstRecordingId)
+                .when()
+                .delete("/api/v4/targets/{targetId}/recordings/{recordingId}")
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(204);
+    }
+
     /**
      * Polls the standalone async-profiler status endpoint until it reports a non-RUNNING status (or
      * the timeout elapses). Needed after deliberately leaving a standalone profiling session active
