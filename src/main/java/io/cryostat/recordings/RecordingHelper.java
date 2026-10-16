@@ -488,18 +488,27 @@ public class RecordingHelper {
         String recordingName = options.name();
 
         if (!filteredAsprofEvents.isEmpty()) {
-            boolean hasOtherActiveRecordings =
-                    ActiveRecording.<ActiveRecording>find(
-                                            "target.id = ?1 AND state = ?2 AND name != ?3",
-                                            lockedTarget.id,
-                                            RecordingState.RUNNING,
-                                            recordingName)
-                                    .count()
-                            > 0;
-            if (hasOtherActiveRecordings) {
-                throw new BadRequestException(
-                        "jfrsync recordings cannot be started while other recordings are active"
-                                + " on the same target");
+            boolean willReplace =
+                    replace == RecordingReplace.ALWAYS
+                            || (replace == RecordingReplace.STOPPED
+                                    && getActiveRecording(
+                                                    lockedTarget, r -> r.name.equals(recordingName))
+                                            .map(r -> r.state == RecordingState.STOPPED)
+                                            .orElse(false));
+            if (!willReplace) {
+                boolean hasOtherActiveRecordings =
+                        ActiveRecording.<ActiveRecording>find(
+                                                "target.id = ?1 AND state = ?2 AND name != ?3",
+                                                lockedTarget.id,
+                                                RecordingState.RUNNING,
+                                                recordingName)
+                                        .count()
+                                > 0;
+                if (hasOtherActiveRecordings) {
+                    throw new BadRequestException(
+                            "jfrsync recordings cannot be started while other recordings are active"
+                                    + " on the same target");
+                }
             }
         }
         RecordingState previousState =

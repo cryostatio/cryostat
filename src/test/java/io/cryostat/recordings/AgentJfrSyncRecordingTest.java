@@ -931,38 +931,37 @@ public class AgentJfrSyncRecordingTest extends AgentTestBase {
                         .jsonPath()
                         .getInt("remoteId");
 
-        try {
-            // Attempt to start a jfrsync recording while the first one is still active
-            // This should be rejected with 400 Bad Request
-            given().log()
-                    .all()
-                    .pathParams("targetId", targetId)
-                    .when()
-                    .formParam("recordingName", jfrSyncRecordingName)
-                    .formParam("events", CONTINUOUS_TEMPLATE)
-                    .formParam("duration", 10)
-                    .formParam("asprofEvents", "cpu")
-                    .post("/api/v4/targets/{targetId}/recordings")
-                    .then()
-                    .log()
-                    .all()
-                    .and()
-                    .assertThat()
-                    .statusCode(400);
-        } finally {
-            // Clean up the first recording
-            given().log()
-                    .all()
-                    .pathParams("targetId", targetId, "recordingId", firstRecordingId)
-                    .when()
-                    .delete("/api/v4/targets/{targetId}/recordings/{recordingId}")
-                    .then()
-                    .log()
-                    .all()
-                    .and()
-                    .assertThat()
-                    .statusCode(204);
-        }
+<<<<<<< HEAD
+        // Attempt to start a jfrsync recording while the first one is still active
+        // This should be rejected with 400 Bad Request
+        given().log()
+                .all()
+                .pathParams("targetId", targetId)
+                .when()
+                .formParam("recordingName", jfrSyncRecordingName)
+                .formParam("events", CONTINUOUS_TEMPLATE)
+                .formParam("duration", 10)
+                .formParam("asprofEvents", "cpu,alloc")
+                .post("/api/v4/targets/{targetId}/recordings")
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(400);
+
+        // Clean up the first recording
+        given().log()
+                .all()
+                .pathParams("targetId", targetId, "recordingId", firstRecordingId)
+                .when()
+                .delete("/api/v4/targets/{targetId}/recordings/{recordingId}")
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(204);
     }
 
     /**
