@@ -49,7 +49,7 @@ import org.jboss.logging.Logger;
 public class SsarAuthorizer {
 
     static final String BEARER_PREFIX = "bearer ";
-    static final String ATTR_RAW_ACCESS_TOKEN = "raw_access_token";
+    public static final String ATTR_RAW_ACCESS_TOKEN = "raw_access_token";
 
     @Inject Logger log;
     @Inject RbacConfig config;
@@ -199,7 +199,7 @@ public class SsarAuthorizer {
                 });
     }
 
-    private static SelfSubjectAccessReview buildSsar(
+    static SelfSubjectAccessReview buildSsar(
             PermissionMapper.K8sResourceVerb k8s, Optional<String> namespace) {
         ResourceAttributesBuilder specBuilder =
                 new ResourceAttributesBuilder()
