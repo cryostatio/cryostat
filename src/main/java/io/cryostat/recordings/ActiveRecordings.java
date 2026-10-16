@@ -218,7 +218,13 @@ public class ActiveRecordings {
             @RestForm Optional<Long> maxAge,
             @RestForm Optional<Long> maxSize,
             @RestForm("metadata") Optional<String> rawMetadata,
-            @RestForm Optional<Boolean> archiveOnStop)
+            @RestForm Optional<Boolean> archiveOnStop,
+            @Parameter(
+                            description =
+                                    "async-profiler events to enable jfrsync mode with (Cryostat"
+                                            + " Agent-connected targets only)")
+                    @RestForm
+                    Optional<List<String>> asprofEvents)
             throws Exception {
         if (StringUtils.isBlank(recordingName)) {
             throw new BadRequestException("\"recordingName\" form parameter must be provided");
@@ -260,7 +266,8 @@ public class ActiveRecordings {
                                         duration,
                                         maxSize,
                                         maxAge),
-                                labels)
+                                labels,
+                                asprofEvents.orElse(List.of()))
                         .await()
                         .atMost(Duration.ofSeconds(10));
 
