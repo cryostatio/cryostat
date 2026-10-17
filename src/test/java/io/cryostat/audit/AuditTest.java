@@ -89,7 +89,7 @@ public class AuditTest extends AuditTestBase {
         given().log()
                 .all()
                 .when()
-                .get("target_lineage/{jvmId}", selfJvmId)
+                .get("target-lineage/{jvmId}", selfJvmId)
                 .then()
                 .log()
                 .all()
@@ -137,7 +137,7 @@ public class AuditTest extends AuditTestBase {
         given().log()
                 .all()
                 .when()
-                .get("target_lineage/{jvmId}", "nonexistent-jvm-id")
+                .get("target-lineage/{jvmId}", "nonexistent-jvm-id")
                 .then()
                 .log()
                 .all()
@@ -150,7 +150,7 @@ public class AuditTest extends AuditTestBase {
         given().log()
                 .all()
                 .when()
-                .get("target_lineage/%20")
+                .get("target-lineage/%20")
                 .then()
                 .log()
                 .all()
@@ -561,7 +561,7 @@ public class AuditTest extends AuditTestBase {
                 .formParam("username", username)
                 .formParam("password", password)
                 .when()
-                .post("/api/v4/credentials")
+                .post("/api/v5/credentials")
                 .then()
                 .statusCode(201);
 
@@ -758,7 +758,7 @@ public class AuditTest extends AuditTestBase {
                 .formParam("username", username)
                 .formParam("password", password)
                 .when()
-                .post("/api/v4/credentials")
+                .post("/api/v5/credentials")
                 .then()
                 .statusCode(201);
 

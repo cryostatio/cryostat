@@ -49,10 +49,10 @@ while true; do
 done
 if command -v http; then
     http --pretty=format --body :8181/api | yq -P 'sort_keys(..)' > "${DIR}/openapi.yaml"
-    http --pretty=format --body :8181/api/v4/graphql/schema.graphql > "${DIR}/schema.graphql"
+    http --pretty=format --body :8181/api/v5/graphql/schema.graphql > "${DIR}/schema.graphql"
 elif command -v wget; then
     wget http://localhost:8181/api -O - | yq -P 'sort_keys(..)' > "${DIR}/openapi.yaml"
-    wget http://localhost:8181/api/v4/graphql/schema.graphql -O "${DIR}/schema.graphql"
+    wget http://localhost:8181/api/v5/graphql/schema.graphql -O "${DIR}/schema.graphql"
 fi
 
 "${DIR}"/generate-notifications.bash || true

@@ -63,13 +63,12 @@ public class AsyncProfilerHelper {
                             AsyncProfilerRecording.started(target, id, events, duration.toSeconds())
                                     .persist();
 
-                            JobKey key =
-                                    new JobKey(Long.toString(target.id), "async-profiler-update");
+                            JobKey key = new JobKey(target.id.toString(), "async-profiler-update");
                             JobDetail job =
                                     JobBuilder.newJob(AsyncProfilerUpdateJob.class)
                                             .withIdentity(key)
                                             .usingJobData("id", id)
-                                            .usingJobData("targetId", target.id)
+                                            .usingJobData("targetId", target.id.toString())
                                             .usingJobData("duration", duration.toSeconds())
                                             .build();
                             Trigger trigger =

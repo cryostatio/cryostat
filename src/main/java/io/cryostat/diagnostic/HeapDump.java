@@ -15,9 +15,9 @@
  */
 package io.cryostat.diagnostic;
 
+import io.cryostat.PanacheUuidEntity;
 import io.cryostat.targets.Target;
 
-import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -32,7 +32,7 @@ import org.hibernate.envers.Audited;
 @Entity
 @Audited
 @Table(uniqueConstraints = {@UniqueConstraint(columnNames = {"target_id", "jobId"})})
-public class HeapDump extends PanacheEntity {
+public class HeapDump extends PanacheUuidEntity {
 
     @NotNull @ManyToOne public Target target;
 

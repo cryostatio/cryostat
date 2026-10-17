@@ -19,6 +19,7 @@ import static io.restassured.RestAssured.given;
 
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 import io.restassured.http.ContentType;
 import io.vertx.core.json.JsonObject;
@@ -37,8 +38,8 @@ public abstract class EnversAuditTestBase extends AuditTestBase {
     @AfterEach
     void cleanup() {
         given().get().then().extract().body().jsonPath().getList("$", Map.class).stream()
-                .map(m -> (String) m.get("name"))
-                .forEach(name -> given().delete("/" + name));
+                .map(m -> (String) m.get("id"))
+                .forEach(id -> given().delete("/" + id));
     }
 
     protected JsonObject createRuleJson(String name) {
@@ -63,20 +64,20 @@ public abstract class EnversAuditTestBase extends AuditTestBase {
                 .as(Map.class);
     }
 
-    protected void updateRuleViaApi(String ruleName, JsonObject updateJson) {
+    protected void updateRuleViaApi(UUID id, JsonObject updateJson) {
         given().body(updateJson.toString())
                 .contentType(ContentType.JSON)
-                .patch("/" + ruleName)
+                .patch(id.toString())
                 .then()
                 .statusCode(200);
     }
 
-    protected void deleteRuleViaApi(String ruleName) {
-        given().delete("/" + ruleName).then().statusCode(204);
+    protected void deleteRuleViaApi(UUID id) {
+        given().delete(id.toString()).then().statusCode(204);
     }
 
     @SuppressWarnings("unchecked")
-    protected List<Object[]> queryAuditRecords(Long ruleId) {
+    protected List<Object[]> queryAuditRecords(UUID ruleId) {
         return entityManager
                 .createNativeQuery(
                         "SELECT id, REV, REVTYPE FROM Rule_AUD WHERE id = :id ORDER BY REV")
@@ -85,7 +86,7 @@ public abstract class EnversAuditTestBase extends AuditTestBase {
     }
 
     @SuppressWarnings("unchecked")
-    protected List<Object[]> queryAuditRecordsForMultipleRules(Long... ruleIds) {
+    protected List<Object[]> queryAuditRecordsForMultipleRules(UUID... ruleIds) {
         StringBuilder query =
                 new StringBuilder("SELECT id, REV, REVTYPE FROM Rule_AUD WHERE id IN (");
         for (int i = 0; i < ruleIds.length; i++) {

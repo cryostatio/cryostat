@@ -72,10 +72,10 @@ public class RootNode {
     }
 
     public static class DiscoveryNodeFilter implements Predicate<DiscoveryNode> {
-        public @Nullable Long id;
-        public @Nullable List<Long> ids;
-        public @Nullable Long targetId;
-        public @Nullable List<Long> targetIds;
+        public @Nullable String id;
+        public @Nullable List<String> ids;
+        public @Nullable String targetId;
+        public @Nullable List<String> targetIds;
         public @Nullable String jvmId;
         public @Nullable List<String> jvmIds;
         public @Nullable String name;
@@ -88,16 +88,26 @@ public class RootNode {
 
         @Override
         public boolean test(DiscoveryNode t) {
-            Predicate<DiscoveryNode> matchesId = n -> id == null || id.equals(n.id);
-            Predicate<DiscoveryNode> matchesIds = n -> ids == null || ids.contains(n.id);
+            Predicate<DiscoveryNode> matchesId =
+                    n -> id == null || (n.id != null && id.equals(n.id.toString()));
+            Predicate<DiscoveryNode> matchesIds =
+                    n -> ids == null || (n.id != null && ids.contains(n.id.toString()));
             Predicate<DiscoveryNode> matchesJvmId =
                     n -> jvmId == null || (n.target != null && jvmId.equals(n.target.jvmId));
             Predicate<DiscoveryNode> matchesJvmIds =
                     n -> jvmIds == null || (n.target != null && jvmIds.contains(n.target.jvmId));
             Predicate<DiscoveryNode> matchesTargetId =
-                    n -> targetId == null || (n.target != null && targetId.equals(n.target.id));
+                    n ->
+                            targetId == null
+                                    || (n.target != null
+                                            && n.target.id != null
+                                            && targetId.equals(n.target.id.toString()));
             Predicate<DiscoveryNode> matchesTargetIds =
-                    n -> targetIds == null || (n.target != null && targetIds.contains(n.target.id));
+                    n ->
+                            targetIds == null
+                                    || (n.target != null
+                                            && n.target.id != null
+                                            && targetIds.contains(n.target.id.toString()));
             Predicate<DiscoveryNode> matchesName = n -> name == null || name.equals(n.name);
             Predicate<DiscoveryNode> matchesNames = n -> names == null || names.contains(n.name);
             Predicate<DiscoveryNode> matchesAlias =

@@ -25,6 +25,7 @@ import java.util.UUID;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 
+import io.cryostat.PanacheUuidEntity;
 import io.cryostat.discovery.NodeType.BaseNodeType;
 import io.cryostat.targets.Target;
 
@@ -32,7 +33,6 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import com.fasterxml.jackson.annotation.JsonView;
-import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.panache.common.Parameters;
 import io.vertx.mutiny.core.eventbus.EventBus;
@@ -89,7 +89,7 @@ import org.jboss.logging.Logger;
                             + " 'discovery.cryostat.io/plugin-id') = :pluginId")
 })
 @Table(indexes = {@Index(columnList = "nodeType"), @Index(columnList = "nodeType, name")})
-public class DiscoveryNode extends PanacheEntity {
+public class DiscoveryNode extends PanacheUuidEntity {
 
     public static final String NODE_TYPE = "nodeType";
 

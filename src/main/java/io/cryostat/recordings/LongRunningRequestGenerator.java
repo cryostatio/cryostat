@@ -32,6 +32,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.atomic.AtomicReferenceArray;
@@ -299,7 +300,7 @@ public class LongRunningRequestGenerator {
         try {
             logger.trace("Job ID: " + request.id() + " submitted.");
             return recordingHelper
-                    .uploadToJFRDatasource(request.targetId(), request.remoteId())
+                    .uploadToJFRDatasource(request.jvmId(), request.remoteId())
                     .onItem()
                     .<Void>transform((v) -> null)
                     .invoke(
@@ -671,11 +672,11 @@ public class LongRunningRequestGenerator {
         }
     }
 
-    public record GrafanaActiveUploadRequest(String id, long remoteId, long targetId) {
+    public record GrafanaActiveUploadRequest(String id, long remoteId, String jvmId) {
         public GrafanaActiveUploadRequest {
             Objects.requireNonNull(id);
             Objects.requireNonNull(remoteId);
-            Objects.requireNonNull(targetId);
+            Objects.requireNonNull(jvmId);
         }
     }
 
@@ -723,14 +724,14 @@ public class LongRunningRequestGenerator {
         }
     }
 
-    public record HeapDumpRequest(String id, long targetId) {
+    public record HeapDumpRequest(String id, UUID targetId) {
         public HeapDumpRequest {
             Objects.requireNonNull(id);
             Objects.requireNonNull(targetId);
         }
     }
 
-    public record ThreadDumpRequest(String id, long targetId, String format) {
+    public record ThreadDumpRequest(String id, UUID targetId, String format) {
         public ThreadDumpRequest {
             Objects.requireNonNull(id);
             Objects.requireNonNull(targetId);

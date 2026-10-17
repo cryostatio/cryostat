@@ -41,7 +41,7 @@ import org.junit.jupiter.api.Test;
 public class CustomTargetsTest extends AbstractTransactionalTestBase {
 
     private String testJvmId;
-    private Integer storedCredentialId;
+    private String storedCredentialId;
 
     @BeforeEach
     void setupCustomTargetsTest() throws Exception {
@@ -55,21 +55,21 @@ public class CustomTargetsTest extends AbstractTransactionalTestBase {
         if (storedCredentialId != null) {
             given().basePath("/")
                     .when()
-                    .delete("/api/v4/credentials/" + storedCredentialId)
+                    .delete("/api/v5/credentials/" + storedCredentialId)
                     .then()
                     .statusCode(204);
         }
 
         // Clean up any custom targets
         Response response =
-                given().basePath("/").when().get("/api/v4/targets").then().extract().response();
+                given().basePath("/").when().get("/api/v5/targets").then().extract().response();
         JsonArray targets = new JsonArray(response.body().asString());
         for (int i = 0; i < targets.size(); i++) {
             JsonObject target = targets.getJsonObject(i);
             if (SELF_JMX_URL.equals(target.getString("connectUrl"))) {
                 given().basePath("/")
                         .when()
-                        .delete("/api/v4/targets/" + target.getLong("id"))
+                        .delete("/api/v5/targets/" + target.getString("jvmId"))
                         .then()
                         .statusCode(204);
             }
@@ -88,7 +88,7 @@ public class CustomTargetsTest extends AbstractTransactionalTestBase {
                                         .put("alias", "self")
                                         .encode())
                         .when()
-                        .post("/api/v4/targets?dryrun=true")
+                        .post("/api/v5/targets?dryrun=true")
                         .then()
                         .statusCode(202)
                         .extract()
@@ -101,7 +101,7 @@ public class CustomTargetsTest extends AbstractTransactionalTestBase {
 
         // Verify no target was actually created
         Response listResponse =
-                given().basePath("/").when().get("/api/v4/targets").then().extract().response();
+                given().basePath("/").when().get("/api/v5/targets").then().extract().response();
         JsonArray list = new JsonArray(listResponse.body().asString());
         MatcherAssert.assertThat(list, notNullValue());
         MatcherAssert.assertThat(list.size(), equalTo(0));
@@ -120,7 +120,7 @@ public class CustomTargetsTest extends AbstractTransactionalTestBase {
                         .formParam("username", "username")
                         .formParam("password", "password")
                         .when()
-                        .post("/api/v4/targets?storeCredentials=true")
+                        .post("/api/v5/targets?storeCredentials=true")
                         .then()
                         .statusCode(201)
                         .extract()
@@ -148,9 +148,9 @@ public class CustomTargetsTest extends AbstractTransactionalTestBase {
 
         // Verify credentials notification
         JsonObject credentialsMessage = credentialsResult.getJsonObject("message");
-        storedCredentialId = credentialsMessage.getInteger("id");
+        storedCredentialId = credentialsMessage.getString("id");
 
-        MatcherAssert.assertThat(storedCredentialId, Matchers.any(Integer.class));
+        MatcherAssert.assertThat(storedCredentialId, Matchers.any(String.class));
         MatcherAssert.assertThat(
                 credentialsMessage.getString("matchExpression"),
                 equalTo(String.format("target.connectUrl == \"%s\"", SELF_JMX_URL)));
@@ -169,7 +169,7 @@ public class CustomTargetsTest extends AbstractTransactionalTestBase {
         Response listResponse =
                 given().basePath("/")
                         .when()
-                        .get("/api/v4/targets")
+                        .get("/api/v5/targets")
                         .then()
                         .statusCode(200)
                         .extract()
@@ -209,14 +209,14 @@ public class CustomTargetsTest extends AbstractTransactionalTestBase {
                         .formParam("connectUrl", SELF_JMX_URL)
                         .formParam("alias", alias)
                         .when()
-                        .post("/api/v4/targets")
+                        .post("/api/v5/targets")
                         .then()
                         .statusCode(201)
                         .extract()
                         .response();
 
         JsonObject createBody = new JsonObject(createResponse.body().asString());
-        long targetId = createBody.getLong("id");
+        String targetJvmId = createBody.getString("jvmId");
 
         // Wait for and consume the FOUND notification from target creation
         webSocketClient.expectNotification(
@@ -230,7 +230,11 @@ public class CustomTargetsTest extends AbstractTransactionalTestBase {
                                                 .getString("kind")));
 
         // Delete the target
-        given().basePath("/").when().delete("/api/v4/targets/" + targetId).then().statusCode(204);
+        given().basePath("/")
+                .when()
+                .delete("/api/v5/targets/" + targetJvmId)
+                .then()
+                .statusCode(204);
 
         // Wait for LOST notification
         JsonObject notification =
@@ -254,7 +258,7 @@ public class CustomTargetsTest extends AbstractTransactionalTestBase {
         Response listResponse =
                 given().basePath("/")
                         .when()
-                        .get("/api/v4/targets")
+                        .get("/api/v5/targets")
                         .then()
                         .statusCode(200)
                         .extract()
@@ -274,7 +278,7 @@ public class CustomTargetsTest extends AbstractTransactionalTestBase {
                                         .put("alias", "temp")
                                         .encode())
                         .when()
-                        .post("/api/v4/targets?dryrun=true")
+                        .post("/api/v5/targets?dryrun=true")
                         .then()
                         .statusCode(202)
                         .extract()

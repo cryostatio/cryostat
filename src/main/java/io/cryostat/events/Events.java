@@ -35,14 +35,13 @@ import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestPath;
 import org.jboss.resteasy.reactive.RestQuery;
 
-@Path("")
+@Path("/api/v5/targets/{jvmId}/events")
 public class Events {
 
     @Inject TargetConnectionManager connectionManager;
     @Inject Logger logger;
 
     @GET
-    @Path("/api/v4/targets/{id}/events")
     @PermissionsAllowed(
             value = {"targets:read", "eventtypes:read"},
             inclusive = true)
@@ -55,9 +54,9 @@ public class Events {
                     target JVM if they are correctly registered. Custom event types, or event types emitted by plugins
                     and extensions, may not always appear in this list.
                     """)
-    public List<SerializableEventTypeInfo> listEvents(@RestPath long id, @RestQuery String q)
+    public List<SerializableEventTypeInfo> listEvents(@RestPath String jvmId, @RestQuery String q)
             throws Exception {
-        return searchEvents(Target.find("id", id).singleResult(), q);
+        return searchEvents(Target.getTargetByJvmId(jvmId).orElseThrow(), q);
     }
 
     private List<SerializableEventTypeInfo> searchEvents(Target target, String q) throws Exception {

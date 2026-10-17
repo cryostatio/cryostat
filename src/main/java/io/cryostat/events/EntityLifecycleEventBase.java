@@ -15,17 +15,19 @@
  */
 package io.cryostat.events;
 
+import java.util.UUID;
+
 public abstract class EntityLifecycleEventBase<T, S> implements EntityLifecycleEvent<T> {
-    private final long entityId;
+    private final UUID entityId;
     private final S snapshot;
 
-    protected EntityLifecycleEventBase(long entityId, S snapshot) {
+    protected EntityLifecycleEventBase(UUID entityId, S snapshot) {
         this.entityId = entityId;
         this.snapshot = snapshot;
     }
 
     @Override
-    public long getEntityId() {
+    public UUID getEntityId() {
         return entityId;
     }
 

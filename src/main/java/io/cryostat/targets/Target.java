@@ -21,14 +21,17 @@ import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
+import io.cryostat.PanacheUuidEntity;
 import io.cryostat.discovery.DiscoveryNode;
 import io.cryostat.recordings.ActiveRecording;
 import io.cryostat.targets.events.TargetEvents;
@@ -37,7 +40,6 @@ import io.cryostat.util.URIUtil;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Event;
@@ -84,7 +86,7 @@ import org.jboss.logging.Logger;
             @Index(columnList = "jvmId"),
             @Index(columnList = "connectUrl"),
         })
-public class Target extends PanacheEntity {
+public class Target extends PanacheUuidEntity {
 
     public static final String TARGET_JVM_DISCOVERY = "TargetJvmDiscovery";
 
@@ -147,10 +149,10 @@ public class Target extends PanacheEntity {
 
     @JsonIgnore
     public boolean isConnectable() {
-        return id != null && id > 0 && StringUtils.isNotBlank(jvmId);
+        return id != null && StringUtils.isNotBlank(jvmId);
     }
 
-    public static Target getTargetById(long targetId) {
+    public static Target getTargetById(UUID targetId) {
         return Target.find("id", targetId).singleResult();
     }
 
@@ -159,7 +161,9 @@ public class Target extends PanacheEntity {
     }
 
     public static Optional<Target> getTargetByJvmId(String jvmId) {
-        return find("jvmId", jvmId).firstResultOptional();
+        return find("jvmId", jvmId).<Target>stream()
+                .sorted(Comparator.comparing(Target::isAgent).reversed())
+                .findFirst();
     }
 
     public static List<Target> findByRealm(String realm) {

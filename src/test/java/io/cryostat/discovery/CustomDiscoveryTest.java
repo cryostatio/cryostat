@@ -17,28 +17,39 @@ package io.cryostat.discovery;
 
 import static io.restassured.RestAssured.given;
 
+import java.util.Map;
+
 import io.cryostat.AbstractTransactionalTestBase;
 
 import io.quarkus.test.common.http.TestHTTPEndpoint;
 import io.quarkus.test.junit.QuarkusTest;
+import io.quarkus.test.junit.QuarkusTestProfile;
+import io.quarkus.test.junit.TestProfile;
 import io.restassured.http.ContentType;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
 
 @QuarkusTest
 @TestHTTPEndpoint(CustomDiscovery.class)
-public class CustomDiscoveryTest extends AbstractTransactionalTestBase {
+@TestProfile(CustomDiscoveryTest.class)
+public class CustomDiscoveryTest extends AbstractTransactionalTestBase
+        implements QuarkusTestProfile {
+
+    @Override
+    public Map<String, String> getConfigOverrides() {
+        return Map.of("cryostat.connections.failed-timeout", "100ms");
+    }
 
     @Test
     public void testCreate() {
-        int id =
+        String jvmId =
                 given().log()
                         .all()
                         .contentType(ContentType.URLENC)
                         .formParam("connectUrl", "service:jmx:rmi:///jndi/rmi://localhost:0/jmxrmi")
                         .formParam("alias", "CustomDiscoveryTest")
                         .when()
-                        .post("/api/v4/targets")
+                        .post("/api/v5/targets")
                         .then()
                         .log()
                         .all()
@@ -48,12 +59,11 @@ public class CustomDiscoveryTest extends AbstractTransactionalTestBase {
                         .header(
                                 "Location",
                                 Matchers.matchesRegex(
-                                        "https?://[\\.\\w]+:[\\d]+/api/v4/targets/[\\d]+"))
+                                        "https?://[\\.\\w]+:[\\d]+/api/v5/targets/.+"))
                         .and()
                         .contentType(ContentType.JSON)
                         .and()
-                        .body("id", Matchers.instanceOf(Integer.class))
-                        .body("id", Matchers.greaterThanOrEqualTo(1))
+                        .body("id", Matchers.instanceOf(String.class))
                         .body("connectUrl", Matchers.instanceOf(String.class))
                         .body(
                                 "connectUrl",
@@ -63,12 +73,12 @@ public class CustomDiscoveryTest extends AbstractTransactionalTestBase {
                         .body("alias", Matchers.equalTo("CustomDiscoveryTest"))
                         .extract()
                         .jsonPath()
-                        .getInt("id");
+                        .getString("jvmId");
 
         given().log()
                 .all()
                 .when()
-                .delete("/api/v4/targets/{id}", id)
+                .delete("/api/v5/targets/{jvmId}", jvmId)
                 .then()
                 .assertThat()
                 .statusCode(204);
@@ -83,7 +93,7 @@ public class CustomDiscoveryTest extends AbstractTransactionalTestBase {
                 .formParam("alias", "CustomDiscoveryTest")
                 .queryParam("dryrun", true)
                 .when()
-                .post("/api/v4/targets")
+                .post("/api/v5/targets")
                 .then()
                 .log()
                 .all()
@@ -95,14 +105,14 @@ public class CustomDiscoveryTest extends AbstractTransactionalTestBase {
 
     @Test
     public void testCreateTargetOnlyNoCredentials() {
-        int id =
+        String jvmId =
                 given().log()
                         .all()
                         .contentType(ContentType.URLENC)
                         .formParam("connectUrl", "service:jmx:rmi:///jndi/rmi://localhost:0/jmxrmi")
                         .formParam("alias", "CustomDiscoveryTestTargetOnly")
                         .when()
-                        .post("/api/v4/targets")
+                        .post("/api/v5/targets")
                         .then()
                         .log()
                         .all()
@@ -111,15 +121,15 @@ public class CustomDiscoveryTest extends AbstractTransactionalTestBase {
                         .and()
                         .contentType(ContentType.JSON)
                         .and()
-                        .body("id", Matchers.greaterThanOrEqualTo(1))
+                        .body("id", Matchers.instanceOf(String.class))
                         .extract()
                         .jsonPath()
-                        .getInt("id");
+                        .getString("jvmId");
 
         given().log()
                 .all()
                 .when()
-                .delete("/api/v4/targets/{id}", id)
+                .delete("/api/v5/targets/{jvmId}", jvmId)
                 .then()
                 .assertThat()
                 .statusCode(204);
@@ -127,7 +137,7 @@ public class CustomDiscoveryTest extends AbstractTransactionalTestBase {
 
     @Test
     public void testCreateWithCredentialsAndStoreCredentials() {
-        int id =
+        String jvmId =
                 given().log()
                         .all()
                         .contentType(ContentType.URLENC)
@@ -137,7 +147,7 @@ public class CustomDiscoveryTest extends AbstractTransactionalTestBase {
                         .formParam("password", "pass")
                         .queryParam("storeCredentials", true)
                         .when()
-                        .post("/api/v4/targets")
+                        .post("/api/v5/targets")
                         .then()
                         .log()
                         .all()
@@ -146,15 +156,15 @@ public class CustomDiscoveryTest extends AbstractTransactionalTestBase {
                         .and()
                         .contentType(ContentType.JSON)
                         .and()
-                        .body("id", Matchers.greaterThanOrEqualTo(1))
+                        .body("id", Matchers.instanceOf(String.class))
                         .extract()
                         .jsonPath()
-                        .getInt("id");
+                        .getString("jvmId");
 
         given().log()
                 .all()
                 .when()
-                .delete("/api/v4/targets/{id}", id)
+                .delete("/api/v5/targets/{jvmId}", jvmId)
                 .then()
                 .assertThat()
                 .statusCode(204);
@@ -169,7 +179,7 @@ public class CustomDiscoveryTest extends AbstractTransactionalTestBase {
                 .formParam("alias", "CustomDiscoveryTestDryRunNoCreds")
                 .queryParam("dryrun", true)
                 .when()
-                .post("/api/v4/targets")
+                .post("/api/v5/targets")
                 .then()
                 .log()
                 .all()
@@ -187,7 +197,7 @@ public class CustomDiscoveryTest extends AbstractTransactionalTestBase {
                 .formParam("connectUrl", "service:jmx:rmi:///jndi/rmi://invalid-host:9999/jmxrmi")
                 .formParam("alias", "CustomDiscoveryTest")
                 .when()
-                .post("/api/v4/targets")
+                .post("/api/v5/targets")
                 .then()
                 .log()
                 .all()
@@ -197,12 +207,26 @@ public class CustomDiscoveryTest extends AbstractTransactionalTestBase {
 
     @Test
     public void testGet() throws InterruptedException {
-        int id = createTestTarget();
+        var jp =
+                given().log()
+                        .all()
+                        .contentType(ContentType.URLENC)
+                        .formParam("connectUrl", "service:jmx:rmi:///jndi/rmi://localhost:0/jmxrmi")
+                        .formParam("alias", "CustomDiscoveryTest")
+                        .when()
+                        .post("/api/v5/targets")
+                        .then()
+                        .log()
+                        .all()
+                        .extract()
+                        .jsonPath();
+        String targetId = jp.getString("id");
+        String jvmId = jp.getString("jvmId");
 
         given().log()
                 .all()
                 .when()
-                .get("/api/v4/targets/{id}", id)
+                .get("/api/v5/targets/{targetId}", targetId)
                 .then()
                 .log()
                 .all()
@@ -211,8 +235,8 @@ public class CustomDiscoveryTest extends AbstractTransactionalTestBase {
                 .and()
                 .contentType(ContentType.JSON)
                 .and()
-                .body("id", Matchers.instanceOf(Integer.class))
-                .body("id", Matchers.equalTo(id))
+                .body("jvmId", Matchers.instanceOf(String.class))
+                .body("jvmId", Matchers.equalTo(jvmId))
                 .body("connectUrl", Matchers.instanceOf(String.class))
                 .body(
                         "connectUrl",
@@ -223,7 +247,7 @@ public class CustomDiscoveryTest extends AbstractTransactionalTestBase {
         given().log()
                 .all()
                 .when()
-                .delete("/api/v4/targets/{id}", id)
+                .delete("/api/v5/targets/{id}", jvmId)
                 .then()
                 .assertThat()
                 .statusCode(204);
@@ -231,32 +255,29 @@ public class CustomDiscoveryTest extends AbstractTransactionalTestBase {
 
     @Test
     public void testDelete() throws InterruptedException {
-        int id = createTestTarget();
+        String jvmId =
+                given().log()
+                        .all()
+                        .contentType(ContentType.URLENC)
+                        .formParam("connectUrl", "service:jmx:rmi:///jndi/rmi://localhost:0/jmxrmi")
+                        .formParam("alias", "CustomDiscoveryTest")
+                        .when()
+                        .post("/api/v5/targets")
+                        .then()
+                        .log()
+                        .all()
+                        .extract()
+                        .jsonPath()
+                        .getString("jvmId");
 
         given().log()
                 .all()
                 .when()
-                .delete("/api/v4/targets/{id}", id)
+                .delete("/api/v5/targets/{jvmId}", jvmId)
                 .then()
                 .log()
                 .all()
                 .assertThat()
                 .statusCode(204);
-    }
-
-    private int createTestTarget() {
-        return given().log()
-                .all()
-                .contentType(ContentType.URLENC)
-                .formParam("connectUrl", "service:jmx:rmi:///jndi/rmi://localhost:0/jmxrmi")
-                .formParam("alias", "CustomDiscoveryTest")
-                .when()
-                .post("/api/v4/targets")
-                .then()
-                .log()
-                .all()
-                .extract()
-                .jsonPath()
-                .getInt("id");
     }
 }

@@ -20,6 +20,7 @@ import static io.restassured.RestAssured.given;
 
 import java.time.Duration;
 import java.util.Map;
+import java.util.UUID;
 
 import io.cryostat.AbstractTransactionalTestBase;
 import io.cryostat.resources.S3StorageResource;
@@ -57,24 +58,31 @@ public class ReportGenerationCacheEnabledTest extends AbstractTransactionalTestB
         cleanupSelfActiveAndArchivedRecordings();
     }
 
-    private long getSelfReferenceTargetId() {
-        if (selfId < 1) {
+    private UUID getSelfReferenceTargetId() {
+        if (selfId == null) {
             defineSelfCustomTarget();
         }
         return selfId;
     }
 
+    private String getSelfReferenceJvmId() {
+        if (selfId == null) {
+            defineSelfCustomTarget();
+        }
+        return selfJvmId;
+    }
+
     @Test
     void testGetArchivedCachedReport() throws Exception {
-        long targetId = getSelfReferenceTargetId();
+        UUID targetId = getSelfReferenceTargetId();
 
         // Create a recording
         Response postResponse =
                 given().log()
                         .all()
                         .when()
-                        .basePath("/api/v4/targets/{targetId}/recordings")
-                        .pathParam("targetId", targetId)
+                        .basePath("/api/v5/targets/{jvmId}/recordings")
+                        .pathParam("jvmId", getSelfReferenceJvmId())
                         .formParam("recordingName", "testGetArchivedCachedReport")
                         .formParam("duration", "5")
                         .formParam("events", "template=ALL")
@@ -99,8 +107,8 @@ public class ReportGenerationCacheEnabledTest extends AbstractTransactionalTestB
                 given().log()
                         .all()
                         .when()
-                        .basePath("/api/v4/targets/{targetId}/recordings/{remoteId}")
-                        .pathParam("targetId", targetId)
+                        .basePath("/api/v5/targets/{jvmId}/recordings/{remoteId}")
+                        .pathParam("jvmId", getSelfReferenceJvmId())
                         .pathParam("remoteId", activeRecording.getLong("remoteId"))
                         .contentType("text/plain;charset=UTF-8")
                         .body("SAVE")
@@ -150,7 +158,11 @@ public class ReportGenerationCacheEnabledTest extends AbstractTransactionalTestB
 
         // Wait for report generation to complete
         String reportJobId = jobIdResponse.body().asString();
-        notification = webSocketClient.expectNotification("ReportSuccess", Duration.ofSeconds(15));
+        notification =
+                webSocketClient.expectNotification(
+                        "ReportSuccess",
+                        Duration.ofSeconds(15),
+                        n -> reportJobId.equals(n.getJsonObject("message").getString("jobId")));
         MatcherAssert.assertThat(
                 notification.getJsonObject("message").getMap(),
                 Matchers.equalTo(Map.of("jobId", reportJobId, "jvmId", selfJvmId)));

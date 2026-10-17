@@ -123,7 +123,7 @@ public abstract class TargetNodesAuditTestBase extends AbstractGraphQLTestBase {
         return given().contentType(ContentType.JSON)
                 .body(query.encode())
                 .when()
-                .post("/api/v4/graphql")
+                .post("/api/v5/graphql")
                 .then()
                 .extract()
                 .response();

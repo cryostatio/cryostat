@@ -104,7 +104,9 @@ public class AnalysisReportAggregatorTest extends AbstractTransactionalTestBase 
                                                     "^cryostat_[a-zA-Z0-9_]+_score\\{.+"),
                                             Matchers.containsString("realm=\"Custom Targets\""),
                                             Matchers.containsString(
-                                                    String.format("jvm=\"%s\"", SELF_JMX_URL))));
+                                                    String.format("jvm=\"%s\"", SELF_JMX_URL)),
+                                            Matchers.containsString(
+                                                    String.format("jvmId=\"%s\"", selfJvmId))));
                             double score = Double.parseDouble(kv.getValue());
                             MatcherAssert.assertThat(
                                     score,
@@ -122,7 +124,7 @@ public class AnalysisReportAggregatorTest extends AbstractTransactionalTestBase 
     @Test
     void testScrapeSingle()
             throws InterruptedException, IOException, DeploymentException, TimeoutException {
-        int targetId = defineSelfCustomTarget();
+        defineSelfCustomTarget();
         var recording =
                 startSelfRecording(
                         "analysisReportAggregatorSingle",
@@ -172,7 +174,9 @@ public class AnalysisReportAggregatorTest extends AbstractTransactionalTestBase 
                                                     "^cryostat_[a-zA-Z0-9_]+_score\\{.+"),
                                             Matchers.containsString("realm=\"Custom Targets\""),
                                             Matchers.containsString(
-                                                    String.format("jvm=\"%s\"", SELF_JMX_URL))));
+                                                    String.format("jvm=\"%s\"", SELF_JMX_URL)),
+                                            Matchers.containsString(
+                                                    String.format("jvmId=\"%s\"", selfJvmId))));
                             double score = Double.parseDouble(kv.getValue());
                             MatcherAssert.assertThat(
                                     score,
@@ -189,8 +193,8 @@ public class AnalysisReportAggregatorTest extends AbstractTransactionalTestBase 
         given().log()
                 .all()
                 .when()
-                .basePath("/api/v4.1/targets/{targetId}/reports")
-                .pathParams("targetId", targetId)
+                .basePath("/api/v5/targets/{jvmId}/reports")
+                .pathParams("jvmId", selfJvmId)
                 .get()
                 .then()
                 .log()

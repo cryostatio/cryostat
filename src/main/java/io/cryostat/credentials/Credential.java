@@ -15,13 +15,13 @@
  */
 package io.cryostat.credentials;
 
+import io.cryostat.PanacheUuidEntity;
 import io.cryostat.credentials.events.CredentialEvents;
 import io.cryostat.discovery.DiscoveryPlugin;
 import io.cryostat.expressions.MatchExpression;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import jakarta.annotation.Nullable;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Event;
@@ -63,7 +63,7 @@ import org.hibernate.envers.Audited;
 @Entity
 @EntityListeners(Credential.Listener.class)
 @Cacheable
-public class Credential extends PanacheEntity {
+public class Credential extends PanacheUuidEntity {
 
     public static final String CREDENTIALS_STORED = "CredentialsStored";
     public static final String CREDENTIALS_DELETED = "CredentialsDeleted";
