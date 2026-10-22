@@ -313,5 +313,16 @@ class AgentJFRService implements CryostatFlightRecorderService {
             String template,
             long duration,
             long maxSize,
-            long maxAge) {}
+            long maxAge,
+            List<String> asprofEvents) {
+        StartRecordingRequest(
+                String name,
+                String localTemplateName,
+                String template,
+                long duration,
+                long maxSize,
+                long maxAge) {
+            this(name, localTemplateName, template, duration, maxSize, maxAge, List.of());
+        }
+    }
 }
