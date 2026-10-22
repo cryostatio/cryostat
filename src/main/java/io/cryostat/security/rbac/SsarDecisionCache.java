@@ -69,11 +69,8 @@ public class SsarDecisionCache {
     }
 
     /**
-     * Return the cached SSAR decision, or compute, store, and return it via {@code loader}.
-     *
-     * <p>The {@code loader} receives the compound {@link DecisionKey} and must return a non-null
-     * {@link Boolean}. If the loader throws, the exception propagates to the caller and nothing is
-     * stored in the cache.
+     * Return the cached SSAR decision, or compute, store, and return it via {@code loader}, keyed
+     * on the configured installation namespace.
      *
      * @param rawToken the caller's raw bearer token
      * @param resource Kubernetes resource name
@@ -87,6 +84,33 @@ public class SsarDecisionCache {
             String resource,
             String subresource,
             String verb,
+            Function<DecisionKey, Boolean> loader) {
+        return get(rawToken, resource, subresource, verb, namespace, loader);
+    }
+
+    /**
+     * Return the cached SSAR decision, or compute, store, and return it via {@code loader}, keyed
+     * on the supplied {@code namespace}.
+     *
+     * <p>Use this overload when the SSAR must be scoped to a namespace that differs from the
+     * installation namespace configured at construction time (e.g. per-item namespace resolution
+     * for Category 3 aggregate listings).
+     *
+     * @param rawToken the caller's raw bearer token
+     * @param resource Kubernetes resource name
+     * @param subresource Kubernetes subresource name (may be empty)
+     * @param verb Kubernetes verb
+     * @param namespace the Kubernetes namespace in which the SSAR is scoped; empty string for
+     *     cluster-scoped
+     * @param loader function invoked on a cache miss to compute the decision
+     * @return the cached or freshly computed decision
+     */
+    public boolean get(
+            String rawToken,
+            String resource,
+            String subresource,
+            String verb,
+            String namespace,
             Function<DecisionKey, Boolean> loader) {
         DecisionKey key =
                 new DecisionKey(hashToken(rawToken), resource, subresource, verb, namespace);

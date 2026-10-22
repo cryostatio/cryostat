@@ -20,14 +20,21 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import io.cryostat.security.rbac.AccessorType;
+import io.cryostat.security.rbac.AuthorizationFiltered;
 import io.cryostat.security.rbac.graphql.RequiresPermission;
 
 import com.tngtech.archunit.base.DescribedPredicate;
+import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.domain.JavaMethod;
+import com.tngtech.archunit.core.domain.JavaParameterizedType;
+import com.tngtech.archunit.core.domain.JavaType;
 import com.tngtech.archunit.core.domain.properties.CanBeAnnotated;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
 import com.tngtech.archunit.core.importer.ImportOption;
@@ -37,6 +44,7 @@ import com.tngtech.archunit.lang.ArchCondition;
 import com.tngtech.archunit.lang.ArchRule;
 import com.tngtech.archunit.lang.ConditionEvents;
 import com.tngtech.archunit.lang.SimpleConditionEvent;
+import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
 import io.quarkus.security.PermissionsAllowed;
 import jakarta.annotation.security.PermitAll;
 import jakarta.ws.rs.DELETE;
@@ -110,6 +118,22 @@ public class PermissionAnnotationArchTest {
                     .as(
                             "GraphQL @Source resolver methods in @GraphQLApi classes should be"
                                     + " annotated with @RequiresPermission");
+
+    /**
+     * {@code @AuthorizationFiltered} methods that return a {@code Collection} of Panache entities
+     * must use {@link AccessorType#METHOD}, not {@link AccessorType#FIELD}. Panache bytecode
+     * enhancement makes entity fields private at build time, so reflective field access via {@code
+     * Class.getField()} fails with {@code NoSuchFieldException}.
+     */
+    @ArchTest
+    static final ArchRule AUTHORIZATION_FILTERED_PANACHE_ENTITIES_USE_METHOD_ACCESS =
+            methods()
+                    .that()
+                    .areAnnotatedWith(AuthorizationFiltered.class)
+                    .should(useMethodAccessForPanacheEntities())
+                    .as(
+                            "@AuthorizationFiltered methods returning Panache entity collections"
+                                    + " should use AccessorType.METHOD");
 
     /**
      * The audit log endpoints expose history for every tracked entity type. They must
@@ -239,6 +263,45 @@ public class PermissionAnnotationArchTest {
                                         "Method %s is missing @PermissionsAllowed(inclusive=true)"
                                                 + " or @PermitAll",
                                         method.getFullName())));
+            }
+        };
+    }
+
+    private static ArchCondition<JavaMethod> useMethodAccessForPanacheEntities() {
+        return new ArchCondition<>(
+                "use AccessorType.METHOD when collection element type is a Panache entity") {
+            @Override
+            public void check(JavaMethod method, ConditionEvents events) {
+                AuthorizationFiltered annotation =
+                        method.getAnnotationOfType(AuthorizationFiltered.class);
+                if (annotation.jvmIdAccessorType() == AccessorType.METHOD) {
+                    return;
+                }
+                JavaType returnType = method.getReturnType();
+                if (!(returnType instanceof JavaParameterizedType parameterized)) {
+                    return;
+                }
+                JavaClass rawType = parameterized.toErasure();
+                if (!rawType.isAssignableTo(Collection.class)) {
+                    return;
+                }
+                List<JavaType> typeArgs = parameterized.getActualTypeArguments();
+                if (typeArgs.isEmpty()) {
+                    return;
+                }
+                JavaClass elementClass = typeArgs.get(0).toErasure();
+                if (elementClass.isAssignableTo(PanacheEntityBase.class)) {
+                    events.add(
+                            SimpleConditionEvent.violated(
+                                    method,
+                                    String.format(
+                                            "Method %s returns Collection<%s> (a Panache entity)"
+                                                    + " with @AuthorizationFiltered using"
+                                                    + " AccessorType.FIELD; Panache makes entity"
+                                                    + " fields private at build time, use"
+                                                    + " AccessorType.METHOD instead",
+                                            method.getFullName(), elementClass.getSimpleName())));
+                }
             }
         };
     }

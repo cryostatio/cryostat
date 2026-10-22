@@ -44,7 +44,10 @@ import io.cryostat.discovery.DiscoveryPlugin.PluginCleanupHelper;
 import io.cryostat.discovery.KubeEndpointSlicesDiscovery.KubeDiscoveryNodeType;
 import io.cryostat.discovery.NodeType.BaseNodeType;
 import io.cryostat.expressions.MatchExpression;
+import io.cryostat.security.rbac.RbacConfig;
 import io.cryostat.security.rbac.RbacHttpAuthenticationMechanism;
+import io.cryostat.security.rbac.SsarAuthorizer;
+import io.cryostat.security.rbac.UserAuthorizer;
 import io.cryostat.targets.Target.Annotations;
 import io.cryostat.targets.TargetConnectionManager;
 import io.cryostat.util.URIUtil;
@@ -152,6 +155,9 @@ public class Discovery {
     @Inject PluginCleanupHelper cleanupHelper;
     @Inject EntityManager entityManager;
     @Inject SecurityIdentity securityIdentity;
+    @Inject UserAuthorizer userAuthorizer;
+    @Inject RoutingContext routingContext;
+    @Inject RbacConfig rbacConfig;
 
     void onStop(@Observes ShutdownEvent evt) throws SchedulerException {
         scheduler.shutdown();
@@ -163,10 +169,23 @@ public class Discovery {
     @Operation(summary = "Retrieve the entire discovery tree.")
     public DiscoveryNode get(
             @QueryParam("mergeRealms") @DefaultValue("false") boolean mergeRealms) {
+        String rawToken = (String) routingContext.get(SsarAuthorizer.ATTR_RAW_ACCESS_TOKEN);
+        logger.debugf(
+                "Discovery.get: mergeRealms=%b rbacMode=%s rawToken=%s",
+                mergeRealms,
+                rbacConfig.mode(),
+                StringUtils.isBlank(rawToken)
+                        ? "<blank>"
+                        : "<present, length=" + rawToken.length() + ">");
+        DiscoveryNode universe = DiscoveryNode.getUniverse();
+        logger.debugf(
+                "Discovery.get: universe has %d realm children",
+                universe.children == null ? 0 : universe.children.size());
+        DiscoveryNode filteredUniverse = filterDiscoveryTree(universe, rawToken);
         if (!mergeRealms) {
-            return DiscoveryNode.getUniverse();
+            return filteredUniverse;
         }
-        return mergeRealms();
+        return mergeRealms(filteredUniverse);
     }
 
     @GET
@@ -598,7 +617,7 @@ public class Discovery {
         }
 
         for (var n : body.nodes) {
-            enrichWithKubernetesMetadata(n, k8sMetadata);
+            enrichWithKubernetesMetadata(namespace, n, k8sMetadata);
             if (n.labels == null) {
                 n.labels = new HashMap<>();
             }
@@ -649,7 +668,9 @@ public class Discovery {
     }
 
     private void enrichWithKubernetesMetadata(
-            DiscoveryNode n, KubeEndpointSlicesDiscovery.KubernetesMetadata k8sMetadata) {
+            String namespace,
+            DiscoveryNode n,
+            KubeEndpointSlicesDiscovery.KubernetesMetadata k8sMetadata) {
         if (n.target == null) {
             return;
         }
@@ -670,6 +691,7 @@ public class Discovery {
             n.target.annotations =
                     new Annotations(platformAnnotations, n.target.annotations.cryostat());
         }
+        n.labels.put(KubeEndpointSlicesDiscovery.DISCOVERY_NAMESPACE_LABEL_KEY, namespace);
     }
 
     @Transactional
@@ -1148,8 +1170,7 @@ public class Discovery {
     }
 
     @SuppressFBWarnings("DLS_DEAD_LOCAL_STORE")
-    private DiscoveryNode mergeRealms() {
-        DiscoveryNode universe = DiscoveryNode.getUniverse();
+    private DiscoveryNode mergeRealms(DiscoveryNode universe) {
         DiscoveryNode mergedRoot = new DiscoveryNode();
         mergedRoot.id = universe.id;
         mergedRoot.name = universe.name;
@@ -1224,6 +1245,118 @@ public class Discovery {
         }
 
         return mergedRoot;
+    }
+
+    /**
+     * Returns a copy of the universe with all realm subtrees authorization-filtered. Universe and
+     * Realm nodes themselves are always included. Within each realm, {@link #filterNodeDfs} prunes
+     * any subtree that the caller is not authorized to view. When {@code rawToken} is blank, all
+     * children are included.
+     */
+    private DiscoveryNode filterDiscoveryTree(DiscoveryNode universe, String rawToken) {
+        DiscoveryNode filteredUniverse = copyNode(universe);
+        for (DiscoveryNode realm : universe.children) {
+            logger.debugf(
+                    "Discovery.filterDiscoveryTree: filtering realm '%s' (%d children)",
+                    realm.name, realm.children == null ? 0 : realm.children.size());
+            filteredUniverse.children.add(filterNodeDfs(realm, rawToken));
+        }
+        return filteredUniverse;
+    }
+
+    /**
+     * Recursively copies {@code node}, retaining only those children (and their subtrees) for which
+     * the caller is authorized. Authorization gates are applied at two node types:
+     *
+     * <ul>
+     *   <li>{@code Namespace} — covers all nodes placed under the KubernetesApi realm by the
+     *       built-in Kubernetes discovery or by Agents using the KUBERNETES fill algorithm. The
+     *       entire subtree rooted at an unauthorized Namespace is dropped.
+     *   <li>{@code CryostatAgent} — covers Agent-published target nodes that live directly under an
+     *       agent-owned Realm (NONE fill strategy, no Namespace ancestor). Authorization is checked
+     *       using the {@code discovery.cryostat.io/namespace} label on the node itself; if the
+     *       label is absent the node is included.
+     * </ul>
+     *
+     * <p>For both types the namespace string for the SSAR check is resolved first from the {@code
+     * discovery.cryostat.io/namespace} label, falling back to the node name for Namespace nodes.
+     * When {@code rawToken} is blank all nodes are included unchanged (PERMISSIVE / no-token path).
+     */
+    private DiscoveryNode filterNodeDfs(DiscoveryNode node, String rawToken) {
+        DiscoveryNode copy = copyNode(node);
+        for (DiscoveryNode child : node.children) {
+            if (KubeDiscoveryNodeType.NAMESPACE.getKind().equals(child.nodeType)) {
+                // Namespace node: gate the entire subtree on the namespace SSAR check.
+                // Namespace label preferred over node name as the authoritative namespace value.
+                String namespace =
+                        StringUtils.isNotBlank(
+                                        child.labels.get(
+                                                KubeEndpointSlicesDiscovery
+                                                        .DISCOVERY_NAMESPACE_LABEL_KEY))
+                                ? child.labels.get(
+                                        KubeEndpointSlicesDiscovery.DISCOVERY_NAMESPACE_LABEL_KEY)
+                                : child.name;
+                logger.debugf(
+                        "Discovery.filterNodeDfs: Namespace node '%s' namespace='%s' rawToken=%s",
+                        child.name,
+                        namespace,
+                        StringUtils.isBlank(rawToken)
+                                ? "<blank>"
+                                : "<present, length=" + rawToken.length() + ">");
+                if (StringUtils.isBlank(rawToken)
+                        || userAuthorizer.isAuthorized(
+                                "discoverynodes", "read", namespace, rawToken)) {
+                    logger.debugf("Discovery.filterNodeDfs: ALLOWED Namespace '%s'", namespace);
+                    copy.children.add(filterNodeDfs(child, rawToken));
+                } else {
+                    logger.debugf(
+                            "Discovery.filterNodeDfs: DENIED Namespace '%s', pruning subtree",
+                            namespace);
+                }
+            } else if (BaseNodeType.AGENT.getKind().equals(child.nodeType)) {
+                // CryostatAgent node with no Namespace ancestor (NONE fill strategy): the agent
+                // itself carries the discovery.cryostat.io/namespace label. If the label is absent
+                // there is no namespace context to filter on, so include the node.
+                String namespace =
+                        child.labels != null
+                                ? child.labels.get(
+                                        KubeEndpointSlicesDiscovery.DISCOVERY_NAMESPACE_LABEL_KEY)
+                                : null;
+                if (StringUtils.isBlank(namespace)) {
+                    logger.debugf(
+                            "Discovery.filterNodeDfs: CryostatAgent '%s' has no namespace label,"
+                                    + " including",
+                            child.name);
+                    copy.children.add(filterNodeDfs(child, rawToken));
+                } else {
+                    logger.debugf(
+                            "Discovery.filterNodeDfs: CryostatAgent '%s' namespace='%s'"
+                                    + " rawToken=%s",
+                            child.name,
+                            namespace,
+                            StringUtils.isBlank(rawToken)
+                                    ? "<blank>"
+                                    : "<present, length=" + rawToken.length() + ">");
+                    if (StringUtils.isBlank(rawToken)
+                            || userAuthorizer.isAuthorized(
+                                    "discoverynodes", "read", namespace, rawToken)) {
+                        logger.debugf(
+                                "Discovery.filterNodeDfs: ALLOWED CryostatAgent '%s' in"
+                                        + " namespace '%s'",
+                                child.name, namespace);
+                        copy.children.add(filterNodeDfs(child, rawToken));
+                    } else {
+                        logger.debugf(
+                                "Discovery.filterNodeDfs: DENIED CryostatAgent '%s' in namespace"
+                                        + " '%s', pruning",
+                                child.name, namespace);
+                    }
+                }
+            } else {
+                copy.children.add(filterNodeDfs(child, rawToken));
+            }
+        }
+        return copy;
     }
 
     private DiscoveryNode copyNode(DiscoveryNode source) {
