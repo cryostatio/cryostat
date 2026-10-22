@@ -18,6 +18,7 @@ package io.cryostat.expressions;
 import static io.restassured.RestAssured.given;
 
 import java.util.List;
+import java.util.UUID;
 
 import io.cryostat.AbstractTransactionalTestBase;
 
@@ -85,7 +86,7 @@ public class MatchExpressionsTest extends AbstractTransactionalTestBase {
                 "jfrEventTypeIds(target).exists(x, t.contains('wrong binding')) | 400 | false",
             })
     public void testExpressionTest(String expr, int status, boolean expectTargets) {
-        int id = defineSelfCustomTarget();
+        UUID id = defineSelfCustomTarget();
 
         var body = new JsonObject();
         body.put("matchExpression", expr);

@@ -114,7 +114,7 @@ public class AgentPushMaxFilesTest extends AbstractTransactionalTestBase {
                         "application/octet-stream")
                 .multiPart("labels", "{\"pushType\":\"SCHEDULED\"}", "application/json")
                 .multiPart("maxFiles", "1")
-                .post("/api/beta/recordings/{jvmId}")
+                .post("/api/v5/recordings/{jvmId}")
                 .then()
                 .log()
                 .all()
@@ -160,7 +160,7 @@ public class AgentPushMaxFilesTest extends AbstractTransactionalTestBase {
                         createRecordingFile("pushed-c.jfr").toFile(),
                         "application/octet-stream")
                 .multiPart("labels", "{\"pushType\":\"SCHEDULED\"}", "application/json")
-                .post("/api/beta/recordings/{jvmId}")
+                .post("/api/v5/recordings/{jvmId}")
                 .then()
                 .log()
                 .all()

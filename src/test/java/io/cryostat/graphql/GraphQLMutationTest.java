@@ -58,7 +58,7 @@ class GraphQLMutationTest extends AbstractGraphQLTestBase {
                 given().contentType(ContentType.JSON)
                         .body(query.encode())
                         .when()
-                        .post("/api/v4/graphql")
+                        .post("/api/v5/graphql")
                         .then()
                         .statusCode(allOf(greaterThanOrEqualTo(200), lessThan(300)))
                         .extract()
@@ -100,7 +100,7 @@ class GraphQLMutationTest extends AbstractGraphQLTestBase {
                                 .toArray()));
 
         ActiveRecording recording = new ActiveRecording();
-        recording.id = 0;
+        recording.id = null;
         recording.remoteId = 0;
         recording.name = recordingName;
         recording.reportUrl = null;
@@ -140,7 +140,7 @@ class GraphQLMutationTest extends AbstractGraphQLTestBase {
                 given().contentType(ContentType.JSON)
                         .body(query.encode())
                         .when()
-                        .post("/api/v4/graphql")
+                        .post("/api/v5/graphql")
                         .then()
                         .statusCode(allOf(greaterThanOrEqualTo(200), lessThan(300)))
                         .extract()
@@ -197,7 +197,7 @@ class GraphQLMutationTest extends AbstractGraphQLTestBase {
                 given().contentType(ContentType.JSON)
                         .body(query.encode())
                         .when()
-                        .post("/api/v4/graphql")
+                        .post("/api/v5/graphql")
                         .then()
                         .statusCode(allOf(greaterThanOrEqualTo(200), lessThan(300)))
                         .extract()
@@ -254,7 +254,7 @@ class GraphQLMutationTest extends AbstractGraphQLTestBase {
                 given().contentType(ContentType.JSON)
                         .body(query1.encode())
                         .when()
-                        .post("/api/v4/graphql")
+                        .post("/api/v5/graphql")
                         .then()
                         .statusCode(allOf(greaterThanOrEqualTo(200), lessThan(300)))
                         .extract()
@@ -297,7 +297,7 @@ class GraphQLMutationTest extends AbstractGraphQLTestBase {
                 given().contentType(ContentType.JSON)
                         .body(query2.encode())
                         .when()
-                        .post("/api/v4/graphql")
+                        .post("/api/v5/graphql")
                         .then()
                         .statusCode(allOf(greaterThanOrEqualTo(200), lessThan(300)))
                         .extract()
@@ -355,7 +355,7 @@ class GraphQLMutationTest extends AbstractGraphQLTestBase {
                 given().contentType(ContentType.JSON)
                         .body(query1.encode())
                         .when()
-                        .post("/api/v4/graphql")
+                        .post("/api/v5/graphql")
                         .then()
                         .statusCode(allOf(greaterThanOrEqualTo(200), lessThan(300)))
                         .extract()
@@ -384,7 +384,7 @@ class GraphQLMutationTest extends AbstractGraphQLTestBase {
                 given().contentType(ContentType.JSON)
                         .body(query2.encode())
                         .when()
-                        .post("/api/v4/graphql")
+                        .post("/api/v5/graphql")
                         .then()
                         .statusCode(allOf(greaterThanOrEqualTo(200), lessThan(300)))
                         .extract()

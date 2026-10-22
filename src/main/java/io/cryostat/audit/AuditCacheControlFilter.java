@@ -27,7 +27,7 @@ import jakarta.ws.rs.ext.Provider;
 @Priority(2000)
 public class AuditCacheControlFilter implements ContainerResponseFilter {
 
-    private static final String AUDIT_PATH_PREFIX = "/api/beta/audit/";
+    private static final String AUDIT_PATH_PREFIX = "/api/v5/audit/";
 
     @Override
     public void filter(

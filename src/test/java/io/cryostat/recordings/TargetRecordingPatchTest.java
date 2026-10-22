@@ -18,6 +18,7 @@ package io.cryostat.recordings;
 import static io.restassured.RestAssured.given;
 
 import java.time.Duration;
+import java.util.UUID;
 
 import io.cryostat.AbstractTransactionalTestBase;
 import io.cryostat.resources.S3StorageResource;
@@ -51,8 +52,8 @@ public class TargetRecordingPatchTest extends AbstractTransactionalTestBase {
         cleanupSelfActiveAndArchivedRecordings();
     }
 
-    private long getSelfReferenceTargetId() {
-        if (selfId < 1) {
+    private UUID getSelfReferenceTargetId() {
+        if (selfId == null) {
             defineSelfCustomTarget();
         }
         return selfId;
@@ -60,7 +61,7 @@ public class TargetRecordingPatchTest extends AbstractTransactionalTestBase {
 
     @Test
     void testSaveEmptyRecordingDoesNotArchiveRecordingFile() throws Exception {
-        long targetId = getSelfReferenceTargetId();
+        getSelfReferenceTargetId();
 
         // Set recording options to create an empty recording (toDisk=false, maxSize=0)
         given().log()
@@ -69,7 +70,7 @@ public class TargetRecordingPatchTest extends AbstractTransactionalTestBase {
                 .formParam("toDisk", "false")
                 .formParam("maxSize", "0")
                 .when()
-                .patch("/api/v4/targets/{targetId}/recordingOptions", targetId)
+                .patch("/api/v5/targets/{jvmId}/recording-options", selfJvmId)
                 .then()
                 .log()
                 .all()
@@ -84,7 +85,7 @@ public class TargetRecordingPatchTest extends AbstractTransactionalTestBase {
                         .formParam("duration", "5")
                         .formParam("events", "template=ALL")
                         .when()
-                        .post("/api/v4/targets/{targetId}/recordings", targetId)
+                        .post("/api/v5/targets/{jvmId}/recordings", selfJvmId)
                         .then()
                         .log()
                         .all()
@@ -104,10 +105,7 @@ public class TargetRecordingPatchTest extends AbstractTransactionalTestBase {
                         .contentType("text/plain")
                         .body("SAVE")
                         .when()
-                        .patch(
-                                "/api/v4/targets/{targetId}/recordings/{remoteId}",
-                                targetId,
-                                remoteId)
+                        .patch("/api/v5/targets/{jvmId}/recordings/{remoteId}", selfJvmId, remoteId)
                         .then()
                         .log()
                         .all()
@@ -128,7 +126,7 @@ public class TargetRecordingPatchTest extends AbstractTransactionalTestBase {
                 given().log()
                         .all()
                         .when()
-                        .get("/api/v4/recordings")
+                        .get("/api/v5/recordings")
                         .then()
                         .log()
                         .all()

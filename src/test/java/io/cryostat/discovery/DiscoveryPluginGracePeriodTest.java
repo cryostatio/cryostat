@@ -48,7 +48,7 @@ public class DiscoveryPluginGracePeriodTest extends AbstractTransactionalTestBas
     @ConfigProperty(name = ConfigProperties.DISCOVERY_PLUGINS_MAX_FAILURES)
     int maxConsecutiveFailures;
 
-    @Inject Discovery.RefreshPluginJob refreshPluginJob;
+    @Inject DiscoveryPlugins.RefreshPluginJob refreshPluginJob;
     @Inject AgentClient.Factory agentClientFactory;
 
     @InjectMock PluginCallbackFactory callbackFactory;
@@ -66,7 +66,7 @@ public class DiscoveryPluginGracePeriodTest extends AbstractTransactionalTestBas
     }
 
     private UUID createPluginInCommittedTransaction(
-            long credentialId, String realmName, int consecutiveFailures) {
+            String credentialId, String realmName, int consecutiveFailures) {
         return QuarkusTransaction.requiringNew()
                 .call(
                         () -> {
@@ -80,7 +80,7 @@ public class DiscoveryPluginGracePeriodTest extends AbstractTransactionalTestBas
                             plugin.callback =
                                     URI.create(
                                             String.format(
-                                                    "http://storedcredentials:%d@localhost:9999/nonexistent",
+                                                    "http://storedcredentials:%s@localhost:9999/nonexistent",
                                                     credentialId));
                             plugin.builtin = false;
                             plugin.consecutiveFailures = consecutiveFailures;
@@ -106,7 +106,7 @@ public class DiscoveryPluginGracePeriodTest extends AbstractTransactionalTestBas
                                         "matchExpression",
                                         "target.connectUrl == 'http://localhost:9999/nonexistent'"))
                         .contentType(ContentType.URLENC)
-                        .post("/api/v4/credentials")
+                        .post("/api/v5/credentials")
                         .then()
                         .log()
                         .all()
@@ -116,7 +116,7 @@ public class DiscoveryPluginGracePeriodTest extends AbstractTransactionalTestBas
                         .contentType(ContentType.JSON)
                         .extract()
                         .jsonPath()
-                        .getLong("id");
+                        .getString("id");
 
         // Create a plugin in a committed transaction so the job can see it
         UUID pluginId = createPluginInCommittedTransaction(credentialId, "test_failure_realm", 0);
@@ -190,7 +190,7 @@ public class DiscoveryPluginGracePeriodTest extends AbstractTransactionalTestBas
                                         "matchExpression",
                                         "target.connectUrl == 'http://localhost:9999/nonexistent'"))
                         .contentType(ContentType.URLENC)
-                        .post("/api/v4/credentials")
+                        .post("/api/v5/credentials")
                         .then()
                         .log()
                         .all()
@@ -200,7 +200,7 @@ public class DiscoveryPluginGracePeriodTest extends AbstractTransactionalTestBas
                         .contentType(ContentType.JSON)
                         .extract()
                         .jsonPath()
-                        .getLong("id");
+                        .getString("id");
 
         // Create a plugin in a committed transaction
         UUID pluginId =
@@ -250,7 +250,7 @@ public class DiscoveryPluginGracePeriodTest extends AbstractTransactionalTestBas
                                                 + baseUrl
                                                 + "health/liveness'"))
                         .contentType(ContentType.URLENC)
-                        .post("/api/v4/credentials")
+                        .post("/api/v5/credentials")
                         .then()
                         .log()
                         .all()
@@ -260,11 +260,11 @@ public class DiscoveryPluginGracePeriodTest extends AbstractTransactionalTestBas
                         .contentType(ContentType.JSON)
                         .extract()
                         .jsonPath()
-                        .getLong("id");
+                        .getString("id");
 
         var callback =
                 String.format(
-                        "http://storedcredentials:%d@localhost:%d/health/liveness",
+                        "http://storedcredentials:%s@localhost:%d/health/liveness",
                         credentialId, baseUrl.getPort());
 
         var registration =
@@ -273,7 +273,7 @@ public class DiscoveryPluginGracePeriodTest extends AbstractTransactionalTestBas
                         .when()
                         .body(Map.of("realm", "test_reset_realm", "callback", callback))
                         .contentType(ContentType.JSON)
-                        .post("/api/v4/discovery")
+                        .post("/api/v5/discovery/plugins")
                         .then()
                         .log()
                         .all()
@@ -336,7 +336,7 @@ public class DiscoveryPluginGracePeriodTest extends AbstractTransactionalTestBas
                                         "matchExpression",
                                         "target.connectUrl == 'http://localhost:9999/nonexistent'"))
                         .contentType(ContentType.URLENC)
-                        .post("/api/v4/credentials")
+                        .post("/api/v5/credentials")
                         .then()
                         .log()
                         .all()
@@ -346,7 +346,7 @@ public class DiscoveryPluginGracePeriodTest extends AbstractTransactionalTestBas
                         .contentType(ContentType.JSON)
                         .extract()
                         .jsonPath()
-                        .getLong("id");
+                        .getString("id");
 
         // Create a plugin in a committed transaction
         UUID pluginId =
@@ -410,7 +410,7 @@ public class DiscoveryPluginGracePeriodTest extends AbstractTransactionalTestBas
                                         "matchExpression",
                                         "target.connectUrl == 'http://localhost:9999/nonexistent'"))
                         .contentType(ContentType.URLENC)
-                        .post("/api/v4/credentials")
+                        .post("/api/v5/credentials")
                         .then()
                         .log()
                         .all()
@@ -420,7 +420,7 @@ public class DiscoveryPluginGracePeriodTest extends AbstractTransactionalTestBas
                         .contentType(ContentType.JSON)
                         .extract()
                         .jsonPath()
-                        .getLong("id");
+                        .getString("id");
 
         // Create a plugin in a committed transaction
         UUID pluginId =
@@ -466,7 +466,7 @@ public class DiscoveryPluginGracePeriodTest extends AbstractTransactionalTestBas
                                         "matchExpression",
                                         "target.connectUrl == 'http://localhost:9999/nonexistent'"))
                         .contentType(ContentType.URLENC)
-                        .post("/api/v4/credentials")
+                        .post("/api/v5/credentials")
                         .then()
                         .log()
                         .all()
@@ -476,7 +476,7 @@ public class DiscoveryPluginGracePeriodTest extends AbstractTransactionalTestBas
                         .contentType(ContentType.JSON)
                         .extract()
                         .jsonPath()
-                        .getLong("id");
+                        .getString("id");
 
         // Create a plugin in a committed transaction
         UUID pluginId = createPluginInCommittedTransaction(credentialId, "test_backoff_realm", 0);
@@ -548,7 +548,7 @@ public class DiscoveryPluginGracePeriodTest extends AbstractTransactionalTestBas
                                         "matchExpression",
                                         "target.connectUrl == 'http://localhost:9999/nonexistent'"))
                         .contentType(ContentType.URLENC)
-                        .post("/api/v4/credentials")
+                        .post("/api/v5/credentials")
                         .then()
                         .log()
                         .all()
@@ -558,7 +558,7 @@ public class DiscoveryPluginGracePeriodTest extends AbstractTransactionalTestBas
                         .contentType(ContentType.JSON)
                         .extract()
                         .jsonPath()
-                        .getLong("id");
+                        .getString("id");
 
         // Create a plugin in a committed transaction with backoff state
         UUID pluginId =
@@ -575,7 +575,7 @@ public class DiscoveryPluginGracePeriodTest extends AbstractTransactionalTestBas
                                     plugin.callback =
                                             URI.create(
                                                     String.format(
-                                                            "http://storedcredentials:%d@localhost:9999/nonexistent",
+                                                            "http://storedcredentials:%s@localhost:9999/nonexistent",
                                                             credentialId));
                                     plugin.builtin = false;
                                     plugin.consecutiveFailures = 1;
@@ -632,7 +632,7 @@ public class DiscoveryPluginGracePeriodTest extends AbstractTransactionalTestBas
                                                 + baseUrl
                                                 + "health/liveness'"))
                         .contentType(ContentType.URLENC)
-                        .post("/api/v4/credentials")
+                        .post("/api/v5/credentials")
                         .then()
                         .log()
                         .all()
@@ -642,11 +642,11 @@ public class DiscoveryPluginGracePeriodTest extends AbstractTransactionalTestBas
                         .contentType(ContentType.JSON)
                         .extract()
                         .jsonPath()
-                        .getLong("id");
+                        .getString("id");
 
         var callback =
                 String.format(
-                        "http://storedcredentials:%d@localhost:%d/health/liveness",
+                        "http://storedcredentials:%s@localhost:%d/health/liveness",
                         credentialId, baseUrl.getPort());
 
         var registration =
@@ -655,7 +655,7 @@ public class DiscoveryPluginGracePeriodTest extends AbstractTransactionalTestBas
                         .when()
                         .body(Map.of("realm", "test_backoff_reset_realm", "callback", callback))
                         .contentType(ContentType.JSON)
-                        .post("/api/v4/discovery")
+                        .post("/api/v5/discovery/plugins")
                         .then()
                         .log()
                         .all()

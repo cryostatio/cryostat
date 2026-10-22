@@ -29,7 +29,6 @@ import io.cryostat.core.RecordingOptionsCustomizer;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.TargetConnectionManager;
 
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.quarkus.security.PermissionsAllowed;
 import io.smallrye.common.annotation.Blocking;
 import jakarta.inject.Inject;
@@ -43,7 +42,7 @@ import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestForm;
 import org.jboss.resteasy.reactive.RestPath;
 
-@Path("/api/v4/targets/{targetId}/recordingOptions")
+@Path("/api/v5/targets/{jvmId}/recording-options")
 public class RecordingOptions {
 
     @Inject TargetConnectionManager connectionManager;
@@ -62,8 +61,8 @@ public class RecordingOptions {
                     """
                     Retrieve a map of the current options for the specified target.
                     """)
-    public Map<String, Object> getRecordingOptions(@RestPath long targetId) throws Exception {
-        Target target = Target.find("id", targetId).singleResult();
+    public Map<String, Object> getRecordingOptions(@RestPath String jvmId) throws Exception {
+        Target target = Target.getTargetByJvmId(jvmId).orElseThrow();
         return connectionManager.executeConnectedTask(
                 target,
                 connection -> {
@@ -85,11 +84,8 @@ public class RecordingOptions {
                     recordings started on this target if no override values are specified when the recording is
                     created.
                     """)
-    @SuppressFBWarnings(
-            value = "UC_USELESS_OBJECT",
-            justification = "SpotBugs thinks the options map is unused, but it is used")
     public Map<String, Object> patchRecordingOptions(
-            @Parameter(required = true) @RestPath long targetId,
+            @Parameter(required = true) @RestPath String jvmId,
             @Parameter(
                             required = false,
                             description =
@@ -147,7 +143,7 @@ public class RecordingOptions {
                 }
             }
         }
-        Target target = Target.find("id", targetId).singleResult();
+        Target target = Target.getTargetByJvmId(jvmId).orElseThrow();
         for (var entry : options.entrySet()) {
             RecordingOptionsCustomizer.OptionKey optionKey =
                     RecordingOptionsCustomizer.OptionKey.fromOptionName(entry.getKey()).get();

@@ -51,12 +51,13 @@ public class JfrAnalyticsTest {
 
         given().contentType(ContentType.MULTIPART)
                 .multiPart("recording", recordingFile, "application/octet-stream")
-                .post("/api/v4/recordings");
+                .post("/api/v5/recordings/uploads");
     }
 
     @AfterEach
     void cleanupRecording() {
-        given().pathParam("filename", RECORDING_FILENAME).delete("/api/v4/recordings/{filename}");
+        given().pathParam("filename", RECORDING_FILENAME)
+                .delete("/api/v5/recordings/uploads/{filename}");
     }
 
     @Test
@@ -70,7 +71,7 @@ public class JfrAnalyticsTest {
                         """
                         SELECT COUNT(*) FROM "JFR"."jdk.ObjectAllocationSample"
                         """)
-                .post("/api/beta/recording_analytics/{jvmId}/{filename}")
+                .post("/api/v5/recordings/{jvmId}/{filename}/analytics")
                 .then()
                 .log()
                 .all()
@@ -90,7 +91,7 @@ public class JfrAnalyticsTest {
                         """
                         INVALID SQL QUERY
                         """)
-                .post("/api/beta/recording_analytics/{jvmId}/{filename}")
+                .post("/api/v5/recordings/{jvmId}/{filename}/analytics")
                 .then()
                 .log()
                 .all()
@@ -111,7 +112,7 @@ public class JfrAnalyticsTest {
                                 """
                                 SELECT COUNT(*) FROM "JFR"."jdk.ObjectAllocationSample" LIMIT 1
                                 """)
-                        .post("/api/beta/recording_analytics/{jvmId}/{filename}")
+                        .post("/api/v5/recordings/{jvmId}/{filename}/analytics")
                         .then()
                         .log()
                         .all()
@@ -149,7 +150,7 @@ public class JfrAnalyticsTest {
                                     ORDER BY "startTime", CLASS_NAME("objectClass"), "weight"
                                     LIMIT 10
                                 """)
-                        .post("/api/beta/recording_analytics/{jvmId}/{filename}")
+                        .post("/api/v5/recordings/{jvmId}/{filename}/analytics")
                         .then()
                         .log()
                         .all()
@@ -266,7 +267,7 @@ public class JfrAnalyticsTest {
                                 """
                                 SELECT COUNT(*) as "total" FROM "JFR"."jdk.ObjectAllocationSample"
                                 """)
-                        .post("/api/beta/recording_analytics/{jvmId}/{filename}")
+                        .post("/api/v5/recordings/{jvmId}/{filename}/analytics")
                         .then()
                         .log()
                         .all()
@@ -306,7 +307,7 @@ public class JfrAnalyticsTest {
                                 ORDER BY COUNT(*) DESC
                                 LIMIT 10
                                 """)
-                        .post("/api/beta/recording_analytics/{jvmId}/{filename}")
+                        .post("/api/v5/recordings/{jvmId}/{filename}/analytics")
                         .then()
                         .log()
                         .all()
@@ -357,7 +358,7 @@ public class JfrAnalyticsTest {
                                 ORDER BY COUNT(*) DESC
                                 LIMIT 15
                                 """)
-                        .post("/api/beta/recording_analytics/{jvmId}/{filename}")
+                        .post("/api/v5/recordings/{jvmId}/{filename}/analytics")
                         .then()
                         .log()
                         .all()
@@ -443,7 +444,7 @@ public class JfrAnalyticsTest {
                                 ORDER BY COUNT(*) DESC
                                 LIMIT 20
                                 """)
-                        .post("/api/beta/recording_analytics/{jvmId}/{filename}")
+                        .post("/api/v5/recordings/{jvmId}/{filename}/analytics")
                         .then()
                         .log()
                         .all()
@@ -493,7 +494,7 @@ public class JfrAnalyticsTest {
                                 ORDER BY COUNT(*) DESC
                                 LIMIT 10
                                 """)
-                        .post("/api/beta/recording_analytics/{jvmId}/{filename}")
+                        .post("/api/v5/recordings/{jvmId}/{filename}/analytics")
                         .then()
                         .log()
                         .all()
@@ -557,7 +558,7 @@ public class JfrAnalyticsTest {
                         ORDER BY COUNT(*) DESC
                         LIMIT 20
                         """)
-                .post("/api/beta/recording_analytics/{jvmId}/{filename}")
+                .post("/api/v5/recordings/{jvmId}/{filename}/analytics")
                 .then()
                 .log()
                 .all()
@@ -584,7 +585,7 @@ public class JfrAnalyticsTest {
                         ORDER BY COUNT(*) DESC
                         LIMIT 20
                         """)
-                .post("/api/beta/recording_analytics/{jvmId}/{filename}")
+                .post("/api/v5/recordings/{jvmId}/{filename}/analytics")
                 .then()
                 .log()
                 .all()
@@ -611,7 +612,7 @@ public class JfrAnalyticsTest {
                         ORDER BY COUNT(*) DESC
                         LIMIT 20
                         """)
-                .post("/api/beta/recording_analytics/{jvmId}/{filename}")
+                .post("/api/v5/recordings/{jvmId}/{filename}/analytics")
                 .then()
                 .log()
                 .all()
@@ -635,7 +636,7 @@ public class JfrAnalyticsTest {
                                 ORDER by "startTime"
                                 LIMIT 1
                                 """)
-                        .post("/api/beta/recording_analytics/{jvmId}/{filename}")
+                        .post("/api/v5/recordings/{jvmId}/{filename}/analytics")
                         .then()
                         .log()
                         .all()
@@ -680,7 +681,7 @@ public class JfrAnalyticsTest {
                                 ORDER by "startTime"
                                 LIMIT 1
                                 """)
-                        .post("/api/beta/recording_analytics/{jvmId}/{filename}")
+                        .post("/api/v5/recordings/{jvmId}/{filename}/analytics")
                         .then()
                         .log()
                         .all()
@@ -720,7 +721,7 @@ public class JfrAnalyticsTest {
                                 LEFT JOIN jfr."jdk.ThreadEnd" te ON ts."thread"."javaThreadId" = te."thread"."javaThreadId"
                                 ORDER BY ts."thread"."javaThreadId"
                                 """)
-                        .post("/api/beta/recording_analytics/{jvmId}/{filename}")
+                        .post("/api/v5/recordings/{jvmId}/{filename}/analytics")
                         .then()
                         .log()
                         .all()
@@ -766,7 +767,7 @@ public class JfrAnalyticsTest {
                         .when()
                         .pathParams("jvmId", "uploads", "filename", RECORDING_FILENAME)
                         .formParam("query", "tables")
-                        .post("/api/beta/recording_analytics/{jvmId}/{filename}")
+                        .post("/api/v5/recordings/{jvmId}/{filename}/analytics")
                         .then()
                         .log()
                         .all()
@@ -800,7 +801,7 @@ public class JfrAnalyticsTest {
                         .when()
                         .pathParams("jvmId", "uploads", "filename", RECORDING_FILENAME)
                         .formParam("query", "TABLES")
-                        .post("/api/beta/recording_analytics/{jvmId}/{filename}")
+                        .post("/api/v5/recordings/{jvmId}/{filename}/analytics")
                         .then()
                         .log()
                         .all()
@@ -827,7 +828,7 @@ public class JfrAnalyticsTest {
                         .when()
                         .pathParams("jvmId", "uploads", "filename", RECORDING_FILENAME)
                         .formParam("query", "  tables  ")
-                        .post("/api/beta/recording_analytics/{jvmId}/{filename}")
+                        .post("/api/v5/recordings/{jvmId}/{filename}/analytics")
                         .then()
                         .log()
                         .all()
@@ -854,7 +855,7 @@ public class JfrAnalyticsTest {
                         .when()
                         .pathParams("jvmId", "uploads", "filename", RECORDING_FILENAME)
                         .formParam("query", "columns jdk.ObjectAllocationSample")
-                        .post("/api/beta/recording_analytics/{jvmId}/{filename}")
+                        .post("/api/v5/recordings/{jvmId}/{filename}/analytics")
                         .then()
                         .log()
                         .all()
@@ -889,7 +890,7 @@ public class JfrAnalyticsTest {
                         .when()
                         .pathParams("jvmId", "uploads", "filename", RECORDING_FILENAME)
                         .formParam("query", "columns jdk.ThreadStart jdk.ThreadEnd")
-                        .post("/api/beta/recording_analytics/{jvmId}/{filename}")
+                        .post("/api/v5/recordings/{jvmId}/{filename}/analytics")
                         .then()
                         .log()
                         .all()
@@ -923,7 +924,7 @@ public class JfrAnalyticsTest {
                         .when()
                         .pathParams("jvmId", "uploads", "filename", RECORDING_FILENAME)
                         .formParam("query", "COLUMNS jdk.ThreadStart")
-                        .post("/api/beta/recording_analytics/{jvmId}/{filename}")
+                        .post("/api/v5/recordings/{jvmId}/{filename}/analytics")
                         .then()
                         .log()
                         .all()
@@ -952,7 +953,7 @@ public class JfrAnalyticsTest {
                         .when()
                         .pathParams("jvmId", "uploads", "filename", RECORDING_FILENAME)
                         .formParam("query", "  columns   jdk.ThreadEnd  ")
-                        .post("/api/beta/recording_analytics/{jvmId}/{filename}")
+                        .post("/api/v5/recordings/{jvmId}/{filename}/analytics")
                         .then()
                         .log()
                         .all()
@@ -978,7 +979,7 @@ public class JfrAnalyticsTest {
                 .when()
                 .pathParams("jvmId", "uploads", "filename", RECORDING_FILENAME)
                 .formParam("query", "columns NonExistentTable")
-                .post("/api/beta/recording_analytics/{jvmId}/{filename}")
+                .post("/api/v5/recordings/{jvmId}/{filename}/analytics")
                 .then()
                 .log()
                 .all()
@@ -994,7 +995,7 @@ public class JfrAnalyticsTest {
                 .when()
                 .pathParams("jvmId", "uploads", "filename", RECORDING_FILENAME)
                 .formParam("query", "columns")
-                .post("/api/beta/recording_analytics/{jvmId}/{filename}")
+                .post("/api/v5/recordings/{jvmId}/{filename}/analytics")
                 .then()
                 .log()
                 .all()
@@ -1011,7 +1012,7 @@ public class JfrAnalyticsTest {
                         .when()
                         .pathParams("jvmId", "uploads", "filename", RECORDING_FILENAME)
                         .formParam("query", "columns \"jdk.ObjectAllocationSample\"")
-                        .post("/api/beta/recording_analytics/{jvmId}/{filename}")
+                        .post("/api/v5/recordings/{jvmId}/{filename}/analytics")
                         .then()
                         .log()
                         .all()
@@ -1039,7 +1040,7 @@ public class JfrAnalyticsTest {
                         .when()
                         .pathParams("jvmId", "uploads", "filename", RECORDING_FILENAME)
                         .formParam("query", "columns 'jdk.ThreadStart'")
-                        .post("/api/beta/recording_analytics/{jvmId}/{filename}")
+                        .post("/api/v5/recordings/{jvmId}/{filename}/analytics")
                         .then()
                         .log()
                         .all()
@@ -1070,7 +1071,7 @@ public class JfrAnalyticsTest {
                                 "query",
                                 "columns \"jdk.ThreadStart\" 'jdk.ThreadEnd'"
                                         + " jdk.ObjectAllocationSample")
-                        .post("/api/beta/recording_analytics/{jvmId}/{filename}")
+                        .post("/api/v5/recordings/{jvmId}/{filename}/analytics")
                         .then()
                         .log()
                         .all()
@@ -1110,7 +1111,7 @@ public class JfrAnalyticsTest {
                                   AVG("machineTotal") as "avg_machine_total"
                                 FROM "JFR"."jdk.CPULoad"
                                 """)
-                        .post("/api/beta/recording_analytics/{jvmId}/{filename}")
+                        .post("/api/v5/recordings/{jvmId}/{filename}/analytics")
                         .then()
                         .log()
                         .all()
@@ -1159,7 +1160,7 @@ public class JfrAnalyticsTest {
                                 )
                                 WHERE rn = CAST(total * 0.05 AS INTEGER)
                                 """)
-                        .post("/api/beta/recording_analytics/{jvmId}/{filename}")
+                        .post("/api/v5/recordings/{jvmId}/{filename}/analytics")
                         .then()
                         .log()
                         .all()
@@ -1198,7 +1199,7 @@ public class JfrAnalyticsTest {
                                 )
                                 WHERE rn = CAST(total * 0.05 AS INTEGER)
                                 """)
-                        .post("/api/beta/recording_analytics/{jvmId}/{filename}")
+                        .post("/api/v5/recordings/{jvmId}/{filename}/analytics")
                         .then()
                         .log()
                         .all()
@@ -1254,7 +1255,7 @@ public class JfrAnalyticsTest {
                         SELECT PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY "machineTotal") as "p95_cpu"
                         FROM "JFR"."jdk.CPULoad"
                         """)
-                .post("/api/beta/recording_analytics/{jvmId}/{filename}")
+                .post("/api/v5/recordings/{jvmId}/{filename}/analytics")
                 .then()
                 .log()
                 .all()
@@ -1279,7 +1280,7 @@ public class JfrAnalyticsTest {
                                   AVG("readRate") as "avg_read_rate"
                                 FROM "JFR"."jdk.NetworkUtilization"
                                 """)
-                        .post("/api/beta/recording_analytics/{jvmId}/{filename}")
+                        .post("/api/v5/recordings/{jvmId}/{filename}/analytics")
                         .then()
                         .log()
                         .all()
@@ -1321,7 +1322,7 @@ public class JfrAnalyticsTest {
                                 )
                                 WHERE rn = CAST(total * 0.05 AS INTEGER)
                                 """)
-                        .post("/api/beta/recording_analytics/{jvmId}/{filename}")
+                        .post("/api/v5/recordings/{jvmId}/{filename}/analytics")
                         .then()
                         .log()
                         .all()
@@ -1358,7 +1359,7 @@ public class JfrAnalyticsTest {
                                   AVG("size") as "avg_rss"
                                 FROM "JFR"."jdk.ResidentSetSize"
                                 """)
-                        .post("/api/beta/recording_analytics/{jvmId}/{filename}")
+                        .post("/api/v5/recordings/{jvmId}/{filename}/analytics")
                         .then()
                         .log()
                         .all()
@@ -1399,7 +1400,7 @@ public class JfrAnalyticsTest {
                                 )
                                 WHERE rn = CAST(total * 0.05 AS INTEGER)
                                 """)
-                        .post("/api/beta/recording_analytics/{jvmId}/{filename}")
+                        .post("/api/v5/recordings/{jvmId}/{filename}/analytics")
                         .then()
                         .log()
                         .all()

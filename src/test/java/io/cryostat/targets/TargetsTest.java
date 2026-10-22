@@ -17,6 +17,8 @@ package io.cryostat.targets;
 
 import static io.restassured.RestAssured.given;
 
+import java.util.UUID;
+
 import io.cryostat.AbstractTransactionalTestBase;
 
 import io.quarkus.test.common.http.TestHTTPEndpoint;
@@ -34,7 +36,7 @@ public class TargetsTest extends AbstractTransactionalTestBase {
         given().log()
                 .all()
                 .when()
-                .get("/api/v4/targets")
+                .get("/api/v5/targets")
                 .then()
                 .log()
                 .all()
@@ -50,8 +52,8 @@ public class TargetsTest extends AbstractTransactionalTestBase {
         given().log()
                 .all()
                 .when()
-                .pathParams("id", Integer.MAX_VALUE)
-                .get("/api/v4/targets/{id}")
+                .pathParams("id", UUID.randomUUID())
+                .get("/api/v5/targets/{id}")
                 .then()
                 .log()
                 .all()
@@ -65,7 +67,7 @@ public class TargetsTest extends AbstractTransactionalTestBase {
         given().log()
                 .all()
                 .when()
-                .get("/api/v4/targets")
+                .get("/api/v5/targets")
                 .then()
                 .log()
                 .all()
@@ -78,12 +80,12 @@ public class TargetsTest extends AbstractTransactionalTestBase {
 
     @Test
     void testCreateAndGet() {
-        int id = defineSelfCustomTarget();
+        UUID id = defineSelfCustomTarget();
         given().log()
                 .all()
                 .when()
                 .pathParam("id", id)
-                .get("/api/v4/targets/{id}")
+                .get("/api/v5/targets/{id}")
                 .then()
                 .log()
                 .all()
@@ -91,7 +93,7 @@ public class TargetsTest extends AbstractTransactionalTestBase {
                 .assertThat()
                 .statusCode(200)
                 .contentType(ContentType.JSON)
-                .body("id", Matchers.greaterThanOrEqualTo(1))
+                .body("id", Matchers.equalTo(id.toString()))
                 .body("connectUrl", Matchers.equalTo(SELF_JMX_URL))
                 .body("alias", Matchers.equalTo(SELFTEST_ALIAS));
     }

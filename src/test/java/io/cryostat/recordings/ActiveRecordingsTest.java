@@ -17,8 +17,6 @@ package io.cryostat.recordings;
 
 import static io.restassured.RestAssured.given;
 
-import java.util.Map;
-
 import io.cryostat.AbstractTransactionalTestBase;
 import io.cryostat.resources.S3StorageResource;
 
@@ -38,11 +36,11 @@ public class ActiveRecordingsTest extends AbstractTransactionalTestBase {
 
     @Test
     void testListNone() {
-        int id = defineSelfCustomTarget();
+        defineSelfCustomTarget();
         given().log()
                 .all()
                 .when()
-                .pathParams(Map.of("targetId", id))
+                .pathParam("jvmId", selfJvmId)
                 .get()
                 .then()
                 .log()
@@ -56,11 +54,11 @@ public class ActiveRecordingsTest extends AbstractTransactionalTestBase {
 
     @Test
     void testDeleteNone() {
-        int id = defineSelfCustomTarget();
+        defineSelfCustomTarget();
         given().log()
                 .all()
                 .when()
-                .pathParams(Map.of("targetId", id))
+                .pathParam("jvmId", selfJvmId)
                 .delete("/1")
                 .then()
                 .log()
@@ -80,11 +78,11 @@ public class ActiveRecordingsTest extends AbstractTransactionalTestBase {
                 "test1 | \t",
             })
     void testCreateInvalid(String recordingName, String eventSpecifier) {
-        int targetId = defineSelfCustomTarget();
+        defineSelfCustomTarget();
         given().log()
                 .all()
                 .when()
-                .pathParams(Map.of("targetId", targetId))
+                .pathParam("jvmId", selfJvmId)
                 .formParam("recordingName", recordingName)
                 .formParam("events", eventSpecifier)
                 .post()
@@ -101,7 +99,7 @@ public class ActiveRecordingsTest extends AbstractTransactionalTestBase {
         given().log()
                 .all()
                 .when()
-                .pathParams(Map.of("targetId", Integer.MAX_VALUE))
+                .pathParam("jvmId", "invalid-jvm-id")
                 .formParam("recordingName", "irrelevant")
                 .formParam("events", "template=ALL")
                 .post()
@@ -115,11 +113,11 @@ public class ActiveRecordingsTest extends AbstractTransactionalTestBase {
 
     @Test
     void testCreateWithUnknownEventTemplate() {
-        int targetId = defineSelfCustomTarget();
+        defineSelfCustomTarget();
         given().log()
                 .all()
                 .when()
-                .pathParams(Map.of("targetId", targetId))
+                .pathParam("jvmId", selfJvmId)
                 .formParam("recordingName", "test")
                 .formParam("events", "template=UNKNOWN")
                 .post()
@@ -133,13 +131,13 @@ public class ActiveRecordingsTest extends AbstractTransactionalTestBase {
 
     @Test
     void testCreateListAndDelete() {
-        int targetId = defineSelfCustomTarget();
+        defineSelfCustomTarget();
         long startTime = System.currentTimeMillis();
         int recordingId =
                 given().log()
                         .all()
                         .when()
-                        .pathParams(Map.of("targetId", targetId))
+                        .pathParam("jvmId", selfJvmId)
                         .formParam("recordingName", "activeRecordingsTest")
                         .formParam("events", "template=Continuous")
                         .post()
@@ -149,7 +147,7 @@ public class ActiveRecordingsTest extends AbstractTransactionalTestBase {
                         .and()
                         .assertThat()
                         .statusCode(201)
-                        .body("id", Matchers.greaterThan(0))
+                        .body("id", Matchers.notNullValue())
                         .body("name", Matchers.equalTo("activeRecordingsTest"))
                         .body("remoteId", Matchers.greaterThan(0))
                         .body("state", Matchers.equalTo("RUNNING"))
@@ -179,7 +177,7 @@ public class ActiveRecordingsTest extends AbstractTransactionalTestBase {
         given().log()
                 .all()
                 .when()
-                .pathParams(Map.of("targetId", targetId))
+                .pathParam("jvmId", selfJvmId)
                 .get()
                 .then()
                 .log()
@@ -189,7 +187,7 @@ public class ActiveRecordingsTest extends AbstractTransactionalTestBase {
                 .contentType(ContentType.JSON)
                 .statusCode(200)
                 .body("size()", Matchers.equalTo(1))
-                .body("[0].id", Matchers.greaterThan(0))
+                .body("[0].id", Matchers.notNullValue())
                 .body("[0].name", Matchers.equalTo("activeRecordingsTest"))
                 .body("[0].remoteId", Matchers.greaterThan(0))
                 .body("[0].state", Matchers.equalTo("RUNNING"))
@@ -214,7 +212,7 @@ public class ActiveRecordingsTest extends AbstractTransactionalTestBase {
         given().log()
                 .all()
                 .when()
-                .pathParams(Map.of("targetId", targetId))
+                .pathParam("jvmId", selfJvmId)
                 .delete(Integer.toString(recordingId))
                 .then()
                 .log()
@@ -226,7 +224,7 @@ public class ActiveRecordingsTest extends AbstractTransactionalTestBase {
         given().log()
                 .all()
                 .when()
-                .pathParams(Map.of("targetId", targetId))
+                .pathParam("jvmId", selfJvmId)
                 .get()
                 .then()
                 .log()
@@ -240,12 +238,12 @@ public class ActiveRecordingsTest extends AbstractTransactionalTestBase {
 
     @Test
     void testCreateDownloadAndDelete() {
-        int targetId = defineSelfCustomTarget();
+        defineSelfCustomTarget();
         int recordingId =
                 given().log()
                         .all()
                         .when()
-                        .pathParams(Map.of("targetId", targetId))
+                        .pathParam("jvmId", selfJvmId)
                         .formParam("recordingName", "activeRecordingsTest")
                         .formParam("events", "template=Continuous")
                         .post()
@@ -263,7 +261,7 @@ public class ActiveRecordingsTest extends AbstractTransactionalTestBase {
         given().log()
                 .all()
                 .when()
-                .pathParams(Map.of("targetId", targetId))
+                .pathParam("jvmId", selfJvmId)
                 .get(Integer.toString(recordingId))
                 .then()
                 .log()
@@ -276,7 +274,7 @@ public class ActiveRecordingsTest extends AbstractTransactionalTestBase {
         given().log()
                 .all()
                 .when()
-                .pathParams(Map.of("targetId", targetId))
+                .pathParam("jvmId", selfJvmId)
                 .delete(Integer.toString(recordingId))
                 .then()
                 .log()
@@ -288,13 +286,13 @@ public class ActiveRecordingsTest extends AbstractTransactionalTestBase {
 
     @Test
     void testCreateStopAndDelete() {
-        int targetId = defineSelfCustomTarget();
+        defineSelfCustomTarget();
         long startTime = System.currentTimeMillis();
         int recordingId =
                 given().log()
                         .all()
                         .when()
-                        .pathParams(Map.of("targetId", targetId))
+                        .pathParam("jvmId", selfJvmId)
                         .formParam("recordingName", "activeRecordingsTest")
                         .formParam("events", "template=Continuous")
                         .post()
@@ -313,7 +311,7 @@ public class ActiveRecordingsTest extends AbstractTransactionalTestBase {
         given().log()
                 .all()
                 .when()
-                .pathParams(Map.of("targetId", targetId))
+                .pathParam("jvmId", selfJvmId)
                 .get()
                 .then()
                 .log()
@@ -323,7 +321,7 @@ public class ActiveRecordingsTest extends AbstractTransactionalTestBase {
                 .contentType(ContentType.JSON)
                 .statusCode(200)
                 .body("size()", Matchers.equalTo(1))
-                .body("[0].id", Matchers.greaterThan(0))
+                .body("[0].id", Matchers.notNullValue())
                 .body("[0].name", Matchers.equalTo("activeRecordingsTest"))
                 .body("[0].remoteId", Matchers.greaterThan(0))
                 .body("[0].state", Matchers.equalTo("RUNNING"))
@@ -348,7 +346,7 @@ public class ActiveRecordingsTest extends AbstractTransactionalTestBase {
         given().log()
                 .all()
                 .when()
-                .pathParams(Map.of("targetId", targetId))
+                .pathParam("jvmId", selfJvmId)
                 .body("stop")
                 .patch(Integer.toString(recordingId))
                 .then()
@@ -361,7 +359,7 @@ public class ActiveRecordingsTest extends AbstractTransactionalTestBase {
         given().log()
                 .all()
                 .when()
-                .pathParams(Map.of("targetId", targetId))
+                .pathParam("jvmId", selfJvmId)
                 .get()
                 .then()
                 .log()
@@ -371,7 +369,7 @@ public class ActiveRecordingsTest extends AbstractTransactionalTestBase {
                 .contentType(ContentType.JSON)
                 .statusCode(200)
                 .body("size()", Matchers.equalTo(1))
-                .body("[0].id", Matchers.greaterThan(0))
+                .body("[0].id", Matchers.notNullValue())
                 .body("[0].name", Matchers.equalTo("activeRecordingsTest"))
                 .body("[0].remoteId", Matchers.greaterThan(0))
                 .body("[0].state", Matchers.equalTo("STOPPED"))
@@ -396,7 +394,7 @@ public class ActiveRecordingsTest extends AbstractTransactionalTestBase {
         given().log()
                 .all()
                 .when()
-                .pathParams(Map.of("targetId", targetId))
+                .pathParam("jvmId", selfJvmId)
                 .delete(Integer.toString(recordingId))
                 .then()
                 .log()
@@ -408,12 +406,12 @@ public class ActiveRecordingsTest extends AbstractTransactionalTestBase {
 
     @Test
     void testCreateWithArchiveOnStopPermissiveMode() {
-        int targetId = defineSelfCustomTarget();
+        defineSelfCustomTarget();
         int recordingId =
                 given().log()
                         .all()
                         .when()
-                        .pathParams(Map.of("targetId", targetId))
+                        .pathParam("jvmId", selfJvmId)
                         .formParam("recordingName", "archiveOnStopTest")
                         .formParam("events", "template=Continuous")
                         .formParam("archiveOnStop", true)
@@ -433,7 +431,7 @@ public class ActiveRecordingsTest extends AbstractTransactionalTestBase {
         given().log()
                 .all()
                 .when()
-                .pathParams(Map.of("targetId", targetId))
+                .pathParam("jvmId", selfJvmId)
                 .delete(Integer.toString(recordingId))
                 .then()
                 .log()

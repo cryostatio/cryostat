@@ -130,7 +130,7 @@ public abstract class AgentTestBase extends AbstractTestBase {
         JsonObject event = notification.getJsonObject("message").getJsonObject("event");
         JsonObject serviceRef = event.getJsonObject("serviceRef");
 
-        long id = serviceRef.getLong("id");
+        String id = serviceRef.getString("id");
         String jvmId = serviceRef.getString("jvmId");
         String connectUrl = serviceRef.getString("connectUrl");
         String alias = serviceRef.getString("alias");
@@ -183,7 +183,7 @@ public abstract class AgentTestBase extends AbstractTestBase {
                                     given().log()
                                             .all()
                                             .when()
-                                            .get("/api/v4/targets")
+                                            .get("/api/v5/targets")
                                             .then()
                                             .log()
                                             .all()
@@ -242,7 +242,7 @@ public abstract class AgentTestBase extends AbstractTestBase {
     }
 
     protected record Target(
-            long id,
+            String id,
             String jvmId,
             String connectUrl,
             String alias,

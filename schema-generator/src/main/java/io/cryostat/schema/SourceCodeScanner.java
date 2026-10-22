@@ -60,6 +60,13 @@ public class SourceCodeScanner {
                                                     + javaFile
                                                     + ": "
                                                     + e.getMessage());
+                                } catch (Exception e) {
+                                    System.err.println(
+                                            "Error parsing file "
+                                                    + javaFile
+                                                    + ": "
+                                                    + e.getMessage());
+                                    throw new RuntimeException(e);
                                 }
                             });
         }

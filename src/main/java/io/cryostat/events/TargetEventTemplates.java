@@ -38,7 +38,7 @@ import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestPath;
 
-@Path("/api/v4/targets/{id}/event_templates")
+@Path("/api/v5/targets/{jvmId}/event-templates")
 public class TargetEventTemplates {
 
     public static final Template ALL_EVENTS_TEMPLATE =
@@ -68,8 +68,8 @@ public class TargetEventTemplates {
                     same target. This includes all of the server's available templates, plus the templates available
                     specifically from the target (ex. within /usr/lib/jvm/java/lib/jfr).
                     """)
-    public List<Template> listTargetTemplates(@RestPath long id) throws Exception {
-        Target target = Target.find("id", id).singleResult();
+    public List<Template> listTargetTemplates(@RestPath String jvmId) throws Exception {
+        Target target = Target.getTargetByJvmId(jvmId).orElseThrow();
         var list = new ArrayList<Template>();
         list.add(ALL_EVENTS_TEMPLATE);
         Comparator<Template> comparator =
@@ -97,13 +97,15 @@ public class TargetEventTemplates {
                     Get the .jfc (XML) file definition for the given target event template.
                     """)
     public String getTargetTemplate(
-            @RestPath long id, @RestPath TemplateType templateType, @RestPath String templateName)
+            @RestPath String jvmId,
+            @RestPath TemplateType templateType,
+            @RestPath String templateName)
             throws Exception {
         if (ALL_EVENTS_TEMPLATE.getName().equals(templateName)
                 && ALL_EVENTS_TEMPLATE.getType().equals(templateType)) {
             throw new BadRequestException();
         }
-        Target target = Target.find("id", id).singleResult();
+        Target target = Target.getTargetByJvmId(jvmId).orElseThrow();
         TemplateService svc;
         switch (templateType) {
             case TARGET:

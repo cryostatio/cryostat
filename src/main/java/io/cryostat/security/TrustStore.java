@@ -33,7 +33,7 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.jboss.logging.Logger;
 
-@Path("/api/v4/tls/certs")
+@Path("/api/v5/tls/certs")
 public class TrustStore {
 
     @ConfigProperty(name = ConfigProperties.SSL_TRUSTSTORE_DIR)

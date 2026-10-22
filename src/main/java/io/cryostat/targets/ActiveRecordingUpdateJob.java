@@ -15,6 +15,8 @@
  */
 package io.cryostat.targets;
 
+import java.util.UUID;
+
 import io.cryostat.recordings.ActiveRecording;
 import io.cryostat.recordings.RecordingHelper;
 
@@ -46,8 +48,8 @@ public class ActiveRecordingUpdateJob implements Job {
     @Override
     @Transactional
     public void execute(JobExecutionContext context) throws JobExecutionException {
-        long recordingId = (long) context.getMergedJobDataMap().get("recordingId");
-        ActiveRecording recording = ActiveRecording.findById(recordingId);
+        String recordingIdStr = (String) context.getMergedJobDataMap().get("recordingId");
+        ActiveRecording recording = ActiveRecording.findById(UUID.fromString(recordingIdStr));
         Target target;
         try {
             target = Target.getTargetById(recording.target.id);

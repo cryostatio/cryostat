@@ -15,8 +15,10 @@
  */
 package io.cryostat.events;
 
+import java.util.UUID;
+
 public interface EntityLifecycleEvent<T> {
-    long getEntityId();
+    UUID getEntityId();
 
     String getCategory();
 
