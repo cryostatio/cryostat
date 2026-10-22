@@ -23,6 +23,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import org.eclipse.microprofile.openapi.annotations.media.Schema;
 import org.jboss.logging.Logger;
 
 /** Describes the current build of the application. Contains information about the VCS commit. */
@@ -33,6 +34,9 @@ public class BuildInfo {
 
     @Inject @JsonIgnore Logger logger;
 
+    // Hidden from the OpenAPI scanner, which would otherwise document this field as a "gitinfo"
+    // property alongside the "git" one below. Jackson only serializes the latter.
+    @Schema(hidden = true)
     private final GitInfo gitinfo = new GitInfo();
 
     @JsonProperty("git")
