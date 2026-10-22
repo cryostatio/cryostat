@@ -84,6 +84,18 @@
       "matchPackageNames": [
         "/^com\\.google\\.protobuf:/"
       ]
+    },
+    {
+      "description": "jfr-analytics is published only via JitPack and does not exist on Maven Central. Looking it up there normally yields a harmless 404, but when Maven Central responds 429 the uncached miss raises an external host error that aborts the entire Renovate run.",
+      "matchManagers": [
+        "maven"
+      ],
+      "matchPackageNames": [
+        "com.github.moditect:jfr-analytics"
+      ],
+      "registryUrls": [
+        "https://jitpack.io"
+      ]
     }
   ]
 }
