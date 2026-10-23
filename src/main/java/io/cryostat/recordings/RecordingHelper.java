@@ -721,12 +721,33 @@ public class RecordingHelper {
                         "connectUrl",
                         lockedTarget.connectUrl.toString()));
 
-        ActiveRecording recording = ActiveRecording.from(lockedTarget, desc, new Metadata(labels));
-        recording.persist();
-
-        lockedTarget.activeRecordings.add(recording);
-        lockedTarget.persist();
-        return recording;
+        try {
+            return connectionManager.executeConnectedTask(
+                    lockedTarget,
+                    connection -> {
+                        ActiveRecording recording =
+                                ActiveRecording.from(lockedTarget, desc, new Metadata(labels));
+                        try {
+                            recording.persist();
+                            lockedTarget.activeRecordings.add(recording);
+                            lockedTarget.persist();
+                        } catch (Exception e) {
+                            // If persisting failed, make sure the recording
+                            // is cleaned up.
+                            safeCloseRecording(connection, desc);
+                            throw e;
+                        }
+                        return recording;
+                    });
+        } catch (Exception e) {
+            // Log with more context about the failure to help diagnose issues
+            logger.warnv(
+                    e,
+                    "Failed to create or persist snapshot recording for target ({1} {2})",
+                    target.jvmId,
+                    target.id);
+            throw e;
+        }
     }
 
     private boolean snapshotIsReadable(Target target, InputStream snapshot) throws IOException {
@@ -1499,7 +1520,7 @@ public class RecordingHelper {
     }
 
     public ArchivedRecording uploadSynthesizedRecording(
-            String jvmId, Path source, String filename, Metadata metadata) throws IOException {
+            String jvmId, Path source, String filename, Metadata metadata) throws Exception {
         Map<String, String> labels = new HashMap<>(metadata.labels());
         labels.put("jvmId", jvmId);
         Metadata resolvedMetadata = new Metadata(labels);
@@ -1531,11 +1552,47 @@ public class RecordingHelper {
                 .completionFuture()
                 .join();
         if (storageMode() == ArchivedRecordingMetadataService.StorageMode.BUCKET) {
-            metadataService.get().create(jvmId, filename, resolvedMetadata);
+            try {
+                metadataService.get().create(jvmId, filename, resolvedMetadata);
+            } catch (Exception e) {
+                logger.warnv(
+                        e,
+                        "Failed to create metadata for recording {1} in target {2}",
+                        filename,
+                        jvmId);
+                try {
+                    deleteUploadedRecording(key);
+                } catch (Exception e2) {
+                    // Preserve and rethrow the original recording if deleting from storage
+                    // also failed
+                    logger.warnv(
+                            e2,
+                            "Failed to delete recording with key {1} from storage {2}",
+                            key,
+                            archiveBucket);
+                    throw e2;
+                }
+            }
         }
 
-        QuarkusTransaction.joiningExisting()
-                .run(() -> ArchivedRecordingInfo.of(jvmId, filename, null).persist());
+        try {
+            QuarkusTransaction.joiningExisting()
+                    .run(() -> ArchivedRecordingInfo.of(jvmId, filename, null).persist());
+        } catch (Exception e) {
+            logger.warnv(e, "Failed to persist recording {1} in target {2}", filename, jvmId);
+            try {
+                deleteUploadedRecording(key);
+            } catch (Exception e2) {
+                // Preserve and rethrow the original recording if deleting from storage
+                // also failed
+                logger.warnv(
+                        e2,
+                        "Failed to delete recording with key {1} from storage {2}",
+                        key,
+                        archiveBucket);
+                throw e2;
+            }
+        }
 
         long size = Files.size(source);
         var target = Target.getTargetByJvmId(jvmId);
@@ -1558,6 +1615,12 @@ public class RecordingHelper {
                 MessagingServer.class.getName(),
                 new Notification(event.category().category(), event.payload()));
         return archivedRecording;
+    }
+
+    void deleteUploadedRecording(String key) throws Exception {
+        DeleteObjectRequest requestBuilder =
+                DeleteObjectRequest.builder().bucket(archiveBucket).key(key).build();
+        storage.deleteObject(requestBuilder);
     }
 
     public ArchivedRecording updateArchivedRecordingMetadata(
