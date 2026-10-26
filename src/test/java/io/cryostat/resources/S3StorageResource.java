@@ -39,7 +39,7 @@ public class S3StorageResource
     protected static final String ACCESS_KEY = "access_key";
     protected static final String SECRET_KEY = "secret_key";
     protected static final List<String> BUCKETS =
-            List.of("cryostat-blob", "cryostat-templates", "cryostat-meta", "cryostat-cache");
+            List.of("cryostat-blob", "cryostat-config", "cryostat-meta", "cryostat-cache");
     protected static final Map<String, String> envMap =
             Map.of(
                     "DATA_DIR",

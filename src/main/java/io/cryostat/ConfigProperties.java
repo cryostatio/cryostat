@@ -74,6 +74,8 @@ public class ConfigProperties {
             STORAGE_BUCKETS_PREFIX + ".event-templates.name";
     public static final String STORAGE_BUCKETS_JMC_PROBE_TEMPLATES_NAME =
             STORAGE_BUCKETS_PREFIX + ".jmc-probe-templates.name";
+    public static final String STORAGE_BUCKETS_CONFIG_NAME =
+            STORAGE_BUCKETS_PREFIX + ".config.name";
     public static final String STORAGE_BUCKETS_METADATA_NAME =
             STORAGE_BUCKETS_PREFIX + ".metadata.name";
     public static final String STORAGE_BUCKETS_ARCHIVED_REPORTS_NAME =

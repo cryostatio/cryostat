@@ -17,7 +17,7 @@ PULL_IMAGES=${PULL_IMAGES:-true}
 KEEP_VOLUMES=${KEEP_VOLUMES:-false}
 OPEN_TABS=${OPEN_TABS:-false}
 
-PRECREATE_BUCKETS=${PRECREATE_BUCKETS:-cryostat-blob,cryostat-templates,cryostat-meta,cryostat-cache}
+PRECREATE_BUCKETS=${PRECREATE_BUCKETS:-cryostat-blob,cryostat-config,cryostat-meta,cryostat-cache}
 
 LOG_LEVEL=0
 CRYOSTAT_HTTP_HOST=${CRYOSTAT_HTTP_HOST:-cryostat}
