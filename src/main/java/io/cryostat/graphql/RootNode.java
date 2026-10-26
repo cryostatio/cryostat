@@ -55,6 +55,9 @@ public class RootNode {
                 .call(
                         () -> {
                             DiscoveryNode node = DiscoveryNode.findById(discoveryNode.id);
+                            if (node == null) {
+                                node = discoveryNode;
+                            }
                             Set<DiscoveryNode> descendants =
                                     recurseChildren(node, n -> n.target != null);
                             // Initialize target field while transaction is active to prevent
