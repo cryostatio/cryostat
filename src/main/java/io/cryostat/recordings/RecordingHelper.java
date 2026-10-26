@@ -1562,15 +1562,16 @@ public class RecordingHelper {
                         jvmId);
                 try {
                     deleteUploadedRecording(key);
+                    throw e;
                 } catch (Exception e2) {
-                    // Preserve and rethrow the original recording if deleting from storage
+                    // Preserve and rethrow the original exception if deleting from storage
                     // also failed
                     logger.warnv(
                             e2,
                             "Failed to delete recording with key {1} from storage {2}",
                             key,
                             archiveBucket);
-                    throw e2;
+                    throw e;
                 }
             }
         }
@@ -1582,15 +1583,16 @@ public class RecordingHelper {
             logger.warnv(e, "Failed to persist recording {1} in target {2}", filename, jvmId);
             try {
                 deleteUploadedRecording(key);
+                throw e;
             } catch (Exception e2) {
-                // Preserve and rethrow the original recording if deleting from storage
+                // Preserve and rethrow the original exception if deleting from storage
                 // also failed
                 logger.warnv(
                         e2,
                         "Failed to delete recording with key {1} from storage {2}",
                         key,
                         archiveBucket);
-                throw e2;
+                throw e;
             }
         }
 
@@ -1621,6 +1623,10 @@ public class RecordingHelper {
         DeleteObjectRequest requestBuilder =
                 DeleteObjectRequest.builder().bucket(archiveBucket).key(key).build();
         storage.deleteObject(requestBuilder);
+    }
+
+    void setStorageMode(String mode) {
+        this.metadataStorageMode = mode;
     }
 
     public ArchivedRecording updateArchivedRecordingMetadata(
