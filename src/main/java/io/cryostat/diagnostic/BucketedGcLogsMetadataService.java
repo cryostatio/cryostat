@@ -22,6 +22,7 @@ import java.util.Optional;
 import io.cryostat.ConfigProperties;
 import io.cryostat.StorageBuckets;
 import io.cryostat.recordings.ActiveRecordings.Metadata;
+import io.cryostat.storage.StorageConfiguration;
 import io.cryostat.util.HttpMimeType;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -57,15 +58,10 @@ class BucketedUnifiedLogsMetadataService implements UnifiedLogsMetadataService {
     @Inject S3Client storage;
     @Inject S3TransferManager transferManager;
     @Inject Logger logger;
+    @Inject StorageConfiguration storageConfig;
 
     @ConfigProperty(name = ConfigProperties.STORAGE_METADATA_UNIFIED_LOGS_STORAGE_MODE)
     String storageMode;
-
-    @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_METADATA)
-    String bucket;
-
-    @ConfigProperty(name = ConfigProperties.AWS_METADATA_PREFIX_UNIFIED_LOGS)
-    String prefix;
 
     // don't use the application-wide instance. That one serializes maps as key-value pair lists for
     // historical API reasons, but for this internal usage we just want the default behaviour.
@@ -75,15 +71,22 @@ class BucketedUnifiedLogsMetadataService implements UnifiedLogsMetadataService {
         if (!METADATA_STORAGE_MODE_BUCKET.equals(storageMode)) {
             return;
         }
+        String bucket =
+                storageConfig
+                        .getMetadataStorageInfo(ConfigProperties.StorageResourceType.UNIFIED_LOGS)
+                        .bucketName();
         storageBuckets.createIfNecessary(bucket);
     }
 
     @Override
     public void create(String storageKey, Metadata metadata) throws JsonProcessingException {
+        var storageInfo =
+                storageConfig.getMetadataStorageInfo(
+                        ConfigProperties.StorageResourceType.UNIFIED_LOGS);
         PutObjectRequest.Builder builder =
                 PutObjectRequest.builder()
-                        .bucket(bucket)
-                        .key(prefix(storageKey))
+                        .bucket(storageInfo.bucketName())
+                        .key(getMetadataKey(storageKey))
                         .contentType(HttpMimeType.JSON.mime());
         transferManager
                 .upload(
@@ -99,8 +102,13 @@ class BucketedUnifiedLogsMetadataService implements UnifiedLogsMetadataService {
 
     @Override
     public Optional<Metadata> read(String storageKey) throws IOException {
+        var storageInfo =
+                storageConfig.getMetadataStorageInfo(
+                        ConfigProperties.StorageResourceType.UNIFIED_LOGS);
         GetObjectRequest.Builder builder =
-                GetObjectRequest.builder().bucket(bucket).key(prefix(storageKey));
+                GetObjectRequest.builder()
+                        .bucket(storageInfo.bucketName())
+                        .key(getMetadataKey(storageKey));
         try {
             var resp = storage.getObject(builder.build());
             if (resp.response().sdkHttpResponse().isSuccessful()) {
@@ -114,12 +122,20 @@ class BucketedUnifiedLogsMetadataService implements UnifiedLogsMetadataService {
 
     @Override
     public void delete(String storageKey) {
+        var storageInfo =
+                storageConfig.getMetadataStorageInfo(
+                        ConfigProperties.StorageResourceType.UNIFIED_LOGS);
         DeleteObjectRequest.Builder builder =
-                DeleteObjectRequest.builder().bucket(bucket).key(prefix(storageKey));
+                DeleteObjectRequest.builder()
+                        .bucket(storageInfo.bucketName())
+                        .key(getMetadataKey(storageKey));
         storage.deleteObject(builder.build());
     }
 
-    private String prefix(String key) {
-        return String.format("%s/%s", prefix, key);
+    private String getMetadataKey(String identifier) {
+        var storageInfo =
+                storageConfig.getMetadataStorageInfo(
+                        ConfigProperties.StorageResourceType.UNIFIED_LOGS);
+        return String.format("%s/%s", storageInfo.directoryName(), identifier);
     }
 }

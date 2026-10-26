@@ -19,10 +19,10 @@ import java.util.Date;
 import java.util.List;
 import java.util.Objects;
 
-import io.cryostat.ConfigProperties;
 import io.cryostat.recordings.ActiveRecording;
 import io.cryostat.recordings.ActiveRecordings.Metadata;
 import io.cryostat.recordings.RecordingHelper;
+import io.cryostat.storage.StorageConfiguration;
 import io.cryostat.targets.Target;
 
 import io.quarkus.narayana.jta.QuarkusTransaction;
@@ -30,7 +30,6 @@ import jakarta.inject.Inject;
 import jakarta.persistence.NoResultException;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.hibernate.ObjectDeletedException;
 import org.jboss.logging.Logger;
 import org.quartz.Job;
@@ -56,10 +55,8 @@ import software.amazon.awssdk.services.s3.model.S3Object;
 class ScheduledArchiveJob implements Job {
 
     @Inject RecordingHelper recordingHelper;
+    @Inject StorageConfiguration storageConfig;
     @Inject Logger logger;
-
-    @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_ARCHIVES)
-    String archiveBucket;
 
     @Override
     public void execute(JobExecutionContext ctx) throws JobExecutionException {

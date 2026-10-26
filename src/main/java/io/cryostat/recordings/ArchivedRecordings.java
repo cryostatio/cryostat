@@ -35,6 +35,7 @@ import io.cryostat.libcryostat.sys.Clock;
 import io.cryostat.recordings.ActiveRecordings.Metadata;
 import io.cryostat.recordings.LongRunningRequestGenerator.GrafanaArchiveUploadRequest;
 import io.cryostat.security.rbac.UserAuthorizer;
+import io.cryostat.storage.StorageConfiguration;
 import io.cryostat.targets.Target;
 import io.cryostat.util.HttpMimeType;
 import io.cryostat.util.ResponseDispatch;
@@ -80,10 +81,8 @@ public class ArchivedRecordings {
     @Inject S3Presigner presigner;
     @Inject RecordingHelper recordingHelper;
     @Inject UserAuthorizer userAuthorizer;
+    @Inject StorageConfiguration storageConfig;
     @Inject Logger logger;
-
-    @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_ARCHIVES)
-    String bucket;
 
     @ConfigProperty(name = ConfigProperties.STORAGE_PRESIGNED_DOWNLOADS_ENABLED)
     boolean presignedDownloadsEnabled;
@@ -411,6 +410,9 @@ public class ArchivedRecordings {
         }
 
         logger.tracev("Handling presigned download request for {0}", pair);
+        String bucket =
+                storageConfig.getBucketName(
+                        ConfigProperties.StorageResourceType.ARCHIVED_RECORDINGS);
         GetObjectRequest getRequest = GetObjectRequest.builder().bucket(bucket).key(key).build();
         GetObjectPresignRequest presignRequest =
                 GetObjectPresignRequest.builder()

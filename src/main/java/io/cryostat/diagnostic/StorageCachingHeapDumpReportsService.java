@@ -23,6 +23,7 @@ import java.util.concurrent.CompletionException;
 
 import io.cryostat.ConfigProperties;
 import io.cryostat.core.diagnostic.HeapDumpAnalysis;
+import io.cryostat.storage.StorageConfiguration;
 import io.cryostat.util.HttpMimeType;
 import io.cryostat.util.HttpStatusCodeIdentifier;
 
@@ -65,15 +66,13 @@ class StorageCachingHeapDumpReportsService implements HeapDumpReportsService {
     @ConfigProperty(name = ConfigProperties.HEAP_DUMP_REPORTS_STORAGE_CACHE_ENABLED)
     boolean enabled;
 
-    @ConfigProperty(name = ConfigProperties.ARCHIVED_HEAP_DUMP_REPORTS_STORAGE_CACHE_NAME)
-    String bucket;
-
     @ConfigProperty(name = ConfigProperties.ARCHIVED_HEAP_DUMP_REPORTS_EXPIRY_DURATION)
     Duration expiry;
 
     @Inject S3Client storage;
     @Inject S3TransferManager transferManager;
     @Inject ObjectMapper mapper;
+    @Inject StorageConfiguration storageConfig;
 
     @Inject @Delegate @Any HeapDumpReportsService delegate;
 
@@ -104,6 +103,12 @@ class StorageCachingHeapDumpReportsService implements HeapDumpReportsService {
         return Uni.createFrom()
                 .item(
                         () -> {
+                            String bucket =
+                                    storageConfig
+                                            .getStorageInfo(
+                                                    ConfigProperties.StorageResourceType
+                                                            .HEAP_DUMP_REPORTS)
+                                            .bucketName();
                             var req =
                                     HeadObjectRequest.builder()
                                             .bucket(bucket)
@@ -123,6 +128,12 @@ class StorageCachingHeapDumpReportsService implements HeapDumpReportsService {
                 .invoke(
                         map -> {
                             try {
+                                String bucket =
+                                        storageConfig
+                                                .getStorageInfo(
+                                                        ConfigProperties.StorageResourceType
+                                                                .HEAP_DUMP_REPORTS)
+                                                .bucketName();
                                 var str = mapper.writeValueAsString(map);
                                 var req =
                                         PutObjectRequest.builder()
@@ -162,6 +173,12 @@ class StorageCachingHeapDumpReportsService implements HeapDumpReportsService {
         return Uni.createFrom()
                 .item(
                         () -> {
+                            String bucket =
+                                    storageConfig
+                                            .getStorageInfo(
+                                                    ConfigProperties.StorageResourceType
+                                                            .HEAP_DUMP_REPORTS)
+                                            .bucketName();
                             var req =
                                     GetObjectRequest.builder()
                                             .bucket(bucket)

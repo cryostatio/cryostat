@@ -28,6 +28,7 @@ import java.util.Optional;
 import io.cryostat.ConfigProperties;
 import io.cryostat.core.diagnostic.HeapDumpAnalysis;
 import io.cryostat.core.diagnostic.HeapDumpReportGenerator;
+import io.cryostat.storage.StorageConfiguration;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.smallrye.mutiny.Uni;
@@ -66,9 +67,6 @@ class HeapDumpReportsServiceImpl implements HeapDumpReportsService {
     @ConfigProperty(name = ConfigProperties.REPORTS_USE_PRESIGNED_TRANSFER)
     boolean usePresignedTransfer;
 
-    @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_HEAP_DUMPS)
-    String archiveBucket;
-
     @ConfigProperty(name = ConfigProperties.STORAGE_EXT_URL)
     Optional<String> externalStorageUrl;
 
@@ -82,6 +80,7 @@ class HeapDumpReportsServiceImpl implements HeapDumpReportsService {
     @Inject DiagnosticsHelper helper;
     @Inject @RestClient HeapDumpReportsSidecarService sidecar;
     @Inject S3Presigner presigner;
+    @Inject StorageConfiguration storageConfig;
     @Inject Logger logger;
     @Inject HeapDumpReportGenerator reportGenerator;
 
@@ -161,6 +160,8 @@ class HeapDumpReportsServiceImpl implements HeapDumpReportsService {
 
     private URI getPresignedPath(String jvmId, String heapDumpId) throws URISyntaxException {
         logger.infov("Handling presigned download request for {0}/{1}", jvmId, heapDumpId);
+        String archiveBucket =
+                storageConfig.getBucketName(ConfigProperties.StorageResourceType.HEAP_DUMPS);
         GetObjectRequest getRequest =
                 GetObjectRequest.builder()
                         .bucket(archiveBucket)

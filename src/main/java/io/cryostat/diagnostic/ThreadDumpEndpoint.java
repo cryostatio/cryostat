@@ -25,6 +25,7 @@ import java.util.Optional;
 
 import io.cryostat.ConfigProperties;
 import io.cryostat.recordings.ActiveRecordings.Metadata;
+import io.cryostat.storage.StorageConfiguration;
 import io.cryostat.targets.TargetConnectionManager;
 import io.cryostat.util.HttpMimeType;
 
@@ -56,9 +57,7 @@ public class ThreadDumpEndpoint {
     @Inject S3Client storage;
     @Inject S3Presigner presigner;
     @Inject Logger log;
-
-    @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_THREAD_DUMPS)
-    String threadDumpsBucket;
+    @Inject StorageConfiguration storageConfig;
 
     @ConfigProperty(name = ConfigProperties.STORAGE_PRESIGNED_DOWNLOADS_ENABLED)
     boolean presignedDownloadsEnabled;
@@ -111,6 +110,8 @@ public class ThreadDumpEndpoint {
         log.tracev("Handling download Request for key: {0}", decodedKey);
         log.tracev("Handling download Request for query: {0}", filename);
         String key = helper.storageKey(decodedKey);
+        String threadDumpsBucket =
+                storageConfig.getBucketName(ConfigProperties.StorageResourceType.THREAD_DUMPS);
         storage.headObject(HeadObjectRequest.builder().bucket(threadDumpsBucket).key(key).build())
                 .sdkHttpResponse();
         String contentName =

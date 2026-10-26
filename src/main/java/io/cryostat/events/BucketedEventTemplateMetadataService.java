@@ -27,6 +27,7 @@ import io.cryostat.StorageBuckets;
 import io.cryostat.libcryostat.templates.Template;
 import io.cryostat.libcryostat.templates.TemplateType;
 import io.cryostat.recordings.ArchivedRecordingMetadataService;
+import io.cryostat.storage.StorageConfiguration;
 import io.cryostat.util.CRUDService;
 import io.cryostat.util.HttpMimeType;
 
@@ -58,15 +59,10 @@ class BucketedEventTemplateMetadataService implements CRUDService<String, Templa
     @ConfigProperty(name = ConfigProperties.STORAGE_METADATA_EVENT_TEMPLATES_STORAGE_MODE)
     String storageMode;
 
-    @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_METADATA)
-    String bucket;
-
-    @ConfigProperty(name = ConfigProperties.AWS_METADATA_PREFIX_EVENT_TEMPLATES)
-    String prefix;
-
     @Inject S3Client storage;
     @Inject S3TransferManager transferManager;
     @Inject StorageBuckets buckets;
+    @Inject StorageConfiguration storageConfig;
 
     @Inject
     @Identifier(Producers.BASE64_URL)
@@ -80,12 +76,23 @@ class BucketedEventTemplateMetadataService implements CRUDService<String, Templa
         if (!ArchivedRecordingMetadataService.METADATA_STORAGE_MODE_BUCKET.equals(storageMode)) {
             return;
         }
+        String bucket =
+                storageConfig
+                        .getMetadataStorageInfo(
+                                ConfigProperties.StorageResourceType.EVENT_TEMPLATES)
+                        .bucketName();
         buckets.createIfNecessary(bucket);
     }
 
     @Override
     public List<Template> list() throws IOException {
-        var builder = ListObjectsV2Request.builder().bucket(bucket).prefix(prefix);
+        var storageInfo =
+                storageConfig.getMetadataStorageInfo(
+                        ConfigProperties.StorageResourceType.EVENT_TEMPLATES);
+        var builder =
+                ListObjectsV2Request.builder()
+                        .bucket(storageInfo.bucketName())
+                        .prefix(storageInfo.directoryName());
         var objs = storage.listObjectsV2(builder.build()).contents();
         return objs.stream()
                 .map(
@@ -107,10 +114,13 @@ class BucketedEventTemplateMetadataService implements CRUDService<String, Templa
 
     @Override
     public void create(String k, Template template) throws IOException {
+        var storageInfo =
+                storageConfig.getMetadataStorageInfo(
+                        ConfigProperties.StorageResourceType.EVENT_TEMPLATES);
         var builder =
                 PutObjectRequest.builder()
-                        .bucket(bucket)
-                        .key(prefix(k))
+                        .bucket(storageInfo.bucketName())
+                        .key(getMetadataKey(k))
                         .contentType(HttpMimeType.JFC.mime());
         transferManager
                 .upload(
@@ -127,12 +137,15 @@ class BucketedEventTemplateMetadataService implements CRUDService<String, Templa
 
     @Override
     public Optional<Template> read(String k) throws IOException {
+        var storageInfo =
+                storageConfig.getMetadataStorageInfo(
+                        ConfigProperties.StorageResourceType.EVENT_TEMPLATES);
         try (var stream =
                 new BufferedInputStream(
                         storage.getObject(
                                 GetObjectRequest.builder()
-                                        .bucket(bucket)
-                                        .key(prefix(k))
+                                        .bucket(storageInfo.bucketName())
+                                        .key(getMetadataKey(k))
                                         .build()))) {
             return Optional.of(mapper.readValue(stream, TemplateMeta.class))
                     .map(TemplateMeta::asTemplate);
@@ -141,11 +154,21 @@ class BucketedEventTemplateMetadataService implements CRUDService<String, Templa
 
     @Override
     public void delete(String k) throws IOException {
-        storage.deleteObject(DeleteObjectRequest.builder().bucket(bucket).key(prefix(k)).build());
+        var storageInfo =
+                storageConfig.getMetadataStorageInfo(
+                        ConfigProperties.StorageResourceType.EVENT_TEMPLATES);
+        storage.deleteObject(
+                DeleteObjectRequest.builder()
+                        .bucket(storageInfo.bucketName())
+                        .key(getMetadataKey(k))
+                        .build());
     }
 
-    private String prefix(String key) {
-        return String.format("%s/%s", prefix, key);
+    private String getMetadataKey(String identifier) {
+        var storageInfo =
+                storageConfig.getMetadataStorageInfo(
+                        ConfigProperties.StorageResourceType.EVENT_TEMPLATES);
+        return String.format("%s/%s", storageInfo.directoryName(), identifier);
     }
 
     // just a thin serialization adapter. Jackson ObjectMapper complains about not being able to

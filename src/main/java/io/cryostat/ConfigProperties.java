@@ -17,6 +17,33 @@ package io.cryostat;
 
 /** Java constants corresponding to configuration keys set in application.properties. */
 public class ConfigProperties {
+    public enum StorageResourceType {
+        ARCHIVED_RECORDINGS("archived-recordings"),
+        HEAP_DUMPS("heap-dumps"),
+        THREAD_DUMPS("thread-dumps"),
+        UNIFIED_LOGS("unified-logs"),
+        ASYNC_PROFILER("async-profiler"),
+        EVENT_TEMPLATES("event-templates"),
+        JMC_PROBE_TEMPLATES("jmc-probe-templates"),
+        ARCHIVED_REPORTS("archived-reports"),
+        HEAP_DUMP_REPORTS("heap-dump-reports");
+
+        private final String id;
+
+        StorageResourceType(String id) {
+            this.id = id;
+        }
+
+        public String id() {
+            return id;
+        }
+    }
+
+    // Storage configuration prefixes
+    public static final String STORAGE_BUCKETS_PREFIX = "storage.buckets";
+    public static final String STORAGE_DIRECTORIES_PREFIX = "storage.directories";
+    public static final String STORAGE_DIRECTORIES_METADATA_PREFIX = "storage.directories.metadata";
+
     public static final String EXTERNAL_RECORDINGS_DELAY = "cryostat.external-recordings.delay";
     public static final String EXTERNAL_RECORDINGS_ARCHIVE = "cryostat.external-recordings.archive";
     public static final String EXTERNAL_RECORDINGS_AUTOANALYZE =
@@ -33,25 +60,59 @@ public class ConfigProperties {
             "storage.metadata.thread-dumps.storage-mode";
     public static final String STORAGE_METADATA_UNIFIED_LOGS_STORAGE_MODE =
             "storage.metadata.unified-logs.storage-mode";
-    public static final String AWS_BUCKET_NAME_ARCHIVES = "storage.buckets.archives.name";
-    public static final String AWS_BUCKET_NAME_METADATA = "storage.buckets.metadata.name";
-    public static final String AWS_BUCKET_NAME_EVENT_TEMPLATES =
-            "storage.buckets.event-templates.name";
-    public static final String AWS_BUCKET_NAME_PROBE_TEMPLATES =
-            "storage.buckets.probe-templates.name";
-    public static final String AWS_BUCKET_NAME_HEAP_DUMPS = "storage.buckets.heap-dumps.name";
-    public static final String AWS_BUCKET_NAME_THREAD_DUMPS = "storage.buckets.thread-dumps.name";
-    public static final String AWS_BUCKET_NAME_UNIFIED_LOGS = "storage.buckets.unified-logs.name";
-    public static final String AWS_METADATA_PREFIX_THREAD_DUMPS =
-            "storage.metadata.prefix.thread-dumps";
-    public static final String AWS_METADATA_PREFIX_HEAP_DUMPS =
-            "storage.metadata.prefix.heap-dumps";
-    public static final String AWS_METADATA_PREFIX_RECORDINGS =
-            "storage.metadata.prefix.recordings";
-    public static final String AWS_METADATA_PREFIX_EVENT_TEMPLATES =
-            "storage.metadata.prefix.event-templates";
-    public static final String AWS_METADATA_PREFIX_UNIFIED_LOGS =
-            "storage.metadata.prefix.unified-logs";
+    public static final String STORAGE_BUCKETS_ARCHIVED_RECORDINGS_NAME =
+            STORAGE_BUCKETS_PREFIX + ".archived-recordings.name";
+    public static final String STORAGE_BUCKETS_HEAP_DUMPS_NAME =
+            STORAGE_BUCKETS_PREFIX + ".heap-dumps.name";
+    public static final String STORAGE_BUCKETS_THREAD_DUMPS_NAME =
+            STORAGE_BUCKETS_PREFIX + ".thread-dumps.name";
+    public static final String STORAGE_BUCKETS_UNIFIED_LOGS_NAME =
+            STORAGE_BUCKETS_PREFIX + ".unified-logs.name";
+    public static final String STORAGE_BUCKETS_ASYNC_PROFILER_NAME =
+            STORAGE_BUCKETS_PREFIX + ".async-profiler.name";
+    public static final String STORAGE_BUCKETS_EVENT_TEMPLATES_NAME =
+            STORAGE_BUCKETS_PREFIX + ".event-templates.name";
+    public static final String STORAGE_BUCKETS_JMC_PROBE_TEMPLATES_NAME =
+            STORAGE_BUCKETS_PREFIX + ".jmc-probe-templates.name";
+    public static final String STORAGE_BUCKETS_METADATA_NAME =
+            STORAGE_BUCKETS_PREFIX + ".metadata.name";
+    public static final String STORAGE_BUCKETS_ARCHIVED_REPORTS_NAME =
+            STORAGE_BUCKETS_PREFIX + ".archived-reports.name";
+    public static final String STORAGE_BUCKETS_HEAP_DUMP_REPORTS_NAME =
+            STORAGE_BUCKETS_PREFIX + ".heap-dump-reports.name";
+
+    public static final String STORAGE_DIRECTORIES_ARCHIVED_RECORDINGS_NAME =
+            STORAGE_DIRECTORIES_PREFIX + ".archived-recordings.name";
+    public static final String STORAGE_DIRECTORIES_HEAP_DUMPS_NAME =
+            STORAGE_DIRECTORIES_PREFIX + ".heap-dumps.name";
+    public static final String STORAGE_DIRECTORIES_THREAD_DUMPS_NAME =
+            STORAGE_DIRECTORIES_PREFIX + ".thread-dumps.name";
+    public static final String STORAGE_DIRECTORIES_UNIFIED_LOGS_NAME =
+            STORAGE_DIRECTORIES_PREFIX + ".unified-logs.name";
+    public static final String STORAGE_DIRECTORIES_ASYNC_PROFILER_NAME =
+            STORAGE_DIRECTORIES_PREFIX + ".async-profiler.name";
+    public static final String STORAGE_DIRECTORIES_EVENT_TEMPLATES_NAME =
+            STORAGE_DIRECTORIES_PREFIX + ".event-templates.name";
+    public static final String STORAGE_DIRECTORIES_JMC_PROBE_TEMPLATES_NAME =
+            STORAGE_DIRECTORIES_PREFIX + ".jmc-probe-templates.name";
+
+    public static final String STORAGE_DIRECTORIES_METADATA_ARCHIVED_RECORDINGS_NAME =
+            STORAGE_DIRECTORIES_METADATA_PREFIX + ".archived-recordings.name";
+    public static final String STORAGE_DIRECTORIES_METADATA_HEAP_DUMPS_NAME =
+            STORAGE_DIRECTORIES_METADATA_PREFIX + ".heap-dumps.name";
+    public static final String STORAGE_DIRECTORIES_METADATA_THREAD_DUMPS_NAME =
+            STORAGE_DIRECTORIES_METADATA_PREFIX + ".thread-dumps.name";
+    public static final String STORAGE_DIRECTORIES_METADATA_UNIFIED_LOGS_NAME =
+            STORAGE_DIRECTORIES_METADATA_PREFIX + ".unified-logs.name";
+    public static final String STORAGE_DIRECTORIES_METADATA_EVENT_TEMPLATES_NAME =
+            STORAGE_DIRECTORIES_METADATA_PREFIX + ".event-templates.name";
+    public static final String STORAGE_DIRECTORIES_METADATA_JMC_PROBE_TEMPLATES_NAME =
+            STORAGE_DIRECTORIES_METADATA_PREFIX + ".jmc-probe-templates.name";
+
+    public static final String STORAGE_DIRECTORIES_ARCHIVED_REPORTS_NAME =
+            STORAGE_DIRECTORIES_PREFIX + ".archived-reports.name";
+    public static final String STORAGE_DIRECTORIES_HEAP_DUMP_REPORTS_NAME =
+            STORAGE_DIRECTORIES_PREFIX + ".heap-dump-reports.name";
 
     public static final String DISCOVERY_IPV6_ENABLED = "cryostat.discovery.ipv6-enabled";
     public static final String DISCOVERY_IPV4_DNS_TRANSFORM_ENABLED =

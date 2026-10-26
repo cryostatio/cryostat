@@ -127,7 +127,7 @@ public class UnifiedLogsTest extends AuditTestBase {
                 .all()
                 .when()
                 .pathParam("jvmId", selfJvmId)
-                .get("/api/v5/targets/{jvmId}/unified-logging")
+                .get("/api/v5/targets/{jvmId}/diagnostics/unified-logging")
                 .then()
                 .log()
                 .all()

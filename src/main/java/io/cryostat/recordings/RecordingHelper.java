@@ -74,6 +74,7 @@ import io.cryostat.recordings.ArchivedRecordings.ArchivedRecording;
 import io.cryostat.recordings.RecordingNotifications.ArchivedRecordingNotification;
 import io.cryostat.recordings.events.ActiveRecordingEvents;
 import io.cryostat.reports.AnalysisReportAggregator;
+import io.cryostat.storage.StorageConfiguration;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.TargetConnectionManager;
 import io.cryostat.util.EntityExistsException;
@@ -191,6 +192,7 @@ public class RecordingHelper {
     @Inject Instance<ArchivedRecordingMetadataService> metadataService;
     @Inject Scheduler scheduler;
     @Inject S3Presigner presigner;
+    @Inject StorageConfiguration storageConfig;
 
     @Inject
     @Identifier(Producers.BASE64_URL)
@@ -202,9 +204,6 @@ public class RecordingHelper {
 
     @ConfigProperty(name = ConfigProperties.STORAGE_METADATA_ARCHIVES_STORAGE_MODE)
     String metadataStorageMode;
-
-    @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_ARCHIVES)
-    String archiveBucket;
 
     @ConfigProperty(name = ConfigProperties.CONNECTIONS_FAILED_TIMEOUT)
     Duration connectionFailedTimeout;
@@ -227,6 +226,9 @@ public class RecordingHelper {
     CompletableFuture<URL> grafanaDatasourceURL = new CompletableFuture<>();
 
     void onStart(@Observes StartupEvent evt) {
+        String archiveBucket =
+                storageConfig.getBucketName(
+                        ConfigProperties.StorageResourceType.ARCHIVED_RECORDINGS);
         buckets.createIfNecessary(archiveBucket);
 
         if (grafanaDatasourceURLProperty.isEmpty()) {
@@ -985,6 +987,9 @@ public class RecordingHelper {
     }
 
     public List<S3Object> listArchivedRecordingObjects(String jvmId) {
+        String archiveBucket =
+                storageConfig.getBucketName(
+                        ConfigProperties.StorageResourceType.ARCHIVED_RECORDINGS);
         var builder = ListObjectsV2Request.builder().bucket(archiveBucket);
         if (StringUtils.isNotBlank(jvmId)) {
             builder = builder.prefix(jvmId);
@@ -1031,6 +1036,9 @@ public class RecordingHelper {
                 String.format("%s_%s_%s.jfr", transformedAlias, recording.name, timestamp);
         String key = archivedRecordingKey(recording.target.jvmId, filename);
         try (var stream = getActiveInputStream(recording, uploadFailedTimeout)) {
+            String archiveBucket =
+                    storageConfig.getBucketName(
+                            ConfigProperties.StorageResourceType.ARCHIVED_RECORDINGS);
             PutObjectRequest.Builder builder =
                     PutObjectRequest.builder()
                             .bucket(archiveBucket)
@@ -1122,6 +1130,9 @@ public class RecordingHelper {
 
     public Optional<Metadata> getArchivedRecordingMetadata(String storageKey) {
         try {
+            String archiveBucket =
+                    storageConfig.getBucketName(
+                            ConfigProperties.StorageResourceType.ARCHIVED_RECORDINGS);
             switch (storageMode()) {
                 case TAGGING:
                     return Optional.of(
@@ -1212,6 +1223,9 @@ public class RecordingHelper {
 
     public InputStream getArchivedRecordingStream(String encodedKey) {
         String key = new String(base64Url.decode(encodedKey), StandardCharsets.UTF_8);
+        String archiveBucket =
+                storageConfig.getBucketName(
+                        ConfigProperties.StorageResourceType.ARCHIVED_RECORDINGS);
 
         GetObjectRequest getRequest =
                 GetObjectRequest.builder().bucket(archiveBucket).key(key).build();
@@ -1248,6 +1262,9 @@ public class RecordingHelper {
 
     public HeadObjectResponse assertArchivedRecordingExists(String jvmId, String filename) {
         var key = archivedRecordingKey(jvmId, filename);
+        String archiveBucket =
+                storageConfig.getBucketName(
+                        ConfigProperties.StorageResourceType.ARCHIVED_RECORDINGS);
         var resp =
                 storage.headObject(
                         HeadObjectRequest.builder().bucket(archiveBucket).key(key).build());
@@ -1266,6 +1283,9 @@ public class RecordingHelper {
         var target = Target.getTargetByJvmId(jvmId);
 
         var key = archivedRecordingKey(jvmId, filename);
+        String archiveBucket =
+                storageConfig.getBucketName(
+                        ConfigProperties.StorageResourceType.ARCHIVED_RECORDINGS);
 
         var resp =
                 storage.deleteObject(
@@ -1430,6 +1450,9 @@ public class RecordingHelper {
                             .orElse(null);
             Metadata resolvedMetadata = new Metadata(labels);
             String key = archivedRecordingKey(jvmId, filename);
+            String archiveBucket =
+                    storageConfig.getBucketName(
+                            ConfigProperties.StorageResourceType.ARCHIVED_RECORDINGS);
             Builder requestBuilder =
                     PutObjectRequest.builder()
                             .bucket(archiveBucket)
@@ -1505,6 +1528,9 @@ public class RecordingHelper {
         labels.put("jvmId", jvmId);
         Metadata resolvedMetadata = new Metadata(labels);
         String key = archivedRecordingKey(jvmId, filename);
+        String archiveBucket =
+                storageConfig.getBucketName(
+                        ConfigProperties.StorageResourceType.ARCHIVED_RECORDINGS);
         Builder requestBuilder =
                 PutObjectRequest.builder()
                         .bucket(archiveBucket)
@@ -1572,6 +1598,9 @@ public class RecordingHelper {
         }
 
         Metadata updatedMetadata = new Metadata(updatedLabels);
+        String archiveBucket =
+                storageConfig.getBucketName(
+                        ConfigProperties.StorageResourceType.ARCHIVED_RECORDINGS);
 
         switch (storageMode()) {
             case TAGGING:
@@ -1650,6 +1679,9 @@ public class RecordingHelper {
         if (usePresignedTransfer) {
             return uploadPresignedToJFRDatasource(key.getKey(), key.getValue());
         } else {
+            String archiveBucket =
+                    storageConfig.getBucketName(
+                            ConfigProperties.StorageResourceType.ARCHIVED_RECORDINGS);
             GetObjectRequest getRequest =
                     GetObjectRequest.builder()
                             .bucket(archiveBucket)
@@ -1688,6 +1720,9 @@ public class RecordingHelper {
 
     private URI getPresignedPath(String jvmId, String filename) throws URISyntaxException {
         logger.infov("Handling presigned download request for {0}/{1}", jvmId, filename);
+        String archiveBucket =
+                storageConfig.getBucketName(
+                        ConfigProperties.StorageResourceType.ARCHIVED_RECORDINGS);
         GetObjectRequest getRequest =
                 GetObjectRequest.builder()
                         .bucket(archiveBucket)
