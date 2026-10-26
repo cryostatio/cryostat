@@ -70,6 +70,7 @@ import org.eclipse.microprofile.graphql.Ignore;
 import org.eclipse.microprofile.graphql.NonNull;
 import org.eclipse.microprofile.graphql.Query;
 import org.eclipse.microprofile.graphql.Source;
+import org.hibernate.Hibernate;
 import org.hibernate.envers.AuditReader;
 import org.hibernate.envers.AuditReaderFactory;
 import org.hibernate.envers.query.AuditEntity;
@@ -112,14 +113,25 @@ public class TargetNodes {
                                 targets = Target.<Target>findAll().stream().toList();
                             }
 
-                            return targets.stream()
-                                    // FIXME filtering by distinct JVM ID breaks clients that expect
-                                    // to be able to use a different connection URL (in the node
-                                    // filter or for client-side filtering) than the one we end up
-                                    // selecting for here.
-                                    // .filter(distinctWith(t -> t.jvmId))
-                                    .map(t -> t.discoveryNode)
-                                    .filter(Objects::nonNull)
+                            var nodes =
+                                    targets.stream()
+                                            // FIXME filtering by distinct JVM ID breaks clients
+                                            // that expect to be able to use a different connection
+                                            // URL (in the node filter or for client-side filtering)
+                                            // than the one we end up selecting for here.
+                                            // .filter(distinctWith(t -> t.jvmId))
+                                            .map(t -> t.discoveryNode)
+                                            .filter(Objects::nonNull)
+                                            .toList();
+                            // Initialize target field while transaction is active to prevent
+                            // LazyInitializationException when GraphQL field resolvers access it
+                            nodes.forEach(
+                                    n -> {
+                                        if (n.target != null) {
+                                            Hibernate.initialize(n.target);
+                                        }
+                                    });
+                            return nodes.stream()
                                     .filter(n -> filter == null ? true : filter.test(n))
                                     .toList();
                         });
@@ -296,8 +308,7 @@ public class TargetNodes {
                                             + " NULL")
                             .getResultList();
 
-            // For each jvmId, get the most recent Target and manually reconstruct its
-            // DiscoveryNode
+            // For each jvmId, get the most recent Target and manually reconstruct its DiscoveryNode
             List<Target> historicalTargets = new ArrayList<>();
             for (String jvmId : jvmIds) {
                 if (StringUtils.isNotBlank(jvmId)) {

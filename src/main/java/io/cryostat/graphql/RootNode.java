@@ -30,6 +30,7 @@ import org.eclipse.microprofile.graphql.Description;
 import org.eclipse.microprofile.graphql.GraphQLApi;
 import org.eclipse.microprofile.graphql.Query;
 import org.eclipse.microprofile.graphql.Source;
+import org.hibernate.Hibernate;
 
 @GraphQLApi
 public class RootNode {
@@ -54,7 +55,17 @@ public class RootNode {
                 .call(
                         () -> {
                             DiscoveryNode node = DiscoveryNode.findById(discoveryNode.id);
-                            return recurseChildren(node, n -> n.target != null).stream()
+                            Set<DiscoveryNode> descendants =
+                                    recurseChildren(node, n -> n.target != null);
+                            // Initialize target field while transaction is active to prevent
+                            // LazyInitializationException when GraphQL field resolvers access it
+                            descendants.forEach(
+                                    n -> {
+                                        if (n.target != null) {
+                                            Hibernate.initialize(n.target);
+                                        }
+                                    });
+                            return descendants.stream()
                                     .filter(n -> filter == null ? true : filter.test(n))
                                     .toList();
                         });
