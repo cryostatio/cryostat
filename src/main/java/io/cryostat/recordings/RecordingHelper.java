@@ -1619,7 +1619,7 @@ public class RecordingHelper {
         return archivedRecording;
     }
 
-    void deleteUploadedRecording(String key) throws Exception {
+    private void deleteUploadedRecording(String key) throws Exception {
         DeleteObjectRequest requestBuilder =
                 DeleteObjectRequest.builder().bucket(archiveBucket).key(key).build();
         storage.deleteObject(requestBuilder);
