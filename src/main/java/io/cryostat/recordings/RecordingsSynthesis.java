@@ -37,6 +37,7 @@ import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.DefaultValue;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
+import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import org.apache.commons.lang3.StringUtils;
@@ -63,7 +64,7 @@ public class RecordingsSynthesis {
             inclusive = true)
     @Path("/api/beta/recording_synthesis/{jvmId}")
     public Response synthesize(
-            HttpServerResponse response,
+            @Context HttpServerResponse response,
             @RestPath String jvmId,
             @RestQuery @Parameter(required = true) @DefaultValue("-1") long fromTimestamp,
             @RestQuery @Parameter(required = true) @DefaultValue("-1") long toTimestamp,

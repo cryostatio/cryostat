@@ -27,6 +27,7 @@ import java.util.function.Predicate;
 
 import io.cryostat.discovery.NodeType.BaseNodeType;
 import io.cryostat.targets.Target;
+import io.cryostat.util.KeyValue;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
@@ -59,6 +60,8 @@ import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import org.eclipse.microprofile.openapi.annotations.enums.SchemaType;
+import org.eclipse.microprofile.openapi.annotations.media.Schema;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.envers.Audited;
 import org.hibernate.envers.NotAudited;
@@ -106,6 +109,7 @@ public class DiscoveryNode extends PanacheEntity {
     @JdbcTypeCode(SqlTypes.JSON)
     @NotNull
     @JsonView(Views.Flat.class)
+    @Schema(type = SchemaType.ARRAY, implementation = KeyValue.class)
     public Map<String, String> labels = new HashMap<>();
 
     @OneToMany(fetch = FetchType.LAZY, orphanRemoval = true, mappedBy = "parent")

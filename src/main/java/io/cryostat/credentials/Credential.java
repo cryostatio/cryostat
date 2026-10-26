@@ -37,6 +37,7 @@ import jakarta.persistence.OneToOne;
 import jakarta.persistence.PostPersist;
 import jakarta.persistence.PostRemove;
 import jakarta.persistence.PostUpdate;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import org.hibernate.annotations.Cache;
@@ -72,6 +73,7 @@ public class Credential extends PanacheEntity {
     @OneToOne(fetch = FetchType.EAGER, cascade = CascadeType.ALL)
     @JoinColumn(name = "matchExpression")
     @NotNull
+    @Valid
     @Cache(usage = CacheConcurrencyStrategy.READ_ONLY)
     public MatchExpression matchExpression;
 

@@ -48,6 +48,7 @@ import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
+import jakarta.validation.constraints.NotNull;
 import jakarta.ws.rs.DefaultValue;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.NotFoundException;
@@ -55,6 +56,7 @@ import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.UriBuilder;
@@ -116,7 +118,7 @@ public class Reports {
     // or a job ID String along with setting different Status codes.
     // TODO: Is there a cleaner way to accomplish this?
     public Response get(
-            HttpServerResponse response,
+            @Context HttpServerResponse response,
             @RestPath String encodedKey,
             @QueryParam("filter") @DefaultValue("") String filter) {
         var pair = helper.decodedKey(encodedKey);
@@ -182,7 +184,7 @@ public class Reports {
                     be retrieved, which may require the client to wait for a Job UUID notification.
                     """)
     public Response analyze(
-            HttpServerResponse resp,
+            @Context HttpServerResponse response,
             @RestPath long targetId,
             @QueryParam("clean") @DefaultValue("true") boolean clean) {
         if (clean) {
@@ -190,7 +192,7 @@ public class Reports {
         }
         var target = Target.getTargetById(targetId);
         var jobId = UUID.randomUUID().toString();
-        resp.bodyEndHandler(
+        response.bodyEndHandler(
                 (v) -> {
                     helper.createSnapshot(
                                     target,
@@ -268,7 +270,7 @@ public class Reports {
     // or a job ID String along with setting different Status codes.
     // TODO: Is there a cleaner way to accomplish this?
     public Response getActive(
-            HttpServerResponse response,
+            @Context HttpServerResponse response,
             @RestPath long targetId,
             @RestPath long recordingId,
             @QueryParam("filter") @DefaultValue("") String filter)
@@ -313,7 +315,10 @@ public class Reports {
     }
 
     private record ReportRule(
-            String id, String name, String topic, Map<String, EventAvailability> requiredEvents) {
+            @NotNull String id,
+            @NotNull String name,
+            @NotNull String topic,
+            @NotNull Map<String, EventAvailability> requiredEvents) {
         ReportRule {
             Objects.requireNonNull(id);
             Objects.requireNonNull(name);
