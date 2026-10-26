@@ -35,6 +35,7 @@ import io.cryostat.recordings.RecordingHelper.RecordingOptions;
 import io.cryostat.recordings.RecordingHelper.RecordingReplace;
 import io.cryostat.security.rbac.UserAuthorizer;
 import io.cryostat.targets.Target;
+import io.cryostat.util.KeyValue;
 import io.cryostat.util.ResponseDispatch;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -45,6 +46,7 @@ import io.vertx.core.http.HttpServerResponse;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
+import jakarta.validation.constraints.NotNull;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
@@ -54,11 +56,12 @@ import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.UriInfo;
-import jdk.jfr.RecordingState;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.openapi.annotations.Operation;
+import org.eclipse.microprofile.openapi.annotations.enums.SchemaType;
+import org.eclipse.microprofile.openapi.annotations.media.Schema;
 import org.eclipse.microprofile.openapi.annotations.parameters.Parameter;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestForm;
@@ -142,7 +145,7 @@ public class ActiveRecordings {
                     sending the request body "save". The body is case-insensitive.
                     """)
     public String patch(
-            HttpServerResponse response,
+            @Context HttpServerResponse response,
             @RestPath long targetId,
             @RestPath long remoteId,
             String body)
@@ -307,7 +310,7 @@ public class ActiveRecordings {
                     in the associated Grafana dashboard.
                     """)
     public String uploadToGrafana(
-            HttpServerResponse response, @RestPath long targetId, @RestPath long remoteId)
+            @Context HttpServerResponse response, @RestPath long targetId, @RestPath long remoteId)
             throws Exception {
         // Send an intermediate response back to the client while another thread handles the upload
         // request
@@ -329,20 +332,20 @@ public class ActiveRecordings {
     }
 
     public record LinkedRecordingDescriptor(
-            long id,
-            long remoteId,
-            RecordingState state,
-            long duration,
-            long startTime,
-            boolean archiveOnStop,
-            boolean continuous,
-            boolean toDisk,
-            long maxSize,
-            long maxAge,
-            String name,
-            String downloadUrl,
-            String reportUrl,
-            Metadata metadata) {
+            @Schema(required = true) long id,
+            @Schema(required = true) long remoteId,
+            @NotNull RecordingState state,
+            @Schema(required = true) long duration,
+            @Schema(required = true) long startTime,
+            @Schema(required = true) boolean archiveOnStop,
+            @Schema(required = true) boolean continuous,
+            @Schema(required = true) boolean toDisk,
+            @Schema(required = true) long maxSize,
+            @Schema(required = true) long maxAge,
+            @NotNull String name,
+            @NotNull String downloadUrl,
+            @NotNull String reportUrl,
+            @NotNull Metadata metadata) {
         public LinkedRecordingDescriptor {
             Objects.requireNonNull(state);
             Objects.requireNonNull(name);
@@ -353,7 +356,10 @@ public class ActiveRecordings {
     }
 
     @SuppressFBWarnings("EI_EXPOSE_REP")
-    public record Metadata(Map<String, String> labels) implements Serializable {
+    public record Metadata(
+            @NotNull @Schema(type = SchemaType.ARRAY, implementation = KeyValue.class)
+                    Map<String, String> labels)
+            implements Serializable {
 
         private static final long serialVersionUID = 1L;
 

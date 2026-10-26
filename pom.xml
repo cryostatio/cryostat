@@ -60,14 +60,14 @@
     <org.apache.ivy.version>2.6.0</org.apache.ivy.version>
 
     <com.github.spotbugs.version>4.10.5</com.github.spotbugs.version>
-    <com.github.spotbugs.plugin.version>4.10.4.1</com.github.spotbugs.plugin.version>
+    <com.github.spotbugs.plugin.version>4.10.5.0</com.github.spotbugs.plugin.version>
     <com.diffplug.spotless.maven.plugin.version>3.10.4</com.diffplug.spotless.maven.plugin.version>
     <com.google.java-format.version>1.35.0</com.google.java-format.version>
     <com.mycila.license.maven.plugin.version>5.1.2</com.mycila.license.maven.plugin.version>
-    <surefire-plugin.version>3.6.0</surefire-plugin.version>
+    <surefire-plugin.version>3.6.1</surefire-plugin.version>
     <surefire.rerunFailingTestsCount>2</surefire.rerunFailingTestsCount>
     <skip.surefire.tests>${skipTests}</skip.surefire.tests>
-    <failsafe-plugin.version>3.6.0</failsafe-plugin.version>
+    <failsafe-plugin.version>3.6.1</failsafe-plugin.version>
     <failsafe.rerunFailingTestsCount>${surefire.rerunFailingTestsCount}</failsafe.rerunFailingTestsCount>
   </properties>
   <dependencyManagement>
