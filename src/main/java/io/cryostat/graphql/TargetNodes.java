@@ -53,6 +53,7 @@ import io.cryostat.targets.TargetConnectionManager;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import graphql.schema.DataFetchingEnvironment;
+import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.smallrye.graphql.api.Context;
 import io.smallrye.graphql.api.Nullable;
 import io.smallrye.mutiny.Uni;
@@ -97,25 +98,31 @@ public class TargetNodes {
                             "Query historical targets from audit log. This is more expensive and"
                                     + " should only be used when historical data is needed.")
                     boolean useAuditLog) {
-        List<Target> targets;
-        if (useAuditLog) {
-            targets = queryAuditLogTargets();
-        } else {
-            // TODO do this filtering at the database query level as much as possible. As is, this
-            // will load the entire discovery tree out of the database, then perform the filtering
-            // at the application level.
-            targets = Target.<Target>findAll().stream().toList();
-        }
+        return QuarkusTransaction.requiringNew()
+                .call(
+                        () -> {
+                            List<Target> targets;
+                            if (useAuditLog) {
+                                targets = queryAuditLogTargets();
+                            } else {
+                                // TODO do this filtering at the database query level as much as
+                                // possible. As is, this will load the entire discovery tree out of
+                                // the database, then perform the filtering at the application
+                                // level.
+                                targets = Target.<Target>findAll().stream().toList();
+                            }
 
-        return targets.stream()
-                // FIXME filtering by distinct JVM ID breaks clients that expect to be able to use a
-                // different connection URL (in the node filter or for client-side filtering) than
-                // the one we end up selecting for here.
-                // .filter(distinctWith(t -> t.jvmId))
-                .map(t -> t.discoveryNode)
-                .filter(Objects::nonNull)
-                .filter(n -> filter == null ? true : filter.test(n))
-                .toList();
+                            return targets.stream()
+                                    // FIXME filtering by distinct JVM ID breaks clients that expect
+                                    // to be able to use a different connection URL (in the node
+                                    // filter or for client-side filtering) than the one we end up
+                                    // selecting for here.
+                                    // .filter(distinctWith(t -> t.jvmId))
+                                    .map(t -> t.discoveryNode)
+                                    .filter(Objects::nonNull)
+                                    .filter(n -> filter == null ? true : filter.test(n))
+                                    .toList();
+                        });
     }
 
     @Transactional
