@@ -489,12 +489,13 @@ public class RecordingHelper {
 
         if (!filteredAsprofEvents.isEmpty()) {
             boolean willReplace =
-                    replace == RecordingReplace.ALWAYS
-                            || (replace == RecordingReplace.STOPPED
-                                    && getActiveRecording(
-                                                    lockedTarget, r -> r.name.equals(recordingName))
-                                            .map(r -> r.state == RecordingState.STOPPED)
-                                            .orElse(false));
+                    getActiveRecording(lockedTarget, r -> r.name.equals(recordingName))
+                            .map(
+                                    r ->
+                                            replace == RecordingReplace.ALWAYS
+                                                    || (replace == RecordingReplace.STOPPED
+                                                            && r.state == RecordingState.STOPPED))
+                            .orElse(false);
             if (!willReplace) {
                 boolean hasOtherActiveRecordings =
                         ActiveRecording.<ActiveRecording>find(
