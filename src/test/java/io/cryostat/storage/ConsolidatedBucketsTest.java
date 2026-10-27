@@ -24,18 +24,78 @@ import java.util.List;
 import java.util.Map;
 
 import io.cryostat.AgentTestBase;
+import io.cryostat.diagnostic.DiagnosticsHelper;
+import io.cryostat.recordings.RecordingHelper;
 import io.cryostat.resources.AgentApplicationResource;
 import io.cryostat.resources.S3StorageResource;
 
 import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
+import jakarta.inject.Inject;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 @QuarkusTest
 @QuarkusTestResource(value = AgentApplicationResource.class, restrictToAnnotatedClass = true)
 @QuarkusTestResource(value = S3StorageResource.class, restrictToAnnotatedClass = true)
 public class ConsolidatedBucketsTest extends AgentTestBase {
+
+    @Inject DiagnosticsHelper diagnosticsHelper;
+    @Inject RecordingHelper recordingHelper;
+
+    @AfterEach
+    void cleanup() {
+        String jvmId = target.jvmId();
+        diagnosticsHelper
+                .listHeapDumpObjects(jvmId)
+                .forEach(
+                        obj -> {
+                            String[] parts = obj.key().strip().split("/");
+                            String heapDumpId = parts[2];
+                            try {
+                                diagnosticsHelper.deleteHeapDump(jvmId, heapDumpId);
+                            } catch (Exception e) {
+                                // ignore cleanup errors
+                            }
+                        });
+        diagnosticsHelper
+                .listThreadDumpObjects(jvmId)
+                .forEach(
+                        obj -> {
+                            String[] parts = obj.key().strip().split("/");
+                            String threadDumpId = parts[2];
+                            try {
+                                diagnosticsHelper.deleteThreadDump(jvmId, threadDumpId);
+                            } catch (Exception e) {
+                                // ignore cleanup errors
+                            }
+                        });
+        diagnosticsHelper
+                .listUnifiedLogObjects(jvmId)
+                .forEach(
+                        obj -> {
+                            String[] parts = obj.key().strip().split("/");
+                            String logId = parts[2];
+                            try {
+                                diagnosticsHelper.deleteUnifiedLog(jvmId, logId);
+                            } catch (Exception e) {
+                                // ignore cleanup errors
+                            }
+                        });
+        recordingHelper
+                .listArchivedRecordingObjects(jvmId)
+                .forEach(
+                        obj -> {
+                            String[] parts = obj.key().strip().split("/");
+                            String filename = parts[2];
+                            try {
+                                recordingHelper.deleteArchivedRecording(jvmId, filename);
+                            } catch (Exception e) {
+                                // ignore cleanup errors
+                            }
+                        });
+    }
 
     @Test
     void testUnifiedLogsQueriesAreFilteredCorrectly() throws Exception {

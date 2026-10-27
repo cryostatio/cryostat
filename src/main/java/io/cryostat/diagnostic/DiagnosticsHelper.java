@@ -229,7 +229,7 @@ public class DiagnosticsHelper {
 
     public void deleteHeapDump(String jvmId, String heapDumpId)
             throws BadRequestException, NoSuchKeyException {
-        String key = storageKey(jvmId, heapDumpId);
+        String key = heapDumpStorageKey(jvmId, heapDumpId);
         String heapDumpBucket =
                 storageConfig.getBucketName(ConfigProperties.StorageResourceType.HEAP_DUMPS);
         storage.headObject(HeadObjectRequest.builder().bucket(heapDumpBucket).key(key).build());
@@ -356,7 +356,7 @@ public class DiagnosticsHelper {
     }
 
     public void deleteThreadDump(String jvmId, String threadDumpId) {
-        String key = storageKey(jvmId, threadDumpId);
+        String key = threadDumpStorageKey(jvmId, threadDumpId);
         String threadDumpBucket =
                 storageConfig.getBucketName(ConfigProperties.StorageResourceType.THREAD_DUMPS);
         storage.headObject(HeadObjectRequest.builder().bucket(threadDumpBucket).key(key).build());
@@ -562,7 +562,7 @@ public class DiagnosticsHelper {
     }
 
     public void deleteUnifiedLog(String jvmId, String logId) {
-        String key = storageKey(jvmId, logId);
+        String key = unifiedLogStorageKey(jvmId, logId);
         String unifiedLogBucket =
                 storageConfig.getBucketName(ConfigProperties.StorageResourceType.UNIFIED_LOGS);
         storage.headObject(HeadObjectRequest.builder().bucket(unifiedLogBucket).key(key).build());
@@ -650,7 +650,7 @@ public class DiagnosticsHelper {
         String[] parts = object.key().split("/");
         String jvmId = parts[1];
         String uuid = parts[2];
-        Optional<Metadata> metadata = getHeapDumpMetadata(storageKey(jvmId, uuid));
+        Optional<Metadata> metadata = getHeapDumpMetadata(heapDumpStorageKey(jvmId, uuid));
         return new HeapDump(
                 jvmId,
                 heapDumpDownloadUrl(jvmId, uuid),
@@ -664,7 +664,7 @@ public class DiagnosticsHelper {
         String[] parts = object.key().split("/");
         String jvmId = parts[1];
         String uuid = parts[2];
-        Optional<Metadata> metadata = getThreadDumpMetadata(storageKey(jvmId, uuid));
+        Optional<Metadata> metadata = getThreadDumpMetadata(threadDumpStorageKey(jvmId, uuid));
         return new ThreadDump(
                 jvmId,
                 threadDumpDownloadUrl(jvmId, uuid),
