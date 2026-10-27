@@ -496,20 +496,18 @@ public class RecordingHelper {
                                                     || (replace == RecordingReplace.STOPPED
                                                             && r.state == RecordingState.STOPPED))
                             .orElse(false);
-            if (!willReplace) {
-                boolean hasOtherActiveRecordings =
-                        ActiveRecording.<ActiveRecording>find(
-                                                "target.id = ?1 AND state = ?2 AND name != ?3",
-                                                lockedTarget.id,
-                                                RecordingState.RUNNING,
-                                                recordingName)
-                                        .count()
-                                > 0;
-                if (hasOtherActiveRecordings) {
-                    throw new BadRequestException(
-                            "jfrsync recordings cannot be started while other recordings are active"
-                                    + " on the same target");
-                }
+            boolean hasOtherActiveRecordings =
+                    ActiveRecording.<ActiveRecording>find(
+                                            "target.id = ?1 AND state = ?2 AND name != ?3",
+                                            lockedTarget.id,
+                                            RecordingState.RUNNING,
+                                            recordingName)
+                                    .count()
+                            > 0;
+            if (hasOtherActiveRecordings) {
+                throw new BadRequestException(
+                        "jfrsync recordings cannot be started while other recordings are active"
+                                + " on the same target");
             }
         }
         RecordingState previousState =
