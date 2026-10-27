@@ -554,6 +554,39 @@ public class DiagnosticsHelper {
                 "/api/beta/diagnostics/unified-logs/download/%s", encodedKey(jvmId, filename));
     }
 
+    public List<io.cryostat.diagnostic.Diagnostics.UnifiedLog> getUnifiedLogs(String jvmId) {
+        return getUnifiedLogs(jvmId == null ? null : Target.getTargetByJvmId(jvmId).get());
+    }
+
+    public List<io.cryostat.diagnostic.Diagnostics.UnifiedLog> getUnifiedLogs(Target target) {
+        return listUnifiedLogObjects(target == null ? null : target.jvmId).stream()
+                .map(
+                        item -> {
+                            try {
+                                return convertUnifiedLog(item);
+                            } catch (Exception e) {
+                                log.error(e);
+                                return null;
+                            }
+                        })
+                .filter(Objects::nonNull)
+                .toList();
+    }
+
+    private io.cryostat.diagnostic.Diagnostics.UnifiedLog convertUnifiedLog(S3Object object)
+            throws Exception {
+        String jvmId = object.key().split("/")[0];
+        String filename = object.key().split("/")[1];
+        Optional<Metadata> metadata = getUnifiedLogMetadata(storageKey(jvmId, filename));
+        return new io.cryostat.diagnostic.Diagnostics.UnifiedLog(
+                jvmId,
+                unifiedLogDownloadUrl(jvmId, filename),
+                filename,
+                object.lastModified().getEpochSecond(),
+                object.size(),
+                metadata.orElse(new Metadata(Map.of())));
+    }
+
     public List<ThreadDump> getThreadDumps(String jvmId) {
         return getThreadDumps(jvmId == null ? null : Target.getTargetByJvmId(jvmId).get());
     }
