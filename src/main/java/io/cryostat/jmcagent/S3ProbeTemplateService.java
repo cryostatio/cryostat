@@ -28,6 +28,7 @@ import io.cryostat.DeclarativeConfiguration;
 import io.cryostat.StorageBuckets;
 import io.cryostat.core.jmcagent.ProbeTemplate;
 import io.cryostat.core.jmcagent.ProbeTemplateService;
+import io.cryostat.storage.StorageConfiguration;
 import io.cryostat.ws.MessagingServer;
 import io.cryostat.ws.Notification;
 import io.cryostat.ws.notifications.NotificationPayloads.ProbeTemplatePayload;
@@ -60,9 +61,6 @@ import software.amazon.awssdk.transfer.s3.model.UploadRequest;
  */
 public class S3ProbeTemplateService implements ProbeTemplateService {
 
-    @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_PROBE_TEMPLATES)
-    String bucket;
-
     @ConfigProperty(name = ConfigProperties.PROBE_TEMPLATES_DIR)
     Path dir;
 
@@ -70,6 +68,7 @@ public class S3ProbeTemplateService implements ProbeTemplateService {
     @Inject S3Client storage;
     @Inject S3TransferManager transferManager;
     @Inject StorageBuckets storageBuckets;
+    @Inject StorageConfiguration storageConfig;
     @Inject EventBus bus;
     @Inject Logger logger;
 
@@ -77,6 +76,9 @@ public class S3ProbeTemplateService implements ProbeTemplateService {
     private static final String TEMPLATE_UPLOADED_CATEGORY = "ProbeTemplateUploaded";
 
     void onStart(@Observes StartupEvent evt) {
+        String bucket =
+                storageConfig.getBucketName(
+                        ConfigProperties.StorageResourceType.JMC_PROBE_TEMPLATES);
         storageBuckets
                 .createIfNecessary(bucket)
                 .thenRunAsync(
@@ -106,6 +108,9 @@ public class S3ProbeTemplateService implements ProbeTemplateService {
 
     @Override
     public List<ProbeTemplate> getTemplates() {
+        String bucket =
+                storageConfig.getBucketName(
+                        ConfigProperties.StorageResourceType.JMC_PROBE_TEMPLATES);
         return storage
                 .listObjectsV2(ListObjectsV2Request.builder().bucket(bucket).build())
                 .contents()
@@ -128,6 +133,9 @@ public class S3ProbeTemplateService implements ProbeTemplateService {
     }
 
     public void deleteTemplate(String templateName) {
+        String bucket =
+                storageConfig.getBucketName(
+                        ConfigProperties.StorageResourceType.JMC_PROBE_TEMPLATES);
         if (!storage.headObject(
                         HeadObjectRequest.builder().bucket(bucket).key(templateName).build())
                 .sdkHttpResponse()
@@ -154,6 +162,9 @@ public class S3ProbeTemplateService implements ProbeTemplateService {
     }
 
     private InputStream getModel(String name) {
+        String bucket =
+                storageConfig.getBucketName(
+                        ConfigProperties.StorageResourceType.JMC_PROBE_TEMPLATES);
         var req = GetObjectRequest.builder().bucket(bucket).key(name).build();
         return new BufferedInputStream(storage.getObject(req));
     }
@@ -177,6 +188,9 @@ public class S3ProbeTemplateService implements ProbeTemplateService {
                     .anyMatch(t -> Objects.equals(t.getFileName(), template.getFileName()))) {
                 throw new DuplicateProbeTemplateException(template.getFileName());
             }
+            String bucket =
+                    storageConfig.getBucketName(
+                            ConfigProperties.StorageResourceType.JMC_PROBE_TEMPLATES);
             var reqBuilder =
                     PutObjectRequest.builder()
                             .bucket(bucket)

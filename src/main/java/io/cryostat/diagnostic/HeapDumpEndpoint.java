@@ -25,6 +25,7 @@ import java.util.Optional;
 
 import io.cryostat.ConfigProperties;
 import io.cryostat.recordings.ActiveRecordings.Metadata;
+import io.cryostat.storage.StorageConfiguration;
 import io.cryostat.util.HttpMimeType;
 
 import io.quarkus.security.PermissionsAllowed;
@@ -56,9 +57,7 @@ public class HeapDumpEndpoint {
     @Inject S3Client storage;
     @Inject S3Presigner presigner;
     @Inject Logger log;
-
-    @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_HEAP_DUMPS)
-    String heapDumpsBucket;
+    @Inject StorageConfiguration storageConfig;
 
     @ConfigProperty(name = ConfigProperties.STORAGE_PRESIGNED_DOWNLOADS_ENABLED)
     boolean presignedDownloadsEnabled;
@@ -71,14 +70,21 @@ public class HeapDumpEndpoint {
     @PermissionsAllowed(value = "heapdumps:read", inclusive = true)
     @GET
     public Collection<Diagnostics.ArchivedHeapDumpDirectory> listHeapDumps() {
+        String heapDumpDir =
+                storageConfig
+                        .getStorageInfo(ConfigProperties.StorageResourceType.HEAP_DUMPS)
+                        .directoryName();
         var map = new HashMap<String, Diagnostics.ArchivedHeapDumpDirectory>();
         helper.listHeapDumpObjects()
                 .forEach(
                         item -> {
                             String path = item.key().strip();
                             String[] parts = path.split("/");
-                            String jvmId = parts[0];
-                            String filename = parts[1];
+                            if (parts.length != 3 || !heapDumpDir.equals(parts[0])) {
+                                return;
+                            }
+                            String jvmId = parts[1];
+                            String filename = parts[2];
 
                             Metadata metadata =
                                     helper.getHeapDumpMetadata(path).orElseGet(Metadata::empty);
@@ -111,6 +117,8 @@ public class HeapDumpEndpoint {
         log.tracev("Handling download Request for key: {0}", decodedKey);
         log.tracev("Handling download Request for query: {0}", filename);
         String key = helper.storageKey(decodedKey);
+        String heapDumpsBucket =
+                storageConfig.getBucketName(ConfigProperties.StorageResourceType.HEAP_DUMPS);
         try {
             storage.headObject(HeadObjectRequest.builder().bucket(heapDumpsBucket).key(key).build())
                     .sdkHttpResponse();

@@ -35,6 +35,7 @@ import io.cryostat.libcryostat.sys.Clock;
 import io.cryostat.recordings.ActiveRecordings.Metadata;
 import io.cryostat.recordings.LongRunningRequestGenerator.GrafanaArchiveUploadRequest;
 import io.cryostat.security.rbac.UserAuthorizer;
+import io.cryostat.storage.StorageConfiguration;
 import io.cryostat.targets.Target;
 import io.cryostat.util.HttpMimeType;
 import io.cryostat.util.ResponseDispatch;
@@ -80,10 +81,8 @@ public class ArchivedRecordings {
     @Inject S3Presigner presigner;
     @Inject RecordingHelper recordingHelper;
     @Inject UserAuthorizer userAuthorizer;
+    @Inject StorageConfiguration storageConfig;
     @Inject Logger logger;
-
-    @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_ARCHIVES)
-    String bucket;
 
     @ConfigProperty(name = ConfigProperties.STORAGE_PRESIGNED_DOWNLOADS_ENABLED)
     boolean presignedDownloadsEnabled;
@@ -171,7 +170,7 @@ public class ArchivedRecordings {
                     objs.stream()
                             .filter(
                                     obj -> {
-                                        String filename = obj.key().strip().split("/")[1];
+                                        String filename = obj.key().strip().split("/")[2];
                                         return recordingHelper
                                                 .getArchivedRecordingMetadata(id, filename)
                                                 .map(
@@ -251,7 +250,7 @@ public class ArchivedRecordings {
             @Parameter(required = true) @RestPath String filename)
             throws Exception {
         if (!recordingHelper.listArchivedRecordingObjects(jvmId).stream()
-                .map(item -> item.key().strip().split("/")[1])
+                .map(item -> item.key().strip().split("/")[2])
                 .anyMatch(fn -> Objects.equals(fn, filename))) {
             throw new NotFoundException();
         }
@@ -327,13 +326,21 @@ public class ArchivedRecordings {
     @Operation(summary = "List archived recordings belonging to the specified target")
     public List<ArchivedRecording> getTargetRecordings(
             @Parameter(required = true) @RestPath String jvmId) {
+        String archiveDir =
+                storageConfig
+                        .getStorageInfo(ConfigProperties.StorageResourceType.ARCHIVED_RECORDINGS)
+                        .directoryName();
         var result = new ArrayList<ArchivedRecording>();
         recordingHelper
                 .listArchivedRecordingObjects(jvmId)
                 .forEach(
                         item -> {
                             String objectName = item.key().strip();
-                            String filename = objectName.split("/")[1];
+                            String[] parts = objectName.split("/");
+                            if (parts.length != 3 || !archiveDir.equals(parts[0])) {
+                                return;
+                            }
+                            String filename = parts[2];
                             Metadata metadata =
                                     recordingHelper
                                             .getArchivedRecordingMetadata(jvmId, filename)
@@ -411,6 +418,9 @@ public class ArchivedRecordings {
         }
 
         logger.tracev("Handling presigned download request for {0}", pair);
+        String bucket =
+                storageConfig.getBucketName(
+                        ConfigProperties.StorageResourceType.ARCHIVED_RECORDINGS);
         GetObjectRequest getRequest = GetObjectRequest.builder().bucket(bucket).key(key).build();
         GetObjectPresignRequest presignRequest =
                 GetObjectPresignRequest.builder()

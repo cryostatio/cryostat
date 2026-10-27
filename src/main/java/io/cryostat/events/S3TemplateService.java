@@ -51,6 +51,7 @@ import io.cryostat.libcryostat.templates.Template;
 import io.cryostat.libcryostat.templates.TemplateType;
 import io.cryostat.recordings.ArchivedRecordingMetadataService;
 import io.cryostat.recordings.RecordingHelper;
+import io.cryostat.storage.StorageConfiguration;
 import io.cryostat.ws.MessagingServer;
 import io.cryostat.ws.Notification;
 import io.cryostat.ws.notifications.NotificationPayloads.TemplatePayload;
@@ -99,9 +100,6 @@ public class S3TemplateService implements MutableTemplateService {
     private static final String META_KEY_DESCRIPTION = "description";
     private static final String META_KEY_PROVIDER = "provider";
 
-    @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_EVENT_TEMPLATES)
-    String bucket;
-
     @ConfigProperty(name = ConfigProperties.STORAGE_METADATA_EVENT_TEMPLATES_STORAGE_MODE)
     String metadataStorageMode;
 
@@ -112,6 +110,7 @@ public class S3TemplateService implements MutableTemplateService {
     @Inject S3Client storage;
     @Inject S3TransferManager transferManager;
     @Inject StorageBuckets storageBuckets;
+    @Inject StorageConfiguration storageConfig;
     @Inject Instance<BucketedEventTemplateMetadataService> metadataService;
 
     @Inject EventBus bus;
@@ -123,6 +122,8 @@ public class S3TemplateService implements MutableTemplateService {
     @Inject Logger logger;
 
     void onStart(@Observes StartupEvent evt) {
+        String bucket =
+                storageConfig.getBucketName(ConfigProperties.StorageResourceType.EVENT_TEMPLATES);
         storageBuckets
                 .createIfNecessary(bucket)
                 .thenRunAsync(
@@ -202,6 +203,8 @@ public class S3TemplateService implements MutableTemplateService {
     }
 
     private List<S3Object> getObjects() {
+        String bucket =
+                storageConfig.getBucketName(ConfigProperties.StorageResourceType.EVENT_TEMPLATES);
         var builder = ListObjectsV2Request.builder().bucket(bucket);
         return storage.listObjectsV2(builder.build()).contents();
     }
@@ -209,6 +212,8 @@ public class S3TemplateService implements MutableTemplateService {
     private Template convertObject(S3Object object)
             throws InvalidEventTemplateException, IOException {
         String label, description, provider;
+        String bucket =
+                storageConfig.getBucketName(ConfigProperties.StorageResourceType.EVENT_TEMPLATES);
 
         switch (storageMode()) {
             case TAGGING:
@@ -274,6 +279,8 @@ public class S3TemplateService implements MutableTemplateService {
     }
 
     private InputStream getModel(String name) {
+        String bucket =
+                storageConfig.getBucketName(ConfigProperties.StorageResourceType.EVENT_TEMPLATES);
         var req = GetObjectRequest.builder().bucket(bucket).key(name).build();
         return new BufferedInputStream(storage.getObject(req));
     }
@@ -289,6 +296,9 @@ public class S3TemplateService implements MutableTemplateService {
             if (existing.stream().anyMatch(t -> Objects.equals(t.getName(), template.getName()))) {
                 throw new DuplicateTemplateException(template.getName());
             }
+            String bucket =
+                    storageConfig.getBucketName(
+                            ConfigProperties.StorageResourceType.EVENT_TEMPLATES);
             var reqBuilder =
                     PutObjectRequest.builder()
                             .bucket(bucket)
@@ -385,6 +395,9 @@ public class S3TemplateService implements MutableTemplateService {
                             .filter(t -> t.getName().equals(templateName))
                             .findFirst()
                             .orElseThrow();
+            String bucket =
+                    storageConfig.getBucketName(
+                            ConfigProperties.StorageResourceType.EVENT_TEMPLATES);
             var req = DeleteObjectRequest.builder().bucket(bucket).key(templateName).build();
             if (storage.deleteObject(req).sdkHttpResponse().isSuccessful()) {
                 EventTemplate.<EventTemplate>find(

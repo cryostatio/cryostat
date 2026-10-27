@@ -30,6 +30,7 @@ import io.cryostat.core.reports.InterruptibleReportGenerator.AnalysisResult;
 import io.cryostat.core.util.RuleFilterParser;
 import io.cryostat.recordings.ActiveRecording;
 import io.cryostat.recordings.RecordingHelper;
+import io.cryostat.storage.StorageConfiguration;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.smallrye.mutiny.Uni;
@@ -68,9 +69,6 @@ class ReportsServiceImpl implements ReportsService {
     @ConfigProperty(name = ConfigProperties.REPORTS_USE_PRESIGNED_TRANSFER)
     boolean usePresignedTransfer;
 
-    @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_ARCHIVES)
-    String archiveBucket;
-
     @ConfigProperty(name = ConfigProperties.STORAGE_EXT_URL)
     Optional<String> externalStorageUrl;
 
@@ -83,6 +81,7 @@ class ReportsServiceImpl implements ReportsService {
     @Inject RuleFilterParser ruleFilterParser;
     @Inject @RestClient ReportSidecarService sidecar;
     @Inject S3Presigner presigner;
+    @Inject StorageConfiguration storageConfig;
     @Inject Logger logger;
 
     @Override
@@ -189,6 +188,9 @@ class ReportsServiceImpl implements ReportsService {
 
     private URI getPresignedPath(String jvmId, String filename) throws URISyntaxException {
         logger.infov("Handling presigned download request for {0}/{1}", jvmId, filename);
+        String archiveBucket =
+                storageConfig.getBucketName(
+                        ConfigProperties.StorageResourceType.ARCHIVED_RECORDINGS);
         GetObjectRequest getRequest =
                 GetObjectRequest.builder()
                         .bucket(archiveBucket)

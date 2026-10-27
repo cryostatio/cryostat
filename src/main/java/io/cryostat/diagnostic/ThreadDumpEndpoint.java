@@ -25,6 +25,7 @@ import java.util.Optional;
 
 import io.cryostat.ConfigProperties;
 import io.cryostat.recordings.ActiveRecordings.Metadata;
+import io.cryostat.storage.StorageConfiguration;
 import io.cryostat.targets.TargetConnectionManager;
 import io.cryostat.util.HttpMimeType;
 
@@ -56,9 +57,7 @@ public class ThreadDumpEndpoint {
     @Inject S3Client storage;
     @Inject S3Presigner presigner;
     @Inject Logger log;
-
-    @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_THREAD_DUMPS)
-    String threadDumpsBucket;
+    @Inject StorageConfiguration storageConfig;
 
     @ConfigProperty(name = ConfigProperties.STORAGE_PRESIGNED_DOWNLOADS_ENABLED)
     boolean presignedDownloadsEnabled;
@@ -71,14 +70,21 @@ public class ThreadDumpEndpoint {
     @PermissionsAllowed(value = "threaddumps:read", inclusive = true)
     @GET
     public Collection<Diagnostics.ArchivedThreadDumpDirectory> listThreadDumps() {
+        String threadDumpDir =
+                storageConfig
+                        .getStorageInfo(ConfigProperties.StorageResourceType.THREAD_DUMPS)
+                        .directoryName();
         var map = new HashMap<String, Diagnostics.ArchivedThreadDumpDirectory>();
         helper.listThreadDumpObjects()
                 .forEach(
                         item -> {
                             String path = item.key().strip();
                             String[] parts = path.split("/");
-                            String jvmId = parts[0];
-                            String filename = parts[1];
+                            if (parts.length != 3 || !threadDumpDir.equals(parts[0])) {
+                                return;
+                            }
+                            String jvmId = parts[1];
+                            String filename = parts[2];
 
                             Metadata metadata =
                                     helper.getThreadDumpMetadata(path).orElseGet(Metadata::empty);
@@ -111,6 +117,8 @@ public class ThreadDumpEndpoint {
         log.tracev("Handling download Request for key: {0}", decodedKey);
         log.tracev("Handling download Request for query: {0}", filename);
         String key = helper.storageKey(decodedKey);
+        String threadDumpsBucket =
+                storageConfig.getBucketName(ConfigProperties.StorageResourceType.THREAD_DUMPS);
         storage.headObject(HeadObjectRequest.builder().bucket(threadDumpsBucket).key(key).build())
                 .sdkHttpResponse();
         String contentName =

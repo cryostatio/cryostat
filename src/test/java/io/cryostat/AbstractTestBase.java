@@ -63,7 +63,7 @@ public abstract class AbstractTestBase {
     @TestHTTPResource("/")
     protected URL baseUrl;
 
-    @ConfigProperty(name = "storage.buckets.archives.name")
+    @ConfigProperty(name = "storage.buckets.archived-recordings.name")
     String archivesBucket;
 
     @ConfigProperty(name = "test.storage.enabled", defaultValue = "false")

@@ -21,6 +21,7 @@ import io.cryostat.ConfigProperties;
 import io.cryostat.recordings.ActiveRecordings;
 import io.cryostat.recordings.ArchivedRecordings.ArchivedRecording;
 import io.cryostat.recordings.RecordingHelper;
+import io.cryostat.storage.StorageConfiguration;
 
 import io.quarkus.vertx.ConsumeEvent;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -38,10 +39,8 @@ class StorageCachingReportsListener {
     @ConfigProperty(name = ConfigProperties.REPORTS_STORAGE_CACHE_ENABLED)
     boolean enabled;
 
-    @ConfigProperty(name = ConfigProperties.ARCHIVED_REPORTS_STORAGE_CACHE_NAME)
-    String bucket;
-
     @Inject S3Client storage;
+    @Inject StorageConfiguration storageConfig;
 
     @Inject Logger logger;
 
@@ -55,6 +54,12 @@ class StorageCachingReportsListener {
                         jvmId -> {
                             var key = RecordingHelper.archivedRecordingKey(jvmId, recording.name());
                             logger.tracev("Picked up deletion of archived recording: {0}", key);
+                            String bucket =
+                                    storageConfig
+                                            .getStorageInfo(
+                                                    ConfigProperties.StorageResourceType
+                                                            .ARCHIVED_REPORTS)
+                                            .bucketName();
                             var req = DeleteObjectRequest.builder().bucket(bucket).key(key).build();
                             try {
                                 storage.deleteObject(req);

@@ -21,6 +21,7 @@ import java.time.Duration;
 import java.util.Optional;
 
 import io.cryostat.ConfigProperties;
+import io.cryostat.storage.StorageConfiguration;
 import io.cryostat.util.HttpMimeType;
 
 import io.quarkus.security.PermissionsAllowed;
@@ -53,9 +54,7 @@ public class UnifiedLogDownload {
     @Inject S3Presigner presigner;
     @Inject DiagnosticsHelper helper;
     @Inject Logger log;
-
-    @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_UNIFIED_LOGS)
-    String logsBucket;
+    @Inject StorageConfiguration storageConfig;
 
     @ConfigProperty(name = ConfigProperties.STORAGE_PRESIGNED_DOWNLOADS_ENABLED)
     boolean presignedDownloadsEnabled;
@@ -71,6 +70,8 @@ public class UnifiedLogDownload {
         Pair<String, String> decodedKey = helper.decodedKey(encodedKey);
         log.tracev("Handling log download Request for key: {0}", decodedKey);
         String key = helper.storageKey(decodedKey);
+        String logsBucket =
+                storageConfig.getBucketName(ConfigProperties.StorageResourceType.UNIFIED_LOGS);
         try {
             storage.headObject(HeadObjectRequest.builder().bucket(logsBucket).key(key).build())
                     .sdkHttpResponse();

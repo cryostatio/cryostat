@@ -119,7 +119,7 @@ public class RulesPostJsonTest extends AbstractTransactionalTestBase {
                         .path("id")
                         .toString();
 
-        // Try to create the same rule again - should fail with 400
+        // Try to create the same rule again - should fail with 409 (CONFLICT)
         given().log()
                 .all()
                 .contentType(ContentType.JSON)
@@ -129,7 +129,7 @@ public class RulesPostJsonTest extends AbstractTransactionalTestBase {
                 .then()
                 .log()
                 .all()
-                .statusCode(400);
+                .statusCode(409);
     }
 
     @Test

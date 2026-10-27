@@ -23,6 +23,7 @@ import io.cryostat.ConfigProperties;
 import io.cryostat.recordings.LongRunningRequestGenerator;
 import io.cryostat.recordings.LongRunningRequestGenerator.HeapDumpAnalysisRequest;
 import io.cryostat.recordings.LongRunningRequestGenerator.HeapDumpRequest;
+import io.cryostat.storage.StorageConfiguration;
 import io.cryostat.targets.Target;
 import io.cryostat.util.ResponseDispatch;
 
@@ -42,7 +43,6 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.UriBuilder;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.eclipse.microprofile.openapi.annotations.parameters.Parameter;
 import org.jboss.logging.Logger;
@@ -59,9 +59,7 @@ public class TargetHeapDumpEndpoint {
     @Inject Logger log;
     @Inject LongRunningRequestGenerator generator;
     @Inject HeapDumpReportsService reportService;
-
-    @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_HEAP_DUMPS)
-    String heapDumpsBucket;
+    @Inject StorageConfiguration storageConfig;
 
     @Inject EventBus bus;
     @Inject DiagnosticsHelper helper;
@@ -161,7 +159,9 @@ public class TargetHeapDumpEndpoint {
     public Response analyzeHeapDump(
             HttpServerResponse response, @RestPath String jvmId, @RestPath String heapDumpId) {
         String key = DiagnosticsHelper.storageKey(jvmId, heapDumpId);
-        storage.headObject(HeadObjectRequest.builder().bucket(heapDumpsBucket).key(key).build())
+        String bucket =
+                storageConfig.getBucketName(ConfigProperties.StorageResourceType.HEAP_DUMPS);
+        storage.headObject(HeadObjectRequest.builder().bucket(bucket).key(key).build())
                 .sdkHttpResponse();
         if (reportService.keyExists(jvmId, heapDumpId)) {
             return Response.ok(

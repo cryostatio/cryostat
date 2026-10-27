@@ -26,6 +26,7 @@ import io.cryostat.ConfigProperties;
 import io.cryostat.core.reports.InterruptibleReportGenerator.AnalysisResult;
 import io.cryostat.recordings.ActiveRecording;
 import io.cryostat.recordings.RecordingHelper;
+import io.cryostat.storage.StorageConfiguration;
 import io.cryostat.util.HttpMimeType;
 import io.cryostat.util.HttpStatusCodeIdentifier;
 
@@ -69,9 +70,6 @@ class StorageCachingReportsService implements ReportsService {
     @ConfigProperty(name = ConfigProperties.REPORTS_STORAGE_CACHE_ENABLED)
     boolean enabled;
 
-    @ConfigProperty(name = ConfigProperties.ARCHIVED_REPORTS_STORAGE_CACHE_NAME)
-    String bucket;
-
     @ConfigProperty(name = ConfigProperties.ARCHIVED_REPORTS_EXPIRY_DURATION)
     Duration expiry;
 
@@ -81,6 +79,7 @@ class StorageCachingReportsService implements ReportsService {
     @Inject S3Client storage;
     @Inject S3TransferManager transferManager;
     @Inject ObjectMapper mapper;
+    @Inject StorageConfiguration storageConfig;
 
     @Inject @Delegate @Any ReportsService delegate;
 
@@ -118,6 +117,12 @@ class StorageCachingReportsService implements ReportsService {
         return Uni.createFrom()
                 .item(
                         () -> {
+                            String bucket =
+                                    storageConfig
+                                            .getStorageInfo(
+                                                    ConfigProperties.StorageResourceType
+                                                            .ARCHIVED_REPORTS)
+                                            .bucketName();
                             var req =
                                     HeadObjectRequest.builder()
                                             .bucket(bucket)
@@ -138,6 +143,12 @@ class StorageCachingReportsService implements ReportsService {
                 .invoke(
                         map -> {
                             try {
+                                String bucket =
+                                        storageConfig
+                                                .getStorageInfo(
+                                                        ConfigProperties.StorageResourceType
+                                                                .ARCHIVED_REPORTS)
+                                                .bucketName();
                                 var str = mapper.writeValueAsString(map);
                                 var req =
                                         PutObjectRequest.builder()
@@ -177,6 +188,12 @@ class StorageCachingReportsService implements ReportsService {
         return Uni.createFrom()
                 .item(
                         () -> {
+                            String bucket =
+                                    storageConfig
+                                            .getStorageInfo(
+                                                    ConfigProperties.StorageResourceType
+                                                            .ARCHIVED_REPORTS)
+                                            .bucketName();
                             var req =
                                     GetObjectRequest.builder()
                                             .bucket(bucket)

@@ -20,7 +20,9 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 
+import io.cryostat.ConfigProperties;
 import io.cryostat.recordings.ActiveRecordings.Metadata;
+import io.cryostat.storage.StorageConfiguration;
 import io.cryostat.util.StringUtils;
 
 import io.quarkus.security.PermissionsAllowed;
@@ -34,18 +36,26 @@ public class UnifiedLogEndpoint {
 
     @Inject Logger log;
     @Inject DiagnosticsHelper helper;
+    @Inject StorageConfiguration storageConfig;
 
     @PermissionsAllowed(value = "unifiedlogs:read", inclusive = true)
     @GET
     public Collection<ArchivedUnifiedLogDirectory> listUnifiedLogs() {
+        String unifiedLogDir =
+                storageConfig
+                        .getStorageInfo(ConfigProperties.StorageResourceType.UNIFIED_LOGS)
+                        .directoryName();
         var map = new HashMap<String, ArrayList<UnifiedLogs.UnifiedLog>>();
         helper.listUnifiedLogObjects()
                 .forEach(
                         item -> {
                             String path = item.key().strip();
                             String[] parts = path.split("/");
-                            String jvmId = parts[0];
-                            String filename = parts[1];
+                            if (parts.length != 3 || !unifiedLogDir.equals(parts[0])) {
+                                return;
+                            }
+                            String jvmId = parts[1];
+                            String filename = parts[2];
                             var logs = map.computeIfAbsent(jvmId, id -> new ArrayList<>());
                             String storageKey = DiagnosticsHelper.storageKey(jvmId, filename);
                             Metadata metadata =
