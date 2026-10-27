@@ -20,7 +20,6 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 import io.cryostat.ConfigProperties;
 import io.cryostat.Producers;
@@ -88,7 +87,7 @@ class BucketedEventTemplateMetadataService implements CRUDService<String, Templa
     public List<Template> list() throws IOException {
         var builder = ListObjectsV2Request.builder().bucket(bucket).prefix(prefix);
         var paginator = storage.listObjectsV2Paginator(builder.build());
-        var objs = paginator.contents().collect(Collectors.toList());
+        var objs = paginator.contents().stream().toList();
         return objs.stream()
                 .map(
                         t -> {

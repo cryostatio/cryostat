@@ -28,7 +28,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 import org.openjdk.jmc.common.unit.IConstrainedMap;
 import org.openjdk.jmc.common.unit.SimpleConstrainedMap;
@@ -205,7 +204,7 @@ public class S3TemplateService implements MutableTemplateService {
     private List<S3Object> getObjects() {
         var builder = ListObjectsV2Request.builder().bucket(bucket);
         var paginator = storage.listObjectsV2Paginator(builder.build());
-        return paginator.contents().collect(Collectors.toList());
+        return paginator.contents().stream().toList();
     }
 
     private Template convertObject(S3Object object)
