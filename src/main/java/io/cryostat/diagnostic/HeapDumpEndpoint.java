@@ -70,14 +70,21 @@ public class HeapDumpEndpoint {
     @PermissionsAllowed(value = "heapdumps:read", inclusive = true)
     @GET
     public Collection<Diagnostics.ArchivedHeapDumpDirectory> listHeapDumps() {
+        String heapDumpDir =
+                storageConfig
+                        .getStorageInfo(ConfigProperties.StorageResourceType.HEAP_DUMPS)
+                        .directoryName();
         var map = new HashMap<String, Diagnostics.ArchivedHeapDumpDirectory>();
         helper.listHeapDumpObjects()
                 .forEach(
                         item -> {
                             String path = item.key().strip();
                             String[] parts = path.split("/");
-                            String jvmId = parts[0];
-                            String filename = parts[1];
+                            if (parts.length != 3 || !heapDumpDir.equals(parts[0])) {
+                                return;
+                            }
+                            String jvmId = parts[1];
+                            String filename = parts[2];
 
                             Metadata metadata =
                                     helper.getHeapDumpMetadata(path).orElseGet(Metadata::empty);

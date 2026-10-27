@@ -990,10 +990,15 @@ public class RecordingHelper {
         String archiveBucket =
                 storageConfig.getBucketName(
                         ConfigProperties.StorageResourceType.ARCHIVED_RECORDINGS);
-        var builder = ListObjectsV2Request.builder().bucket(archiveBucket);
+        String archiveDir =
+                storageConfig
+                        .getStorageInfo(ConfigProperties.StorageResourceType.ARCHIVED_RECORDINGS)
+                        .directoryName();
+        String prefix = archiveDir + "/";
         if (StringUtils.isNotBlank(jvmId)) {
-            builder = builder.prefix(jvmId);
+            prefix += jvmId;
         }
+        var builder = ListObjectsV2Request.builder().bucket(archiveBucket).prefix(prefix);
         return storage.listObjectsV2(builder.build()).contents();
     }
 
@@ -1003,8 +1008,8 @@ public class RecordingHelper {
                         item -> {
                             String path = item.key().strip();
                             String[] parts = path.split("/");
-                            String effectiveJvmId = parts[0];
-                            String filename = parts[1];
+                            String effectiveJvmId = parts[1];
+                            String filename = parts[2];
                             Metadata metadata =
                                     getArchivedRecordingMetadata(effectiveJvmId, filename)
                                             .orElseGet(Metadata::empty);
@@ -1034,7 +1039,7 @@ public class RecordingHelper {
         String timestamp = now.truncatedTo(ChronoUnit.SECONDS).toString().replaceAll("[-:]+", "");
         String filename =
                 String.format("%s_%s_%s.jfr", transformedAlias, recording.name, timestamp);
-        String key = archivedRecordingKey(recording.target.jvmId, filename);
+        String key = archivedRecordingStorageKey(recording.target.jvmId, filename);
         try (var stream = getActiveInputStream(recording, uploadFailedTimeout)) {
             String archiveBucket =
                     storageConfig.getBucketName(
@@ -1102,13 +1107,13 @@ public class RecordingHelper {
                 .filter(
                         item -> {
                             String objectName = item.key().strip();
-                            String f = objectName.split("/")[1];
+                            String f = objectName.split("/")[2];
                             return Objects.equals(filename, f);
                         })
                 .map(
                         item -> {
                             String objectName = item.key().strip();
-                            String f = objectName.split("/")[1];
+                            String f = objectName.split("/")[2];
                             Metadata metadata =
                                     getArchivedRecordingMetadata(jvmId, f)
                                             .orElseGet(Metadata::empty);
@@ -1178,6 +1183,14 @@ public class RecordingHelper {
 
     public static String archivedRecordingKey(Pair<String, String> pair) {
         return archivedRecordingKey(pair.getKey(), pair.getValue());
+    }
+
+    private String archivedRecordingStorageKey(String jvmId, String filename) {
+        String dir =
+                storageConfig
+                        .getStorageInfo(ConfigProperties.StorageResourceType.ARCHIVED_RECORDINGS)
+                        .directoryName();
+        return (dir + "/" + archivedRecordingKey(jvmId, filename)).strip();
     }
 
     public String encodedKey(String jvmId, String filename) {

@@ -279,21 +279,31 @@ public class DiagnosticsHelper {
     public List<S3Object> listHeapDumpObjects(String jvmId) {
         String heapDumpBucket =
                 storageConfig.getBucketName(ConfigProperties.StorageResourceType.HEAP_DUMPS);
-        var builder = ListObjectsV2Request.builder().bucket(heapDumpBucket);
+        String heapDumpDir =
+                storageConfig
+                        .getStorageInfo(ConfigProperties.StorageResourceType.HEAP_DUMPS)
+                        .directoryName();
+        String prefix = heapDumpDir + "/";
         if (StringUtils.isNotBlank(jvmId)) {
-            builder = builder.prefix(jvmId);
+            prefix += jvmId;
         }
+        var builder = ListObjectsV2Request.builder().bucket(heapDumpBucket).prefix(prefix);
         return storage.listObjectsV2(builder.build()).contents();
     }
 
     public List<HeapDump> getHeapDumps(String jvmId) {
         String heapDumpBucket =
                 storageConfig.getBucketName(ConfigProperties.StorageResourceType.HEAP_DUMPS);
-        ListObjectsV2Request.Builder builder =
-                ListObjectsV2Request.builder().bucket(heapDumpBucket);
+        String heapDumpDir =
+                storageConfig
+                        .getStorageInfo(ConfigProperties.StorageResourceType.HEAP_DUMPS)
+                        .directoryName();
+        String prefix = heapDumpDir + "/";
         if (StringUtils.isNotBlank(jvmId)) {
-            builder = builder.prefix(jvmId);
+            prefix += jvmId;
         }
+        ListObjectsV2Request.Builder builder =
+                ListObjectsV2Request.builder().bucket(heapDumpBucket).prefix(prefix);
         return storage.listObjectsV2(builder.build()).contents().stream()
                 .map(
                         item -> {
@@ -397,10 +407,15 @@ public class DiagnosticsHelper {
     public List<S3Object> listThreadDumpObjects(String jvmId) {
         String threadDumpBucket =
                 storageConfig.getBucketName(ConfigProperties.StorageResourceType.THREAD_DUMPS);
-        var builder = ListObjectsV2Request.builder().bucket(threadDumpBucket);
+        String threadDumpDir =
+                storageConfig
+                        .getStorageInfo(ConfigProperties.StorageResourceType.THREAD_DUMPS)
+                        .directoryName();
+        String prefix = threadDumpDir + "/";
         if (StringUtils.isNotBlank(jvmId)) {
-            builder = builder.prefix(jvmId);
+            prefix += jvmId;
         }
+        var builder = ListObjectsV2Request.builder().bucket(threadDumpBucket).prefix(prefix);
         return storage.listObjectsV2(builder.build()).contents();
     }
 
@@ -453,7 +468,7 @@ public class DiagnosticsHelper {
         InputStream stream = streamOpt.get();
         String uuid = UUID.randomUUID().toString();
         String filename = generateFileName(target.jvmId, uuid, ".log");
-        String key = storageKey(target.jvmId, filename);
+        String key = unifiedLogStorageKey(target.jvmId, filename);
         String unifiedLogBucket =
                 storageConfig.getBucketName(ConfigProperties.StorageResourceType.UNIFIED_LOGS);
         log.tracev("Putting log into storage with key: {0}", key);
@@ -524,10 +539,15 @@ public class DiagnosticsHelper {
     public List<S3Object> listUnifiedLogObjects(String jvmId) {
         String unifiedLogBucket =
                 storageConfig.getBucketName(ConfigProperties.StorageResourceType.UNIFIED_LOGS);
-        var builder = ListObjectsV2Request.builder().bucket(unifiedLogBucket);
+        String unifiedLogDir =
+                storageConfig
+                        .getStorageInfo(ConfigProperties.StorageResourceType.UNIFIED_LOGS)
+                        .directoryName();
+        String prefix = unifiedLogDir + "/";
         if (StringUtils.isNotBlank(jvmId)) {
-            builder = builder.prefix(jvmId);
+            prefix += jvmId;
         }
+        var builder = ListObjectsV2Request.builder().bucket(unifiedLogBucket).prefix(prefix);
         return storage.listObjectsV2(builder.build()).contents();
     }
 
@@ -587,11 +607,16 @@ public class DiagnosticsHelper {
     public List<ThreadDump> getThreadDumps(String jvmId) {
         String threadDumpBucket =
                 storageConfig.getBucketName(ConfigProperties.StorageResourceType.THREAD_DUMPS);
-        ListObjectsV2Request.Builder builder =
-                ListObjectsV2Request.builder().bucket(threadDumpBucket);
+        String threadDumpDir =
+                storageConfig
+                        .getStorageInfo(ConfigProperties.StorageResourceType.THREAD_DUMPS)
+                        .directoryName();
+        String prefix = threadDumpDir + "/";
         if (StringUtils.isNotBlank(jvmId)) {
-            builder = builder.prefix(jvmId);
+            prefix += jvmId;
         }
+        ListObjectsV2Request.Builder builder =
+                ListObjectsV2Request.builder().bucket(threadDumpBucket).prefix(prefix);
         return storage.listObjectsV2(builder.build()).contents().stream()
                 .map(
                         item -> {
@@ -622,8 +647,9 @@ public class DiagnosticsHelper {
     }
 
     private HeapDump convertHeapDump(S3Object object) throws Exception {
-        String jvmId = object.key().split("/")[0];
-        String uuid = object.key().split("/")[1];
+        String[] parts = object.key().split("/");
+        String jvmId = parts[1];
+        String uuid = parts[2];
         Optional<Metadata> metadata = getHeapDumpMetadata(storageKey(jvmId, uuid));
         return new HeapDump(
                 jvmId,
@@ -635,8 +661,9 @@ public class DiagnosticsHelper {
     }
 
     private ThreadDump convertThreadDump(S3Object object) throws Exception {
-        String jvmId = object.key().split("/")[0];
-        String uuid = object.key().split("/")[1];
+        String[] parts = object.key().split("/");
+        String jvmId = parts[1];
+        String uuid = parts[2];
         Optional<Metadata> metadata = getThreadDumpMetadata(storageKey(jvmId, uuid));
         return new ThreadDump(
                 jvmId,
@@ -652,11 +679,12 @@ public class DiagnosticsHelper {
         String threadDumpBucket =
                 storageConfig.getBucketName(ConfigProperties.StorageResourceType.THREAD_DUMPS);
         log.tracev(
-                "Putting Thread dump into storage with key: {0}", storageKey(target.jvmId, uuid));
+                "Putting Thread dump into storage with key: {0}",
+                threadDumpStorageKey(target.jvmId, uuid));
         var req =
                 PutObjectRequest.builder()
                         .bucket(threadDumpBucket)
-                        .key(storageKey(target.jvmId, uuid))
+                        .key(threadDumpStorageKey(target.jvmId, uuid))
                         .contentType(MediaType.APPLICATION_OCTET_STREAM)
                         .contentDisposition(
                                 String.format(
@@ -712,11 +740,13 @@ public class DiagnosticsHelper {
             }
             String heapDumpBucket =
                     storageConfig.getBucketName(ConfigProperties.StorageResourceType.HEAP_DUMPS);
-            log.tracev("Putting Heap dump into storage with key: {0}", storageKey(jvmId, filename));
+            log.tracev(
+                    "Putting Heap dump into storage with key: {0}",
+                    heapDumpStorageKey(jvmId, filename));
             var req =
                     PutObjectRequest.builder()
                             .bucket(heapDumpBucket)
-                            .key(storageKey(jvmId, filename))
+                            .key(heapDumpStorageKey(jvmId, filename))
                             .contentType(MediaType.APPLICATION_OCTET_STREAM)
                             .contentDisposition(
                                     String.format("attachment; filename=\"%s\"", filename));
@@ -823,6 +853,30 @@ public class DiagnosticsHelper {
         return storageKey(pair.getKey(), pair.getValue());
     }
 
+    private String heapDumpStorageKey(String jvmId, String uuid) {
+        String dir =
+                storageConfig
+                        .getStorageInfo(ConfigProperties.StorageResourceType.HEAP_DUMPS)
+                        .directoryName();
+        return (dir + "/" + storageKey(jvmId, uuid)).strip();
+    }
+
+    private String threadDumpStorageKey(String jvmId, String uuid) {
+        String dir =
+                storageConfig
+                        .getStorageInfo(ConfigProperties.StorageResourceType.THREAD_DUMPS)
+                        .directoryName();
+        return (dir + "/" + storageKey(jvmId, uuid)).strip();
+    }
+
+    private String unifiedLogStorageKey(String jvmId, String uuid) {
+        String dir =
+                storageConfig
+                        .getStorageInfo(ConfigProperties.StorageResourceType.UNIFIED_LOGS)
+                        .directoryName();
+        return (dir + "/" + storageKey(jvmId, uuid)).strip();
+    }
+
     public InputStream getThreadDumpStream(String jvmId, String threadDumpID) {
         return getThreadDumpStream(encodedKey(jvmId, threadDumpID));
     }
@@ -864,25 +918,37 @@ public class DiagnosticsHelper {
     public List<S3Object> listThreadDumps(Target target) {
         String threadDumpBucket =
                 storageConfig.getBucketName(ConfigProperties.StorageResourceType.THREAD_DUMPS);
+        String threadDumpDir =
+                storageConfig
+                        .getStorageInfo(ConfigProperties.StorageResourceType.THREAD_DUMPS)
+                        .directoryName();
         ListObjectsV2Request.Builder builder =
                 ListObjectsV2Request.builder().bucket(threadDumpBucket);
+        String prefix = threadDumpDir + "/";
         if (target != null) {
             String jvmId = target.jvmId;
             if (StringUtils.isNotBlank(jvmId)) {
-                builder = builder.prefix(jvmId);
+                prefix += jvmId;
             }
         }
+        builder = builder.prefix(prefix);
         return storage.listObjectsV2(builder.build()).contents();
     }
 
     public List<S3Object> listHeapDumps(Target target) {
+        String heapDumpDir =
+                storageConfig
+                        .getStorageInfo(ConfigProperties.StorageResourceType.HEAP_DUMPS)
+                        .directoryName();
         var builder = ListObjectsV2Request.builder().bucket(heapDumpBucket);
+        String prefix = heapDumpDir + "/";
         if (target != null) {
             String jvmId = target.jvmId;
             if (StringUtils.isNotBlank(jvmId)) {
-                builder = builder.prefix(jvmId);
+                prefix += jvmId;
             }
         }
+        builder = builder.prefix(prefix);
         return storage.listObjectsV2(builder.build()).contents();
     }
 

@@ -70,14 +70,21 @@ public class ThreadDumpEndpoint {
     @PermissionsAllowed(value = "threaddumps:read", inclusive = true)
     @GET
     public Collection<Diagnostics.ArchivedThreadDumpDirectory> listThreadDumps() {
+        String threadDumpDir =
+                storageConfig
+                        .getStorageInfo(ConfigProperties.StorageResourceType.THREAD_DUMPS)
+                        .directoryName();
         var map = new HashMap<String, Diagnostics.ArchivedThreadDumpDirectory>();
         helper.listThreadDumpObjects()
                 .forEach(
                         item -> {
                             String path = item.key().strip();
                             String[] parts = path.split("/");
-                            String jvmId = parts[0];
-                            String filename = parts[1];
+                            if (parts.length != 3 || !threadDumpDir.equals(parts[0])) {
+                                return;
+                            }
+                            String jvmId = parts[1];
+                            String filename = parts[2];
 
                             Metadata metadata =
                                     helper.getThreadDumpMetadata(path).orElseGet(Metadata::empty);

@@ -97,7 +97,7 @@ public class UnifiedLogs {
                 .map(
                         item -> {
                             String[] parts = item.key().strip().split("/");
-                            String filename = parts[1];
+                            String filename = parts[2];
                             String storageKey = DiagnosticsHelper.storageKey(jvmId, filename);
                             Metadata metadata =
                                     helper.getUnifiedLogMetadata(storageKey)
