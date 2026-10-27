@@ -20,10 +20,6 @@ import static io.restassured.RestAssured.given;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.*;
 
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
@@ -38,8 +34,6 @@ import io.restassured.http.ContentType;
 import io.restassured.response.Response;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
-import org.hamcrest.MatcherAssert;
-import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
@@ -47,37 +41,6 @@ import org.junit.jupiter.api.Test;
 @QuarkusTestResource(value = AgentApplicationResource.class, restrictToAnnotatedClass = true)
 @QuarkusTestResource(value = S3StorageResource.class, restrictToAnnotatedClass = true)
 public class UnifiedLogsGraphQLTest extends AgentTestBase {
-
-    private void generateWorkloadActivity(Duration total, Duration interval)
-            throws InterruptedException {
-        int appPort = AgentApplicationResource.appPort;
-        MatcherAssert.assertThat(
-                "sample application HTTP port must be known to generate workload activity",
-                appPort,
-                Matchers.greaterThan(0));
-        URI workUri = URI.create(String.format("http://localhost:%d/work", appPort));
-        HttpClient client = HttpClient.newHttpClient();
-        HttpRequest request = HttpRequest.newBuilder(workUri).GET().build();
-
-        long deadline = System.currentTimeMillis() + total.toMillis();
-        while (System.currentTimeMillis() < deadline) {
-            try {
-                client.send(request, HttpResponse.BodyHandlers.discarding());
-            } catch (Exception e) {
-            }
-            Thread.sleep(interval.toMillis());
-        }
-    }
-
-    private void triggerGcAndWait(long targetId) throws InterruptedException {
-        given().pathParam("targetId", targetId)
-                .when()
-                .post("/api/beta/diagnostics/targets/{targetId}/gc")
-                .then()
-                .assertThat()
-                .statusCode(204);
-        Thread.sleep(10000);
-    }
 
     private static final String LIST_UNIFIED_LOGS_QUERY =
             """

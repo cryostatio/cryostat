@@ -17,6 +17,10 @@ package io.cryostat;
 
 import static io.restassured.RestAssured.given;
 
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
@@ -32,6 +36,7 @@ import io.cryostat.resources.AgentApplicationResource;
 
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
+import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -232,6 +237,37 @@ public abstract class AgentTestBase extends AbstractTestBase {
             }
         }
         throw new RuntimeException(new InterruptedException("Discovery polling interrupted"));
+    }
+
+    protected static void generateWorkloadActivity(Duration total, Duration interval)
+            throws InterruptedException {
+        int appPort = AgentApplicationResource.appPort;
+        MatcherAssert.assertThat(
+                "sample application HTTP port must be known to generate workload activity",
+                appPort,
+                Matchers.greaterThan(0));
+        URI workUri = URI.create(String.format("http://localhost:%d/work", appPort));
+        HttpClient client = HttpClient.newHttpClient();
+        HttpRequest request = HttpRequest.newBuilder(workUri).GET().build();
+
+        long deadline = System.currentTimeMillis() + total.toMillis();
+        while (System.currentTimeMillis() < deadline) {
+            try {
+                client.send(request, HttpResponse.BodyHandlers.discarding());
+            } catch (Exception e) {
+            }
+            Thread.sleep(interval.toMillis());
+        }
+    }
+
+    protected void triggerGcAndWait(long targetId) throws InterruptedException {
+        given().pathParam("targetId", targetId)
+                .when()
+                .post("/api/beta/diagnostics/targets/{targetId}/gc")
+                .then()
+                .assertThat()
+                .statusCode(204);
+        Thread.sleep(10000);
     }
 
     @AfterAll
