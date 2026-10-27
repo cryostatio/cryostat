@@ -280,7 +280,7 @@ public class DiagnosticsHelper {
     public List<S3Object> listHeapDumpObjects(String jvmId) {
         var builder = ListObjectsV2Request.builder().bucket(heapDumpBucket);
         if (StringUtils.isNotBlank(jvmId)) {
-            builder = builder.prefix(jvmId);
+            builder = builder.prefix(jvmId + "/");
         }
         return listObjectsWithPagination(builder.build());
     }
@@ -387,7 +387,7 @@ public class DiagnosticsHelper {
     public List<S3Object> listThreadDumpObjects(String jvmId) {
         var builder = ListObjectsV2Request.builder().bucket(threadDumpBucket);
         if (StringUtils.isNotBlank(jvmId)) {
-            builder = builder.prefix(jvmId);
+            builder = builder.prefix(jvmId + "/");
         }
         return listObjectsWithPagination(builder.build());
     }
@@ -506,7 +506,7 @@ public class DiagnosticsHelper {
     public List<S3Object> listUnifiedLogObjects(String jvmId) {
         var builder = ListObjectsV2Request.builder().bucket(unifiedLogBucket);
         if (StringUtils.isNotBlank(jvmId)) {
-            builder = builder.prefix(jvmId);
+            builder = builder.prefix(jvmId + "/");
         }
         return listObjectsWithPagination(builder.build());
     }
@@ -862,7 +862,7 @@ public class DiagnosticsHelper {
         if (target != null) {
             String jvmId = target.jvmId;
             if (StringUtils.isNotBlank(jvmId)) {
-                builder = builder.prefix(jvmId);
+                builder = builder.prefix(jvmId + "/");
             }
         }
         return listObjectsWithPagination(builder.build());
@@ -873,7 +873,7 @@ public class DiagnosticsHelper {
         if (target != null) {
             String jvmId = target.jvmId;
             if (StringUtils.isNotBlank(jvmId)) {
-                builder = builder.prefix(jvmId);
+                builder = builder.prefix(jvmId + "/");
             }
         }
         return listObjectsWithPagination(builder.build());
