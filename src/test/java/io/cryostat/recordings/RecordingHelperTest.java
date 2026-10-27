@@ -276,7 +276,7 @@ class RecordingHelperTest extends AbstractTransactionalTestBase {
         // persist the created ActiveRecording
         MockedStatic<ActiveRecording> recordingMock = Mockito.mockStatic(ActiveRecording.class);
         ActiveRecording mock = Mockito.mock(ActiveRecording.class);
-        Mockito.doThrow(new RuntimeException("Failing to persist!")).when(mock).persist();
+        Mockito.doThrow(new RuntimeException("Failing to persist!")).when(mock).persistAndFlush();
         recordingMock.when(() -> ActiveRecording.from(any(), any(), any())).thenReturn(mock);
 
         Target target =
