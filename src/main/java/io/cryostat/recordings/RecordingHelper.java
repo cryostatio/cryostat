@@ -47,6 +47,7 @@ import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import org.openjdk.jmc.common.unit.IConstrainedMap;
 import org.openjdk.jmc.common.unit.QuantityConversionException;
@@ -987,7 +988,8 @@ public class RecordingHelper {
         if (StringUtils.isNotBlank(jvmId)) {
             builder = builder.prefix(jvmId);
         }
-        return storage.listObjectsV2(builder.build()).contents();
+        var paginator = storage.listObjectsV2Paginator(builder.build());
+        return paginator.contents().collect(Collectors.toList());
     }
 
     public List<ArchivedRecording> listArchivedRecordings(String jvmId) {

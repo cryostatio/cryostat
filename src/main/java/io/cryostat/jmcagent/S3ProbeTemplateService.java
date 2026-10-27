@@ -22,6 +22,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 import io.cryostat.ConfigProperties;
 import io.cryostat.DeclarativeConfiguration;
@@ -106,10 +107,10 @@ public class S3ProbeTemplateService implements ProbeTemplateService {
 
     @Override
     public List<ProbeTemplate> getTemplates() {
-        return storage
-                .listObjectsV2(ListObjectsV2Request.builder().bucket(bucket).build())
-                .contents()
-                .stream()
+        var paginator =
+                storage.listObjectsV2Paginator(
+                        ListObjectsV2Request.builder().bucket(bucket).build());
+        return paginator.contents().collect(Collectors.toList()).stream()
                 .map(
                         t -> {
                             try {

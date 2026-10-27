@@ -31,6 +31,7 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.stream.Collectors;
 
 import io.cryostat.ConfigProperties;
 import io.cryostat.Producers;
@@ -87,6 +88,7 @@ import software.amazon.awssdk.services.s3.model.PutObjectTaggingRequest;
 import software.amazon.awssdk.services.s3.model.S3Object;
 import software.amazon.awssdk.services.s3.model.Tag;
 import software.amazon.awssdk.services.s3.model.Tagging;
+import software.amazon.awssdk.services.s3.paginators.ListObjectsV2Paginator;
 import software.amazon.awssdk.transfer.s3.S3TransferManager;
 import software.amazon.awssdk.transfer.s3.model.UploadFileRequest;
 import software.amazon.awssdk.transfer.s3.model.UploadRequest;
@@ -268,6 +270,11 @@ public class DiagnosticsHelper {
                 new Notification(event.category().category(), event.payload()));
     }
 
+    private List<S3Object> listObjectsWithPagination(ListObjectsV2Request request) {
+        ListObjectsV2Paginator paginator = storage.listObjectsV2Paginator(request);
+        return paginator.contents().stream().collect(Collectors.toList());
+    }
+
     public List<S3Object> listHeapDumpObjects() {
         return listHeapDumpObjects(null);
     }
@@ -277,7 +284,7 @@ public class DiagnosticsHelper {
         if (StringUtils.isNotBlank(jvmId)) {
             builder = builder.prefix(jvmId);
         }
-        return storage.listObjectsV2(builder.build()).contents();
+        return listObjectsWithPagination(builder.build());
     }
 
     public List<HeapDump> getHeapDumps(String jvmId) {
@@ -378,7 +385,7 @@ public class DiagnosticsHelper {
         if (StringUtils.isNotBlank(jvmId)) {
             builder = builder.prefix(jvmId);
         }
-        return storage.listObjectsV2(builder.build()).contents();
+        return listObjectsWithPagination(builder.build());
     }
 
     public void enableUnifiedLogging(Target target, String what, String decorators) {
@@ -497,7 +504,7 @@ public class DiagnosticsHelper {
         if (StringUtils.isNotBlank(jvmId)) {
             builder = builder.prefix(jvmId);
         }
-        return storage.listObjectsV2(builder.build()).contents();
+        return listObjectsWithPagination(builder.build());
     }
 
     public InputStream getUnifiedLogStream(String encodedKey) {
@@ -799,7 +806,7 @@ public class DiagnosticsHelper {
                 builder = builder.prefix(jvmId);
             }
         }
-        return storage.listObjectsV2(builder.build()).contents();
+        return listObjectsWithPagination(builder.build());
     }
 
     public List<S3Object> listHeapDumps(Target target) {
@@ -810,7 +817,7 @@ public class DiagnosticsHelper {
                 builder = builder.prefix(jvmId);
             }
         }
-        return storage.listObjectsV2(builder.build()).contents();
+        return listObjectsWithPagination(builder.build());
     }
 
     public Optional<Metadata> getThreadDumpMetadata(String storageKey) {
