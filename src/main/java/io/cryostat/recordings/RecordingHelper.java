@@ -727,7 +727,7 @@ public class RecordingHelper {
                     connection -> {
                         try {
                             ActiveRecording recording =
-                                ActiveRecording.from(lockedTarget, desc, new Metadata(labels));
+                                    ActiveRecording.from(lockedTarget, desc, new Metadata(labels));
                             recording.persistAndFlush();
                             lockedTarget.activeRecordings.add(recording);
                             lockedTarget.persist();
@@ -1580,12 +1580,20 @@ public class RecordingHelper {
                     .run(() -> ArchivedRecordingInfo.of(jvmId, filename, null).persist());
         } catch (Exception e) {
             logger.warnv(e, "Failed to persist recording {1} in target {2}", filename, jvmId);
-            try {
-                if (storageMode() == ArchivedRecordingMetadataService.StorageMode.BUCKET) {
+            if (storageMode() == ArchivedRecordingMetadataService.StorageMode.BUCKET) {
+                try {
                     metadataService.get().delete(key);
+                } catch (Exception e3) {
+                    // Preserve and rethrow the original exception if deleting metadata
+                    // also failed
+                    logger.warnv(
+                            e3,
+                            "Failed to delete metadata for recording with key {1} from storage",
+                            key);
                 }
+            }
+            try {
                 deleteUploadedRecording(key);
-                throw e;
             } catch (Exception e2) {
                 // Preserve and rethrow the original exception if deleting from storage
                 // also failed
@@ -1594,8 +1602,8 @@ public class RecordingHelper {
                         "Failed to delete recording with key {1} from storage {2}",
                         key,
                         archiveBucket);
-                throw e;
             }
+            throw e;
         }
 
         long size = Files.size(source);
