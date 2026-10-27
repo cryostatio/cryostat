@@ -725,19 +725,19 @@ public class RecordingHelper {
             return connectionManager.executeConnectedTask(
                     lockedTarget,
                     connection -> {
-                        ActiveRecording recording =
-                                ActiveRecording.from(lockedTarget, desc, new Metadata(labels));
                         try {
-                            recording.persist();
+                            ActiveRecording recording =
+                                ActiveRecording.from(lockedTarget, desc, new Metadata(labels));
+                            recording.persistAndFlush();
                             lockedTarget.activeRecordings.add(recording);
                             lockedTarget.persist();
+                            return recording;
                         } catch (Exception e) {
                             // If persisting failed, make sure the recording
                             // is cleaned up.
                             safeCloseRecording(connection, desc);
                             throw e;
                         }
-                        return recording;
                     });
         } catch (Exception e) {
             // Log with more context about the failure to help diagnose issues
@@ -1562,7 +1562,6 @@ public class RecordingHelper {
                         jvmId);
                 try {
                     deleteUploadedRecording(key);
-                    throw e;
                 } catch (Exception e2) {
                     // Preserve and rethrow the original exception if deleting from storage
                     // also failed
@@ -1571,8 +1570,8 @@ public class RecordingHelper {
                             "Failed to delete recording with key {1} from storage {2}",
                             key,
                             archiveBucket);
-                    throw e;
                 }
+                throw e;
             }
         }
 
@@ -1582,6 +1581,9 @@ public class RecordingHelper {
         } catch (Exception e) {
             logger.warnv(e, "Failed to persist recording {1} in target {2}", filename, jvmId);
             try {
+                if (storageMode() == ArchivedRecordingMetadataService.StorageMode.BUCKET) {
+                    metadataService.get().delete(key);
+                }
                 deleteUploadedRecording(key);
                 throw e;
             } catch (Exception e2) {

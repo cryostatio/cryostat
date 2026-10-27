@@ -299,6 +299,7 @@ class RecordingHelperTest extends AbstractTransactionalTestBase {
                                         .map(IRecordingDescriptor::getName)
                                         .toList());
         assertThat(remoteRecordings, is(empty()));
+        recordingMock.close();
     }
 
     @Test
@@ -351,6 +352,7 @@ class RecordingHelperTest extends AbstractTransactionalTestBase {
                 recordingHelper.listArchivedRecordings((String) null);
 
         assertThat(archivedRecordings, hasSize(equalTo(0)));
+        recordingMock.close();
     }
 
     @Test
