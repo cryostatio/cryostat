@@ -196,6 +196,20 @@ public abstract class AbstractTestBase {
                           }
                           %s
                         }
+                        threadDumps {
+                          data {
+                            doDelete {
+                              threadDumpId
+                            }
+                          }
+                        }
+                        heapDumps {
+                          data {
+                            doDelete {
+                              heapDumpId
+                            }
+                          }
+                        }
                       }
                     }
                   }
