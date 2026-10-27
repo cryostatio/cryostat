@@ -24,11 +24,13 @@ import io.cryostat.discovery.DiscoveryNode;
 import io.cryostat.graphql.matchers.LabelSelectorMatcher;
 import io.cryostat.security.rbac.graphql.RequiresPermission;
 
+import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.smallrye.graphql.api.Nullable;
 import org.eclipse.microprofile.graphql.Description;
 import org.eclipse.microprofile.graphql.GraphQLApi;
 import org.eclipse.microprofile.graphql.Query;
 import org.eclipse.microprofile.graphql.Source;
+import org.hibernate.Hibernate;
 
 @GraphQLApi
 public class RootNode {
@@ -49,9 +51,27 @@ public class RootNode {
         // TODO do this filtering at the database query level as much as possible. As is, this will
         // load the entire discovery tree out of the database, then perform the filtering at the
         // application level.
-        return recurseChildren(discoveryNode, n -> n.target != null).stream()
-                .filter(n -> filter == null ? true : filter.test(n))
-                .toList();
+        return QuarkusTransaction.requiringNew()
+                .call(
+                        () -> {
+                            DiscoveryNode node = DiscoveryNode.findById(discoveryNode.id);
+                            if (node == null) {
+                                node = discoveryNode;
+                            }
+                            Set<DiscoveryNode> descendants =
+                                    recurseChildren(node, n -> n.target != null);
+                            // Initialize target field while transaction is active to prevent
+                            // LazyInitializationException when GraphQL field resolvers access it
+                            descendants.forEach(
+                                    n -> {
+                                        if (n.target != null) {
+                                            Hibernate.initialize(n.target);
+                                        }
+                                    });
+                            return descendants.stream()
+                                    .filter(n -> filter == null ? true : filter.test(n))
+                                    .toList();
+                        });
     }
 
     static Set<DiscoveryNode> recurseChildren(DiscoveryNode node, Predicate<DiscoveryNode> p) {
