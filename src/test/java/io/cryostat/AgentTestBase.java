@@ -17,6 +17,7 @@ package io.cryostat;
 
 import static io.restassured.RestAssured.given;
 
+import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -254,7 +255,11 @@ public abstract class AgentTestBase extends AbstractTestBase {
         while (System.currentTimeMillis() < deadline) {
             try {
                 client.send(request, HttpResponse.BodyHandlers.discarding());
-            } catch (Exception e) {
+            } catch (InterruptedException ie) {
+                Thread.currentThread().interrupt();
+                throw ie;
+            } catch (IOException ioe) {
+                ioe.printStackTrace();
             }
             Thread.sleep(interval.toMillis());
         }
