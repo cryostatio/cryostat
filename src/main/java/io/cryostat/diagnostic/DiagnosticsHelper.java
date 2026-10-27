@@ -286,12 +286,18 @@ public class DiagnosticsHelper {
     }
 
     public List<HeapDump> getHeapDumps(String jvmId) {
-        return getHeapDumps(
-                jvmId == null
-                        ? null
-                        : QuarkusTransaction.joiningExisting()
-                                .call(() -> Target.getTargetByJvmId(jvmId))
-                                .get());
+        return listHeapDumpObjects(jvmId).stream()
+                .map(
+                        item -> {
+                            try {
+                                return convertHeapDump(item);
+                            } catch (Exception e) {
+                                log.error(e);
+                                return null;
+                            }
+                        })
+                .filter(Objects::nonNull)
+                .toList();
     }
 
     public List<HeapDump> getHeapDumps(Target target) {
@@ -555,7 +561,18 @@ public class DiagnosticsHelper {
     }
 
     public List<io.cryostat.diagnostic.Diagnostics.UnifiedLog> getUnifiedLogs(String jvmId) {
-        return getUnifiedLogs(jvmId == null ? null : Target.getTargetByJvmId(jvmId).get());
+        return listUnifiedLogObjects(jvmId).stream()
+                .map(
+                        item -> {
+                            try {
+                                return convertUnifiedLog(item);
+                            } catch (Exception e) {
+                                log.error(e);
+                                return null;
+                            }
+                        })
+                .filter(Objects::nonNull)
+                .toList();
     }
 
     public List<io.cryostat.diagnostic.Diagnostics.UnifiedLog> getUnifiedLogs(Target target) {
@@ -588,7 +605,18 @@ public class DiagnosticsHelper {
     }
 
     public List<ThreadDump> getThreadDumps(String jvmId) {
-        return getThreadDumps(jvmId == null ? null : Target.getTargetByJvmId(jvmId).get());
+        return listThreadDumpObjects(jvmId).stream()
+                .map(
+                        item -> {
+                            try {
+                                return convertThreadDump(item);
+                            } catch (Exception e) {
+                                log.error(e);
+                                return null;
+                            }
+                        })
+                .filter(Objects::nonNull)
+                .toList();
     }
 
     public List<ThreadDump> getThreadDumps(Target target) {
