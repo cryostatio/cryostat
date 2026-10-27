@@ -87,17 +87,17 @@ public class UnifiedLogsGraphQL {
             Predicate<UnifiedLog> matchesSizeGte =
                     n ->
                             sizeBytesGreaterThanEqual == null
-                                    || sizeBytesGreaterThanEqual >= ul.size();
+                                    || ul.size() >= sizeBytesGreaterThanEqual;
             Predicate<UnifiedLog> matchesSizeLte =
-                    n -> sizeBytesLessThanEqual == null || sizeBytesLessThanEqual <= ul.size();
+                    n -> sizeBytesLessThanEqual == null || ul.size() <= sizeBytesLessThanEqual;
             Predicate<UnifiedLog> matchesArchivedTimeGte =
                     n ->
                             archivedTimeAfterEqual == null
-                                    || archivedTimeAfterEqual >= ul.lastModified();
+                                    || ul.lastModified() >= archivedTimeAfterEqual;
             Predicate<UnifiedLog> matchesArchivedTimeLte =
                     n ->
                             archivedTimeBeforeEqual == null
-                                    || archivedTimeBeforeEqual <= ul.lastModified();
+                                    || ul.lastModified() <= archivedTimeBeforeEqual;
             Predicate<UnifiedLog> matchesLabels =
                     n ->
                             labels == null

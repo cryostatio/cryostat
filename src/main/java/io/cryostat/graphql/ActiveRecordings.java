@@ -405,13 +405,13 @@ public class ActiveRecordings {
             Predicate<ActiveRecording> matchesDurationGte =
                     n ->
                             durationMsGreaterThanEqual == null
-                                    || durationMsGreaterThanEqual >= n.duration;
+                                    || n.duration >= durationMsGreaterThanEqual;
             Predicate<ActiveRecording> matchesDurationLte =
-                    n -> durationMsLessThanEqual == null || durationMsLessThanEqual <= n.duration;
+                    n -> durationMsLessThanEqual == null || n.duration <= durationMsLessThanEqual;
             Predicate<ActiveRecording> matchesStartTimeAfter =
-                    n -> startTimeMsAfterEqual == null || startTimeMsAfterEqual >= n.startTime;
+                    n -> startTimeMsAfterEqual == null || n.startTime >= startTimeMsAfterEqual;
             Predicate<ActiveRecording> matchesStartTimeBefore =
-                    n -> startTimeMsBeforeEqual == null || startTimeMsBeforeEqual <= n.startTime;
+                    n -> startTimeMsBeforeEqual == null || n.startTime <= startTimeMsBeforeEqual;
 
             return List.of(
                             matchesName,

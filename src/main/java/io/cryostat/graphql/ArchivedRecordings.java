@@ -135,17 +135,17 @@ public class ArchivedRecordings {
                                                             LabelSelectorMatcher.parse(label)
                                                                     .test(n.metadata().labels()));
             Predicate<ArchivedRecording> matchesSizeGte =
-                    n -> sizeBytesGreaterThanEqual == null || sizeBytesGreaterThanEqual >= n.size();
+                    n -> sizeBytesGreaterThanEqual == null || n.size() >= sizeBytesGreaterThanEqual;
             Predicate<ArchivedRecording> matchesSizeLte =
-                    n -> sizeBytesLessThanEqual == null || sizeBytesLessThanEqual <= n.size();
+                    n -> sizeBytesLessThanEqual == null || n.size() <= sizeBytesLessThanEqual;
             Predicate<ArchivedRecording> matchesArchivedTimeGte =
                     n ->
                             archivedTimeAfterEqual == null
-                                    || archivedTimeAfterEqual >= n.archivedTime();
+                                    || n.archivedTime() >= archivedTimeAfterEqual;
             Predicate<ArchivedRecording> matchesArchivedTimeLte =
                     n ->
                             archivedTimeBeforeEqual == null
-                                    || archivedTimeBeforeEqual <= n.archivedTime();
+                                    || n.archivedTime() <= archivedTimeBeforeEqual;
 
             return List.of(
                             matchesName,

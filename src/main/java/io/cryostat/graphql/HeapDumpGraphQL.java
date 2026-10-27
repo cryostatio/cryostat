@@ -171,17 +171,17 @@ public class HeapDumpGraphQL {
             Predicate<HeapDump> matchesSourceTarget =
                     n -> sourceTarget == null || Objects.equals(t.jvmId(), sourceTarget);
             Predicate<HeapDump> matchesSizeGte =
-                    n -> sizeBytesGreaterThanEqual == null || sizeBytesGreaterThanEqual >= n.size();
+                    n -> sizeBytesGreaterThanEqual == null || n.size() >= sizeBytesGreaterThanEqual;
             Predicate<HeapDump> matchesSizeLte =
-                    n -> sizeBytesLessThanEqual == null || sizeBytesLessThanEqual <= n.size();
+                    n -> sizeBytesLessThanEqual == null || n.size() <= sizeBytesLessThanEqual;
             Predicate<HeapDump> matchesArchivedTimeGte =
                     n ->
                             archivedTimeAfterEqual == null
-                                    || archivedTimeAfterEqual >= n.lastModified();
+                                    || n.lastModified() >= archivedTimeAfterEqual;
             Predicate<HeapDump> matchesArchivedTimeLte =
                     n ->
                             archivedTimeBeforeEqual == null
-                                    || archivedTimeBeforeEqual <= n.lastModified();
+                                    || n.lastModified() <= archivedTimeBeforeEqual;
             Predicate<HeapDump> matchesLabels =
                     n ->
                             labels == null
