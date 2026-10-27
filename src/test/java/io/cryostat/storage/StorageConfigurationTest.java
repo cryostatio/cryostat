@@ -90,6 +90,22 @@ class StorageConfigurationTest {
     }
 
     @Test
+    void testGetStorageInfoForArchivedReports() {
+        StorageConfiguration.StorageInfo info =
+                config.getStorageInfo(ConfigProperties.StorageResourceType.ARCHIVED_REPORTS);
+        assertEquals("test-cache-bucket", info.bucketName());
+        assertEquals("recordingreports", info.directoryName());
+    }
+
+    @Test
+    void testGetStorageInfoForHeapDumpReports() {
+        StorageConfiguration.StorageInfo info =
+                config.getStorageInfo(ConfigProperties.StorageResourceType.HEAP_DUMP_REPORTS);
+        assertEquals("test-cache-bucket", info.bucketName());
+        assertEquals("heapdumpreports", info.directoryName());
+    }
+
+    @Test
     void testGetMetadataStorageInfoForArchivedRecordings() {
         StorageConfiguration.StorageInfo info =
                 config.getMetadataStorageInfo(
@@ -104,6 +120,24 @@ class StorageConfigurationTest {
                 config.getMetadataStorageInfo(ConfigProperties.StorageResourceType.HEAP_DUMPS);
         assertEquals("test-metadata-bucket", info.bucketName());
         assertEquals("heapdumps", info.directoryName());
+    }
+
+    @Test
+    void testGetMetadataStorageInfoForArchivedReports() {
+        StorageConfiguration.StorageInfo info =
+                config.getMetadataStorageInfo(
+                        ConfigProperties.StorageResourceType.ARCHIVED_REPORTS);
+        assertEquals("test-metadata-bucket", info.bucketName());
+        assertEquals("recordingreports", info.directoryName());
+    }
+
+    @Test
+    void testGetMetadataStorageInfoForHeapDumpReports() {
+        StorageConfiguration.StorageInfo info =
+                config.getMetadataStorageInfo(
+                        ConfigProperties.StorageResourceType.HEAP_DUMP_REPORTS);
+        assertEquals("test-metadata-bucket", info.bucketName());
+        assertEquals("heapdumpreports", info.directoryName());
     }
 
     @Test
@@ -189,6 +223,10 @@ class StorageConfigurationTest {
                     Map.entry("storage.directories.event-templates.name", "eventtemplates"),
                     Map.entry("storage.buckets.jmc-probe-templates.name", "test-templates-bucket"),
                     Map.entry("storage.directories.jmc-probe-templates.name", "jmcprobetemplates"),
+                    Map.entry("storage.buckets.archived-reports.name", "test-cache-bucket"),
+                    Map.entry("storage.directories.archived-reports.name", "recordingreports"),
+                    Map.entry("storage.buckets.heap-dump-reports.name", "test-cache-bucket"),
+                    Map.entry("storage.directories.heap-dump-reports.name", "heapdumpreports"),
                     Map.entry("storage.buckets.metadata.name", "test-metadata-bucket"),
                     Map.entry(
                             "storage.directories.metadata.archived-recordings.name",
@@ -201,6 +239,12 @@ class StorageConfigurationTest {
                     Map.entry(
                             "storage.directories.metadata.jmc-probe-templates.name",
                             "jmcprobetemplates"),
+                    Map.entry(
+                            "storage.directories.metadata.archived-reports.name",
+                            "recordingreports"),
+                    Map.entry(
+                            "storage.directories.metadata.heap-dump-reports.name",
+                            "heapdumpreports"),
                     // Test case: bucket exists but directory doesn't
                     Map.entry("storage.buckets.missing-directory-type.name", "test-bucket"),
                     // Test case: directory exists but bucket doesn't (will be caught by bucket

@@ -110,6 +110,10 @@ public class ConfigProperties {
             STORAGE_DIRECTORIES_METADATA_PREFIX + ".event-templates.name";
     public static final String STORAGE_DIRECTORIES_METADATA_JMC_PROBE_TEMPLATES_NAME =
             STORAGE_DIRECTORIES_METADATA_PREFIX + ".jmc-probe-templates.name";
+    public static final String STORAGE_DIRECTORIES_METADATA_ARCHIVED_REPORTS_NAME =
+            STORAGE_DIRECTORIES_METADATA_PREFIX + ".archived-reports.name";
+    public static final String STORAGE_DIRECTORIES_METADATA_HEAP_DUMP_REPORTS_NAME =
+            STORAGE_DIRECTORIES_METADATA_PREFIX + ".heap-dump-reports.name";
 
     public static final String STORAGE_DIRECTORIES_ARCHIVED_REPORTS_NAME =
             STORAGE_DIRECTORIES_PREFIX + ".archived-reports.name";
