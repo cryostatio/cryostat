@@ -268,6 +268,11 @@ public class DiagnosticsHelper {
                 new Notification(event.category().category(), event.payload()));
     }
 
+    private List<S3Object> listObjectsWithPagination(ListObjectsV2Request request) {
+        var paginator = storage.listObjectsV2Paginator(request);
+        return paginator.contents().stream().toList();
+    }
+
     public List<S3Object> listHeapDumpObjects() {
         return listHeapDumpObjects(null);
     }
@@ -277,7 +282,7 @@ public class DiagnosticsHelper {
         if (StringUtils.isNotBlank(jvmId)) {
             builder = builder.prefix(jvmId);
         }
-        return storage.listObjectsV2(builder.build()).contents();
+        return listObjectsWithPagination(builder.build());
     }
 
     public List<HeapDump> getHeapDumps(String jvmId) {
@@ -378,7 +383,7 @@ public class DiagnosticsHelper {
         if (StringUtils.isNotBlank(jvmId)) {
             builder = builder.prefix(jvmId);
         }
-        return storage.listObjectsV2(builder.build()).contents();
+        return listObjectsWithPagination(builder.build());
     }
 
     public void enableUnifiedLogging(Target target, String what, String decorators) {
@@ -497,7 +502,7 @@ public class DiagnosticsHelper {
         if (StringUtils.isNotBlank(jvmId)) {
             builder = builder.prefix(jvmId);
         }
-        return storage.listObjectsV2(builder.build()).contents();
+        return listObjectsWithPagination(builder.build());
     }
 
     public InputStream getUnifiedLogStream(String encodedKey) {
@@ -799,7 +804,7 @@ public class DiagnosticsHelper {
                 builder = builder.prefix(jvmId);
             }
         }
-        return storage.listObjectsV2(builder.build()).contents();
+        return listObjectsWithPagination(builder.build());
     }
 
     public List<S3Object> listHeapDumps(Target target) {
@@ -810,7 +815,7 @@ public class DiagnosticsHelper {
                 builder = builder.prefix(jvmId);
             }
         }
-        return storage.listObjectsV2(builder.build()).contents();
+        return listObjectsWithPagination(builder.build());
     }
 
     public Optional<Metadata> getThreadDumpMetadata(String storageKey) {

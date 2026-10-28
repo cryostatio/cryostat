@@ -106,10 +106,10 @@ public class S3ProbeTemplateService implements ProbeTemplateService {
 
     @Override
     public List<ProbeTemplate> getTemplates() {
-        return storage
-                .listObjectsV2(ListObjectsV2Request.builder().bucket(bucket).build())
-                .contents()
-                .stream()
+        var paginator =
+                storage.listObjectsV2Paginator(
+                        ListObjectsV2Request.builder().bucket(bucket).build());
+        return paginator.contents().stream()
                 .map(
                         t -> {
                             try {

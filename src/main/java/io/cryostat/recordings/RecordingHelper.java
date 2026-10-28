@@ -987,7 +987,8 @@ public class RecordingHelper {
         if (StringUtils.isNotBlank(jvmId)) {
             builder = builder.prefix(jvmId);
         }
-        return storage.listObjectsV2(builder.build()).contents();
+        var paginator = storage.listObjectsV2Paginator(builder.build());
+        return paginator.contents().stream().toList();
     }
 
     public List<ArchivedRecording> listArchivedRecordings(String jvmId) {
