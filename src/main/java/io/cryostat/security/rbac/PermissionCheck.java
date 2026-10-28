@@ -27,7 +27,6 @@ import jakarta.inject.Inject;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
-
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestForm;
 
@@ -42,18 +41,22 @@ public class PermissionCheck {
     @POST
     @Path("check")
     @PermitAll
-    public PermissionResponse check(@RestForm("permission") String permission, RoutingContext ctx) {
-        switch(rbacConfig.mode()) {
+    public Uni<PermissionResponse> check(
+            @RestForm("permission") String permission, RoutingContext ctx) {
+        switch (rbacConfig.mode()) {
             case OPENSHIFT -> {
                 String token = SsarAuthorizer.extractAccessToken(ctx);
                 ctx.put(SsarAuthorizer.ATTR_RAW_ACCESS_TOKEN, token);
-                Uni<Boolean> result = ssarAuthorizer.checkSsarPermission(token, permission);
-                return new PermissionResponse(result.await().indefinitely());
-            } case BASIC -> {
+                return ssarAuthorizer
+                        .checkSsarPermission(token, permission)
+                        .map(PermissionResponse::new);
+            }
+            case BASIC -> {
                 // Permissive, accept all requests.
-                return new PermissionResponse(true);
-            } default -> {
-                return new PermissionResponse(true);
+                return Uni.createFrom().item(new PermissionResponse(true));
+            }
+            default -> {
+                return Uni.createFrom().item(new PermissionResponse(true));
             }
         }
     }
@@ -64,7 +67,7 @@ public class PermissionCheck {
     public List<Permission> permissions() {
         List<Permission> permissions = new ArrayList<Permission>();
         for (Entry<String, String> e : rbacConfig.permissions().entrySet()) {
-            var tmp = e.getKey().split(":");
+            var tmp = e.getKey().split(".");
             permissions.add(new Permission(tmp[0], tmp[1]));
         }
         Optional<List<String>> agentPerms = rbacConfig.agentPermissions();
