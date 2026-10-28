@@ -18,6 +18,10 @@ package io.cryostat.security.rbac;
 import static io.restassured.RestAssured.given;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+
 import io.cryostat.AbstractTransactionalTestBase;
 
 import io.quarkus.test.common.http.TestHTTPEndpoint;
@@ -31,6 +35,24 @@ import org.junit.jupiter.api.Test;
 @TestHTTPEndpoint(PermissionCheck.class)
 public class PermissionsTest extends AbstractTransactionalTestBase {
 
+    // See PermissionAnnotationArchTest for how this is generated
+    private final String PERMISSION_SET =
+            "jmcagent:delete, eventtypes:read, unifiedlogs:read, asyncprofiler:write,"
+                + " heapdumps:write, certificates:read, unifiedlogs:delete, reports:read,"
+                + " discoveryplugins:read, reports:write, threaddumps:delete, diagnostics:write,"
+                + " matchexpressions:write, jmcagent:read, targets:write, matchexpressions:delete,"
+                + " archivedrecordings:read, activerecordings:write, threaddumps:read,"
+                + " eventtemplates:read, smarttriggers:delete, credentials:delete, targets:read,"
+                + " eventtemplates:write, heapdumps:read, archivedrecordings:write,"
+                + " asyncprofiler:read, credentials:read, automatedrules:read,"
+                + " asyncprofiler:delete, discoveryplugins:write, targets:delete,"
+                + " credentials:write, automatedrules:delete, unifiedlogs:write,"
+                + " activerecordings:read, automatedrules:write, discoveryplugins:delete,"
+                + " activerecordings:delete, discoverynodes:delete, discoverynodes:read,"
+                + " threaddumps:write, matchexpressions:read, smarttriggers:write,"
+                + " eventtemplates:delete, heapdumps:delete, smarttriggers:read,"
+                + " archivedrecordings:delete, discoverynodes:write, jmcagent:write";
+
     @Test
     public void testList() {
         Response response =
@@ -40,8 +62,16 @@ public class PermissionsTest extends AbstractTransactionalTestBase {
                         .then()
                         .extract()
                         .response();
-        JsonArray permissions = new JsonArray(response.body().asString());
-        assertEquals(permissions.size(), 14);
+        String resp = response.body().asString();
+        JsonArray array = new JsonArray(resp);
+        Set<Map<String, String>> expected = new HashSet<>();
+        for (String s : PERMISSION_SET.split(",")) {
+            var tmp = s.strip().split(":");
+            expected.add(Map.of("resource", tmp[0], "action", tmp[1]));
+        }
+        for (Map<String, String> m : expected) {
+            assertEquals(array.contains(m), true);
+        }
     }
 
     @Test
@@ -56,5 +86,31 @@ public class PermissionsTest extends AbstractTransactionalTestBase {
                         .response();
         JsonObject permissions = new JsonObject(response.body().asString());
         assertEquals(permissions.getString("authorized"), "true");
+    }
+
+    @Test
+    public void testMappings() {
+        Response response =
+                given().basePath("/")
+                        .when()
+                        .post("/api/beta/auth/mapping")
+                        .then()
+                        .extract()
+                        .response();
+        String resp = response.body().asString();
+        JsonArray array = new JsonArray(resp);
+        JsonArray expected = new JsonArray();
+        for (String s : PERMISSION_SET.split(",")) {
+            var tmp = s.strip().split(":");
+            expected.add(
+                    JsonObject.of(
+                            "permission",
+                            new PermissionCheck.Permission(tmp[0].strip(), tmp[1].strip()),
+                            "response",
+                            new PermissionCheck.PermissionResponse(true)));
+        }
+        for (Object o : array) {
+            assertEquals(expected.toString().contains(o.toString()), true);
+        }
     }
 }
