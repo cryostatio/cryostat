@@ -134,7 +134,7 @@ public class SsarAuthorizer {
      *   <li>the SSAR call throws (network error, TLS failure, API server unavailable, etc.).
      * </ul>
      */
-    private Uni<Boolean> checkSsarPermission(String rawToken, String permissionName) {
+    Uni<Boolean> checkSsarPermission(String rawToken, String permissionName) {
         var mapping = permissionMapper.resolve(permissionName);
         if (mapping.isEmpty()) {
             log.debugf(
