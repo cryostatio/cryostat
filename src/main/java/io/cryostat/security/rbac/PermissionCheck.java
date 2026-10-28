@@ -67,7 +67,7 @@ public class PermissionCheck {
     public List<Permission> permissions() {
         List<Permission> permissions = new ArrayList<Permission>();
         for (Entry<String, String> e : rbacConfig.permissions().entrySet()) {
-            var tmp = e.getKey().split(".");
+            var tmp = e.getKey().split("\\.");
             permissions.add(new Permission(tmp[0], tmp[1]));
         }
         Optional<List<String>> agentPerms = rbacConfig.agentPermissions();
