@@ -488,14 +488,6 @@ public class RecordingHelper {
         String recordingName = options.name();
 
         if (!filteredAsprofEvents.isEmpty()) {
-            boolean willReplace =
-                    getActiveRecording(lockedTarget, r -> r.name.equals(recordingName))
-                            .map(
-                                    r ->
-                                            replace == RecordingReplace.ALWAYS
-                                                    || (replace == RecordingReplace.STOPPED
-                                                            && r.state == RecordingState.STOPPED))
-                            .orElse(false);
             boolean hasOtherActiveRecordings =
                     ActiveRecording.<ActiveRecording>find(
                                             "target.id = ?1 AND state = ?2 AND name != ?3",
