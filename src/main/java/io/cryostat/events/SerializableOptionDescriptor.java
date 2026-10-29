@@ -19,7 +19,10 @@ import java.util.Objects;
 
 import org.openjdk.jmc.common.unit.IOptionDescriptor;
 
-public record SerializableOptionDescriptor(String name, String description, String defaultValue) {
+import jakarta.validation.constraints.NotNull;
+
+public record SerializableOptionDescriptor(
+        @NotNull String name, @NotNull String description, @NotNull String defaultValue) {
     public SerializableOptionDescriptor {
         name = Objects.toString(name, "");
         description = Objects.toString(description, "");

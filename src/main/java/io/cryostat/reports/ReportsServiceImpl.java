@@ -32,6 +32,7 @@ import io.cryostat.recordings.ActiveRecording;
 import io.cryostat.recordings.RecordingHelper;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -142,6 +143,15 @@ class ReportsServiceImpl implements ReportsService {
         return reportFor(jvmId, filename, null);
     }
 
+    @SuppressFBWarnings(
+            value = "NP_OPTIONAL_RETURN_NULL",
+            justification =
+                    """
+                    false positive: configFilter is a CDI/MicroProfile Config-injected \
+                    Optional<String> field, always populated (with Optional.empty() if unset) \
+                    before this method can be invoked; SpotBugs cannot see the CDI injection \
+                    guarantee and treats the field as possibly null\
+                    """)
     private String getEffectiveFilter(String requested) {
         // if the request has its own filter, combine it with the config filter by separating them
         // with a comma

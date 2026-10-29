@@ -36,6 +36,7 @@ import io.cryostat.recordings.ActiveRecordings.Metadata;
 import io.cryostat.recordings.LongRunningRequestGenerator.GrafanaArchiveUploadRequest;
 import io.cryostat.security.rbac.UserAuthorizer;
 import io.cryostat.targets.Target;
+import io.cryostat.util.FormLabels;
 import io.cryostat.util.HttpMimeType;
 import io.cryostat.util.ResponseDispatch;
 
@@ -44,19 +45,22 @@ import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.security.PermissionsAllowed;
 import io.smallrye.common.annotation.Blocking;
 import io.vertx.core.http.HttpServerResponse;
-import io.vertx.core.json.JsonObject;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.inject.Inject;
+import jakarta.validation.constraints.NotNull;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
+import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.HttpHeaders;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.openapi.annotations.Operation;
+import org.eclipse.microprofile.openapi.annotations.enums.SchemaType;
+import org.eclipse.microprofile.openapi.annotations.media.Schema;
 import org.eclipse.microprofile.openapi.annotations.parameters.Parameter;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestForm;
@@ -122,12 +126,21 @@ public class ArchivedRecordings {
                     """)
     public Map<String, Object> upload(
             @Parameter(required = true) @RestForm("recording") FileUpload recording,
-            @Parameter(required = false) @RestForm("labels") JsonObject rawLabels)
+            @Parameter(required = false)
+                    @RestForm("labels")
+                    @Schema(
+                            // the explicit type is required so that the example below is read as a
+                            // string literal rather than parsed as a JSON object
+                            type = SchemaType.STRING,
+                            description =
+                                    """
+                                    A JSON object of string key-value labels, sent as the raw text of
+                                    the form field.
+                                    """,
+                            examples = {"{\"key\":\"value\"}"})
+                    String rawLabels)
             throws Exception {
-        Map<String, String> labels = new HashMap<>();
-        if (rawLabels != null) {
-            rawLabels.getMap().forEach((k, v) -> labels.put(k, v.toString()));
-        }
+        Map<String, String> labels = FormLabels.parse(rawLabels);
         labels.put("jvmId", "uploads");
         labels.put("connectUrl", "uploads");
         Metadata metadata = new Metadata(labels);
@@ -150,7 +163,19 @@ public class ArchivedRecordings {
     public void agentPush(
             @Parameter(required = true) @RestPath String jvmId,
             @Parameter(required = true) @RestForm("recording") FileUpload recording,
-            @Parameter(required = false) @RestForm("labels") JsonObject rawLabels,
+            @Parameter(required = false)
+                    @RestForm("labels")
+                    @Schema(
+                            // the explicit type is required so that the example below is read as a
+                            // string literal rather than parsed as a JSON object
+                            type = SchemaType.STRING,
+                            description =
+                                    """
+                                    A JSON object of string key-value labels, sent as the raw text of
+                                    the form field.
+                                    """,
+                            examples = {"{\"key\":\"value\"}"})
+                    String rawLabels,
             @Parameter(
                             required = false,
                             description =
@@ -168,10 +193,7 @@ public class ArchivedRecordings {
             userAuthorizer.assertAuthorized("archivedrecordings", "delete");
             max = maxFiles;
         }
-        Map<String, String> labels = new HashMap<>();
-        if (rawLabels != null) {
-            rawLabels.getMap().forEach((k, v) -> labels.put(k, v.toString()));
-        }
+        Map<String, String> labels = FormLabels.parse(rawLabels);
         labels.put("jvmId", id);
         resolveActiveRecordingId(id, labels)
                 .ifPresent(
@@ -453,8 +475,8 @@ public class ArchivedRecordings {
                     Upload an archived recording to the jfr-datasource for later online analysis in the associated
                     Grafana dashboard.
                     """)
-    public String uploadArchivedToGrafana(HttpServerResponse response, @RestPath String encodedKey)
-            throws Exception {
+    public String uploadArchivedToGrafana(
+            @Context HttpServerResponse response, @RestPath String encodedKey) throws Exception {
         var pair = recordingHelper.decodedKey(encodedKey);
         recordingHelper.assertArchivedRecordingExists(pair.getKey(), pair.getValue());
         // Send an intermediate response back to the client while another thread handles the upload
@@ -534,13 +556,13 @@ public class ArchivedRecordings {
     }
 
     public record ArchivedRecording(
-            String jvmId,
-            String name,
-            String downloadUrl,
-            String reportUrl,
-            Metadata metadata,
-            long size,
-            long archivedTime) {
+            @NotNull String jvmId,
+            @NotNull String name,
+            @NotNull String downloadUrl,
+            @NotNull String reportUrl,
+            @NotNull Metadata metadata,
+            @Schema(required = true) long size,
+            @Schema(required = true) long archivedTime) {
         public ArchivedRecording {
             Objects.requireNonNull(jvmId);
             Objects.requireNonNull(name);
@@ -552,7 +574,9 @@ public class ArchivedRecordings {
 
     @SuppressFBWarnings("EI_EXPOSE_REP")
     public record ArchivedRecordingDirectory(
-            String connectUrl, String jvmId, List<ArchivedRecording> recordings) {
+            @NotNull String connectUrl,
+            @NotNull String jvmId,
+            @NotNull List<ArchivedRecording> recordings) {
         public ArchivedRecordingDirectory {
             Objects.requireNonNull(connectUrl);
             Objects.requireNonNull(jvmId);

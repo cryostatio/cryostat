@@ -5,13 +5,20 @@ set -e
 DIR="$(dirname "$(readlink -f "$0")")"
 cd "${DIR}/.."
 
-CRYOSTAT_VERSION=$(./mvnw -q -DforceStdout help:evaluate -Dexpression=project.version)
+CRYOSTAT_VERSION="${CRYOSTAT_VERSION:-$(./mvnw -q -DforceStdout help:evaluate -Dexpression=project.version)}"
 
 # Package the main Cryostat project to get full classpath with all dependencies
-# This enables complete type resolution including external library types
+# This enables complete type resolution including external library types: the generator
+# resolves against target/classes and target/quarkus-app/lib/main.
 # Skip Quinoa (frontend build) to speed up the process
-echo "Packaging Cryostat project for full classpath resolution (skipping frontend build)..."
-./mvnw -B clean package -DskipTests -Dspotless.check.skip=true -Dspotbugs.skip=true -Dlicense.skip=true -Dquarkus.quinoa=disabled
+# update.bash already produces both of those and sets SKIP_APP_BUILD to avoid paying for
+# a second full build; a standalone invocation still builds for itself.
+if [ "${SKIP_APP_BUILD:-false}" != "true" ]; then
+    echo "Packaging Cryostat project for full classpath resolution (skipping frontend build)..."
+    ./mvnw -B clean package -DskipTests -Dspotless.check.skip=true -Dspotbugs.skip=true -Dlicense.skip=true -Dquarkus.quinoa=disabled -Dquarkus.container-image.build=false
+else
+    echo "Reusing existing application build for classpath resolution."
+fi
 
 # Build the schema generator tool
 echo "Building notification schema generator..."
