@@ -742,7 +742,7 @@ public class RecordingHelper {
             // Log with more context about the failure to help diagnose issues
             logger.warnv(
                     e,
-                    "Failed to create or persist snapshot recording for target ({1} {2})",
+                    "Failed to create or persist snapshot recording for target ({0} {1})",
                     target.jvmId,
                     target.id);
             throw e;
@@ -1637,6 +1637,10 @@ public class RecordingHelper {
 
     void setStorageMode(String mode) {
         this.metadataStorageMode = mode;
+    }
+
+    String getStorageMode() {
+        return this.metadataStorageMode;
     }
 
     public ArchivedRecording updateArchivedRecordingMetadata(
