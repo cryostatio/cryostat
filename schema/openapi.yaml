@@ -1363,6 +1363,35 @@ components:
         type:
           $ref: '#/components/schemas/TemplateType'
       type: object
+    TemplateDTO:
+      properties:
+        description:
+          description: The template description
+          examples:
+            - A sample template
+          type: string
+        name:
+          description: The template name
+          examples:
+            - My_Template
+          pattern: \S
+          type: string
+        provider:
+          description: The template provider
+          examples:
+            - MyOrg
+          pattern: \S
+          type: string
+        type:
+          $ref: '#/components/schemas/TemplateType'
+          description: The template type
+          type: string
+      required:
+        - name
+        - description
+        - provider
+        - type
+      type: object
     TemplateType:
       enum:
         - TARGET
@@ -3812,7 +3841,7 @@ paths:
             application/json:
               schema:
                 items:
-                  $ref: '#/components/schemas/Template'
+                  $ref: '#/components/schemas/TemplateDTO'
                 type: array
           description: OK
         "401":
@@ -3842,7 +3871,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Template'
+                $ref: '#/components/schemas/TemplateDTO'
           description: OK
         "400":
           description: Bad Request
@@ -3892,7 +3921,7 @@ paths:
             application/json:
               schema:
                 items:
-                  $ref: '#/components/schemas/Template'
+                  $ref: '#/components/schemas/TemplateDTO'
                 type: array
           description: OK
         "401":
