@@ -16,13 +16,14 @@
 package io.cryostat.security.rbac;
 
 import java.time.Duration;
-import java.util.HashSet;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
-import java.util.Set;
 
 import io.cryostat.ConfigProperties;
 
 import io.smallrye.mutiny.Uni;
+import io.smallrye.mutiny.infrastructure.Infrastructure;
 import io.vertx.ext.web.RoutingContext;
 import jakarta.annotation.security.PermitAll;
 import jakarta.inject.Inject;
@@ -43,27 +44,25 @@ public class PermissionCheck {
     @Inject Logger log;
 
     // See PermissionAnnotationArchTest for how this is generated
-    private final String PERMISSION_SET =
-            "jmcagent:delete, eventtypes:read, unifiedlogs:read, asyncprofiler:write,"
-                + " heapdumps:write, certificates:read, unifiedlogs:delete, reports:read,"
-                + " discoveryplugins:read, reports:write, threaddumps:delete, diagnostics:write,"
-                + " matchexpressions:write, jmcagent:read, targets:write, matchexpressions:delete,"
-                + " archivedrecordings:read, activerecordings:write, threaddumps:read,"
-                + " eventtemplates:read, smarttriggers:delete, credentials:delete, targets:read,"
-                + " eventtemplates:write, heapdumps:read, archivedrecordings:write,"
-                + " asyncprofiler:read, credentials:read, automatedrules:read,"
-                + " asyncprofiler:delete, discoveryplugins:write, targets:delete,"
-                + " credentials:write, automatedrules:delete, unifiedlogs:write,"
-                + " activerecordings:read, automatedrules:write, discoveryplugins:delete,"
-                + " activerecordings:delete, discoverynodes:delete, discoverynodes:read,"
-                + " threaddumps:write, matchexpressions:read, smarttriggers:write,"
-                + " eventtemplates:delete, heapdumps:delete, smarttriggers:read,"
-                + " archivedrecordings:delete, discoverynodes:write, jmcagent:write";
+    private static final List<String> PERMISSION_SET = List.of(
+            "jmcagent:delete", "eventtypes:read", "unifiedlogs:read", "asyncprofiler:write",
+                "heapdumps:write", "certificates:read", "unifiedlogs:delete", "reports:read",
+                "discoveryplugins:read", "reports:write", "threaddumps:delete", "diagnostics:write",
+                "matchexpressions:write", "jmcagent:read", "targets:write", "matchexpressions:delete",
+                "archivedrecordings:read", "activerecordings:write", "threaddumps:read",
+                "eventtemplates:read", "smarttriggers:delete", "credentials:delete", "targets:read",
+                "eventtemplates:write", "heapdumps:read", "archivedrecordings:write",
+                "asyncprofiler:read", "credentials:read", "automatedrules:read",
+                "asyncprofiler:delete", "discoveryplugins:write", "targets:delete",
+                "credentials:write", "automatedrules:delete", "unifiedlogs:write",
+                "activerecordings:read", "automatedrules:write", "discoveryplugins:delete",
+                "activerecordings:delete", "discoverynodes:delete", "discoverynodes:read",
+                "threaddumps:write", "matchexpressions:read", "smarttriggers:write",
+                "eventtemplates:delete", "heapdumps:delete", "smarttriggers:read",
+                "archivedrecordings:delete", "discoverynodes:write", "jmcagent:write");
 
     @ConfigProperty(name = ConfigProperties.CONNECTIONS_FAILED_TIMEOUT)
     Duration connectionFailedTimeout;
-
-    private Set<String> permissionSet = new HashSet<>();
 
     @POST
     @Path("check")
@@ -94,10 +93,7 @@ public class PermissionCheck {
     @PermitAll
     @Operation(summary = "Return an exhaustive list of permissions known to Cryostat")
     public List<Permission> permissions() {
-        if (permissionSet.isEmpty()) {
-            generatePermissionSet();
-        }
-        return permissionSet.stream()
+        return PERMISSION_SET.stream()
                 .map(
                         (s) -> {
                             String[] tmp = s.strip().split(":");
@@ -111,25 +107,16 @@ public class PermissionCheck {
     @PermitAll
     @Operation(summary = "Return the permission mappings for the current user")
     public List<MappingResponse> mappings(RoutingContext ctx) {
-        if (permissionSet.isEmpty()) {
-            generatePermissionSet();
+        List<MappingResponse> response = Collections.synchronizedList(new ArrayList<MappingResponse>());
+        for (Permission p : permissions()) {
+            check(p.resource + ":" + p.action, ctx)
+                .runSubscriptionOn(Infrastructure.getDefaultExecutor())
+                .subscribe()
+                .with((resp) -> {
+                    response.add(new MappingResponse(p, resp));
+                });
         }
-        return permissions().stream()
-                .map(
-                        (p) ->
-                                new MappingResponse(
-                                        p,
-                                        check(p.action + ":" + p.resource, ctx)
-                                                .await()
-                                                .atMost(connectionFailedTimeout)))
-                .toList();
-    }
-
-    private void generatePermissionSet() {
-        String[] permissions = PERMISSION_SET.split(",");
-        for (String p : permissions) {
-            permissionSet.add(p.strip());
-        }
+        return response;
     }
 
     public record PermissionResponse(boolean authorized) {}
