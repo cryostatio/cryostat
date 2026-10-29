@@ -79,11 +79,11 @@ public class EventTemplates {
                     recordings started on any discovered target, but any event configurations within the template which
                     reference events that do not exist on the target will be ignored.
                     """)
-    public List<Template> listTemplates() throws Exception {
-        var list = new ArrayList<Template>();
-        list.add(ALL_EVENTS_TEMPLATE);
-        list.addAll(customTemplateService.getTemplates());
-        list.addAll(presetTemplateService.getTemplates());
+    public List<TemplateDTO> listTemplates() throws Exception {
+        var list = new ArrayList<TemplateDTO>();
+        list.add(new TemplateDTO(ALL_EVENTS_TEMPLATE));
+        list.addAll(customTemplateService.getTemplates().stream().map(TemplateDTO::new).toList());
+        list.addAll(presetTemplateService.getTemplates().stream().map(TemplateDTO::new).toList());
         return list;
     }
 
@@ -92,14 +92,14 @@ public class EventTemplates {
     @Blocking
     @PermissionsAllowed(value = "eventtemplates:read", inclusive = true)
     @Operation(summary = "List server event templates of the given type")
-    public List<Template> getTemplates(@RestPath String templateType)
+    public List<TemplateDTO> getTemplates(@RestPath String templateType)
             throws IOException, FlightRecorderException {
         TemplateType tt = TemplateType.valueOf(templateType);
         switch (tt) {
             case CUSTOM:
-                return customTemplateService.getTemplates();
+                return customTemplateService.getTemplates().stream().map(TemplateDTO::new).toList();
             case PRESET:
-                return presetTemplateService.getTemplates();
+                return presetTemplateService.getTemplates().stream().map(TemplateDTO::new).toList();
             default:
                 throw new BadRequestException();
         }
@@ -142,7 +142,7 @@ public class EventTemplates {
                     """
                     Upload a new custom event template to the server. This must be in OpenJDK .jfc (XML) format.
                     """)
-    public RestResponse<Template> postTemplates(
+    public RestResponse<TemplateDTO> postTemplates(
             @Context UriInfo uriInfo, @RestForm("template") FileUpload body) throws IOException {
         if (body == null || body.filePath() == null) {
             throw new BadRequestException();
@@ -152,9 +152,10 @@ public class EventTemplates {
                 throw new BadRequestException();
             }
             var template = customTemplateService.addTemplate(stream);
-            return ResponseBuilder.<Template>created(
-                            uriInfo.getAbsolutePathBuilder().path(template.getName()).build())
-                    .entity(template)
+            var dto = new TemplateDTO(template);
+            return ResponseBuilder.<TemplateDTO>created(
+                            uriInfo.getAbsolutePathBuilder().path(dto.name()).build())
+                    .entity(dto)
                     .build();
         } catch (InvalidEventTemplateException | InvalidXmlException e) {
             throw new BadRequestException(e);

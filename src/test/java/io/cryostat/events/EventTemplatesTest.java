@@ -238,4 +238,172 @@ public class EventTemplatesTest extends AbstractTransactionalTestBase {
 
         given().log().all().when().delete(name);
     }
+
+    @Test
+    void testCreateMissingLabel() {
+        given().contentType(ContentType.MULTIPART)
+                .multiPart(
+                        "template",
+"""
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration version="2.0" description="No Label Template" provider="EventTemplatesTest">
+</configuration>
+""")
+                .log()
+                .all()
+                .when()
+                .post()
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(400);
+    }
+
+    @Test
+    void testCreateEmptyLabel() {
+        given().contentType(ContentType.MULTIPART)
+                .multiPart(
+                        "template",
+"""
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration version="2.0" label="" description="Empty Label Template" provider="EventTemplatesTest">
+</configuration>
+""")
+                .log()
+                .all()
+                .when()
+                .post()
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(400);
+    }
+
+    @Test
+    void testCreateBlankLabel() {
+        given().contentType(ContentType.MULTIPART)
+                .multiPart(
+                        "template",
+"""
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration version="2.0" label="   " description="Whitespace Label Template" provider="EventTemplatesTest">
+</configuration>
+""")
+                .log()
+                .all()
+                .when()
+                .post()
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(400);
+    }
+
+    @Test
+    void testCreateMissingProvider() {
+        given().contentType(ContentType.MULTIPART)
+                .multiPart(
+                        "template",
+"""
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration version="2.0" label="Test" description="No Provider Template">
+</configuration>
+""")
+                .log()
+                .all()
+                .when()
+                .post()
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(400);
+    }
+
+    @Test
+    void testCreateBlankProvider() {
+        given().contentType(ContentType.MULTIPART)
+                .multiPart(
+                        "template",
+"""
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration version="2.0" label="Test" description="Blank Provider Template" provider="">
+</configuration>
+""")
+                .log()
+                .all()
+                .when()
+                .post()
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(400);
+    }
+
+    @Test
+    void testCreateMissingDescription() {
+        var name =
+                given().contentType(ContentType.MULTIPART)
+                        .multiPart(
+                                "template",
+"""
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration version="2.0" label="Test" provider="EventTemplatesTest">
+</configuration>
+""")
+                        .log()
+                        .all()
+                        .when()
+                        .post()
+                        .then()
+                        .log()
+                        .all()
+                        .and()
+                        .assertThat()
+                        .statusCode(201)
+                        .contentType(ContentType.JSON)
+                        .extract()
+                        .jsonPath()
+                        .getString("name");
+
+        given().log().all().when().delete(name);
+    }
+
+    @Test
+    void testCreateBlankDescription() {
+        var name =
+                given().contentType(ContentType.MULTIPART)
+                        .multiPart(
+                                "template",
+"""
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration version="2.0" label="Test" description="" provider="EventTemplatesTest">
+</configuration>
+""")
+                        .log()
+                        .all()
+                        .when()
+                        .post()
+                        .then()
+                        .log()
+                        .all()
+                        .and()
+                        .assertThat()
+                        .statusCode(201)
+                        .contentType(ContentType.JSON)
+                        .extract()
+                        .jsonPath()
+                        .getString("name");
+
+        given().log().all().when().delete(name);
+    }
 }
