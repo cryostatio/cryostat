@@ -36,6 +36,7 @@ import io.cryostat.recordings.LongRunningRequestGenerator.HeapDumpRequest;
 import io.cryostat.recordings.LongRunningRequestGenerator.ThreadDumpRequest;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.TargetConnectionManager;
+import io.cryostat.util.FormLabels;
 import io.cryostat.util.HttpMimeType;
 import io.cryostat.util.ResponseDispatch;
 
@@ -44,10 +45,10 @@ import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.security.PermissionsAllowed;
 import io.smallrye.common.annotation.Blocking;
 import io.vertx.core.http.HttpServerResponse;
-import io.vertx.core.json.JsonObject;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
+import jakarta.validation.constraints.NotNull;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.DefaultValue;
@@ -56,6 +57,7 @@ import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
@@ -64,6 +66,8 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.openapi.annotations.Operation;
+import org.eclipse.microprofile.openapi.annotations.enums.SchemaType;
+import org.eclipse.microprofile.openapi.annotations.media.Schema;
 import org.eclipse.microprofile.openapi.annotations.parameters.Parameter;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestForm;
@@ -146,7 +150,7 @@ public class Diagnostics {
     @Transactional
     @POST
     public String threadDump(
-            HttpServerResponse response,
+            @Context HttpServerResponse response,
             @RestPath long targetId,
             @QueryParam("format") @DefaultValue(DiagnosticsHelper.DUMP_THREADS) String format) {
         log.tracev("Creating new thread dump request for target: {0}", targetId);
@@ -182,7 +186,9 @@ public class Diagnostics {
     @Transactional
     @POST
     public Response analyzeHeapDump(
-            HttpServerResponse response, @RestPath String jvmId, @RestPath String heapDumpId) {
+            @Context HttpServerResponse response,
+            @RestPath String jvmId,
+            @RestPath String heapDumpId) {
         String key = DiagnosticsHelper.storageKey(jvmId, heapDumpId);
         storage.headObject(HeadObjectRequest.builder().bucket(heapDumpsBucket).key(key).build())
                 .sdkHttpResponse();
@@ -388,7 +394,7 @@ public class Diagnostics {
                     """
                     Request the remote target to perform a heap dump.
                     """)
-    public String heapDump(HttpServerResponse response, @RestPath long targetId) {
+    public String heapDump(@Context HttpServerResponse response, @RestPath long targetId) {
         log.tracev("Initiating heap dump for target: {0}", targetId);
         Target target = Target.getTargetById(targetId);
         if (!target.isAgent()) {
@@ -415,18 +421,32 @@ public class Diagnostics {
             @RestPath String jvmId,
             @Parameter(required = true) @RestForm("heapDump") FileUpload heapDump,
             @Parameter(required = true) @RestForm("jobId") String jobId,
-            @Parameter(required = false) @RestForm("labels") JsonObject rawLabels) {
+            @Parameter(required = false)
+                    @RestForm("labels")
+                    @Schema(
+                            // the explicit type is required so that the example below is read as a
+                            // string literal rather than parsed as a JSON object
+                            type = SchemaType.STRING,
+                            description =
+                                    """
+                                    A JSON object of string key-value labels, sent as the raw text of
+                                    the form field.
+                                    """,
+                            examples = {"{\"key\":\"value\"}"})
+                    String rawLabels)
+            throws IOException {
         log.tracev(
                 "Received heap dump upload request for target: {0} with job ID {1}", jvmId, jobId);
         jvmId = jvmId.strip();
-        doUpload(heapDump, jvmId, jobId);
+        doUpload(heapDump, jvmId, jobId, new Metadata(FormLabels.parse(rawLabels)));
     }
 
     @Blocking
     @Transactional
     @SuppressFBWarnings("DLS_DEAD_LOCAL_STORE")
-    Map<String, Object> doUpload(FileUpload heapDump, String jvmId, String jobId) {
-        var dump = helper.addHeapDump(jvmId, heapDump, jobId);
+    Map<String, Object> doUpload(FileUpload heapDump, String jvmId, String jobId, Metadata metadata)
+            throws IOException {
+        var dump = helper.addHeapDump(jvmId, heapDump, jobId, metadata);
 
         io.cryostat.diagnostic.HeapDump.<io.cryostat.diagnostic.HeapDump>find("jobId", jobId)
                 .firstResultOptional()
@@ -538,7 +558,8 @@ public class Diagnostics {
     }
 
     @SuppressFBWarnings("EI_EXPOSE_REP")
-    public record ArchivedHeapDumpDirectory(String jvmId, List<HeapDump> heapDumps) {
+    public record ArchivedHeapDumpDirectory(
+            @NotNull String jvmId, @NotNull List<HeapDump> heapDumps) {
         public ArchivedHeapDumpDirectory {
             Objects.requireNonNull(jvmId);
             Objects.requireNonNull(heapDumps);
@@ -546,12 +567,12 @@ public class Diagnostics {
     }
 
     public record HeapDump(
-            String jvmId,
-            String downloadUrl,
-            String heapDumpId,
-            long lastModified,
-            long size,
-            Metadata metadata) {
+            @NotNull String jvmId,
+            @NotNull String downloadUrl,
+            @NotNull String heapDumpId,
+            @Schema(required = true) long lastModified,
+            @Schema(required = true) long size,
+            @NotNull Metadata metadata) {
 
         public HeapDump {
             Objects.requireNonNull(jvmId);
@@ -562,7 +583,8 @@ public class Diagnostics {
     }
 
     @SuppressFBWarnings("EI_EXPOSE_REP")
-    public record ArchivedThreadDumpDirectory(String jvmId, List<ThreadDump> threadDumps) {
+    public record ArchivedThreadDumpDirectory(
+            @NotNull String jvmId, @NotNull List<ThreadDump> threadDumps) {
         public ArchivedThreadDumpDirectory {
             Objects.requireNonNull(jvmId);
             Objects.requireNonNull(threadDumps);
@@ -570,12 +592,12 @@ public class Diagnostics {
     }
 
     public record ThreadDump(
-            String jvmId,
-            String downloadUrl,
-            String threadDumpId,
-            long lastModified,
-            long size,
-            Metadata metadata) {
+            @NotNull String jvmId,
+            @NotNull String downloadUrl,
+            @NotNull String threadDumpId,
+            @Schema(required = true) long lastModified,
+            @Schema(required = true) long size,
+            @NotNull Metadata metadata) {
         public ThreadDump {
             Objects.requireNonNull(jvmId);
             Objects.requireNonNull(downloadUrl);

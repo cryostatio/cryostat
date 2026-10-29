@@ -44,6 +44,7 @@ import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
 import jakarta.persistence.PersistenceException;
 import jakarta.transaction.Transactional;
+import jakarta.validation.constraints.NotNull;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.InternalServerErrorException;
@@ -56,6 +57,7 @@ import org.eclipse.microprofile.faulttolerance.Bulkhead;
 import org.eclipse.microprofile.faulttolerance.Retry;
 import org.eclipse.microprofile.faulttolerance.Timeout;
 import org.eclipse.microprofile.openapi.annotations.Operation;
+import org.eclipse.microprofile.openapi.annotations.media.Schema;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestForm;
 import org.jboss.resteasy.reactive.RestPath;
@@ -265,7 +267,9 @@ public class Credentials {
     }
 
     static record CredentialMatchResult(
-            long id, MatchExpression matchExpression, Collection<Target> targets) {
+            @Schema(required = true) long id,
+            @NotNull MatchExpression matchExpression,
+            @NotNull Collection<Target> targets) {
         CredentialMatchResult(Credential credential, Collection<Target> targets) {
             this(credential.id, credential.matchExpression, new ArrayList<>(targets));
         }

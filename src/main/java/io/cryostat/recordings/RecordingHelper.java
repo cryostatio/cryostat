@@ -100,7 +100,6 @@ import jakarta.ws.rs.POST;
 import jakarta.ws.rs.ServerErrorException;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
-import jdk.jfr.RecordingState;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.exception.ExceptionUtils;
@@ -988,7 +987,8 @@ public class RecordingHelper {
         if (StringUtils.isNotBlank(jvmId)) {
             builder = builder.prefix(jvmId);
         }
-        return storage.listObjectsV2(builder.build()).contents();
+        var paginator = storage.listObjectsV2Paginator(builder.build());
+        return paginator.contents().stream().toList();
     }
 
     public List<ArchivedRecording> listArchivedRecordings(String jvmId) {

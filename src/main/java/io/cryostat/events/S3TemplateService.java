@@ -203,7 +203,8 @@ public class S3TemplateService implements MutableTemplateService {
 
     private List<S3Object> getObjects() {
         var builder = ListObjectsV2Request.builder().bucket(bucket);
-        return storage.listObjectsV2(builder.build()).contents();
+        var paginator = storage.listObjectsV2Paginator(builder.build());
+        return paginator.contents().stream().toList();
     }
 
     private Template convertObject(S3Object object)

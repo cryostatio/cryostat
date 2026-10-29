@@ -53,6 +53,7 @@ import io.cryostat.targets.TargetConnectionManager;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import graphql.schema.DataFetchingEnvironment;
+import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.smallrye.graphql.api.Context;
 import io.smallrye.graphql.api.Nullable;
 import io.smallrye.mutiny.Uni;
@@ -69,6 +70,7 @@ import org.eclipse.microprofile.graphql.Ignore;
 import org.eclipse.microprofile.graphql.NonNull;
 import org.eclipse.microprofile.graphql.Query;
 import org.eclipse.microprofile.graphql.Source;
+import org.hibernate.Hibernate;
 import org.hibernate.envers.AuditReader;
 import org.hibernate.envers.AuditReaderFactory;
 import org.hibernate.envers.query.AuditEntity;
@@ -97,25 +99,42 @@ public class TargetNodes {
                             "Query historical targets from audit log. This is more expensive and"
                                     + " should only be used when historical data is needed.")
                     boolean useAuditLog) {
-        List<Target> targets;
-        if (useAuditLog) {
-            targets = queryAuditLogTargets();
-        } else {
-            // TODO do this filtering at the database query level as much as possible. As is, this
-            // will load the entire discovery tree out of the database, then perform the filtering
-            // at the application level.
-            targets = Target.<Target>findAll().stream().toList();
-        }
+        return QuarkusTransaction.requiringNew()
+                .call(
+                        () -> {
+                            List<Target> targets;
+                            if (useAuditLog) {
+                                targets = queryAuditLogTargets();
+                            } else {
+                                // TODO do this filtering at the database query level as much as
+                                // possible. As is, this will load the entire discovery tree out of
+                                // the database, then perform the filtering at the application
+                                // level.
+                                targets = Target.<Target>findAll().stream().toList();
+                            }
 
-        return targets.stream()
-                // FIXME filtering by distinct JVM ID breaks clients that expect to be able to use a
-                // different connection URL (in the node filter or for client-side filtering) than
-                // the one we end up selecting for here.
-                // .filter(distinctWith(t -> t.jvmId))
-                .map(t -> t.discoveryNode)
-                .filter(Objects::nonNull)
-                .filter(n -> filter == null ? true : filter.test(n))
-                .toList();
+                            var nodes =
+                                    targets.stream()
+                                            // FIXME filtering by distinct JVM ID breaks clients
+                                            // that expect to be able to use a different connection
+                                            // URL (in the node filter or for client-side filtering)
+                                            // than the one we end up selecting for here.
+                                            // .filter(distinctWith(t -> t.jvmId))
+                                            .map(t -> t.discoveryNode)
+                                            .filter(Objects::nonNull)
+                                            .toList();
+                            // Initialize target field while transaction is active to prevent
+                            // LazyInitializationException when GraphQL field resolvers access it
+                            nodes.forEach(
+                                    n -> {
+                                        if (n.target != null) {
+                                            Hibernate.initialize(n.target);
+                                        }
+                                    });
+                            return nodes.stream()
+                                    .filter(n -> filter == null ? true : filter.test(n))
+                                    .toList();
+                        });
     }
 
     @Transactional
@@ -289,8 +308,7 @@ public class TargetNodes {
                                             + " NULL")
                             .getResultList();
 
-            // For each jvmId, get the most recent Target and manually reconstruct its
-            // DiscoveryNode
+            // For each jvmId, get the most recent Target and manually reconstruct its DiscoveryNode
             List<Target> historicalTargets = new ArrayList<>();
             for (String jvmId : jvmIds) {
                 if (StringUtils.isNotBlank(jvmId)) {
