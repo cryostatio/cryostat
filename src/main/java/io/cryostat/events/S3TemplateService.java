@@ -28,6 +28,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Function;
+import java.util.function.Supplier;
 
 import org.openjdk.jmc.common.unit.IConstrainedMap;
 import org.openjdk.jmc.common.unit.SimpleConstrainedMap;
@@ -65,6 +67,7 @@ import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.core.MediaType;
 import org.apache.commons.codec.binary.Base64;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
@@ -418,38 +421,40 @@ public class S3TemplateService implements MutableTemplateService {
     }
 
     private Template createTemplate(XMLModel model) throws IOException, ParseException {
-        XMLTagInstance configuration = model.getRoot();
-        XMLAttributeInstance labelAttr = null;
-        for (XMLAttributeInstance attr : configuration.getAttributeInstances()) {
-            if (attr.getAttribute().getName().equals("label")) {
-                labelAttr = attr;
-                break;
-            }
-        }
-
-        if (labelAttr == null) {
-            throw new IllegalArgumentException(
-                    new InvalidEventTemplateException(
-                            "Template has no configuration label attribute"));
-        }
-
-        String templateName = labelAttr.getExplicitValue().replaceAll("[\\W]+", "_");
-
         XMLTagInstance root = model.getRoot();
+
+        Function<String, Supplier<IllegalArgumentException>> requiredAttr =
+                s ->
+                        () ->
+                                new IllegalArgumentException(
+                                        new InvalidEventTemplateException(
+                                                String.format(
+                                                        "Template has no configuration %s"
+                                                                + " attribute",
+                                                        s)));
+
+        String labelValue =
+                getAttributeValue(root, "label")
+                        .filter(StringUtils::isNotBlank)
+                        .orElseThrow(requiredAttr.apply("label"));
+        String templateName = labelValue.strip().replaceAll("[\\W]+", "_");
         root.setValue(JFCGrammar.ATTRIBUTE_LABEL_MANDATORY, templateName);
 
-        String description = getAttributeValue(root, "description");
-        String provider = getAttributeValue(root, "provider");
+        String provider =
+                getAttributeValue(root, "provider")
+                        .filter(StringUtils::isNotBlank)
+                        .orElseThrow(requiredAttr.apply("provider"));
+
+        String description = getAttributeValue(root, "description").orElse("");
 
         return new Template(templateName, description, provider, TemplateType.CUSTOM);
     }
 
-    private String getAttributeValue(XMLTagInstance node, String valueKey) {
+    private Optional<String> getAttributeValue(XMLTagInstance node, String valueKey) {
         return node.getAttributeInstances().stream()
                 .filter(i -> Objects.equals(valueKey, i.getAttribute().getName()))
-                .map(i -> i.getValue())
-                .findFirst()
-                .get();
+                .map(XMLAttributeInstance::getValue)
+                .findFirst();
     }
 
     static class DuplicateTemplateException extends IllegalArgumentException {
