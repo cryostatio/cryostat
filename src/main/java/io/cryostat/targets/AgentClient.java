@@ -714,6 +714,7 @@ public class AgentClient {
             var agentRestClientBuilder =
                     QuarkusRestClientBuilder.newBuilder()
                             .baseUri(uri)
+                            .disableDefaultMapper(true)
                             .clientHeadersFactory(
                                     new DiscoveryPluginAuthorizationHeaderFactory(
                                             credentialSupplier));
