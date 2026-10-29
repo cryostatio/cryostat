@@ -38,22 +38,58 @@ import org.junit.jupiter.api.Test;
 public class PermissionsTest extends AbstractTransactionalTestBase {
 
     // See PermissionAnnotationArchTest for how this is generated
-    private static final List<String> PERMISSION_SET = List.of(
-            "jmcagent:delete", "eventtypes:read", "unifiedlogs:read", "asyncprofiler:write",
-                "heapdumps:write", "certificates:read", "unifiedlogs:delete", "reports:read",
-                "discoveryplugins:read", "reports:write", "threaddumps:delete", "diagnostics:write",
-                "matchexpressions:write", "jmcagent:read", "targets:write", "matchexpressions:delete",
-                "archivedrecordings:read", "activerecordings:write", "threaddumps:read",
-                "eventtemplates:read", "smarttriggers:delete", "credentials:delete", "targets:read",
-                "eventtemplates:write", "heapdumps:read", "archivedrecordings:write",
-                "asyncprofiler:read", "credentials:read", "automatedrules:read",
-                "asyncprofiler:delete", "discoveryplugins:write", "targets:delete",
-                "credentials:write", "automatedrules:delete", "unifiedlogs:write",
-                "activerecordings:read", "automatedrules:write", "discoveryplugins:delete",
-                "activerecordings:delete", "discoverynodes:delete", "discoverynodes:read",
-                "threaddumps:write", "matchexpressions:read", "smarttriggers:write",
-                "eventtemplates:delete", "heapdumps:delete", "smarttriggers:read",
-                "archivedrecordings:delete", "discoverynodes:write", "jmcagent:write");
+    private static final List<String> PERMISSION_SET =
+            List.of(
+                    "jmcagent:delete",
+                    "eventtypes:read",
+                    "unifiedlogs:read",
+                    "asyncprofiler:write",
+                    "heapdumps:write",
+                    "certificates:read",
+                    "unifiedlogs:delete",
+                    "reports:read",
+                    "discoveryplugins:read",
+                    "reports:write",
+                    "threaddumps:delete",
+                    "diagnostics:write",
+                    "matchexpressions:write",
+                    "jmcagent:read",
+                    "targets:write",
+                    "matchexpressions:delete",
+                    "archivedrecordings:read",
+                    "activerecordings:write",
+                    "threaddumps:read",
+                    "eventtemplates:read",
+                    "smarttriggers:delete",
+                    "credentials:delete",
+                    "targets:read",
+                    "eventtemplates:write",
+                    "heapdumps:read",
+                    "archivedrecordings:write",
+                    "asyncprofiler:read",
+                    "credentials:read",
+                    "automatedrules:read",
+                    "asyncprofiler:delete",
+                    "discoveryplugins:write",
+                    "targets:delete",
+                    "credentials:write",
+                    "automatedrules:delete",
+                    "unifiedlogs:write",
+                    "activerecordings:read",
+                    "automatedrules:write",
+                    "discoveryplugins:delete",
+                    "activerecordings:delete",
+                    "discoverynodes:delete",
+                    "discoverynodes:read",
+                    "threaddumps:write",
+                    "matchexpressions:read",
+                    "smarttriggers:write",
+                    "eventtemplates:delete",
+                    "heapdumps:delete",
+                    "smarttriggers:read",
+                    "archivedrecordings:delete",
+                    "discoverynodes:write",
+                    "jmcagent:write");
 
     @Test
     public void testList() {
@@ -105,7 +141,10 @@ public class PermissionsTest extends AbstractTransactionalTestBase {
         for (Object o : array) {
             var tmp = (JsonObject) o;
             assertEquals(tmp.getJsonObject("response").getString("authorized"), "true");
-            var permission = tmp.getJsonObject("permission").getString("resource") + ":" + tmp.getJsonObject("permission").getString("action");
+            var permission =
+                    tmp.getJsonObject("permission").getString("resource")
+                            + ":"
+                            + tmp.getJsonObject("permission").getString("action");
             permissions.add(permission);
             assertEquals(PERMISSION_SET.contains(permission), true);
         }
