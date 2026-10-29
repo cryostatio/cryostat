@@ -721,23 +721,12 @@ public class RecordingHelper {
                         lockedTarget.connectUrl.toString()));
 
         try {
-            return connectionManager.executeConnectedTask(
-                    lockedTarget,
-                    connection -> {
-                        try {
-                            ActiveRecording recording =
-                                    ActiveRecording.from(lockedTarget, desc, new Metadata(labels));
-                            recording.persistAndFlush();
-                            lockedTarget.activeRecordings.add(recording);
-                            lockedTarget.persist();
-                            return recording;
-                        } catch (Exception e) {
-                            // If persisting failed, make sure the recording
-                            // is cleaned up.
-                            safeCloseRecording(connection, desc);
-                            throw e;
-                        }
-                    });
+            ActiveRecording recording =
+                    ActiveRecording.from(lockedTarget, desc, new Metadata(labels));
+            recording.persistAndFlush();
+            lockedTarget.activeRecordings.add(recording);
+            lockedTarget.persist();
+            return recording;
         } catch (Exception e) {
             // Log with more context about the failure to help diagnose issues
             logger.warnv(
@@ -745,6 +734,16 @@ public class RecordingHelper {
                     "Failed to create or persist snapshot recording for target ({0} {1})",
                     target.jvmId,
                     target.id);
+            try {
+                connectionManager.executeConnectedTask(
+                        lockedTarget,
+                        conn -> {
+                            safeCloseRecording(conn, desc);
+                            return null;
+                        });
+            } catch (Exception cleanupEx) {
+                logger.warnv(cleanupEx, "Failed to close remote snapshot after persist failure");
+            }
             throw e;
         }
     }
@@ -1520,7 +1519,7 @@ public class RecordingHelper {
     }
 
     public ArchivedRecording uploadSynthesizedRecording(
-            String jvmId, Path source, String filename, Metadata metadata) throws Exception {
+            String jvmId, Path source, String filename, Metadata metadata) throws IOException {
         Map<String, String> labels = new HashMap<>(metadata.labels());
         labels.put("jvmId", jvmId);
         Metadata resolvedMetadata = new Metadata(labels);
@@ -1629,7 +1628,7 @@ public class RecordingHelper {
         return archivedRecording;
     }
 
-    private void deleteUploadedRecording(String key) throws Exception {
+    private void deleteUploadedRecording(String key) {
         DeleteObjectRequest requestBuilder =
                 DeleteObjectRequest.builder().bucket(archiveBucket).key(key).build();
         storage.deleteObject(requestBuilder);

@@ -274,32 +274,35 @@ class RecordingHelperTest extends AbstractTransactionalTestBase {
 
         // Mock ActiveRecording so we can throw when attempting to
         // persist the created ActiveRecording
-        MockedStatic<ActiveRecording> recordingMock = Mockito.mockStatic(ActiveRecording.class);
-        ActiveRecording mock = Mockito.mock(ActiveRecording.class);
-        Mockito.doThrow(new RuntimeException("Failing to persist!")).when(mock).persistAndFlush();
-        recordingMock.when(() -> ActiveRecording.from(any(), any(), any())).thenReturn(mock);
+        try (MockedStatic<ActiveRecording> recordingMock =
+                Mockito.mockStatic(ActiveRecording.class)) {
+            ActiveRecording mock = Mockito.mock(ActiveRecording.class);
+            Mockito.doThrow(new RuntimeException("Failing to persist!"))
+                    .when(mock)
+                    .persistAndFlush();
+            recordingMock.when(() -> ActiveRecording.from(any(), any(), any())).thenReturn(mock);
 
-        Target target =
-                QuarkusTransaction.requiringNew()
-                        .call(() -> Target.<Target>find("id", (long) targetId).singleResult());
+            Target target =
+                    QuarkusTransaction.requiringNew()
+                            .call(() -> Target.<Target>find("id", (long) targetId).singleResult());
 
-        assertThrows(
-                SnapshotCreationException.class,
-                () ->
-                        recordingHelper
-                                .createSnapshot(target)
-                                .await()
-                                .atMost(Duration.ofSeconds(30)));
+            assertThrows(
+                    SnapshotCreationException.class,
+                    () ->
+                            recordingHelper
+                                    .createSnapshot(target)
+                                    .await()
+                                    .atMost(Duration.ofSeconds(30)));
 
-        List<String> remoteRecordings =
-                connectionManager.executeConnectedTask(
-                        target,
-                        conn ->
-                                conn.getService().getAvailableRecordings().stream()
-                                        .map(IRecordingDescriptor::getName)
-                                        .toList());
-        assertThat(remoteRecordings, is(empty()));
-        recordingMock.close();
+            List<String> remoteRecordings =
+                    connectionManager.executeConnectedTask(
+                            target,
+                            conn ->
+                                    conn.getService().getAvailableRecordings().stream()
+                                            .map(IRecordingDescriptor::getName)
+                                            .toList());
+            assertThat(remoteRecordings, is(empty()));
+        }
     }
 
     @Test
@@ -331,28 +334,30 @@ class RecordingHelperTest extends AbstractTransactionalTestBase {
 
         // Mock ArchivedRecordingInfo so we can throw when attempting to
         // persist the created ArchivedRecording
-        MockedStatic<ArchivedRecordingInfo> recordingMock =
-                Mockito.mockStatic(ArchivedRecordingInfo.class);
-        ArchivedRecordingInfo mock = Mockito.mock(ArchivedRecordingInfo.class);
-        Mockito.doThrow(new RuntimeException("Failing to persist!")).when(mock).persist();
-        recordingMock.when(() -> ArchivedRecordingInfo.of(any(), any(), any())).thenReturn(mock);
+        try (MockedStatic<ArchivedRecordingInfo> recordingMock =
+                Mockito.mockStatic(ArchivedRecordingInfo.class)) {
+            ArchivedRecordingInfo mock = Mockito.mock(ArchivedRecordingInfo.class);
+            Mockito.doThrow(new RuntimeException("Failing to persist!")).when(mock).persist();
+            recordingMock
+                    .when(() -> ArchivedRecordingInfo.of(any(), any(), any()))
+                    .thenReturn(mock);
 
-        // This is expected to rethrow the original exception, in this case
-        // the runtime exception we initially threw.
-        assertThrows(
-                RuntimeException.class,
-                () ->
-                        recordingHelper.uploadSynthesizedRecording(
-                                selfJvmId, recordingFile, recordingFile.toString(), metadata));
+            // This is expected to rethrow the original exception, in this case
+            // the runtime exception we initially threw.
+            assertThrows(
+                    RuntimeException.class,
+                    () ->
+                            recordingHelper.uploadSynthesizedRecording(
+                                    selfJvmId, recordingFile, recordingFile.toString(), metadata));
 
-        Mockito.verify(storage).deleteObject(any(DeleteObjectRequest.class));
+            Mockito.verify(storage).deleteObject(any(DeleteObjectRequest.class));
 
-        // Archives should not have anything.
-        List<ArchivedRecordings.ArchivedRecording> archivedRecordings =
-                recordingHelper.listArchivedRecordings((String) null);
+            // Archives should not have anything.
+            List<ArchivedRecordings.ArchivedRecording> archivedRecordings =
+                    recordingHelper.listArchivedRecordings((String) null);
 
-        assertThat(archivedRecordings, hasSize(equalTo(0)));
-        recordingMock.close();
+            assertThat(archivedRecordings, hasSize(equalTo(0)));
+        }
     }
 
     @Test
