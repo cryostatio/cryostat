@@ -18,6 +18,8 @@ package io.cryostat.security.rbac;
 import java.security.Permission;
 import java.util.Arrays;
 import java.util.Optional;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import io.fabric8.kubernetes.api.model.authorization.v1.ResourceAttributes;
 import io.fabric8.kubernetes.api.model.authorization.v1.ResourceAttributesBuilder;
@@ -27,8 +29,8 @@ import io.quarkus.security.identity.SecurityIdentity;
 import io.quarkus.security.runtime.QuarkusPrincipal;
 import io.quarkus.security.runtime.QuarkusSecurityIdentity;
 import io.smallrye.mutiny.Uni;
-import io.smallrye.mutiny.infrastructure.Infrastructure;
 import io.vertx.ext.web.RoutingContext;
+import jakarta.annotation.PreDestroy;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.apache.commons.lang3.StringUtils;
@@ -47,6 +49,8 @@ import org.jboss.logging.Logger;
  */
 @ApplicationScoped
 public class SsarAuthorizer {
+
+    private final ExecutorService ssarExecutor = Executors.newVirtualThreadPerTaskExecutor();
 
     static final String BEARER_PREFIX = "bearer ";
     static final String ATTR_RAW_ACCESS_TOKEN = "raw_access_token";
@@ -134,7 +138,7 @@ public class SsarAuthorizer {
      *   <li>the SSAR call throws (network error, TLS failure, API server unavailable, etc.).
      * </ul>
      */
-    private Uni<Boolean> checkSsarPermission(String rawToken, String permissionName) {
+    Uni<Boolean> checkSsarPermission(String rawToken, String permissionName) {
         var mapping = permissionMapper.resolve(permissionName);
         if (mapping.isEmpty()) {
             log.debugf(
@@ -149,7 +153,7 @@ public class SsarAuthorizer {
                 permissionName, k8s.resource(), k8s.subresource(), k8s.verb());
         return Uni.createFrom()
                 .<Boolean>item(() -> performSsarCheck(rawToken, permissionName, k8s))
-                .runSubscriptionOn(Infrastructure.getDefaultExecutor())
+                .runSubscriptionOn(ssarExecutor)
                 .onFailure()
                 .recoverWithItem(
                         e -> {
@@ -197,6 +201,12 @@ public class SsarAuthorizer {
                             decision);
                     return decision;
                 });
+    }
+
+    @PreDestroy
+    void shutdown() {
+        // Reject new work and request interruption of outstanding checks.
+        ssarExecutor.shutdownNow();
     }
 
     private static SelfSubjectAccessReview buildSsar(
