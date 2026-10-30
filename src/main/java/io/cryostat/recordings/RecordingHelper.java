@@ -1634,6 +1634,14 @@ public class RecordingHelper {
                         filename,
                         jvmId);
                 try {
+                    metadataService.get().delete(key);
+                } catch (Exception e3) {
+                    logger.warnv(
+                            e3,
+                            "Failed to delete metadata for recording with key {1} from storage",
+                            key);
+                }
+                try {
                     deleteUploadedRecording(key);
                 } catch (Exception e2) {
                     // Preserve and rethrow the original exception if deleting from storage
