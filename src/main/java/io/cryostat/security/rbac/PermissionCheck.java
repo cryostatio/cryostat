@@ -127,11 +127,11 @@ public class PermissionCheck {
         }
         switch (rbacConfig.mode()) {
             case OPENSHIFT -> {
-                Permission.fromString(permission);
+                Permission parsed = Permission.fromString(permission);
                 String token = SsarAuthorizer.extractAccessToken(ctx);
                 ctx.put(SsarAuthorizer.ATTR_RAW_ACCESS_TOKEN, token);
                 return ssarAuthorizer
-                        .checkSsarPermission(token, permission)
+                        .checkSsarPermission(token, parsed.toString())
                         .map(PermissionResponse::new);
             }
             case BASIC -> {
