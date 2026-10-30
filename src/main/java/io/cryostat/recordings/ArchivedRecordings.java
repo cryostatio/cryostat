@@ -292,7 +292,7 @@ public class ArchivedRecordings {
                 .forEach(
                         item -> {
                             String objectName = item.key().strip();
-                            String filename = objectName.split("/")[1];
+                            String filename = objectName.split("/", 2)[1];
                             Metadata metadata =
                                     recordingHelper
                                             .getArchivedRecordingMetadata(jvmId, filename)
@@ -381,7 +381,7 @@ public class ArchivedRecordings {
                 .forEach(
                         item -> {
                             String path = item.key().strip();
-                            String[] parts = path.split("/");
+                            String[] parts = path.split("/", 2);
                             String jvmId = parts[0];
                             String filename = parts[1];
 

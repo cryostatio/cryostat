@@ -333,7 +333,7 @@ public class UnifiedLogs {
                 .forEach(
                         item -> {
                             String path = item.key().strip();
-                            String[] parts = path.split("/");
+                            String[] parts = path.split("/", 2);
                             String jvmId = parts[0];
                             String filename = parts[1];
                             var dir =
