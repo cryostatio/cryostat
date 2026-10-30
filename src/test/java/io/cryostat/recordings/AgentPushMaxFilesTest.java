@@ -64,7 +64,7 @@ public class AgentPushMaxFilesTest extends AbstractTransactionalTestBase {
                 .listArchivedRecordingObjects(TEST_JVM_ID)
                 .forEach(
                         obj -> {
-                            String filename = obj.key().strip().split("/")[1];
+                            String filename = obj.key().strip().split("/", 2)[1];
                             try {
                                 recordingHelper.deleteArchivedRecording(TEST_JVM_ID, filename);
                             } catch (Exception e) {

@@ -235,6 +235,8 @@ type Query {
   ): [DiscoveryNode]
   "List archived thread dumps"
   threadDumps(filter: ThreadDumpsFilterInput): ThreadDumps
+  "List archived unified logs"
+  unifiedLogs(filter: UnifiedLogsFilterInput): UnifiedLogs
 }
 
 type RecordingAggregateInfo {
@@ -331,6 +333,8 @@ type Target {
   report(filter: ReportFilterInput): Report
   "Retrieve a list of thread dumps belonging to the target"
   threadDumps(filter: ThreadDumpsFilterInput): ThreadDumps
+  "Retrieve a list of unified logs belonging to the target"
+  unifiedLogs(filter: UnifiedLogsFilterInput): UnifiedLogs
 }
 
 type ThreadDump {
@@ -373,6 +377,29 @@ type ThreadMetrics {
   threadCpuTimeEnabled: Boolean!
   threadCpuTimeSupported: Boolean!
   totalStartedThreadCount: BigInteger!
+}
+
+type UnifiedLog {
+  "Delete a unified log"
+  doDelete: UnifiedLog!
+  downloadUrl: String!
+  jvmId: String!
+  lastModified: BigInteger!
+  metadata: Metadata!
+  size: BigInteger!
+  unifiedLogId: String!
+}
+
+type UnifiedLogAggregateInfo {
+  "The number of elements in this collection"
+  count: BigInteger!
+  "The sum of sizes of elements in this collection, or 0 if not applicable"
+  size: BigInteger!
+}
+
+type UnifiedLogs {
+  aggregate: UnifiedLogAggregateInfo!
+  data: [UnifiedLog]!
 }
 
 "Running state of an active Flight Recording"
@@ -481,6 +508,17 @@ input ReportFilterInput {
 }
 
 input ThreadDumpsFilterInput {
+  archivedTimeAfterEqual: BigInteger
+  archivedTimeBeforeEqual: BigInteger
+  labels: [String]
+  name: String
+  names: [String]
+  sizeBytesGreaterThanEqual: BigInteger
+  sizeBytesLessThanEqual: BigInteger
+  sourceTarget: String
+}
+
+input UnifiedLogsFilterInput {
   archivedTimeAfterEqual: BigInteger
   archivedTimeBeforeEqual: BigInteger
   labels: [String]

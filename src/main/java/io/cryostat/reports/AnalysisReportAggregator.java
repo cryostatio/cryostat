@@ -50,6 +50,7 @@ import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.inject.Inject;
+import jakarta.persistence.EntityManager;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.DefaultValue;
 import jakarta.ws.rs.GET;
@@ -61,6 +62,8 @@ import jakarta.ws.rs.core.MediaType;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.microprofile.openapi.annotations.Operation;
+import org.hibernate.envers.AuditReaderFactory;
+import org.hibernate.envers.query.AuditEntity;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestPath;
 import org.jboss.resteasy.reactive.RestResponse;
@@ -70,6 +73,7 @@ public class AnalysisReportAggregator {
 
     @Inject EventBus bus;
     @Inject Logger logger;
+    @Inject EntityManager em;
 
     public static final String AUTOANALYZE_LABEL = "autoanalyze";
     static final String AGGREGATOR_CACHE_NAME = "reports-aggregator";
@@ -331,10 +335,37 @@ public class AnalysisReportAggregator {
                     return QuarkusTransaction.joiningExisting()
                             .call(
                                     () -> {
-                                        var target = Target.getTargetByJvmId(k).orElseThrow();
-                                        return new Entry(ownerChain(target));
+                                        var target = Target.getTargetByJvmId(k);
+                                        if (target.isPresent()) {
+                                            return new Entry(ownerChain(target.get()));
+                                        }
+                                        return new Entry(getArchivedOwnerChain(k));
                                     });
                 });
+    }
+
+    private List<Pair<String, String>> getArchivedOwnerChain(String jvmId) {
+        try {
+            var ar = AuditReaderFactory.get(em);
+            @SuppressWarnings("unchecked")
+            var q =
+                    ar.createQuery()
+                            .forRevisionsOfEntity(Target.class, false, false)
+                            .add(AuditEntity.property("jvmId").eq(jvmId))
+                            .addOrder(AuditEntity.revisionNumber().desc())
+                            .setMaxResults(1)
+                            .getResultList();
+            if (!q.isEmpty()) {
+                Object[] result = (Object[]) q.get(0);
+                Target t = (Target) result[0];
+                if (t != null) {
+                    return ownerChain(t);
+                }
+            }
+        } catch (Exception e) {
+            logger.debugv("Failed to look up target from audit for jvmId: {0}", jvmId, e);
+        }
+        return List.of(Pair.of("jvmId", jvmId));
     }
 
     @SuppressFBWarnings(value = {"EI_EXPOSE_REP"})

@@ -17,6 +17,7 @@ package io.cryostat.diagnostic;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -211,7 +212,7 @@ public class DiagnosticsHelper {
             log.errorv("jvmId {0} failed to resolve to target. Defaulting to uuid.", jvmId);
             return uuid;
         }
-        return t.alias + "_" + uuid + extension;
+        return URLEncoder.encode(t.alias, StandardCharsets.UTF_8) + "_" + uuid + extension;
     }
 
     public ThreadDumpAnalysis analyzeThreadDump(String jvmId, String threadDumpId)
@@ -280,18 +281,24 @@ public class DiagnosticsHelper {
     public List<S3Object> listHeapDumpObjects(String jvmId) {
         var builder = ListObjectsV2Request.builder().bucket(heapDumpBucket);
         if (StringUtils.isNotBlank(jvmId)) {
-            builder = builder.prefix(jvmId);
+            builder = builder.prefix(jvmId + "/");
         }
         return listObjectsWithPagination(builder.build());
     }
 
     public List<HeapDump> getHeapDumps(String jvmId) {
-        return getHeapDumps(
-                jvmId == null
-                        ? null
-                        : QuarkusTransaction.joiningExisting()
-                                .call(() -> Target.getTargetByJvmId(jvmId))
-                                .get());
+        return listHeapDumpObjects(jvmId).stream()
+                .map(
+                        item -> {
+                            try {
+                                return convertHeapDump(item);
+                            } catch (Exception e) {
+                                log.error(e);
+                                return null;
+                            }
+                        })
+                .filter(Objects::nonNull)
+                .toList();
     }
 
     public List<HeapDump> getHeapDumps(Target target) {
@@ -381,7 +388,7 @@ public class DiagnosticsHelper {
     public List<S3Object> listThreadDumpObjects(String jvmId) {
         var builder = ListObjectsV2Request.builder().bucket(threadDumpBucket);
         if (StringUtils.isNotBlank(jvmId)) {
-            builder = builder.prefix(jvmId);
+            builder = builder.prefix(jvmId + "/");
         }
         return listObjectsWithPagination(builder.build());
     }
@@ -500,7 +507,7 @@ public class DiagnosticsHelper {
     public List<S3Object> listUnifiedLogObjects(String jvmId) {
         var builder = ListObjectsV2Request.builder().bucket(unifiedLogBucket);
         if (StringUtils.isNotBlank(jvmId)) {
-            builder = builder.prefix(jvmId);
+            builder = builder.prefix(jvmId + "/");
         }
         return listObjectsWithPagination(builder.build());
     }
@@ -554,8 +561,64 @@ public class DiagnosticsHelper {
                 "/api/beta/diagnostics/unified-logs/download/%s", encodedKey(jvmId, filename));
     }
 
+    public List<io.cryostat.diagnostic.Diagnostics.UnifiedLog> getUnifiedLogs(String jvmId) {
+        return listUnifiedLogObjects(jvmId).stream()
+                .map(
+                        item -> {
+                            try {
+                                return convertUnifiedLog(item);
+                            } catch (Exception e) {
+                                log.error(e);
+                                return null;
+                            }
+                        })
+                .filter(Objects::nonNull)
+                .toList();
+    }
+
+    public List<io.cryostat.diagnostic.Diagnostics.UnifiedLog> getUnifiedLogs(Target target) {
+        return listUnifiedLogObjects(target == null ? null : target.jvmId).stream()
+                .map(
+                        item -> {
+                            try {
+                                return convertUnifiedLog(item);
+                            } catch (Exception e) {
+                                log.error(e);
+                                return null;
+                            }
+                        })
+                .filter(Objects::nonNull)
+                .toList();
+    }
+
+    private io.cryostat.diagnostic.Diagnostics.UnifiedLog convertUnifiedLog(S3Object object)
+            throws Exception {
+        String[] parts = object.key().split("/", 2);
+        String jvmId = parts[0];
+        String filename = parts[1];
+        Optional<Metadata> metadata = getUnifiedLogMetadata(storageKey(jvmId, filename));
+        return new io.cryostat.diagnostic.Diagnostics.UnifiedLog(
+                jvmId,
+                unifiedLogDownloadUrl(jvmId, filename),
+                filename,
+                object.lastModified().getEpochSecond(),
+                object.size(),
+                metadata.orElse(new Metadata(Map.of())));
+    }
+
     public List<ThreadDump> getThreadDumps(String jvmId) {
-        return getThreadDumps(jvmId == null ? null : Target.getTargetByJvmId(jvmId).get());
+        return listThreadDumpObjects(jvmId).stream()
+                .map(
+                        item -> {
+                            try {
+                                return convertThreadDump(item);
+                            } catch (Exception e) {
+                                log.error(e);
+                                return null;
+                            }
+                        })
+                .filter(Objects::nonNull)
+                .toList();
     }
 
     public List<ThreadDump> getThreadDumps(Target target) {
@@ -574,8 +637,9 @@ public class DiagnosticsHelper {
     }
 
     private HeapDump convertHeapDump(S3Object object) throws Exception {
-        String jvmId = object.key().split("/")[0];
-        String uuid = object.key().split("/")[1];
+        String[] parts = object.key().split("/", 2);
+        String jvmId = parts[0];
+        String uuid = parts[1];
         Optional<Metadata> metadata = getHeapDumpMetadata(storageKey(jvmId, uuid));
         return new HeapDump(
                 jvmId,
@@ -587,8 +651,9 @@ public class DiagnosticsHelper {
     }
 
     private ThreadDump convertThreadDump(S3Object object) throws Exception {
-        String jvmId = object.key().split("/")[0];
-        String uuid = object.key().split("/")[1];
+        String[] parts = object.key().split("/", 2);
+        String jvmId = parts[0];
+        String uuid = parts[1];
         Optional<Metadata> metadata = getThreadDumpMetadata(storageKey(jvmId, uuid));
         return new ThreadDump(
                 jvmId,
@@ -788,7 +853,7 @@ public class DiagnosticsHelper {
 
     public Pair<String, String> decodedKey(String encodedKey) {
         String key = new String(base64Url.decode(encodedKey), StandardCharsets.UTF_8);
-        String[] parts = key.split("/");
+        String[] parts = key.split("/", 2);
         if (parts.length != 2) {
             throw new IllegalArgumentException();
         }
@@ -801,7 +866,7 @@ public class DiagnosticsHelper {
         if (target != null) {
             String jvmId = target.jvmId;
             if (StringUtils.isNotBlank(jvmId)) {
-                builder = builder.prefix(jvmId);
+                builder = builder.prefix(jvmId + "/");
             }
         }
         return listObjectsWithPagination(builder.build());
@@ -812,7 +877,7 @@ public class DiagnosticsHelper {
         if (target != null) {
             String jvmId = target.jvmId;
             if (StringUtils.isNotBlank(jvmId)) {
-                builder = builder.prefix(jvmId);
+                builder = builder.prefix(jvmId + "/");
             }
         }
         return listObjectsWithPagination(builder.build());

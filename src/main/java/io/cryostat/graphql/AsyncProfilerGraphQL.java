@@ -118,9 +118,9 @@ public class AsyncProfilerGraphQL {
             Predicate<AsyncProfile> matchesNames = n -> names == null || names.contains(n.id());
 
             Predicate<AsyncProfile> matchesSizeGte =
-                    n -> sizeBytesGreaterThanEqual == null || sizeBytesGreaterThanEqual >= n.size();
+                    n -> sizeBytesGreaterThanEqual == null || n.size() >= sizeBytesGreaterThanEqual;
             Predicate<AsyncProfile> matchesSizeLte =
-                    n -> sizeBytesLessThanEqual == null || sizeBytesLessThanEqual <= n.size();
+                    n -> sizeBytesLessThanEqual == null || n.size() <= sizeBytesLessThanEqual;
 
             return List.of(matchesName, matchesNames, matchesSizeGte, matchesSizeLte).stream()
                     .reduce(x -> true, Predicate::and)
