@@ -24,6 +24,7 @@ import io.cryostat.recordings.ActiveRecording;
 import io.cryostat.recordings.ActiveRecordings.Metadata;
 import io.cryostat.recordings.RecordingHelper;
 import io.cryostat.targets.Target;
+import io.cryostat.util.ObjectKeys;
 
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import jakarta.inject.Inject;
@@ -76,9 +77,7 @@ class ScheduledArchiveJob implements Job {
                         previousRecordings.subList(
                                 preservedArchives - 1, previousRecordings.size());
                 for (var obj : toPrune) {
-                    String path = obj.key().strip();
-                    String[] parts = path.split("/");
-                    String filename = parts[1];
+                    String filename = ObjectKeys.split(obj.key().strip()).getValue();
                     QuarkusTransaction.joiningExisting()
                             .call(
                                     () -> {

@@ -78,6 +78,7 @@ import io.cryostat.targets.Target;
 import io.cryostat.targets.TargetConnectionManager;
 import io.cryostat.util.EntityExistsException;
 import io.cryostat.util.HttpMimeType;
+import io.cryostat.util.ObjectKeys;
 import io.cryostat.ws.MessagingServer;
 import io.cryostat.ws.Notification;
 
@@ -1057,10 +1058,9 @@ public class RecordingHelper {
         return listArchivedRecordingObjects().stream()
                 .map(
                         item -> {
-                            String path = item.key().strip();
-                            String[] parts = path.split("/");
-                            String jvmId = parts[0];
-                            String filename = parts[1];
+                            var key = ObjectKeys.split(item.key().strip());
+                            String jvmId = key.getKey();
+                            String filename = key.getValue();
                             Metadata metadata =
                                     getArchivedRecordingMetadata(jvmId, filename)
                                             .orElseGet(Metadata::empty);
@@ -1089,10 +1089,9 @@ public class RecordingHelper {
         return listArchivedRecordingObjects(jvmId).stream()
                 .map(
                         item -> {
-                            String path = item.key().strip();
-                            String[] parts = path.split("/");
-                            String effectiveJvmId = parts[0];
-                            String filename = parts[1];
+                            var key = ObjectKeys.split(item.key().strip());
+                            String effectiveJvmId = key.getKey();
+                            String filename = key.getValue();
                             Metadata metadata =
                                     getArchivedRecordingMetadata(effectiveJvmId, filename)
                                             .orElseGet(Metadata::empty);
@@ -1186,14 +1185,12 @@ public class RecordingHelper {
         return listArchivedRecordingObjects(jvmId).stream()
                 .filter(
                         item -> {
-                            String objectName = item.key().strip();
-                            String f = objectName.split("/")[1];
+                            String f = ObjectKeys.split(item.key().strip()).getValue();
                             return Objects.equals(filename, f);
                         })
                 .map(
                         item -> {
-                            String objectName = item.key().strip();
-                            String f = objectName.split("/")[1];
+                            String f = ObjectKeys.split(item.key().strip()).getValue();
                             Metadata metadata =
                                     getArchivedRecordingMetadata(jvmId, f)
                                             .orElseGet(Metadata::empty);
@@ -1255,11 +1252,11 @@ public class RecordingHelper {
     }
 
     public static String archivedRecordingKey(String jvmId, String filename) {
-        return (jvmId + "/" + filename).strip();
+        return ObjectKeys.join(jvmId, filename);
     }
 
     public static String archivedRecordingKey(Pair<String, String> pair) {
-        return archivedRecordingKey(pair.getKey(), pair.getValue());
+        return ObjectKeys.join(pair);
     }
 
     public String encodedKey(String jvmId, String filename) {
@@ -1271,12 +1268,7 @@ public class RecordingHelper {
 
     // TODO refactor this and encapsulate archived recording keys as a record with override toString
     public Pair<String, String> decodedKey(String encodedKey) {
-        String key = new String(base64Url.decode(encodedKey), StandardCharsets.UTF_8);
-        String[] parts = key.split("/");
-        if (parts.length != 2) {
-            throw new IllegalArgumentException();
-        }
-        return Pair.of(parts[0], parts[1]);
+        return ObjectKeys.split(new String(base64Url.decode(encodedKey), StandardCharsets.UTF_8));
     }
 
     public InputStream getActiveInputStream(ActiveRecording recording) throws Exception {

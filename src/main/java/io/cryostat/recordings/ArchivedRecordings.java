@@ -38,6 +38,7 @@ import io.cryostat.security.rbac.UserAuthorizer;
 import io.cryostat.targets.Target;
 import io.cryostat.util.FormLabels;
 import io.cryostat.util.HttpMimeType;
+import io.cryostat.util.ObjectKeys;
 import io.cryostat.util.ResponseDispatch;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -210,7 +211,8 @@ public class ArchivedRecordings {
                     objs.stream()
                             .filter(
                                     obj -> {
-                                        String filename = obj.key().strip().split("/", 2)[1];
+                                        String filename =
+                                                ObjectKeys.split(obj.key().strip()).getValue();
                                         return recordingHelper
                                                 .getArchivedRecordingMetadata(id, filename)
                                                 .map(
@@ -225,8 +227,7 @@ public class ArchivedRecordings {
                             .sorted((a, b) -> b.lastModified().compareTo(a.lastModified()))
                             .skip(max - 1)
                             .map(S3Object::key)
-                            .map(s -> s.split("/", 2))
-                            .map(a -> Pair.of(a[0], a[1]))
+                            .map(ObjectKeys::split)
                             .toList();
             toRemove.forEach(
                     p -> {
@@ -291,8 +292,7 @@ public class ArchivedRecordings {
                 .listArchivedRecordingObjects(jvmId)
                 .forEach(
                         item -> {
-                            String objectName = item.key().strip();
-                            String filename = objectName.split("/", 2)[1];
+                            String filename = ObjectKeys.split(item.key().strip()).getValue();
                             Metadata metadata =
                                     recordingHelper
                                             .getArchivedRecordingMetadata(jvmId, filename)
@@ -332,7 +332,7 @@ public class ArchivedRecordings {
             jvmId = Target.getTargetByConnectUrl(URI.create(connectUrl)).jvmId;
         }
         if (!recordingHelper.listArchivedRecordingObjects(jvmId).stream()
-                .map(item -> item.key().strip().split("/", 2)[1])
+                .map(item -> ObjectKeys.split(item.key().strip()).getValue())
                 .anyMatch(fn -> Objects.equals(fn, filename))) {
             throw new NotFoundException();
         }
@@ -381,9 +381,9 @@ public class ArchivedRecordings {
                 .forEach(
                         item -> {
                             String path = item.key().strip();
-                            String[] parts = path.split("/", 2);
-                            String jvmId = parts[0];
-                            String filename = parts[1];
+                            var key = ObjectKeys.split(path);
+                            String jvmId = key.getKey();
+                            String filename = key.getValue();
 
                             Metadata metadata =
                                     recordingHelper

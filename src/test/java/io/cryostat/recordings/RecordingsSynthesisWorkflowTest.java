@@ -30,6 +30,7 @@ import java.util.concurrent.TimeUnit;
 
 import io.cryostat.AbstractTransactionalTestBase;
 import io.cryostat.resources.S3StorageResource;
+import io.cryostat.util.ObjectKeys;
 
 import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusTest;
@@ -50,12 +51,10 @@ public class RecordingsSynthesisWorkflowTest extends AbstractTransactionalTestBa
             return;
         }
         for (var obj : recordingHelper.listArchivedRecordingObjects(selfJvmId)) {
-            String[] parts = obj.key().strip().split("/");
-            if (parts.length == 2) {
-                try {
-                    recordingHelper.deleteArchivedRecording(parts[0], parts[1]);
-                } catch (Exception ignored) {
-                }
+            try {
+                var key = ObjectKeys.split(obj.key().strip());
+                recordingHelper.deleteArchivedRecording(key.getKey(), key.getValue());
+            } catch (Exception ignored) {
             }
         }
     }
