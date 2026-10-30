@@ -424,7 +424,7 @@ public class ArchivedRecordings {
                 .listArchivedRecordingObjects(jvmId)
                 .forEach(
                         item -> {
-                            String filename = item.key().strip().replace(jvmId + "/", "");
+                            String filename = ObjectKeys.split(item.key().strip()).getValue();
 
                             Metadata metadata =
                                     recordingHelper

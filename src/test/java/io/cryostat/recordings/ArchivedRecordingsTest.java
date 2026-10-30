@@ -17,6 +17,10 @@ package io.cryostat.recordings;
 
 import static io.restassured.RestAssured.given;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Map;
+
 import io.cryostat.AbstractTransactionalTestBase;
 import io.cryostat.resources.S3StorageResource;
 
@@ -24,6 +28,7 @@ import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.common.http.TestHTTPEndpoint;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
+import jakarta.inject.Inject;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
 
@@ -31,6 +36,42 @@ import org.junit.jupiter.api.Test;
 @TestHTTPEndpoint(ArchivedRecordings.class)
 @QuarkusTestResource(value = S3StorageResource.class, restrictToAnnotatedClass = true)
 public class ArchivedRecordingsTest extends AbstractTransactionalTestBase {
+
+    @Inject RecordingHelper recordingHelper;
+
+    @Test
+    void testListFsPreservesSlashesAndRepeatedJvmIdInFilename() throws Exception {
+        String jvmId = "fs-slash-jvm-id";
+        String filename = "dir/" + jvmId + "/nested.jfr";
+        Path file = Files.createTempFile("archived-recordings-fs-slash", ".jfr");
+        Files.write(file, new byte[] {1, 2, 3, 4});
+
+        try {
+            recordingHelper.uploadArchivedRecording(
+                    jvmId,
+                    new TestFileUpload(filename, file),
+                    new ActiveRecordings.Metadata(Map.of("purpose", "fs-slash")));
+
+            given().log()
+                    .all()
+                    .when()
+                    .get("/api/beta/fs/recordings/{jvmId}", jvmId)
+                    .then()
+                    .assertThat()
+                    .contentType(ContentType.JSON)
+                    .statusCode(200)
+                    .body("size()", Matchers.equalTo(1))
+                    .body("[0].jvmId", Matchers.equalTo(jvmId))
+                    .body("[0].recordings.size()", Matchers.equalTo(1))
+                    .body("[0].recordings[0].name", Matchers.equalTo(filename))
+                    .body(
+                            "[0].recordings[0].downloadUrl",
+                            Matchers.equalTo(recordingHelper.downloadUrl(jvmId, filename)));
+        } finally {
+            recordingHelper.deleteArchivedRecording(jvmId, filename);
+            Files.deleteIfExists(file);
+        }
+    }
 
     @Test
     void testListNone() {
