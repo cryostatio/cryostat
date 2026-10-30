@@ -361,54 +361,36 @@ class RecordingHelperTest extends AbstractTransactionalTestBase {
     }
 
     @Test
-    public void shouldCleanupSynthesizedUploadWhenMetadataFails() throws Exception {
-        String storageMode = recordingHelper.getStorageMode();
-        try {
-            defineSelfCustomTarget();
-            long remoteId =
-                    startSelfRecording(
-                                    "recording-helper-active-id", Map.of("events", "template=ALL"))
-                            .getLong("remoteId");
-            shutdownScheduler();
-            recordingHelper.setStorageMode("BUCKET");
+    public void shouldCleanupWhenSnapshotConstructionFails() throws Exception {
+        int targetId = defineSelfCustomTarget();
+        shutdownScheduler();
 
-            ActiveRecording activeRecording =
+        try (MockedStatic<ActiveRecording> recordingMock =
+                Mockito.mockStatic(ActiveRecording.class)) {
+            recordingMock
+                    .when(() -> ActiveRecording.from(any(), any(), any()))
+                    .thenThrow(new RuntimeException("Failing to construct!"));
+
+            Target target =
                     QuarkusTransaction.requiringNew()
-                            .call(
-                                    () ->
-                                            ActiveRecording.find("remoteId", remoteId)
-                                                    .firstResultOptional()
-                                                    .map(ActiveRecording.class::cast)
-                                                    .orElseThrow());
+                            .call(() -> Target.<Target>find("id", (long) targetId).singleResult());
 
-            Path recordingFile = Files.createTempFile("recording-helper-active-id", ".jfr");
-            Files.write(recordingFile, new byte[] {9, 8, 7, 6});
-            ActiveRecordings.Metadata metadata =
-                    new ActiveRecordings.Metadata(
-                            Map.of(
-                                    "purpose",
-                                    "persist-active-id",
-                                    RecordingHelper.ACTIVE_RECORDING_ID_LABEL,
-                                    String.valueOf(activeRecording.id)));
-
-            Mockito.doThrow(new RuntimeException()).when(service).create(any(), any());
-            Mockito.doThrow(new RuntimeException()).when(service).create(any(), any(), any());
-            // This is expected to rethrow the original exception, in this case
-            // the runtime exception we initially threw.
             assertThrows(
-                    RuntimeException.class,
+                    SnapshotCreationException.class,
                     () ->
-                            recordingHelper.uploadSynthesizedRecording(
-                                    selfJvmId, recordingFile, recordingFile.toString(), metadata));
+                            recordingHelper
+                                    .createSnapshot(target)
+                                    .await()
+                                    .atMost(Duration.ofSeconds(30)));
 
-            Mockito.verify(storage).deleteObject(any(DeleteObjectRequest.class));
-            // Archives should not have anything.
-            List<ArchivedRecordings.ArchivedRecording> archivedRecordings =
-                    recordingHelper.listArchivedRecordings((String) null);
-
-            assertThat(archivedRecordings, hasSize(equalTo(0)));
-        } finally {
-            recordingHelper.setStorageMode(storageMode);
+            List<String> remoteRecordings =
+                    connectionManager.executeConnectedTask(
+                            target,
+                            conn ->
+                                    conn.getService().getAvailableRecordings().stream()
+                                            .map(IRecordingDescriptor::getName)
+                                            .toList());
+            assertThat(remoteRecordings, is(empty()));
         }
     }
 }

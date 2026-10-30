@@ -1634,14 +1634,6 @@ public class RecordingHelper {
         storage.deleteObject(requestBuilder);
     }
 
-    void setStorageMode(String mode) {
-        this.metadataStorageMode = mode;
-    }
-
-    String getStorageMode() {
-        return this.metadataStorageMode;
-    }
-
     public ArchivedRecording updateArchivedRecordingMetadata(
             String jvmId, String filename, Map<String, String> updatedLabels) throws IOException {
         String key = archivedRecordingKey(jvmId, filename);
