@@ -38,6 +38,7 @@ import io.cryostat.targets.Target;
 import io.cryostat.targets.TargetConnectionManager;
 import io.cryostat.util.FormLabels;
 import io.cryostat.util.HttpMimeType;
+import io.cryostat.util.ObjectKeys;
 import io.cryostat.util.ResponseDispatch;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -118,9 +119,9 @@ public class Diagnostics {
                 .forEach(
                         item -> {
                             String path = item.key().strip();
-                            String[] parts = path.split("/");
-                            String jvmId = parts[0];
-                            String filename = parts[1];
+                            var key = ObjectKeys.split(path);
+                            String jvmId = key.getKey();
+                            String filename = key.getValue();
 
                             Metadata metadata =
                                     helper.getThreadDumpMetadata(path).orElseGet(Metadata::empty);
@@ -357,9 +358,9 @@ public class Diagnostics {
                 .forEach(
                         item -> {
                             String path = item.key().strip();
-                            String[] parts = path.split("/");
-                            String jvmId = parts[0];
-                            String filename = parts[1];
+                            var key = ObjectKeys.split(path);
+                            String jvmId = key.getKey();
+                            String filename = key.getValue();
 
                             Metadata metadata =
                                     helper.getHeapDumpMetadata(path).orElseGet(Metadata::empty);

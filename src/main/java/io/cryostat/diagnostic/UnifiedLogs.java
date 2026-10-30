@@ -33,6 +33,7 @@ import io.cryostat.recordings.ActiveRecordings.Metadata;
 import io.cryostat.targets.AgentClient;
 import io.cryostat.targets.Target;
 import io.cryostat.util.HttpMimeType;
+import io.cryostat.util.ObjectKeys;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.quarkus.narayana.jta.QuarkusTransaction;
@@ -275,8 +276,7 @@ public class UnifiedLogs {
         return helper.listUnifiedLogObjects(jvmId).stream()
                 .map(
                         item -> {
-                            String[] parts = item.key().strip().split("/", 2);
-                            String filename = parts[1];
+                            String filename = ObjectKeys.split(item.key().strip()).getValue();
                             String storageKey = DiagnosticsHelper.storageKey(jvmId, filename);
                             Metadata metadata =
                                     helper.getUnifiedLogMetadata(storageKey)
@@ -333,9 +333,9 @@ public class UnifiedLogs {
                 .forEach(
                         item -> {
                             String path = item.key().strip();
-                            String[] parts = path.split("/", 2);
-                            String jvmId = parts[0];
-                            String filename = parts[1];
+                            var key = ObjectKeys.split(path);
+                            String jvmId = key.getKey();
+                            String filename = key.getValue();
                             var dir =
                                     map.computeIfAbsent(
                                             jvmId,
