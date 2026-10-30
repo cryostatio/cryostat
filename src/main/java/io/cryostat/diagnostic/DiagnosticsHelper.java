@@ -17,6 +17,7 @@ package io.cryostat.diagnostic;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -211,7 +212,7 @@ public class DiagnosticsHelper {
             log.errorv("jvmId {0} failed to resolve to target. Defaulting to uuid.", jvmId);
             return uuid;
         }
-        return t.alias + "_" + uuid + extension;
+        return URLEncoder.encode(t.alias, StandardCharsets.UTF_8) + "_" + uuid + extension;
     }
 
     public ThreadDumpAnalysis analyzeThreadDump(String jvmId, String threadDumpId)
