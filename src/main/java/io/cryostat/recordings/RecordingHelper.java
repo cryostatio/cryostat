@@ -73,6 +73,7 @@ import io.cryostat.recordings.ArchivedRecordings.ArchivedRecording;
 import io.cryostat.recordings.RecordingNotifications.ArchivedRecordingNotification;
 import io.cryostat.recordings.events.ActiveRecordingEvents;
 import io.cryostat.reports.AnalysisReportAggregator;
+import io.cryostat.targets.AgentConnection;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.TargetConnectionManager;
 import io.cryostat.util.EntityExistsException;
@@ -439,6 +440,17 @@ public class RecordingHelper {
             RecordingOptions options,
             Map<String, String> rawLabels)
             throws QuantityConversionException {
+        return startRecording(target, replace, template, options, rawLabels, List.of());
+    }
+
+    public Uni<ActiveRecording> startRecording(
+            Target target,
+            RecordingReplace replace,
+            Template template,
+            RecordingOptions options,
+            Map<String, String> rawLabels,
+            List<String> asprofEvents)
+            throws QuantityConversionException {
         return Uni.createFrom()
                 .item(
                         () ->
@@ -446,8 +458,12 @@ public class RecordingHelper {
                                         .call(
                                                 () ->
                                                         startRecordingImpl(
-                                                                target, replace, template, options,
-                                                                rawLabels)));
+                                                                target,
+                                                                replace,
+                                                                template,
+                                                                options,
+                                                                rawLabels,
+                                                                asprofEvents)));
     }
 
     private ActiveRecording startRecordingImpl(
@@ -455,7 +471,14 @@ public class RecordingHelper {
             RecordingReplace replace,
             Template template,
             RecordingOptions options,
-            Map<String, String> rawLabels) {
+            Map<String, String> rawLabels,
+            List<String> asprofEvents) {
+        List<String> filteredAsprofEvents =
+                asprofEvents.stream().filter(e -> StringUtils.isNotBlank(e)).toList();
+        if (!filteredAsprofEvents.isEmpty() && !target.isAgent()) {
+            throw new BadRequestException(
+                    "asprofEvents is only supported for Cryostat Agent-connected targets");
+        }
         // Acquire pessimistic lock on target to prevent concurrent recording operations
         Target lockedTarget =
                 Target.<Target>find("id", target.id)
@@ -463,6 +486,22 @@ public class RecordingHelper {
                         .singleResult();
 
         String recordingName = options.name();
+
+        if (!filteredAsprofEvents.isEmpty()) {
+            boolean hasOtherActiveRecordings =
+                    ActiveRecording.<ActiveRecording>find(
+                                            "target.id = ?1 AND state = ?2 AND name != ?3",
+                                            lockedTarget.id,
+                                            RecordingState.RUNNING,
+                                            recordingName)
+                                    .count()
+                            > 0;
+            if (hasOtherActiveRecordings) {
+                throw new BadRequestException(
+                        "jfrsync recordings cannot be started while other recordings are active"
+                                + " on the same target");
+            }
+        }
         RecordingState previousState =
                 connectionManager.executeConnectedTask(
                         lockedTarget,
@@ -508,6 +547,38 @@ public class RecordingHelper {
                                 }
                                 IConstrainedMap<String> recordingOptions = optionsBuilder.build();
 
+                                if (!filteredAsprofEvents.isEmpty()) {
+                                    AgentConnection agentConn = (AgentConnection) conn;
+                                    switch (template.getType()) {
+                                        case PRESET:
+                                            return agentConn.startJfrSyncRecording(
+                                                    recordingOptions,
+                                                    presetTemplateService
+                                                            .getXml(
+                                                                    template.getName(),
+                                                                    TemplateType.CUSTOM)
+                                                            .orElseThrow(),
+                                                    filteredAsprofEvents);
+                                        case CUSTOM:
+                                            return agentConn.startJfrSyncRecording(
+                                                    recordingOptions,
+                                                    customTemplateService
+                                                            .getXml(
+                                                                    template.getName(),
+                                                                    TemplateType.CUSTOM)
+                                                            .orElseThrow(),
+                                                    filteredAsprofEvents);
+                                        case TARGET:
+                                            return agentConn.startJfrSyncRecording(
+                                                    recordingOptions,
+                                                    template,
+                                                    filteredAsprofEvents);
+                                        default:
+                                            throw new IllegalStateException(
+                                                    "Unknown template type: " + template.getType());
+                                    }
+                                }
+
                                 switch (template.getType()) {
                                     case PRESET:
                                         return conn.getService()
@@ -546,6 +617,9 @@ public class RecordingHelper {
         Map<String, String> labels = new HashMap<>(rawLabels);
         labels.put("template.name", template.getName());
         labels.put("template.type", template.getType().toString());
+        if (!filteredAsprofEvents.isEmpty()) {
+            labels.put("asprof.events", String.join(",", filteredAsprofEvents));
+        }
         Metadata meta = new Metadata(labels);
 
         ActiveRecording recording;
