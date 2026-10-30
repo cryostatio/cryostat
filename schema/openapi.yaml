@@ -2002,6 +2002,13 @@ paths:
             application/json:
               schema: {}
           description: OK
+        "202":
+          content:
+            text/plain:
+              schema:
+                format: uuid
+                type: string
+          description: Heap dump analysis accepted; the body is the job ID
         "401":
           description: Not Authorized
         "403":
@@ -2106,8 +2113,9 @@ paths:
           content:
             text/plain:
               schema:
+                format: uuid
                 type: string
-          description: OK
+          description: Heap dump requested; the body is the job ID
         "401":
           description: Not Authorized
         "403":
@@ -2188,8 +2196,9 @@ paths:
           content:
             text/plain:
               schema:
+                format: uuid
                 type: string
-          description: OK
+          description: Thread dump requested; the body is the job ID
         "401":
           description: Not Authorized
         "403":
@@ -2720,6 +2729,13 @@ paths:
             application/json:
               schema: {}
           description: OK
+        "202":
+          content:
+            text/plain:
+              schema:
+                format: uuid
+                type: string
+          description: Recording synthesis accepted; the body is the job ID
         "401":
           description: Not Authorized
         "403":
@@ -3298,11 +3314,13 @@ paths:
             default: true
             type: boolean
       responses:
-        "200":
+        "202":
           content:
-            application/json:
-              schema: {}
-          description: OK
+            text/plain:
+              schema:
+                format: uuid
+                type: string
+          description: Target analysis accepted; the body is the job ID
         "401":
           description: Not Authorized
         "403":
@@ -3981,8 +3999,9 @@ paths:
           content:
             text/plain:
               schema:
+                format: uuid
                 type: string
-          description: OK
+          description: Grafana upload requested; the body is the job ID
         "401":
           description: Not Authorized
         "403":
@@ -4330,6 +4349,13 @@ paths:
             application/json:
               schema: {}
           description: OK
+        "202":
+          content:
+            text/plain:
+              schema:
+                format: uuid
+                type: string
+          description: Report generation accepted; the body is the job ID
         "401":
           description: Not Authorized
         "403":
@@ -5132,8 +5158,9 @@ paths:
           content:
             text/plain:
               schema:
+                format: uuid
                 type: string
-          description: OK
+          description: Recording archival requested; the body is the job ID for save
         "401":
           description: Not Authorized
         "403":
@@ -5166,8 +5193,9 @@ paths:
           content:
             text/plain:
               schema:
+                format: uuid
                 type: string
-          description: OK
+          description: Grafana upload requested; the body is the job ID
         "401":
           description: Not Authorized
         "403":
@@ -5208,6 +5236,13 @@ paths:
             application/json:
               schema: {}
           description: OK
+        "202":
+          content:
+            text/plain:
+              schema:
+                format: uuid
+                type: string
+          description: Report generation accepted; the body is the job ID
         "401":
           description: Not Authorized
         "403":
