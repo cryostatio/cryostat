@@ -605,4 +605,19 @@ public class Diagnostics {
             Objects.requireNonNull(metadata);
         }
     }
+
+    public record UnifiedLog(
+            @NotNull String jvmId,
+            @NotNull String downloadUrl,
+            @NotNull String unifiedLogId,
+            @Schema(required = true) long lastModified,
+            @Schema(required = true) long size,
+            @NotNull Metadata metadata) {
+        public UnifiedLog {
+            Objects.requireNonNull(jvmId);
+            Objects.requireNonNull(downloadUrl);
+            Objects.requireNonNull(unifiedLogId);
+            Objects.requireNonNull(metadata);
+        }
+    }
 }
