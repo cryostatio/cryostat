@@ -21,6 +21,7 @@ import java.util.List;
 
 import io.cryostat.ConfigProperties;
 
+import io.quarkus.security.identity.SecurityIdentity;
 import io.smallrye.mutiny.Uni;
 import io.vertx.ext.web.RoutingContext;
 import jakarta.annotation.security.PermitAll;
@@ -40,6 +41,7 @@ public class PermissionCheck {
     @Inject SsarAuthorizer ssarAuthorizer;
     @Inject PermissionMapper permissionMapper;
     @Inject RbacConfig rbacConfig;
+    @Inject SecurityIdentity securityIdentity;
     @Inject Logger log;
 
     // See PermissionAnnotationArchTest for how this is generated
@@ -109,6 +111,13 @@ public class PermissionCheck {
     @Operation(summary = "Check if the caller is authorized for the given permission.")
     public Uni<PermissionResponse> check(
             @RestForm("permission") String permission, RoutingContext ctx) {
+        if (Boolean.TRUE.equals(
+                securityIdentity.getAttribute(
+                        RbacHttpAuthenticationMechanism.AGENT_IDENTITY_ATTRIBUTE))) {
+            return securityIdentity
+                    .checkPermission(PermissionMapper.toPermission(permission))
+                    .map(PermissionResponse::new);
+        }
         switch (rbacConfig.mode()) {
             case OPENSHIFT -> {
                 String token = SsarAuthorizer.extractAccessToken(ctx);
@@ -132,7 +141,7 @@ public class PermissionCheck {
     @PermitAll
     @Operation(summary = "Return an exhaustive list of permissions known to Cryostat")
     public List<Permission> permissions() {
-        return PERMISSION_SET;
+        return List.copyOf(PERMISSION_SET);
     }
 
     @POST
