@@ -24,10 +24,22 @@ import jakarta.ws.rs.WebApplicationException;
  */
 public class AgentApiException extends WebApplicationException {
     public AgentApiException(int statusCode) {
-        super(String.format("Unexpected HTTP response code %d", statusCode));
+        super(
+                String.format("Unexpected HTTP response code %d", statusCode),
+                mapStatusCode(statusCode));
     }
 
     public AgentApiException(int statusCode, Throwable cause) {
-        super(String.format("Unexpected HTTP response code %d", statusCode), cause);
+        super(
+                String.format("Unexpected HTTP response code %d", statusCode),
+                cause,
+                mapStatusCode(statusCode));
+    }
+
+    private static int mapStatusCode(int statusCode) {
+        if (statusCode == 401) {
+            return 502;
+        }
+        return statusCode;
     }
 }
