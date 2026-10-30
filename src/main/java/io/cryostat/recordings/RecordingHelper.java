@@ -1616,14 +1616,27 @@ public class RecordingHelper {
             default:
                 throw new IllegalStateException();
         }
-        transferManager
-                .uploadFile(
-                        UploadFileRequest.builder()
-                                .putObjectRequest(requestBuilder.build())
-                                .source(source)
-                                .build())
-                .completionFuture()
-                .join();
+        try {
+            transferManager
+                    .uploadFile(
+                            UploadFileRequest.builder()
+                                    .putObjectRequest(requestBuilder.build())
+                                    .source(source)
+                                    .build())
+                    .completionFuture()
+                    .join();
+        } catch (Exception e) {
+            try {
+                deleteUploadedRecording(key);
+            } catch (Exception cleanupEx) {
+                logger.warnv(
+                        cleanupEx,
+                        "Failed to delete recording with key {1} from storage {2}",
+                        key,
+                        archiveBucket);
+            }
+            throw e;
+        }
         if (storageMode() == ArchivedRecordingMetadataService.StorageMode.BUCKET) {
             try {
                 metadataService.get().create(jvmId, filename, resolvedMetadata);
