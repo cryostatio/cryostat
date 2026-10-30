@@ -26,6 +26,8 @@ import io.smallrye.mutiny.Uni;
 import io.vertx.ext.web.RoutingContext;
 import jakarta.annotation.security.PermitAll;
 import jakarta.inject.Inject;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
@@ -179,13 +181,13 @@ public class PermissionCheck {
         return result;
     }
 
-    public record PermissionResponse(boolean authorized) {}
+    public record PermissionResponse(@NotNull boolean authorized) {}
     ;
 
-    public record MappingResponse(Permission permission, PermissionResponse response) {}
+    public record MappingResponse(@NotNull Permission permission, @NotNull PermissionResponse response) {}
     ;
 
-    record Permission(String resource, String action) {
+    record Permission(@NotBlank String resource, @NotBlank String action) {
         Permission(String resource, String action) {
             if (StringUtils.isBlank(resource) || StringUtils.isBlank(action)) {
                 throw new IllegalArgumentException();

@@ -281,6 +281,9 @@ components:
         - status
         - availableEvents
       type: object
+    AuthProvider:
+      deprecated: true
+      type: object
     AuthResponse:
       properties:
         username:
@@ -288,10 +291,35 @@ components:
       required:
         - username
       type: object
+    Buffer:
+      properties:
+        byteBuf:
+          $ref: '#/components/schemas/ByteBuf'
+          deprecated: true
+          type: object
+        bytes:
+          format: binary
+          type: string
+      type: object
     BuildInfo:
       properties:
         git:
           $ref: '#/components/schemas/GitInfo'
+      type: object
+    ByteBuf:
+      properties:
+        accessible:
+          type: boolean
+        contiguous:
+          type: boolean
+        direct:
+          type: boolean
+        readOnly:
+          type: boolean
+        readable:
+          type: boolean
+        writable:
+          type: boolean
       type: object
     ContentType:
       enum:
@@ -650,6 +678,17 @@ components:
           format: int64
           type: integer
       type: object
+    JsonArray:
+      items: {}
+      type: array
+    JsonObject:
+      items:
+        properties:
+          key:
+            type: string
+          value: {}
+        type: object
+      type: array
     KeyValue:
       description: |
         A single entry of a string-to-string map. Cryostat emits such maps as arrays of
@@ -755,6 +794,16 @@ components:
         - PARKING
         - ELIMINATED
       type: string
+    MappingResponse:
+      properties:
+        permission:
+          $ref: '#/components/schemas/Permission'
+        response:
+          $ref: '#/components/schemas/PermissionResponse'
+      required:
+        - permission
+        - response
+      type: object
     MatchExpression:
       description: |
         A Common Expression Language snippet evaluated against a target JVM's properties.
@@ -837,6 +886,25 @@ components:
           type: string
         relationKey:
           type: string
+      type: object
+    Permission:
+      properties:
+        action:
+          pattern: \S
+          type: string
+        resource:
+          pattern: \S
+          type: string
+      required:
+        - resource
+        - action
+      type: object
+    PermissionResponse:
+      properties:
+        authorized:
+          type: boolean
+      required:
+        - authorized
       type: object
     PluginRegistration:
       properties:
@@ -997,6 +1065,38 @@ components:
       required:
         - revisions
         - totalCount
+      type: object
+    RoutingContext:
+      properties:
+        acceptableContentType:
+          type: string
+        body:
+          $ref: '#/components/schemas/Buffer'
+          deprecated: true
+          type: object
+        bodyAsJson:
+          $ref: '#/components/schemas/JsonObject'
+          deprecated: true
+          type: array
+        bodyAsJsonArray:
+          $ref: '#/components/schemas/JsonArray'
+          deprecated: true
+          type: array
+        bodyAsString:
+          deprecated: true
+          type: string
+        fresh:
+          type: boolean
+        session:
+          $ref: '#/components/schemas/Session'
+          deprecated: true
+          type: object
+        sessionAccessed:
+          type: boolean
+        user:
+          $ref: '#/components/schemas/User'
+          deprecated: true
+          type: object
       type: object
     Rule:
       properties:
@@ -1170,6 +1270,15 @@ components:
         - name
         - description
         - defaultValue
+      type: object
+    Session:
+      properties:
+        destroyed:
+          type: boolean
+        empty:
+          type: boolean
+        regenerated:
+          type: boolean
       type: object
     SmartTrigger:
       properties:
@@ -1572,6 +1681,13 @@ components:
       required:
         - enabled
       type: object
+    User:
+      properties:
+        authProvider:
+          $ref: '#/components/schemas/AuthProvider'
+          deprecated: true
+          type: object
+      type: object
     ViewList:
       properties:
         app:
@@ -1746,6 +1862,65 @@ paths:
       summary: Target By Jvm Id
       tags:
         - Audit
+  /api/beta/auth/check:
+    post:
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              properties:
+                permission:
+                  type: string
+              type: object
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PermissionResponse'
+          description: OK
+        "400":
+          description: Bad Request
+      summary: Check if the caller is authorized for the given permission.
+      tags:
+        - Permission Check
+  /api/beta/auth/mapping:
+    post:
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RoutingContext'
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/MappingResponse'
+                type: array
+          description: OK
+        "400":
+          description: Bad Request
+      summary: Return the permission mappings for the current user
+      tags:
+        - Permission Check
+  /api/beta/auth/permissions:
+    get:
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/Permission'
+                type: array
+          description: OK
+      summary: Return an exhaustive list of permissions known to Cryostat
+      tags:
+        - Permission Check
   /api/beta/diagnostics/fs/heapdumps:
     get:
       responses:
