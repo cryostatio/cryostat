@@ -452,7 +452,7 @@ public class AgentAsyncProfilerTest extends AgentTestBase {
                 .all()
                 .and()
                 .assertThat()
-                .statusCode(400);
+                .statusCode(404);
     }
 
     @Test
@@ -467,7 +467,7 @@ public class AgentAsyncProfilerTest extends AgentTestBase {
                 .all()
                 .and()
                 .assertThat()
-                .statusCode(200);
+                .statusCode(404);
     }
 
     @Test

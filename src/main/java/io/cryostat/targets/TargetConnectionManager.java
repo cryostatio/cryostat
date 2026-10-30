@@ -258,7 +258,7 @@ public class TargetConnectionManager {
                 .onFailure(this::isJmxSslFailure)
                 .transform(t -> new HttpException(502, t))
                 .onFailure(this::isAgentFailure)
-                .transform(t -> new HttpException(502, t))
+                .transform(t -> new HttpException(agentFailureStatus(t), t))
                 .onFailure(this::isServiceTypeFailure)
                 .transform(t -> new HttpException(504, t))
                 .onFailure(t -> !this.isPropagatedFailure(t))
@@ -500,6 +500,25 @@ public class TargetConnectionManager {
     /** Check if the exception happened because the agent reported an explicit failure */
     public boolean isAgentFailure(Throwable t) {
         return hasAnyCause(t, AgentApiException.class);
+    }
+
+    /**
+     * Determine the HTTP status to report to our own client for an Agent failure. Agent 4xx
+     * statuses are passed through, except 401 and 403 which indicate a problem between Cryostat and
+     * the Agent rather than with the client's request. All other Agent statuses, including every
+     * 5xx, are reported as 502 Bad Gateway.
+     */
+    int agentFailureStatus(Throwable t) {
+        int index = ExceptionUtils.indexOfType(t, AgentApiException.class);
+        if (index < 0) {
+            return 502;
+        }
+        int status =
+                ((AgentApiException) ExceptionUtils.getThrowableList(t).get(index))
+                        .getResponse()
+                        .getStatus();
+        boolean passThrough = status >= 400 && status < 500 && status != 401 && status != 403;
+        return passThrough ? status : 502;
     }
 
     /**

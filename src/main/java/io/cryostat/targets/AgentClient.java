@@ -607,7 +607,27 @@ public class AgentClient {
                 .deleteAsyncProfiler(id)
                 .map(
                         Unchecked.function(
-                                resp -> HttpStatusCodeIdentifier.isSuccessCode(resp.getStatus())));
+                                resp -> {
+                                    int statusCode = resp.getStatus();
+                                    try (resp) {
+                                        if (HttpStatusCodeIdentifier.isSuccessCode(statusCode)) {
+                                            return true;
+                                        } else if (statusCode == 403) {
+                                            logger.errorv(
+                                                    "deleteAsyncProfile for {0} failed: HTTP 403",
+                                                    getUri());
+                                            throw new AgentApiException(
+                                                    Response.Status.FORBIDDEN.getStatusCode(),
+                                                    new UnsupportedOperationException(
+                                                            "deleteAsyncProfile"));
+                                        } else {
+                                            logger.errorv(
+                                                    "deleteAsyncProfile for {0} failed: HTTP {1}",
+                                                    getUri(), statusCode);
+                                            throw new AgentApiException(statusCode);
+                                        }
+                                    }
+                                }));
     }
 
     Uni<InputStream> streamAsyncProfile(String id) {
