@@ -28,6 +28,7 @@ import jakarta.inject.Inject;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
+import org.apache.commons.lang3.StringUtils;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.jboss.logging.Logger;
@@ -42,58 +43,62 @@ public class PermissionCheck {
     @Inject Logger log;
 
     // See PermissionAnnotationArchTest for how this is generated
-    private static final List<String> PERMISSION_SET =
+    private static final List<Permission> PERMISSION_SET =
             List.of(
-                    "jmcagent:delete",
-                    "eventtypes:read",
-                    "unifiedlogs:read",
-                    "asyncprofiler:write",
-                    "heapdumps:write",
-                    "certificates:read",
-                    "unifiedlogs:delete",
-                    "reports:read",
-                    "discoveryplugins:read",
-                    "reports:write",
-                    "threaddumps:delete",
-                    "diagnostics:write",
-                    "matchexpressions:write",
-                    "jmcagent:read",
-                    "targets:write",
-                    "matchexpressions:delete",
-                    "archivedrecordings:read",
-                    "activerecordings:write",
-                    "threaddumps:read",
-                    "eventtemplates:read",
-                    "smarttriggers:delete",
-                    "credentials:delete",
-                    "targets:read",
-                    "eventtemplates:write",
-                    "heapdumps:read",
-                    "archivedrecordings:write",
-                    "asyncprofiler:read",
-                    "credentials:read",
-                    "automatedrules:read",
-                    "asyncprofiler:delete",
-                    "discoveryplugins:write",
-                    "targets:delete",
-                    "credentials:write",
-                    "automatedrules:delete",
-                    "unifiedlogs:write",
-                    "activerecordings:read",
-                    "automatedrules:write",
-                    "discoveryplugins:delete",
-                    "activerecordings:delete",
-                    "discoverynodes:delete",
-                    "discoverynodes:read",
-                    "threaddumps:write",
-                    "matchexpressions:read",
-                    "smarttriggers:write",
-                    "eventtemplates:delete",
-                    "heapdumps:delete",
-                    "smarttriggers:read",
-                    "archivedrecordings:delete",
-                    "discoverynodes:write",
-                    "jmcagent:write");
+                            "activerecordings:delete",
+                            "activerecordings:write",
+                            "activerecordings:read",
+                            "archivedrecordings:delete",
+                            "archivedrecordings:read",
+                            "archivedrecordings:write",
+                            "audit:read",
+                            "asyncprofiler:delete",
+                            "asyncprofiler:read",
+                            "asyncprofiler:write",
+                            "automatedrules:delete",
+                            "automatedrules:read",
+                            "automatedrules:write",
+                            "certificates:read",
+                            "credentials:delete",
+                            "credentials:read",
+                            "credentials:write",
+                            "diagnostics:write",
+                            "discoverynodes:delete",
+                            "discoverynodes:read",
+                            "discoverynodes:write",
+                            "discoveryplugins:delete",
+                            "discoveryplugins:read",
+                            "discoveryplugins:write",
+                            "eventtemplates:delete",
+                            "eventtemplates:read",
+                            "eventtemplates:write",
+                            "eventtypes:read",
+                            "heapdumps:delete",
+                            "heapdumps:read",
+                            "heapdumps:write",
+                            "jmcagent:delete",
+                            "jmcagent:read",
+                            "jmcagent:write",
+                            "matchexpressions:delete",
+                            "matchexpressions:read",
+                            "matchexpressions:write",
+                            "reports:read",
+                            "reports:write",
+                            "smarttriggers:delete",
+                            "smarttriggers:read",
+                            "smarttriggers:write",
+                            "targets:delete",
+                            "targets:read",
+                            "targets:write",
+                            "threaddumps:delete",
+                            "threaddumps:read",
+                            "threaddumps:write",
+                            "unifiedlogs:delete",
+                            "unifiedlogs:read",
+                            "unifiedlogs:write")
+                    .stream()
+                    .map(Permission::fromString)
+                    .toList();
 
     @ConfigProperty(name = ConfigProperties.CONNECTIONS_FAILED_TIMEOUT)
     Duration connectionFailedTimeout;
@@ -127,24 +132,18 @@ public class PermissionCheck {
     @PermitAll
     @Operation(summary = "Return an exhaustive list of permissions known to Cryostat")
     public List<Permission> permissions() {
-        return PERMISSION_SET.stream()
-                .map(
-                        (s) -> {
-                            String[] tmp = s.strip().split(":");
-                            return new Permission(tmp[0], tmp[1]);
-                        })
-                .toList();
+        return PERMISSION_SET;
     }
 
     @POST
     @Path("mapping")
     @PermitAll
     @Operation(summary = "Return the permission mappings for the current user")
-    public List<MappingResponse> mappings(RoutingContext ctx) {
+    public Uni<List<MappingResponse>> mappings(RoutingContext ctx) {
         List<Uni<PermissionResponse>> unresolved = new ArrayList<>();
         List<Permission> permissions = permissions();
         for (Permission p : permissions) {
-            unresolved.add(check(p.resource + ":" + p.action, ctx));
+            unresolved.add(check(p.toString(), ctx));
         }
         Uni<List<MappingResponse>> result =
                 Uni.join()
@@ -163,7 +162,7 @@ public class PermissionCheck {
                                     }
                                     return resolved;
                                 });
-        return result.await().atMost(connectionFailedTimeout);
+        return result;
     }
 
     public record PermissionResponse(boolean authorized) {}
@@ -172,6 +171,29 @@ public class PermissionCheck {
     public record MappingResponse(Permission permission, PermissionResponse response) {}
     ;
 
-    public record Permission(String resource, String action) {}
-    ;
+    record Permission(String resource, String action) {
+        Permission(String resource, String action) {
+            if (StringUtils.isBlank(resource) || StringUtils.isBlank(action)) {
+                throw new IllegalArgumentException();
+            }
+            this.resource = resource;
+            this.action = action;
+        }
+
+        public static Permission fromString(String s) {
+            if (s.indexOf(":") < 0) {
+                throw new IllegalArgumentException();
+            }
+            String[] parts = s.split(":");
+            if (parts.length != 2) {
+                throw new IllegalArgumentException();
+            }
+            return new Permission(parts[0].strip(), parts[1].strip());
+        }
+
+        @Override
+        public String toString() {
+            return this.resource + ":" + this.action;
+        }
+    }
 }

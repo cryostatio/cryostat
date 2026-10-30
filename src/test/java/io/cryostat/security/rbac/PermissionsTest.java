@@ -19,18 +19,25 @@ import static io.restassured.RestAssured.given;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import io.cryostat.AbstractTransactionalTestBase;
 
+import com.tngtech.archunit.core.domain.JavaClasses;
+import com.tngtech.archunit.core.importer.ClassFileImporter;
+import com.tngtech.archunit.core.importer.ImportOption;
+import io.quarkus.security.PermissionsAllowed;
 import io.quarkus.test.common.http.TestHTTPEndpoint;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.response.Response;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 @QuarkusTest
@@ -38,58 +45,35 @@ import org.junit.jupiter.api.Test;
 public class PermissionsTest extends AbstractTransactionalTestBase {
 
     // See PermissionAnnotationArchTest for how this is generated
-    private static final List<String> PERMISSION_SET =
-            List.of(
-                    "jmcagent:delete",
-                    "eventtypes:read",
-                    "unifiedlogs:read",
-                    "asyncprofiler:write",
-                    "heapdumps:write",
-                    "certificates:read",
-                    "unifiedlogs:delete",
-                    "reports:read",
-                    "discoveryplugins:read",
-                    "reports:write",
-                    "threaddumps:delete",
-                    "diagnostics:write",
-                    "matchexpressions:write",
-                    "jmcagent:read",
-                    "targets:write",
-                    "matchexpressions:delete",
-                    "archivedrecordings:read",
-                    "activerecordings:write",
-                    "threaddumps:read",
-                    "eventtemplates:read",
-                    "smarttriggers:delete",
-                    "credentials:delete",
-                    "targets:read",
-                    "eventtemplates:write",
-                    "heapdumps:read",
-                    "archivedrecordings:write",
-                    "asyncprofiler:read",
-                    "credentials:read",
-                    "automatedrules:read",
-                    "asyncprofiler:delete",
-                    "discoveryplugins:write",
-                    "targets:delete",
-                    "credentials:write",
-                    "automatedrules:delete",
-                    "unifiedlogs:write",
-                    "activerecordings:read",
-                    "automatedrules:write",
-                    "discoveryplugins:delete",
-                    "activerecordings:delete",
-                    "discoverynodes:delete",
-                    "discoverynodes:read",
-                    "threaddumps:write",
-                    "matchexpressions:read",
-                    "smarttriggers:write",
-                    "eventtemplates:delete",
-                    "heapdumps:delete",
-                    "smarttriggers:read",
-                    "archivedrecordings:delete",
-                    "discoverynodes:write",
-                    "jmcagent:write");
+    private static Set<String> PERMISSION_SET;
+
+    @BeforeAll
+    public static void generatePermissionSet() {
+        JavaClasses classes =
+                new ClassFileImporter()
+                        .withImportOption(new ImportOption.DoNotIncludeTests())
+                        .importPackages("io.cryostat");
+
+        Set<String> allPermissions =
+                classes.stream()
+                        .flatMap(c -> c.getMethods().stream())
+                        .flatMap(m -> m.getAnnotations().stream())
+                        .filter(a -> a.getRawType().isEquivalentTo(PermissionsAllowed.class))
+                        .flatMap(
+                                a -> {
+                                    Object val =
+                                            a.get("value")
+                                                    .orElseThrow(
+                                                            () ->
+                                                                    new IllegalStateException(
+                                                                            "@PermissionsAllowed"
+                                                                                    + " missing"
+                                                                                    + " value"));
+                                    return Arrays.stream((String[]) val);
+                                })
+                        .collect(Collectors.toSet());
+        PERMISSION_SET = allPermissions;
+    }
 
     @Test
     public void testList() {
@@ -108,6 +92,7 @@ public class PermissionsTest extends AbstractTransactionalTestBase {
             expected.add(Map.of("resource", tmp[0], "action", tmp[1]));
         }
         for (Map<String, String> m : expected) {
+            System.out.println(m);
             assertEquals(array.contains(m), true);
         }
     }
