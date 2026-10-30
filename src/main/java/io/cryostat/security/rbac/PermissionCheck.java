@@ -26,6 +26,7 @@ import io.smallrye.mutiny.Uni;
 import io.vertx.ext.web.RoutingContext;
 import jakarta.annotation.security.PermitAll;
 import jakarta.inject.Inject;
+import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
@@ -111,6 +112,9 @@ public class PermissionCheck {
     @Operation(summary = "Check if the caller is authorized for the given permission.")
     public Uni<PermissionResponse> check(
             @RestForm("permission") String permission, RoutingContext ctx) {
+        if (StringUtils.isBlank(permission)) {
+            throw new BadRequestException("permission form field is required");
+        }
         if (Boolean.TRUE.equals(
                 securityIdentity.getAttribute(
                         RbacHttpAuthenticationMechanism.AGENT_IDENTITY_ATTRIBUTE))) {
