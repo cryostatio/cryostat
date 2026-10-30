@@ -67,6 +67,21 @@ public class ArchivedRecordingsTest extends AbstractTransactionalTestBase {
                     .body(
                             "[0].recordings[0].downloadUrl",
                             Matchers.equalTo(recordingHelper.downloadUrl(jvmId, filename)));
+            given().log()
+                    .all()
+                    .when()
+                    .get("/api/beta/fs/recordings")
+                    .then()
+                    .assertThat()
+                    .contentType(ContentType.JSON)
+                    .statusCode(200)
+                    .body("size()", Matchers.equalTo(1))
+                    .body("[0].jvmId", Matchers.equalTo(jvmId))
+                    .body("[0].recordings.size()", Matchers.equalTo(1))
+                    .body("[0].recordings[0].name", Matchers.equalTo(filename))
+                    .body(
+                            "[0].recordings[0].downloadUrl",
+                            Matchers.equalTo(recordingHelper.downloadUrl(jvmId, filename)));
         } finally {
             recordingHelper.deleteArchivedRecording(jvmId, filename);
             Files.deleteIfExists(file);
