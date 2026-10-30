@@ -54,7 +54,7 @@ class RestAssertAuthorizedTest extends RbacSsarTestBase {
     void endpointIsPermittedWhenSsarAllowsAssertedPermission() {
         var response = request(Method.POST, ANALYZE_PATH + "?clean=true", ADMIN_TOKEN);
 
-        assertThat(response.statusCode(), not(equalTo(403)));
+        assertThat(response.statusCode(), equalTo(404));
         assertThat(ssarVerbs, hasItem("delete"));
     }
 
@@ -62,7 +62,7 @@ class RestAssertAuthorizedTest extends RbacSsarTestBase {
     void assertionIsSkippedWhenNotRequired() {
         var response = request(Method.POST, ANALYZE_PATH + "?clean=false", READER_TOKEN);
 
-        assertThat(response.statusCode(), not(equalTo(403)));
+        assertThat(response.statusCode(), equalTo(404));
         assertThat(ssarVerbs, not(hasItem("delete")));
     }
 }
