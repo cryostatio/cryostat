@@ -108,7 +108,7 @@ public class PermissionsTest extends AbstractTransactionalTestBase {
                         .extract()
                         .response();
         JsonObject permissions = new JsonObject(response.body().asString());
-        assertEquals(permissions.getString("authorized"), "true");
+        assertEquals(true, permissions.getBoolean("authorized"));
     }
 
     @Test
@@ -125,7 +125,7 @@ public class PermissionsTest extends AbstractTransactionalTestBase {
         List<String> permissions = new ArrayList<String>();
         for (Object o : array) {
             var tmp = (JsonObject) o;
-            assertEquals(tmp.getJsonObject("response").getString("authorized"), "true");
+            assertEquals(tmp.getJsonObject("response").getBoolean("authorized"), true);
             var permission =
                     tmp.getJsonObject("permission").getString("resource")
                             + ":"
