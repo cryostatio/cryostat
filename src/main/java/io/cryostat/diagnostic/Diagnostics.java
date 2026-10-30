@@ -67,8 +67,10 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.eclipse.microprofile.openapi.annotations.enums.SchemaType;
+import org.eclipse.microprofile.openapi.annotations.media.Content;
 import org.eclipse.microprofile.openapi.annotations.media.Schema;
 import org.eclipse.microprofile.openapi.annotations.parameters.Parameter;
+import org.eclipse.microprofile.openapi.annotations.responses.APIResponse;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestForm;
 import org.jboss.resteasy.reactive.RestPath;
@@ -149,6 +151,13 @@ public class Diagnostics {
     @Blocking
     @Transactional
     @POST
+    @APIResponse(
+            responseCode = "200",
+            description = "Thread dump requested; the body is the job ID",
+            content =
+                    @Content(
+                            mediaType = MediaType.TEXT_PLAIN,
+                            schema = @Schema(implementation = String.class, format = "uuid")))
     public String threadDump(
             @Context HttpServerResponse response,
             @RestPath long targetId,
@@ -185,6 +194,17 @@ public class Diagnostics {
     @Blocking
     @Transactional
     @POST
+    @APIResponse(
+            responseCode = "200",
+            description = "OK",
+            content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema()))
+    @APIResponse(
+            responseCode = "202",
+            description = "Heap dump analysis accepted; the body is the job ID",
+            content =
+                    @Content(
+                            mediaType = MediaType.TEXT_PLAIN,
+                            schema = @Schema(implementation = String.class, format = "uuid")))
     public Response analyzeHeapDump(
             @Context HttpServerResponse response,
             @RestPath String jvmId,
@@ -394,6 +414,13 @@ public class Diagnostics {
                     """
                     Request the remote target to perform a heap dump.
                     """)
+    @APIResponse(
+            responseCode = "200",
+            description = "Heap dump requested; the body is the job ID",
+            content =
+                    @Content(
+                            mediaType = MediaType.TEXT_PLAIN,
+                            schema = @Schema(implementation = String.class, format = "uuid")))
     public String heapDump(@Context HttpServerResponse response, @RestPath long targetId) {
         log.tracev("Initiating heap dump for target: {0}", targetId);
         Target target = Target.getTargetById(targetId);

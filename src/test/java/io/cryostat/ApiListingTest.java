@@ -17,6 +17,7 @@ package io.cryostat;
 
 import static io.restassured.RestAssured.given;
 
+import java.util.List;
 import java.util.regex.Pattern;
 
 import io.quarkus.test.junit.QuarkusTest;
@@ -85,4 +86,81 @@ public class ApiListingTest extends AbstractTestBase {
                                         Pattern.CASE_INSENSITIVE | Pattern.MULTILINE)))
                 .body("paths", Matchers.not(Matchers.blankOrNullString()));
     }
+
+    @Test
+    void shouldDescribeAsynchronousJobResponses() {
+        var jobs =
+                List.of(
+                        new JobResponse("/api/v4/reports/{encodedKey}", "get", "202"),
+                        new JobResponse(
+                                "/api/v4/targets/{targetId}/reports/{recordingId}", "get", "202"),
+                        new JobResponse("/api/v4.1/targets/{targetId}/reports", "post", "202"),
+                        new JobResponse(
+                                "/api/beta/diagnostics/targets/{jvmId}/heapdump/{heapDumpId}/analyze",
+                                "post",
+                                "202"),
+                        new JobResponse("/api/beta/recording_synthesis/{jvmId}", "post", "202"),
+                        new JobResponse(
+                                "/api/v4/targets/{targetId}/recordings/{remoteId}", "patch", "200"),
+                        new JobResponse(
+                                "/api/v4/targets/{targetId}/recordings/{remoteId}/upload",
+                                "post",
+                                "200"),
+                        new JobResponse("/api/v4/grafana/{encodedKey}", "post", "200"),
+                        new JobResponse(
+                                "/api/beta/diagnostics/targets/{targetId}/threaddump",
+                                "post",
+                                "200"),
+                        new JobResponse(
+                                "/api/beta/diagnostics/targets/{targetId}/heapdump",
+                                "post",
+                                "200"));
+        for (var job : jobs) {
+            String response =
+                    "paths.'"
+                            + job.path()
+                            + "'."
+                            + job.method()
+                            + ".responses.'"
+                            + job.status()
+                            + "'";
+            resp.body(response + ".description", Matchers.containsString("job ID"))
+                    .body(
+                            response + ".content.'text/plain'.schema.type",
+                            Matchers.equalTo("string"))
+                    .body(
+                            response + ".content.'text/plain'.schema.format",
+                            Matchers.equalTo("uuid"));
+        }
+    }
+
+    @Test
+    void shouldPreserveSynchronousAndAuthorizationResponses() {
+        for (var job :
+                List.of(
+                        new JobResponse("/api/v4/reports/{encodedKey}", "get", "200"),
+                        new JobResponse(
+                                "/api/v4/targets/{targetId}/reports/{recordingId}", "get", "200"),
+                        new JobResponse(
+                                "/api/beta/diagnostics/targets/{jvmId}/heapdump/{heapDumpId}/analyze",
+                                "post",
+                                "200"),
+                        new JobResponse("/api/beta/recording_synthesis/{jvmId}", "post", "200"))) {
+            String responses = "paths.'" + job.path() + "'." + job.method() + ".responses";
+            resp.body(
+                            responses + ".'200'.content.'application/json'.schema",
+                            Matchers.notNullValue())
+                    .body(responses + ".'401'.description", Matchers.equalTo("Not Authorized"))
+                    .body(responses + ".'403'.description", Matchers.equalTo("Not Allowed"));
+        }
+    }
+
+    @Test
+    void shouldOnlyAdvertiseAcceptedTargetAnalysis() {
+        resp.body(
+                "paths.'/api/v4.1/targets/{targetId}/reports'.post.responses.'200'",
+                Matchers.nullValue());
+    }
+
+    private record JobResponse(String path, String method, String status) {}
 }

@@ -62,6 +62,9 @@ import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.UriBuilder;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.openapi.annotations.Operation;
+import org.eclipse.microprofile.openapi.annotations.media.Content;
+import org.eclipse.microprofile.openapi.annotations.media.Schema;
+import org.eclipse.microprofile.openapi.annotations.responses.APIResponse;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestPath;
 import org.jboss.resteasy.reactive.RestResponse;
@@ -117,6 +120,17 @@ public class Reports {
     // Response isn't strongly typed which allows us to return either the Analysis result
     // or a job ID String along with setting different Status codes.
     // TODO: Is there a cleaner way to accomplish this?
+    @APIResponse(
+            responseCode = "200",
+            description = "OK",
+            content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema()))
+    @APIResponse(
+            responseCode = "202",
+            description = "Report generation accepted; the body is the job ID",
+            content =
+                    @Content(
+                            mediaType = MediaType.TEXT_PLAIN,
+                            schema = @Schema(implementation = String.class, format = "uuid")))
     public Response get(
             @Context HttpServerResponse response,
             @RestPath String encodedKey,
@@ -183,6 +197,13 @@ public class Reports {
                     The response will include a Location header pointing the client to an endpoint where the report can
                     be retrieved, which may require the client to wait for a Job UUID notification.
                     """)
+    @APIResponse(
+            responseCode = "202",
+            description = "Target analysis accepted; the body is the job ID",
+            content =
+                    @Content(
+                            mediaType = MediaType.TEXT_PLAIN,
+                            schema = @Schema(implementation = String.class, format = "uuid")))
     public Response analyze(
             @Context HttpServerResponse response,
             @RestPath long targetId,
@@ -269,6 +290,17 @@ public class Reports {
     // Response isn't strongly typed which allows us to return either the Analysis result
     // or a job ID String along with setting different Status codes.
     // TODO: Is there a cleaner way to accomplish this?
+    @APIResponse(
+            responseCode = "200",
+            description = "OK",
+            content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema()))
+    @APIResponse(
+            responseCode = "202",
+            description = "Report generation accepted; the body is the job ID",
+            content =
+                    @Content(
+                            mediaType = MediaType.TEXT_PLAIN,
+                            schema = @Schema(implementation = String.class, format = "uuid")))
     public Response getActive(
             @Context HttpServerResponse response,
             @RestPath long targetId,
