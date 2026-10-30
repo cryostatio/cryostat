@@ -332,16 +332,6 @@ public class AgentUnifiedLogsTest extends AgentTestBase {
 
     // ── Pull ──────────────────────────────────────────────────────────────────────
 
-    private void triggerGcAndWait(long targetId) throws InterruptedException {
-        given().pathParam("targetId", targetId)
-                .when()
-                .post("/api/beta/diagnostics/targets/{targetId}/gc")
-                .then()
-                .assertThat()
-                .statusCode(204);
-        Thread.sleep(Duration.ofSeconds(10));
-    }
-
     @Test
     void testPullUnifiedLogUploadsToS3AndUpdatesSessionRow()
             throws InterruptedException, ExecutionException, TimeoutException {

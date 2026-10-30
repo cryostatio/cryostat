@@ -56,6 +56,15 @@ class UserAuthorizerNonPermissiveTest {
     }
 
     @Test
+    void throwsForbiddenWhenCheckDoesNotCompleteInTime() {
+        when(securityIdentity.checkPermission(any(Permission.class)))
+                .thenReturn(Uni.createFrom().nothing());
+        assertThrows(
+                ForbiddenException.class,
+                () -> authorizer.assertAuthorized("credentials", "write"));
+    }
+
+    @Test
     void throwsForbiddenWhenCheckFails() {
         when(securityIdentity.checkPermission(any(Permission.class)))
                 .thenReturn(Uni.createFrom().item(false));

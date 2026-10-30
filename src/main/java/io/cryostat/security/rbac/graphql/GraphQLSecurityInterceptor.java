@@ -22,41 +22,39 @@ import java.util.List;
 import io.cryostat.security.rbac.PermissionMapper;
 import io.cryostat.security.rbac.RbacConfig;
 import io.cryostat.security.rbac.RbacMode;
+import io.cryostat.security.rbac.UserAuthorizer;
 
 import io.quarkus.security.identity.SecurityIdentity;
 import io.smallrye.graphql.execution.event.InvokeInfo;
-import io.smallrye.graphql.spi.EventingService;
+import io.smallrye.mutiny.TimeoutException;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.graphql.GraphQLException;
 import org.jboss.logging.Logger;
 
 /**
- * SmallRye GraphQL {@link EventingService} that enforces {@link RequiresPermission} annotations on
- * resolver methods before invocation.
+ * Enforces {@link RequiresPermission} annotations on GraphQL resolver methods before invocation.
  *
- * <p>The {@link #beforeInvoke(InvokeInfo)} hook fires just before the resolver method is called,
- * providing direct access to the {@link Method} object. If the method (or its declaring class)
- * carries {@link RequiresPermission}, each listed permission is checked against the current {@link
- * SecurityIdentity}. A failing check aborts the operation with a GraphQL {@code FORBIDDEN} error.
+ * <p>SmallRye GraphQL fires an {@link InvokeInfo} CDI event just before each resolver method is
+ * called, provided {@code quarkus.smallrye-graphql.events.enabled} is true. The event carries the
+ * {@link Method} object. If the method (or its declaring class) carries {@link RequiresPermission},
+ * each listed permission is checked against the current {@link SecurityIdentity}. A failing check
+ * aborts the operation with a GraphQL error.
+ *
+ * <p>Each permission check waits at most {@link #CHECK_TIMEOUT}; a check that does not complete in
+ * that time is treated as a denial.
  *
  * <p>In {@code PERMISSIVE} mode all operations proceed without checks.
  */
 @ApplicationScoped
-public class GraphQLSecurityInterceptor implements EventingService {
+public class GraphQLSecurityInterceptor {
 
     @Inject RbacConfig rbacConfig;
     @Inject SecurityIdentity securityIdentity;
     @Inject Logger logger;
 
-    @Override
-    public String getConfigKey() {
-        // Always active; mode-based bypassing is handled inside beforeInvoke().
-        return null;
-    }
-
-    @Override
-    public void beforeInvoke(InvokeInfo invokeInfo) throws Exception {
+    void beforeInvoke(@Observes InvokeInfo invokeInfo) throws GraphQLException {
         if (rbacConfig.mode() == RbacMode.PERMISSIVE) {
             return;
         }
@@ -68,11 +66,19 @@ public class GraphQLSecurityInterceptor implements EventingService {
         }
 
         for (String permissionName : required) {
-            boolean allowed =
-                    securityIdentity
-                            .checkPermission(PermissionMapper.toPermission(permissionName))
-                            .await()
-                            .indefinitely();
+            boolean allowed;
+            try {
+                allowed =
+                        securityIdentity
+                                .checkPermission(PermissionMapper.toPermission(permissionName))
+                                .await()
+                                .atMost(UserAuthorizer.RBAC_CHECK_TIMEOUT);
+            } catch (TimeoutException e) {
+                logger.warnf(
+                        "GraphQL permission check timed out after %s: %s for method %s, denying",
+                        UserAuthorizer.RBAC_CHECK_TIMEOUT, permissionName, method.getName());
+                allowed = false;
+            }
             if (!allowed) {
                 logger.debugf(
                         "GraphQL permission check failed: %s for method %s",

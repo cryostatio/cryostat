@@ -15,23 +15,31 @@
  */
 package io.cryostat.security.rbac;
 
+import java.time.Duration;
+
 import io.quarkus.security.identity.SecurityIdentity;
+import io.smallrye.mutiny.TimeoutException;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.ForbiddenException;
+import org.jboss.logging.Logger;
 
 /**
  * Centralises the RBAC mode-guard + permission check used throughout Cryostat request handlers.
  *
  * <p>In {@link RbacMode#PERMISSIVE} mode every call is a no-op. In all other modes a {@link
  * io.quarkus.security.identity.SecurityIdentity#checkPermission} call is made and a {@link
- * ForbiddenException} is thrown when the check fails.
+ * ForbiddenException} is thrown when the check fails. The check waits at most {@link
+ * #RBAC_CHECK_TIMEOUT}; a check that does not complete in that time is treated as a denial.
  */
 @ApplicationScoped
 public class UserAuthorizer {
 
+    public static final Duration RBAC_CHECK_TIMEOUT = Duration.ofSeconds(5);
+
     @Inject RbacConfig rbacConfig;
     @Inject SecurityIdentity securityIdentity;
+    @Inject Logger logger;
 
     /**
      * Asserts that the current security identity holds the named permission.
@@ -48,11 +56,19 @@ public class UserAuthorizer {
         if (rbacConfig.mode() == RbacMode.PERMISSIVE) {
             return;
         }
-        boolean allowed =
-                securityIdentity
-                        .checkPermission(PermissionMapper.toPermission(resource, action))
-                        .await()
-                        .indefinitely();
+        boolean allowed;
+        try {
+            allowed =
+                    securityIdentity
+                            .checkPermission(PermissionMapper.toPermission(resource, action))
+                            .await()
+                            .atMost(RBAC_CHECK_TIMEOUT);
+        } catch (TimeoutException e) {
+            logger.warnf(
+                    "Permission check timed out after %s: %s:%s, denying",
+                    RBAC_CHECK_TIMEOUT, resource, action);
+            allowed = false;
+        }
         if (!allowed) {
             throw new ForbiddenException(resource + ":" + action);
         }

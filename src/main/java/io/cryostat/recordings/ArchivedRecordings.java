@@ -210,7 +210,7 @@ public class ArchivedRecordings {
                     objs.stream()
                             .filter(
                                     obj -> {
-                                        String filename = obj.key().strip().split("/")[1];
+                                        String filename = obj.key().strip().split("/", 2)[1];
                                         return recordingHelper
                                                 .getArchivedRecordingMetadata(id, filename)
                                                 .map(
@@ -225,7 +225,7 @@ public class ArchivedRecordings {
                             .sorted((a, b) -> b.lastModified().compareTo(a.lastModified()))
                             .skip(max - 1)
                             .map(S3Object::key)
-                            .map(s -> s.split("/"))
+                            .map(s -> s.split("/", 2))
                             .map(a -> Pair.of(a[0], a[1]))
                             .toList();
             toRemove.forEach(
@@ -292,7 +292,7 @@ public class ArchivedRecordings {
                 .forEach(
                         item -> {
                             String objectName = item.key().strip();
-                            String filename = objectName.split("/")[1];
+                            String filename = objectName.split("/", 2)[1];
                             Metadata metadata =
                                     recordingHelper
                                             .getArchivedRecordingMetadata(jvmId, filename)
@@ -332,7 +332,7 @@ public class ArchivedRecordings {
             jvmId = Target.getTargetByConnectUrl(URI.create(connectUrl)).jvmId;
         }
         if (!recordingHelper.listArchivedRecordingObjects(jvmId).stream()
-                .map(item -> item.key().strip().split("/")[1])
+                .map(item -> item.key().strip().split("/", 2)[1])
                 .anyMatch(fn -> Objects.equals(fn, filename))) {
             throw new NotFoundException();
         }
@@ -381,7 +381,7 @@ public class ArchivedRecordings {
                 .forEach(
                         item -> {
                             String path = item.key().strip();
-                            String[] parts = path.split("/");
+                            String[] parts = path.split("/", 2);
                             String jvmId = parts[0];
                             String filename = parts[1];
 

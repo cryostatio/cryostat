@@ -1079,7 +1079,7 @@ public class RecordingHelper {
     public List<S3Object> listArchivedRecordingObjects(String jvmId) {
         var builder = ListObjectsV2Request.builder().bucket(archiveBucket);
         if (StringUtils.isNotBlank(jvmId)) {
-            builder = builder.prefix(jvmId);
+            builder = builder.prefix(jvmId + "/");
         }
         var paginator = storage.listObjectsV2Paginator(builder.build());
         return paginator.contents().stream().toList();

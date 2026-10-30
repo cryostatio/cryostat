@@ -32,6 +32,7 @@ import io.cryostat.core.net.JFRConnection;
 import io.cryostat.core.reports.InterruptibleReportGenerator.AnalysisResult;
 import io.cryostat.diagnostic.Diagnostics.HeapDump;
 import io.cryostat.diagnostic.Diagnostics.ThreadDump;
+import io.cryostat.diagnostic.Diagnostics.UnifiedLog;
 import io.cryostat.diagnostic.DiagnosticsHelper;
 import io.cryostat.discovery.DiscoveryNode;
 import io.cryostat.graphql.ActiveRecordings.ActiveRecordingsFilter;
@@ -212,6 +213,22 @@ public class TargetNodes {
             heapDumps.aggregate = HeapDumpAggregateInfo.fromArchived(heapDumps.data);
         }
         return heapDumps;
+    }
+
+    @RequiresPermission({"targets:read", "unifiedlogs:read"})
+    @Description("Retrieve a list of unified logs belonging to the target")
+    public UnifiedLogs unifiedLogs(
+            @Source Target target, @Nullable UnifiedLogsGraphQL.UnifiedLogsFilter filter) {
+        var fTarget = Target.getTargetById(target.id);
+        var unifiedLogs = new UnifiedLogs();
+        if (StringUtils.isNotBlank(fTarget.jvmId)) {
+            unifiedLogs.data =
+                    diagnosticsHelper.getUnifiedLogs(fTarget).stream()
+                            .filter(t -> filter == null || filter.test(t))
+                            .toList();
+            unifiedLogs.aggregate = UnifiedLogAggregateInfo.fromArchived(unifiedLogs.data);
+        }
+        return unifiedLogs;
     }
 
     @RequiresPermission({"targets:read", "reports:read"})
@@ -501,6 +518,35 @@ public class TargetNodes {
         public static HeapDumpAggregateInfo fromArchived(List<HeapDump> heapDumps) {
             return new HeapDumpAggregateInfo(
                     heapDumps.size(), heapDumps.stream().mapToLong(HeapDump::size).sum());
+        }
+    }
+
+    @SuppressFBWarnings(value = "URF_UNREAD_PUBLIC_OR_PROTECTED_FIELD")
+    public static class UnifiedLogs {
+        public @NonNull List<UnifiedLog> data = new ArrayList<>();
+        public @NonNull UnifiedLogAggregateInfo aggregate =
+                UnifiedLogAggregateInfo.fromArchived(data);
+    }
+
+    @SuppressFBWarnings(value = "URF_UNREAD_PUBLIC_OR_PROTECTED_FIELD")
+    public static class UnifiedLogAggregateInfo {
+        public @NonNull @Description("The number of elements in this collection") long count;
+        public @NonNull @Description(
+                "The sum of sizes of elements in this collection, or 0 if not applicable") long
+                size;
+
+        public UnifiedLogAggregateInfo(long count, long size) {
+            this.count = count;
+            this.size = size;
+        }
+
+        public static UnifiedLogAggregateInfo empty() {
+            return new UnifiedLogAggregateInfo(0, 0);
+        }
+
+        public static UnifiedLogAggregateInfo fromArchived(List<UnifiedLog> unifiedLogs) {
+            return new UnifiedLogAggregateInfo(
+                    unifiedLogs.size(), unifiedLogs.stream().mapToLong(UnifiedLog::size).sum());
         }
     }
 

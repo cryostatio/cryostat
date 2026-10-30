@@ -177,17 +177,17 @@ public class ThreadDumpGraphQL {
             Predicate<ThreadDump> matchesSourceTarget =
                     n -> sourceTarget == null || Objects.equals(t.jvmId(), sourceTarget);
             Predicate<ThreadDump> matchesSizeGte =
-                    n -> sizeBytesGreaterThanEqual == null || sizeBytesGreaterThanEqual >= n.size();
+                    n -> sizeBytesGreaterThanEqual == null || n.size() >= sizeBytesGreaterThanEqual;
             Predicate<ThreadDump> matchesSizeLte =
-                    n -> sizeBytesLessThanEqual == null || sizeBytesLessThanEqual <= n.size();
+                    n -> sizeBytesLessThanEqual == null || n.size() <= sizeBytesLessThanEqual;
             Predicate<ThreadDump> matchesArchivedTimeGte =
                     n ->
                             archivedTimeAfterEqual == null
-                                    || archivedTimeAfterEqual >= n.lastModified();
+                                    || n.lastModified() >= archivedTimeAfterEqual;
             Predicate<ThreadDump> matchesArchivedTimeLte =
                     n ->
                             archivedTimeBeforeEqual == null
-                                    || archivedTimeBeforeEqual <= n.lastModified();
+                                    || n.lastModified() <= archivedTimeBeforeEqual;
             Predicate<ThreadDump> matchesLabels =
                     n ->
                             labels == null
