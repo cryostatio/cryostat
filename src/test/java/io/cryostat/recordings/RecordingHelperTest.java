@@ -42,6 +42,7 @@ import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.mockito.InjectSpy;
 import jakarta.inject.Inject;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
@@ -57,6 +58,9 @@ class RecordingHelperTest extends AbstractTransactionalTestBase {
     @InjectSpy RemoteRecordingInputStreamFactory remoteRecordingStreamFactory;
     @InjectSpy BucketedArchivedRecordingMetadataService service;
     @InjectSpy S3Client storage;
+
+    @ConfigProperty(name = "storage.buckets.archives.name")
+    String archivesBucket;
 
     @Test
     void shouldListArchivedRecordingsAcrossJvmIdsWhenSourceTargetIsNull() throws Exception {
@@ -323,40 +327,49 @@ class RecordingHelperTest extends AbstractTransactionalTestBase {
                                                 .orElseThrow());
 
         Path recordingFile = Files.createTempFile("recording-helper-active-id", ".jfr");
-        Files.write(recordingFile, new byte[] {9, 8, 7, 6});
-        ActiveRecordings.Metadata metadata =
-                new ActiveRecordings.Metadata(
-                        Map.of(
-                                "purpose",
-                                "persist-active-id",
-                                RecordingHelper.ACTIVE_RECORDING_ID_LABEL,
-                                String.valueOf(activeRecording.id)));
+        try {
+            Files.write(recordingFile, new byte[] {9, 8, 7, 6});
+            ActiveRecordings.Metadata metadata =
+                    new ActiveRecordings.Metadata(
+                            Map.of(
+                                    "purpose",
+                                    "persist-active-id",
+                                    RecordingHelper.ACTIVE_RECORDING_ID_LABEL,
+                                    String.valueOf(activeRecording.id)));
 
-        // Mock ArchivedRecordingInfo so we can throw when attempting to
-        // persist the created ArchivedRecording
-        try (MockedStatic<ArchivedRecordingInfo> recordingMock =
-                Mockito.mockStatic(ArchivedRecordingInfo.class)) {
-            ArchivedRecordingInfo mock = Mockito.mock(ArchivedRecordingInfo.class);
-            Mockito.doThrow(new RuntimeException("Failing to persist!")).when(mock).persist();
-            recordingMock
-                    .when(() -> ArchivedRecordingInfo.of(any(), any(), any()))
-                    .thenReturn(mock);
+            // Mock ArchivedRecordingInfo so we can throw when attempting to
+            // persist the created ArchivedRecording
+            try (MockedStatic<ArchivedRecordingInfo> recordingMock =
+                    Mockito.mockStatic(ArchivedRecordingInfo.class)) {
+                ArchivedRecordingInfo mock = Mockito.mock(ArchivedRecordingInfo.class);
+                Mockito.doThrow(new RuntimeException("Failing to persist!")).when(mock).persist();
+                recordingMock
+                        .when(() -> ArchivedRecordingInfo.of(any(), any(), any()))
+                        .thenReturn(mock);
 
-            // This is expected to rethrow the original exception, in this case
-            // the runtime exception we initially threw.
-            assertThrows(
-                    RuntimeException.class,
-                    () ->
-                            recordingHelper.uploadSynthesizedRecording(
-                                    selfJvmId, recordingFile, recordingFile.toString(), metadata));
+                // This is expected to rethrow the original exception, in this case
+                // the runtime exception we initially threw.
+                var key = RecordingHelper.archivedRecordingKey(selfJvmId, recordingFile.toString());
+                DeleteObjectRequest requestBuilder =
+                        DeleteObjectRequest.builder().bucket(archivesBucket).key(key).build();
+                assertThrows(
+                        RuntimeException.class,
+                        () ->
+                                recordingHelper.uploadSynthesizedRecording(
+                                        selfJvmId,
+                                        recordingFile,
+                                        recordingFile.toString(),
+                                        metadata));
+                Mockito.verify(storage).deleteObject(requestBuilder);
 
-            Mockito.verify(storage).deleteObject(any(DeleteObjectRequest.class));
+                // Archives should not have anything.
+                List<ArchivedRecordings.ArchivedRecording> archivedRecordings =
+                        recordingHelper.listArchivedRecordings(selfJvmId);
 
-            // Archives should not have anything.
-            List<ArchivedRecordings.ArchivedRecording> archivedRecordings =
-                    recordingHelper.listArchivedRecordings((String) null);
-
-            assertThat(archivedRecordings, hasSize(equalTo(0)));
+                assertThat(archivedRecordings, hasSize(equalTo(0)));
+            }
+        } finally {
+            Files.deleteIfExists(recordingFile);
         }
     }
 
