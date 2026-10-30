@@ -32,6 +32,7 @@ import io.cryostat.targets.TargetConnectionManager;
 import io.cryostat.ws.MessagingServer;
 import io.cryostat.ws.Notification;
 
+import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.smallrye.mutiny.Uni;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -112,12 +113,19 @@ public class AsyncProfilerHelper {
         return executeUni(target, conn -> conn.deleteAsyncProfile(profileId))
                 .invoke(
                         () -> {
-                            AsyncProfilerRecording.<AsyncProfilerRecording>find(
-                                            "target.id = ?1 and profileId = ?2",
-                                            target.id,
-                                            profileId)
-                                    .firstResultOptional()
-                                    .ifPresent(AsyncProfilerRecording::delete);
+                            QuarkusTransaction.joiningExisting()
+                                    .run(
+                                            () ->
+                                                    AsyncProfilerRecording
+                                                            .<AsyncProfilerRecording>find(
+                                                                    "target.id = ?1 and profileId"
+                                                                            + " = ?2",
+                                                                    target.id,
+                                                                    profileId)
+                                                            .firstResultOptional()
+                                                            .ifPresent(
+                                                                    AsyncProfilerRecording
+                                                                            ::delete));
 
                             var payload = AsyncProfilerEvent.Payload.of(target, profileId, 0);
                             notify(
