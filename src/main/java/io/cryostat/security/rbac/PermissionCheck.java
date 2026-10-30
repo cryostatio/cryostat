@@ -32,6 +32,7 @@ import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
+import jakarta.ws.rs.core.Context;
 import org.apache.commons.lang3.StringUtils;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.openapi.annotations.Operation;
@@ -113,7 +114,7 @@ public class PermissionCheck {
     @PermitAll
     @Operation(summary = "Check if the caller is authorized for the given permission.")
     public Uni<PermissionResponse> check(
-            @RestForm("permission") String permission, RoutingContext ctx) {
+            @RestForm("permission") String permission, @Context RoutingContext ctx) {
         if (StringUtils.isBlank(permission)) {
             throw new BadRequestException("permission form field is required");
         }
@@ -155,7 +156,7 @@ public class PermissionCheck {
     @Path("mapping")
     @PermitAll
     @Operation(summary = "Return the permission mappings for the current user")
-    public Uni<List<MappingResponse>> mappings(RoutingContext ctx) {
+    public Uni<List<MappingResponse>> mappings(@Context RoutingContext ctx) {
         List<Uni<PermissionResponse>> unresolved = new ArrayList<>();
         List<Permission> permissions = permissions();
         for (Permission p : permissions) {
