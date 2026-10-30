@@ -37,7 +37,7 @@ import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Function;
 
-import io.cryostat.diagnostic.Diagnostics.UnifiedLog;
+import io.cryostat.diagnostic.Diagnostics.ThreadDump;
 import io.cryostat.diagnostic.DiagnosticsHelper;
 import io.cryostat.recordings.ActiveRecordings.Metadata;
 import io.cryostat.security.rbac.SsarClientCache;
@@ -88,9 +88,9 @@ class GraphQLRequiresPermissionTest {
     private static final String LIST_QUERY =
             """
             query {
-              unifiedLogs {
+              threadDumps {
                 data {
-                  unifiedLogId
+                  threadDumpId
                 }
               }
             }
@@ -99,10 +99,10 @@ class GraphQLRequiresPermissionTest {
     private static final String DELETE_QUERY =
             """
             query {
-              unifiedLogs {
+              threadDumps {
                 data {
                   doDelete {
-                    unifiedLogId
+                    threadDumpId
                   }
                 }
               }
@@ -140,13 +140,13 @@ class GraphQLRequiresPermissionTest {
                             return fn.apply(fakeClientFor(token));
                         });
 
-        when(diagnosticsHelper.getUnifiedLogs((String) any()))
+        when(diagnosticsHelper.getThreadDumps((String) any()))
                 .thenReturn(
                         List.of(
-                                new UnifiedLog(
+                                new ThreadDump(
                                         "jvm",
-                                        "http://example/log",
-                                        "log-1",
+                                        "http://example/dump",
+                                        "dump-1",
                                         1L,
                                         1L,
                                         Metadata.empty())));
@@ -218,7 +218,7 @@ class GraphQLRequiresPermissionTest {
 
         assertThat(body.getValue("errors"), notNullValue());
         assertThat(ssarVerbs, hasItem("delete"));
-        verify(diagnosticsHelper, never()).deleteUnifiedLog(any(), any());
+        verify(diagnosticsHelper, never()).deleteThreadDump(any(), any());
     }
 
     @Test
@@ -227,7 +227,7 @@ class GraphQLRequiresPermissionTest {
 
         assertThat(body.getValue("errors"), nullValue());
         assertThat(ssarVerbs, hasItem("delete"));
-        verify(diagnosticsHelper).deleteUnifiedLog("jvm", "log-1");
+        verify(diagnosticsHelper).deleteThreadDump("jvm", "dump-1");
     }
 
     @Test
@@ -238,7 +238,7 @@ class GraphQLRequiresPermissionTest {
 
         assertThat(body.getValue("errors"), notNullValue());
         assertThat(elapsed, lessThan(Duration.ofSeconds(8)));
-        verify(diagnosticsHelper, never()).deleteUnifiedLog(any(), any());
+        verify(diagnosticsHelper, never()).deleteThreadDump(any(), any());
     }
 
     @Test
