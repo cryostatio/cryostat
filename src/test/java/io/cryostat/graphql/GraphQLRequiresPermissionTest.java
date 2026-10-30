@@ -19,6 +19,7 @@ import static io.restassured.RestAssured.given;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.empty;
+import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.lessThan;
 import static org.hamcrest.Matchers.not;
@@ -42,6 +43,7 @@ import io.cryostat.diagnostic.DiagnosticsHelper;
 import io.cryostat.recordings.ActiveRecordings.Metadata;
 import io.cryostat.security.rbac.SsarClientCache;
 import io.cryostat.security.rbac.SsarDecisionCache;
+import io.cryostat.security.rbac.UserAuthorizer;
 
 import io.fabric8.kubernetes.api.model.authorization.v1.SelfSubjectAccessReview;
 import io.fabric8.kubernetes.api.model.authorization.v1.SubjectAccessReviewStatus;
@@ -164,12 +166,12 @@ class GraphQLRequiresPermissionTest {
         when(ssarOp.create(any()))
                 .thenAnswer(
                         invocation -> {
-                            if (HANGING_TOKEN.equals(token)) {
-                                Thread.sleep(Duration.ofSeconds(8));
-                            }
                             SelfSubjectAccessReview request = invocation.getArgument(0);
                             String verb = request.getSpec().getResourceAttributes().getVerb();
                             ssarVerbs.add(verb);
+                            if (HANGING_TOKEN.equals(token)) {
+                                Thread.sleep(Duration.ofSeconds(8));
+                            }
                             var status = new SubjectAccessReviewStatus();
                             status.setAllowed(
                                     ALLOWED_K8S_VERBS.getOrDefault(token, Set.of()).contains(verb));
@@ -201,6 +203,7 @@ class GraphQLRequiresPermissionTest {
 
         assertThat(body.getValue("errors"), notNullValue());
         assertThat(ssarVerbs, hasItem("get"));
+        verify(diagnosticsHelper, never()).getThreadDumps((String) any());
     }
 
     @Test
@@ -210,6 +213,7 @@ class GraphQLRequiresPermissionTest {
         assertThat(body.getValue("errors"), nullValue());
         assertThat(ssarVerbs, not(empty()));
         assertThat(ssarVerbs, not(hasItem("delete")));
+        verify(diagnosticsHelper).getThreadDumps((String) any());
     }
 
     @Test
@@ -237,7 +241,9 @@ class GraphQLRequiresPermissionTest {
         Duration elapsed = Duration.ofNanos(System.nanoTime() - start);
 
         assertThat(body.getValue("errors"), notNullValue());
-        assertThat(elapsed, lessThan(Duration.ofSeconds(8)));
+        assertThat(ssarVerbs, not(empty()));
+        assertThat(elapsed, greaterThanOrEqualTo(UserAuthorizer.RBAC_CHECK_TIMEOUT));
+        assertThat(elapsed, lessThan(UserAuthorizer.RBAC_CHECK_TIMEOUT.plusSeconds(2)));
         verify(diagnosticsHelper, never()).deleteThreadDump(any(), any());
     }
 
