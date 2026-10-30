@@ -927,7 +927,6 @@ public class AgentJfrSyncRecordingTest extends AgentTestBase {
                         .jsonPath()
                         .getInt("remoteId");
 
-<<<<<<< HEAD
         // Attempt to start a jfrsync recording while the first one is still active
         // This should be rejected with 400 Bad Request
         given().log()
