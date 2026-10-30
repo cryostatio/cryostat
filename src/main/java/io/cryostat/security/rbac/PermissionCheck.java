@@ -184,7 +184,8 @@ public class PermissionCheck {
     public record PermissionResponse(@NotNull boolean authorized) {}
     ;
 
-    public record MappingResponse(@NotNull Permission permission, @NotNull PermissionResponse response) {}
+    public record MappingResponse(
+            @NotNull Permission permission, @NotNull PermissionResponse response) {}
     ;
 
     record Permission(@NotBlank String resource, @NotBlank String action) {
