@@ -483,7 +483,17 @@ public class LongRunningRequestGenerator {
             String isoStart =
                     Instant.ofEpochMilli(minStart).toString().replace(':', '-').replace('.', '-');
             String humanDur = formatDuration(Duration.ofMillis(syntheticDuration));
-            String filename = sanitizeTag(request.tag()) + "_" + isoStart + "_" + humanDur + ".jfr";
+            // Give each synthesis job its own archive key so rollback cannot delete
+            // an archive produced by another concurrent job.
+            String filename =
+                    sanitizeTag(request.tag())
+                            + "_"
+                            + isoStart
+                            + "_"
+                            + humanDur
+                            + "_"
+                            + request.id()
+                            + ".jfr";
 
             long totalSize = candidates.stream().mapToLong(ArchivedRecording::size).sum();
             if (totalSize <= 0) {
