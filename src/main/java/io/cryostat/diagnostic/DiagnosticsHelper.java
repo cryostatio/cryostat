@@ -592,8 +592,9 @@ public class DiagnosticsHelper {
 
     private io.cryostat.diagnostic.Diagnostics.UnifiedLog convertUnifiedLog(S3Object object)
             throws Exception {
-        String jvmId = object.key().split("/")[0];
-        String filename = object.key().split("/")[1];
+        String[] parts = object.key().split("/", 2);
+        String jvmId = parts[0];
+        String filename = parts[1];
         Optional<Metadata> metadata = getUnifiedLogMetadata(storageKey(jvmId, filename));
         return new io.cryostat.diagnostic.Diagnostics.UnifiedLog(
                 jvmId,
@@ -635,8 +636,9 @@ public class DiagnosticsHelper {
     }
 
     private HeapDump convertHeapDump(S3Object object) throws Exception {
-        String jvmId = object.key().split("/")[0];
-        String uuid = object.key().split("/")[1];
+        String[] parts = object.key().split("/", 2);
+        String jvmId = parts[0];
+        String uuid = parts[1];
         Optional<Metadata> metadata = getHeapDumpMetadata(storageKey(jvmId, uuid));
         return new HeapDump(
                 jvmId,
@@ -648,8 +650,9 @@ public class DiagnosticsHelper {
     }
 
     private ThreadDump convertThreadDump(S3Object object) throws Exception {
-        String jvmId = object.key().split("/")[0];
-        String uuid = object.key().split("/")[1];
+        String[] parts = object.key().split("/", 2);
+        String jvmId = parts[0];
+        String uuid = parts[1];
         Optional<Metadata> metadata = getThreadDumpMetadata(storageKey(jvmId, uuid));
         return new ThreadDump(
                 jvmId,
@@ -849,7 +852,7 @@ public class DiagnosticsHelper {
 
     public Pair<String, String> decodedKey(String encodedKey) {
         String key = new String(base64Url.decode(encodedKey), StandardCharsets.UTF_8);
-        String[] parts = key.split("/");
+        String[] parts = key.split("/", 2);
         if (parts.length != 2) {
             throw new IllegalArgumentException();
         }
