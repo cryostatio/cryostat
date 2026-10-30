@@ -92,7 +92,6 @@ public class PermissionsTest extends AbstractTransactionalTestBase {
             expected.add(Map.of("resource", tmp[0], "action", tmp[1]));
         }
         for (Map<String, String> m : expected) {
-            System.out.println(m);
             assertEquals(array.contains(m), true);
         }
     }
