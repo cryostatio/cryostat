@@ -103,6 +103,12 @@
     </dependencies>
   </dependencyManagement>
   <dependencies>
+    <!--
+      jfr-analytics is distributed only through JitPack. Upstream
+      moditect/jfr-analytics publishes no Maven Central artifact and has no
+      tags, so the version property above is a git commit SHA rather than a
+      release version.
+    -->
     <dependency>
       <groupId>com.github.moditect</groupId>
       <artifactId>jfr-analytics</artifactId>
