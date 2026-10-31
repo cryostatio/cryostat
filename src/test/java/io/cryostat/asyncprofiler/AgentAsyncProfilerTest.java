@@ -452,7 +452,7 @@ public class AgentAsyncProfilerTest extends AgentTestBase {
                 .all()
                 .and()
                 .assertThat()
-                .statusCode(400);
+                .statusCode(404);
     }
 
     @Test
@@ -467,7 +467,7 @@ public class AgentAsyncProfilerTest extends AgentTestBase {
                 .all()
                 .and()
                 .assertThat()
-                .statusCode(200);
+                .statusCode(404);
     }
 
     @Test
@@ -917,6 +917,11 @@ public class AgentAsyncProfilerTest extends AgentTestBase {
 
         assertNoGraphQLErrors(deleteResponse);
         assertThat(deleteResponse.getStatusCode(), equalTo(200));
+
+        webSocketClient.expectNotification(
+                "AsyncProfilerDeleted",
+                Duration.ofSeconds(10),
+                o -> profileId.equals(o.getJsonObject("message").getString("id")));
 
         given().log()
                 .all()

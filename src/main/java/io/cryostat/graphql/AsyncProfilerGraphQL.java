@@ -98,9 +98,9 @@ public class AsyncProfilerGraphQL {
                     helper.getProfiles(t).await().indefinitely().stream()
                             .filter(v -> filter == null ? true : filter.test(v))
                             .toList();
-            deleted.addAll(toDelete);
             for (var p : toDelete) {
-                helper.deleteProfile(t, p.id());
+                helper.deleteProfile(t, p.id()).await().atMost(connectionFailedTimeout);
+                deleted.add(p);
             }
         }
         return deleted;
