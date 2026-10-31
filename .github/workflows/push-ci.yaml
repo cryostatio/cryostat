@@ -48,6 +48,7 @@ jobs:
     runs-on: ${{ matrix.arch == 'amd64' && 'ubuntu-24.04' || 'ubuntu-24.04-arm' }}
     env:
       SEGMENT_DOWNLOAD_TIMEOUT_MINS: '5'
+      frontend-cache-name: cache-yarn
     steps:
     - uses: DamianReeves/write-file-action@6929a9a6d1807689191dcc8bbe62b54d70a32b42 # v1.3
       with:
