@@ -49,6 +49,7 @@ jobs:
     env:
       SEGMENT_DOWNLOAD_TIMEOUT_MINS: '5'
       frontend-cache-name: cache-yarn-unit
+      build-cache-name: cache-webpack-unit
     steps:
     - uses: DamianReeves/write-file-action@6929a9a6d1807689191dcc8bbe62b54d70a32b42 # v1.3
       with:
@@ -79,19 +80,24 @@ jobs:
         distribution: 'temurin'
         cache: 'maven'
     - run: git submodule init && git submodule update
-    - name: Cache yarn packages and frontend build
+    - name: Cache yarn packages
       uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: |
           ./src/main/webui/.yarn/cache
           ./src/main/webui/.yarn/install-state.gz
           ./src/main/webui/node_modules
-          ./src/main/webui/.build_cache
-        key: ${{ runner.os }}-build-${{ env.frontend-cache-name }}-${{ hashFiles('**/yarn.lock') }}
+        key: ${{ runner.os }}-${{ runner.arch }}-build-${{ env.frontend-cache-name }}-${{ hashFiles('**/yarn.lock') }}
         restore-keys: |
-          ${{ runner.os }}-build-${{ env.frontend-cache-name }}-
-          ${{ runner.os }}-build-
-          ${{ runner.os }}-
+          ${{ runner.os }}-${{ runner.arch }}-build-${{ env.frontend-cache-name }}-
+    - name: Cache frontend build
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ./src/main/webui/.build_cache
+        key: ${{ runner.os }}-${{ runner.arch }}-build-${{ env.build-cache-name }}-${{ hashFiles('**/yarn.lock') }}-${{ github.sha }}
+        restore-keys: |
+          ${{ runner.os }}-${{ runner.arch }}-build-${{ env.build-cache-name }}-${{ hashFiles('**/yarn.lock') }}-
+          ${{ runner.os }}-${{ runner.arch }}-build-${{ env.build-cache-name }}-
     - name: Initialize web assets
       run: |
         pushd  src/main/webui
@@ -124,6 +130,7 @@ jobs:
     env:
       SEGMENT_DOWNLOAD_TIMEOUT_MINS: '5'
       frontend-cache-name: cache-yarn
+      build-cache-name: cache-webpack
     steps:
     - uses: DamianReeves/write-file-action@6929a9a6d1807689191dcc8bbe62b54d70a32b42 # v1.3
       with:
@@ -154,19 +161,24 @@ jobs:
         distribution: 'temurin'
         cache: 'maven'
     - run: git submodule init && git submodule update
-    - name: Cache yarn packages and frontend build
+    - name: Cache yarn packages
       uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: |
           ./src/main/webui/.yarn/cache
           ./src/main/webui/.yarn/install-state.gz
           ./src/main/webui/node_modules
-          ./src/main/webui/.build_cache
-        key: ${{ runner.os }}-build-${{ env.frontend-cache-name }}-${{ hashFiles('**/yarn.lock') }}
+        key: ${{ runner.os }}-${{ runner.arch }}-build-${{ env.frontend-cache-name }}-${{ hashFiles('**/yarn.lock') }}
         restore-keys: |
-          ${{ runner.os }}-build-${{ env.frontend-cache-name }}-
-          ${{ runner.os }}-build-
-          ${{ runner.os }}-
+          ${{ runner.os }}-${{ runner.arch }}-build-${{ env.frontend-cache-name }}-
+    - name: Cache frontend build
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ./src/main/webui/.build_cache
+        key: ${{ runner.os }}-${{ runner.arch }}-build-${{ env.build-cache-name }}-${{ hashFiles('**/yarn.lock') }}-${{ github.sha }}
+        restore-keys: |
+          ${{ runner.os }}-${{ runner.arch }}-build-${{ env.build-cache-name }}-${{ hashFiles('**/yarn.lock') }}-
+          ${{ runner.os }}-${{ runner.arch }}-build-${{ env.build-cache-name }}-
     - name: Initialize web assets
       run: |
         pushd  src/main/webui
@@ -207,6 +219,7 @@ jobs:
     env:
       IMAGE_VERSION: ${{ needs.get-pom-properties.outputs.image-version }}
       frontend-cache-name: cache-yarn
+      build-cache-name: cache-webpack
       SEGMENT_DOWNLOAD_TIMEOUT_MINS: '5'
     permissions:
       packages: write
@@ -234,19 +247,24 @@ jobs:
         distribution: 'temurin'
         cache: 'maven'
     - run: git submodule init && git submodule update
-    - name: Cache yarn packages and frontend build
+    - name: Cache yarn packages
       uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: |
           ./src/main/webui/.yarn/cache
           ./src/main/webui/.yarn/install-state.gz
           ./src/main/webui/node_modules
-          ./src/main/webui/.build_cache
-        key: ${{ runner.os }}-build-${{ env.frontend-cache-name }}-${{ hashFiles('**/yarn.lock') }}
+        key: ${{ runner.os }}-${{ runner.arch }}-build-${{ env.frontend-cache-name }}-${{ hashFiles('**/yarn.lock') }}
         restore-keys: |
-          ${{ runner.os }}-build-${{ env.frontend-cache-name }}-
-          ${{ runner.os }}-build-
-          ${{ runner.os }}-
+          ${{ runner.os }}-${{ runner.arch }}-build-${{ env.frontend-cache-name }}-
+    - name: Cache frontend build
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ./src/main/webui/.build_cache
+        key: ${{ runner.os }}-${{ runner.arch }}-build-${{ env.build-cache-name }}-${{ hashFiles('**/yarn.lock') }}-${{ github.sha }}
+        restore-keys: |
+          ${{ runner.os }}-${{ runner.arch }}-build-${{ env.build-cache-name }}-${{ hashFiles('**/yarn.lock') }}-
+          ${{ runner.os }}-${{ runner.arch }}-build-${{ env.build-cache-name }}-
     - name: Initialize web assets
       run: |
         pushd  src/main/webui

@@ -244,6 +244,7 @@ jobs:
     env:
       SEGMENT_DOWNLOAD_TIMEOUT_MINS: '5'
       frontend-cache-name: cache-yarn
+      build-cache-name: cache-webpack
     name: Integration test
     # Untrusted fork code executes in this job, so it holds no write privileges and no
     # privileged token. Commit statuses are set from the isolated integration-test-status job.
@@ -284,19 +285,24 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y colorized-logs
     - run: git submodule init && git submodule update
-    - name: Cache yarn packages and frontend build
+    - name: Cache yarn packages
       uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: |
           ./src/main/webui/.yarn/cache
           ./src/main/webui/.yarn/install-state.gz
           ./src/main/webui/node_modules
-          ./src/main/webui/.build_cache
         key: ${{ runner.os }}-build-${{ env.frontend-cache-name }}-${{ hashFiles('**/yarn.lock') }}
         restore-keys: |
           ${{ runner.os }}-build-${{ env.frontend-cache-name }}-
-          ${{ runner.os }}-build-
-          ${{ runner.os }}-
+    - name: Cache frontend build
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ./src/main/webui/.build_cache
+        key: ${{ runner.os }}-build-${{ env.build-cache-name }}-${{ hashFiles('**/yarn.lock') }}-${{ needs.checkout-branch.outputs.PR_head_sha }}
+        restore-keys: |
+          ${{ runner.os }}-build-${{ env.build-cache-name }}-${{ hashFiles('**/yarn.lock') }}-
+          ${{ runner.os }}-build-${{ env.build-cache-name }}-
     - name: Initialize web assets
       run: |
         cd src/main/webui
