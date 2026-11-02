@@ -292,9 +292,9 @@ jobs:
           ./src/main/webui/.yarn/cache
           ./src/main/webui/.yarn/install-state.gz
           ./src/main/webui/node_modules
-        key: ${{ runner.os }}-build-${{ env.frontend-cache-name }}-${{ hashFiles('**/yarn.lock') }}
+        key: ${{ runner.os }}-build-${{ env.frontend-cache-name }}-${{ needs.checkout-branch.outputs.PR_num }}-${{ hashFiles('**/yarn.lock') }}
         restore-keys: |
-          ${{ runner.os }}-build-${{ env.frontend-cache-name }}-
+          ${{ runner.os }}-build-${{ env.frontend-cache-name }}-${{ needs.checkout-branch.outputs.PR_num }}-
     - name: Cache frontend build
       uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
