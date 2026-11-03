@@ -69,7 +69,10 @@ public class RecordingsSynthesis {
     @APIResponse(
             responseCode = "200",
             description = "OK",
-            content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema()))
+            content =
+                    @Content(
+                            mediaType = MediaType.APPLICATION_JSON,
+                            schema = @Schema(implementation = ArchivedRecording.class)))
     @APIResponse(
             responseCode = "202",
             description = "Recording synthesis accepted; the body is the job ID",

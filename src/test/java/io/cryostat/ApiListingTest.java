@@ -132,10 +132,17 @@ public class ApiListingTest extends AbstractTestBase {
                             response + ".content.'text/plain'.schema.format",
                             Matchers.equalTo("uuid"));
         }
+        String stopResponse =
+                "paths.'/api/v4/targets/{targetId}/recordings/{remoteId}'.patch.responses.'204'";
+        resp.body(stopResponse, Matchers.notNullValue())
+                .body(stopResponse + ".content", Matchers.nullValue());
     }
 
     @Test
     void shouldPreserveSynchronousAndAuthorizationResponses() {
+        resp.body(
+                "paths.'/api/beta/recording_synthesis/{jvmId}'.post.responses.'200'.content.'application/json'.schema.'$ref'",
+                Matchers.equalTo("#/components/schemas/ArchivedRecording"));
         for (var job :
                 List.of(
                         new JobResponse("/api/v4/reports/{encodedKey}", "get", "200"),

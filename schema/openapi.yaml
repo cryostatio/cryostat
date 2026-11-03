@@ -2807,7 +2807,8 @@ paths:
         "200":
           content:
             application/json:
-              schema: {}
+              schema:
+                $ref: '#/components/schemas/ArchivedRecording'
           description: OK
         "202":
           content:
@@ -5241,6 +5242,8 @@ paths:
                 format: uuid
                 type: string
           description: Recording archival requested; the body is the job ID for save
+        "204":
+          description: Recording stopped; the response has no body
         "401":
           description: Not Authorized
         "403":

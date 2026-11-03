@@ -154,6 +154,7 @@ public class ActiveRecordings {
                     @Content(
                             mediaType = MediaType.TEXT_PLAIN,
                             schema = @Schema(implementation = String.class, format = "uuid")))
+    @APIResponse(responseCode = "204", description = "Recording stopped; the response has no body")
     public String patch(
             @Context HttpServerResponse response,
             @RestPath long targetId,
