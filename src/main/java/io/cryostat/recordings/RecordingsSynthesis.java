@@ -41,7 +41,10 @@ import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import org.apache.commons.lang3.StringUtils;
+import org.eclipse.microprofile.openapi.annotations.media.Content;
+import org.eclipse.microprofile.openapi.annotations.media.Schema;
 import org.eclipse.microprofile.openapi.annotations.parameters.Parameter;
+import org.eclipse.microprofile.openapi.annotations.responses.APIResponse;
 import org.hibernate.envers.AuditReaderFactory;
 import org.hibernate.envers.query.AuditEntity;
 import org.jboss.logging.Logger;
@@ -63,6 +66,17 @@ public class RecordingsSynthesis {
             value = {"archivedrecordings:read", "archivedrecordings:write"},
             inclusive = true)
     @Path("/api/beta/recording_synthesis/{jvmId}")
+    @APIResponse(
+            responseCode = "200",
+            description = "OK",
+            content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema()))
+    @APIResponse(
+            responseCode = "202",
+            description = "Recording synthesis accepted; the body is the job ID",
+            content =
+                    @Content(
+                            mediaType = MediaType.TEXT_PLAIN,
+                            schema = @Schema(implementation = String.class, format = "uuid")))
     public Response synthesize(
             @Context HttpServerResponse response,
             @RestPath String jvmId,
