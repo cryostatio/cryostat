@@ -22,11 +22,11 @@ import jakarta.ws.rs.core.MultivaluedHashMap;
 import jakarta.ws.rs.core.MultivaluedMap;
 import org.jboss.resteasy.reactive.multipart.FileUpload;
 
-class TestFileUpload implements FileUpload {
+public class TestFileUpload implements FileUpload {
     private final String fileName;
     private final Path path;
 
-    TestFileUpload(String fileName, Path path) {
+    public TestFileUpload(String fileName, Path path) {
         this.fileName = fileName;
         this.path = path;
     }

@@ -50,6 +50,7 @@ import io.cryostat.targets.Target;
 import io.cryostat.targets.Target.EventKind;
 import io.cryostat.targets.Target.TargetDiscovery;
 import io.cryostat.targets.TargetConnectionManager;
+import io.cryostat.util.ObjectKeys;
 import io.cryostat.ws.MessagingServer;
 import io.cryostat.ws.Notification;
 
@@ -593,9 +594,9 @@ public class DiagnosticsHelper {
 
     private io.cryostat.diagnostic.Diagnostics.UnifiedLog convertUnifiedLog(S3Object object)
             throws Exception {
-        String[] parts = object.key().split("/", 2);
-        String jvmId = parts[0];
-        String filename = parts[1];
+        var key = ObjectKeys.split(object.key());
+        String jvmId = key.getKey();
+        String filename = key.getValue();
         Optional<Metadata> metadata = getUnifiedLogMetadata(storageKey(jvmId, filename));
         return new io.cryostat.diagnostic.Diagnostics.UnifiedLog(
                 jvmId,
@@ -637,9 +638,9 @@ public class DiagnosticsHelper {
     }
 
     private HeapDump convertHeapDump(S3Object object) throws Exception {
-        String[] parts = object.key().split("/", 2);
-        String jvmId = parts[0];
-        String uuid = parts[1];
+        var key = ObjectKeys.split(object.key());
+        String jvmId = key.getKey();
+        String uuid = key.getValue();
         Optional<Metadata> metadata = getHeapDumpMetadata(storageKey(jvmId, uuid));
         return new HeapDump(
                 jvmId,
@@ -651,9 +652,9 @@ public class DiagnosticsHelper {
     }
 
     private ThreadDump convertThreadDump(S3Object object) throws Exception {
-        String[] parts = object.key().split("/", 2);
-        String jvmId = parts[0];
-        String uuid = parts[1];
+        var key = ObjectKeys.split(object.key());
+        String jvmId = key.getKey();
+        String uuid = key.getValue();
         Optional<Metadata> metadata = getThreadDumpMetadata(storageKey(jvmId, uuid));
         return new ThreadDump(
                 jvmId,
@@ -819,11 +820,11 @@ public class DiagnosticsHelper {
     }
 
     public static String storageKey(String jvmId, String uuid) {
-        return (jvmId + "/" + uuid).strip();
+        return ObjectKeys.join(jvmId, uuid);
     }
 
     public String storageKey(Pair<String, String> pair) {
-        return storageKey(pair.getKey(), pair.getValue());
+        return ObjectKeys.join(pair);
     }
 
     public InputStream getThreadDumpStream(String jvmId, String threadDumpID) {
@@ -852,12 +853,7 @@ public class DiagnosticsHelper {
     }
 
     public Pair<String, String> decodedKey(String encodedKey) {
-        String key = new String(base64Url.decode(encodedKey), StandardCharsets.UTF_8);
-        String[] parts = key.split("/", 2);
-        if (parts.length != 2) {
-            throw new IllegalArgumentException();
-        }
-        return Pair.of(parts[0], parts[1]);
+        return ObjectKeys.split(new String(base64Url.decode(encodedKey), StandardCharsets.UTF_8));
     }
 
     public List<S3Object> listThreadDumps(Target target) {

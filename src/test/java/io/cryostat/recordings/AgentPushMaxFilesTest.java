@@ -29,6 +29,7 @@ import java.util.Map;
 import io.cryostat.AbstractTransactionalTestBase;
 import io.cryostat.recordings.ActiveRecordings.Metadata;
 import io.cryostat.resources.S3StorageResource;
+import io.cryostat.util.ObjectKeys;
 
 import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusTest;
@@ -64,7 +65,7 @@ public class AgentPushMaxFilesTest extends AbstractTransactionalTestBase {
                 .listArchivedRecordingObjects(TEST_JVM_ID)
                 .forEach(
                         obj -> {
-                            String filename = obj.key().strip().split("/", 2)[1];
+                            String filename = ObjectKeys.split(obj.key().strip()).getValue();
                             try {
                                 recordingHelper.deleteArchivedRecording(TEST_JVM_ID, filename);
                             } catch (Exception e) {

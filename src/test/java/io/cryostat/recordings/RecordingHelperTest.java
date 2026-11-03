@@ -42,6 +42,7 @@ import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.mockito.InjectSpy;
 import jakarta.inject.Inject;
+import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
@@ -104,6 +105,52 @@ class RecordingHelperTest extends AbstractTransactionalTestBase {
         } finally {
             Files.deleteIfExists(firstRecording);
             Files.deleteIfExists(secondRecording);
+        }
+    }
+
+    @Test
+    void shouldRoundTripEncodedKeyForFilenameWithSlashes() {
+        String encoded = recordingHelper.encodedKey("jvm", "dir/sub/file.jfr");
+        assertThat(recordingHelper.decodedKey(encoded), is(Pair.of("jvm", "dir/sub/file.jfr")));
+    }
+
+    @Test
+    void shouldPreserveSlashesInFilenameWhenListingArchivedRecordings() throws Exception {
+        Path recordingFile = Files.createTempFile("recording-helper-slash", ".jfr");
+        Files.write(recordingFile, new byte[] {1, 2, 3, 4});
+
+        try {
+            String jvmId = "slash-jvm-id";
+            String filename = "dir/sub/slash-file.jfr";
+            ActiveRecordings.Metadata metadata =
+                    new ActiveRecordings.Metadata(Map.of("purpose", "slash-filename"));
+
+            recordingHelper.uploadArchivedRecording(
+                    jvmId, new TestFileUpload(filename, recordingFile), metadata);
+
+            List<ArchivedRecordings.ArchivedRecording> all =
+                    recordingHelper.listArchivedRecordings((String) null);
+            List<ArchivedRecordings.ArchivedRecording> byJvm =
+                    recordingHelper.listArchivedRecordings(jvmId);
+
+            for (var listing : List.of(all, byJvm)) {
+                ArchivedRecordings.ArchivedRecording found =
+                        listing.stream()
+                                .filter(r -> jvmId.equals(r.jvmId()))
+                                .findFirst()
+                                .orElseThrow();
+                assertThat(found.name(), is(filename));
+                assertThat(found.downloadUrl(), is(recordingHelper.downloadUrl(jvmId, filename)));
+                assertThat(found.reportUrl(), is(recordingHelper.reportUrl(jvmId, filename)));
+                assertThat(found.metadata().labels().get("purpose"), is("slash-filename"));
+            }
+
+            assertThat(
+                    recordingHelper.getArchivedRecordingInfo(jvmId, filename).orElseThrow().name(),
+                    is(filename));
+        } finally {
+            recordingHelper.deleteArchivedRecording("slash-jvm-id", "dir/sub/slash-file.jfr");
+            Files.deleteIfExists(recordingFile);
         }
     }
 
