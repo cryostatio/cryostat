@@ -56,7 +56,9 @@ import org.quartz.Scheduler;
 import org.quartz.SchedulerException;
 import org.quartz.SimpleScheduleBuilder;
 import org.quartz.Trigger;
+import org.quartz.Trigger.TriggerState;
 import org.quartz.TriggerBuilder;
+import org.quartz.TriggerKey;
 import org.quartz.impl.matchers.GroupMatcher;
 
 /**
@@ -264,30 +266,12 @@ public class RuleExecutor {
                         .build();
 
         if (quartz.checkExists(jobDetail.getKey())) {
-            logger.debugv(
-                    "Archiver job for rule {0} on target {1} recording {2} already existed",
-                    rule.id, target.jvmId, recording.remoteId);
+            refreshExistingArchivalJob(rule, jobDetail.getKey(), recording);
             return;
         }
 
-        int initialDelay = rule.initialDelaySeconds;
-        int archivalPeriodSeconds = rule.archivalPeriodSeconds;
-        if (initialDelay <= 0) {
-            initialDelay = archivalPeriodSeconds;
-        }
-
-        Trigger trigger =
-                TriggerBuilder.newTrigger()
-                        .withIdentity(jobDetail.getKey().getName(), jobDetail.getKey().getGroup())
-                        .withSchedule(
-                                SimpleScheduleBuilder.simpleSchedule()
-                                        .withIntervalInSeconds(archivalPeriodSeconds)
-                                        .repeatForever()
-                                        .withMisfireHandlingInstructionNextWithRemainingCount())
-                        .startAt(new Date(System.currentTimeMillis() + initialDelay * 1000))
-                        .build();
         try {
-            quartz.scheduleJob(jobDetail, trigger);
+            quartz.scheduleJob(jobDetail, createArchivalTrigger(rule, jobDetail.getKey()));
             logger.debugv(
                     "Scheduled archiver job for rule {0} on target {1} recording {2}",
                     rule.id, target.jvmId, recording.remoteId);
@@ -298,5 +282,75 @@ public class RuleExecutor {
                     rule.name,
                     target.alias);
         }
+    }
+
+    /**
+     * Bring an already-scheduled archival job in line with the recording that the rule has just
+     * (re-)activated. The job refers to its recording by remoteId, which changes whenever the rule
+     * recording is re-created, so a stale remoteId is updated in place. The job's trigger is left
+     * untouched while it is alive so that the archival cadence is not interrupted. A trigger that
+     * has ended, ex. because the job unscheduled itself after failing to find its recording or
+     * after exhausting its retries, is replaced so that archiving resumes.
+     */
+    private void refreshExistingArchivalJob(Rule rule, JobKey key, ActiveRecording recording)
+            throws SchedulerException {
+        JobDetail existing = quartz.getJobDetail(key);
+        if (existing == null) {
+            return;
+        }
+        TriggerKey triggerKey = new TriggerKey(key.getName(), key.getGroup());
+        TriggerState state = quartz.getTriggerState(triggerKey);
+        boolean triggerDead =
+                state == TriggerState.NONE
+                        || state == TriggerState.COMPLETE
+                        || state == TriggerState.ERROR;
+        boolean recordingStale =
+                !existing.getJobDataMap().containsKey("recording")
+                        || existing.getJobDataMap().getLong("recording") != recording.remoteId;
+
+        if (!recordingStale && !triggerDead) {
+            logger.debugv(
+                    "Archiver job {0} already existed for recording {1}",
+                    key.getName(), recording.remoteId);
+            return;
+        }
+
+        JobBuilder builder = existing.getJobBuilder().usingJobData("recording", recording.remoteId);
+        if (triggerDead) {
+            builder = builder.usingJobData("retryCount", 0);
+        }
+        quartz.addJob(builder.build(), true, true);
+        logger.debugv(
+                "Updated archiver job {0} to recording {1}", key.getName(), recording.remoteId);
+
+        if (triggerDead) {
+            Trigger trigger = createArchivalTrigger(rule, key);
+            if (quartz.checkExists(triggerKey)) {
+                quartz.rescheduleJob(triggerKey, trigger);
+            } else {
+                quartz.scheduleJob(trigger);
+            }
+            logger.debugv(
+                    "Restored archiver trigger for job {0} recording {1}",
+                    key.getName(), recording.remoteId);
+        }
+    }
+
+    private Trigger createArchivalTrigger(Rule rule, JobKey key) {
+        int initialDelay = rule.initialDelaySeconds;
+        int archivalPeriodSeconds = rule.archivalPeriodSeconds;
+        if (initialDelay <= 0) {
+            initialDelay = archivalPeriodSeconds;
+        }
+        return TriggerBuilder.newTrigger()
+                .withIdentity(key.getName(), key.getGroup())
+                .forJob(key)
+                .withSchedule(
+                        SimpleScheduleBuilder.simpleSchedule()
+                                .withIntervalInSeconds(archivalPeriodSeconds)
+                                .repeatForever()
+                                .withMisfireHandlingInstructionNextWithRemainingCount())
+                .startAt(new Date(System.currentTimeMillis() + initialDelay * 1000L))
+                .build();
     }
 }
