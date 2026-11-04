@@ -81,6 +81,7 @@ public class RuleExecutor {
     @Inject RecordingHelper recordingHelper;
     @Inject MatchExpressionEvaluator evaluator;
     @Inject Scheduler quartz;
+    @Inject ActivationLock activationLock;
 
     @ConfigProperty(name = ConfigProperties.CONNECTIONS_FAILED_TIMEOUT)
     Duration connectionFailedTimeout;
@@ -191,7 +192,14 @@ public class RuleExecutor {
                 }
             }
             if (recording != null && rule.isArchiver()) {
-                scheduleArchival(rule, target, recording);
+                final ActiveRecording started = recording;
+                activationLock.withLock(
+                        target.jvmId,
+                        () -> {
+                            scheduleArchival(
+                                    rule, target, currentRuleRecording(rule, target, started));
+                            return null;
+                        });
             } else if (recording == null) {
                 logger.errorv(
                         "Failed to activate rule \"{0}\" on target {1}: recording is null",
@@ -208,6 +216,19 @@ public class RuleExecutor {
                     target.connectUrl);
             return Uni.createFrom().failure(e);
         }
+    }
+
+    /**
+     * Activations for Targets that share a jvmId can interleave their stop and start steps, so the
+     * recording an activation started may already have been replaced by the time it gets to
+     * schedule archival. Resolve the rule recording that is live now so that the archival job is
+     * never bound to a remoteId that a concurrent activation has already superseded.
+     */
+    private ActiveRecording currentRuleRecording(
+            Rule rule, Target target, ActiveRecording fallback) {
+        return recordingHelper
+                .getActiveRecording(target, r -> Objects.equals(r.name, rule.getRecordingName()))
+                .orElse(fallback);
     }
 
     private void cancelTasksForRule(Rule rule) {

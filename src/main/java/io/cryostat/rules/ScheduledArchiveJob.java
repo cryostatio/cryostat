@@ -33,6 +33,7 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.hibernate.ObjectDeletedException;
 import org.jboss.logging.Logger;
+import org.quartz.DisallowConcurrentExecution;
 import org.quartz.Job;
 import org.quartz.JobExecutionContext;
 import org.quartz.JobExecutionException;
@@ -52,6 +53,7 @@ import software.amazon.awssdk.services.s3.model.S3Object;
  * @see io.cryostat.rules.Rule
  * @see io.cryostat.rules.RuleExecutor
  */
+@DisallowConcurrentExecution
 @PersistJobDataAfterExecution
 class ScheduledArchiveJob implements Job {
 
