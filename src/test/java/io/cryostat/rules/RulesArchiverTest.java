@@ -217,10 +217,11 @@ public class RulesArchiverTest extends AbstractTransactionalTestBase {
                 .statusCode(204);
         webSocketClient.expectNotification("ActiveRecordingDeleted", Duration.ofSeconds(5));
 
-        // Have the rule re-activate on the target.
+        // Have the rule re-activate on the target. A label edit changes the recording the rule
+        // starts, unlike a description or archival schedule edit, so it re-activates the rule.
         given().log()
                 .all()
-                .body("{\"description\": \"re-trigger activation\"}")
+                .body("{\"metadata\": {\"labels\": {\"re-trigger\": \"activation\"}}}")
                 .contentType(ContentType.JSON)
                 .pathParam("ruleName", RULE_NAME)
                 .patch("/api/v4/rules/{ruleName}")
