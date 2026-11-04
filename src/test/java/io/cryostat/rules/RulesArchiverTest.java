@@ -39,6 +39,9 @@ import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.quartz.JobKey;
+import org.quartz.SimpleTrigger;
+import org.quartz.TriggerKey;
 
 @QuarkusTest
 @QuarkusTestResource(value = S3StorageResource.class, restrictToAnnotatedClass = true)
@@ -294,6 +297,80 @@ public class RulesArchiverTest extends AbstractTransactionalTestBase {
                 .assertThat()
                 .statusCode(204);
         webSocketClient.expectNotification("RuleDeleted", Duration.ofSeconds(5));
+    }
+
+    /**
+     * A Rule can be edited in place through the API without being toggled and without its Target
+     * being rediscovered. The archival job created under the old settings must pick up the edited
+     * preservedArchives and archivalPeriodSeconds from the resulting Rule UPDATED event alone.
+     */
+    @Test
+    public void testRuleEditReachesExistingArchivalJob() throws Exception {
+        defineSelfCustomTarget();
+        JobKey jobKey = new JobKey(RULE_NAME, "rule.scheduled-archive." + this.selfJvmId);
+        TriggerKey triggerKey = new TriggerKey(RULE_NAME, jobKey.getGroup());
+
+        // a long period so that no archival fires during the test
+        given().body(ruleJson(3600))
+                .contentType(ContentType.JSON)
+                .post("/api/v4/rules")
+                .then()
+                .statusCode(201);
+        webSocketClient.expectNotification("RuleCreated", Duration.ofSeconds(5));
+        webSocketClient.expectNotification("ActiveRecordingCreated", Duration.ofSeconds(10));
+
+        awaitCondition(
+                "archival job should be scheduled for the rule",
+                () -> scheduler.checkExists(jobKey),
+                Duration.ofSeconds(10));
+        Assertions.assertEquals(
+                3, scheduler.getJobDetail(jobKey).getJobDataMap().getInt("preservedArchives"));
+        Assertions.assertEquals(
+                3_600_000L, ((SimpleTrigger) scheduler.getTrigger(triggerKey)).getRepeatInterval());
+
+        given().body("{\"preservedArchives\": 5, \"archivalPeriodSeconds\": 7200}")
+                .contentType(ContentType.JSON)
+                .pathParam("ruleName", RULE_NAME)
+                .patch("/api/v4/rules/{ruleName}")
+                .then()
+                .statusCode(200);
+        webSocketClient.expectNotification("RuleUpdated", Duration.ofSeconds(5));
+
+        awaitCondition(
+                "existing job should carry the edited preservedArchives",
+                () ->
+                        scheduler.getJobDetail(jobKey).getJobDataMap().getInt("preservedArchives")
+                                == 5,
+                Duration.ofSeconds(10));
+        awaitCondition(
+                "existing trigger should use the edited archival period",
+                () ->
+                        ((SimpleTrigger) scheduler.getTrigger(triggerKey)).getRepeatInterval()
+                                == 7_200_000L,
+                Duration.ofSeconds(10));
+
+        given().queryParam("clean", false)
+                .pathParam("ruleName", RULE_NAME)
+                .delete("/api/v4/rules/{ruleName}")
+                .then()
+                .statusCode(204);
+        webSocketClient.expectNotification("RuleDeleted", Duration.ofSeconds(5));
+    }
+
+    private interface Check {
+        boolean test() throws Exception;
+    }
+
+    private void awaitCondition(String description, Check check, Duration timeout)
+            throws Exception {
+        long deadline = System.nanoTime() + timeout.toNanos();
+        while (System.nanoTime() < deadline) {
+            if (check.test()) {
+                return;
+            }
+            Thread.sleep(250);
+        }
+        Assertions.fail(description);
     }
 
     private static String archivedName(JsonObject notification) {
