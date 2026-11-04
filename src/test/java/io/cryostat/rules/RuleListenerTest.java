@@ -25,6 +25,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 import io.cryostat.expressions.MatchExpression;
@@ -120,6 +121,40 @@ public class RuleListenerTest {
         listener.postLoad(rule);
 
         rule.maxSizeBytes = 1024;
+
+        assertTrue(update().recordingAffected());
+    }
+
+    @Test
+    void reorderedButEqualLabelsDoNotAffectRecording() {
+        Map<String, String> original = new LinkedHashMap<>();
+        original.put("a", "1");
+        original.put("b", "2");
+        original.put("c", "3");
+        rule.metadata = new Metadata(original);
+        listener.postLoad(rule);
+
+        Map<String, String> reordered = new LinkedHashMap<>();
+        reordered.put("c", "3");
+        reordered.put("a", "1");
+        reordered.put("b", "2");
+        rule.metadata = new Metadata(reordered);
+
+        assertFalse(update().recordingAffected());
+    }
+
+    @Test
+    void relabelledValueWithSameKeysAffectsRecording() {
+        Map<String, String> original = new LinkedHashMap<>();
+        original.put("autoanalyze", "false");
+        original.put("origin", "ui");
+        rule.metadata = new Metadata(original);
+        listener.postLoad(rule);
+
+        Map<String, String> edited = new LinkedHashMap<>();
+        edited.put("origin", "ui");
+        edited.put("autoanalyze", "true");
+        rule.metadata = new Metadata(edited);
 
         assertTrue(update().recordingAffected());
     }
