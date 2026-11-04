@@ -91,54 +91,22 @@ class ScheduledArchiveJob implements Job {
         int retryCount = ctx.getMergedJobDataMap().getIntValue("retryCount");
 
         try {
-            List<S3Object> previousRecordings = previousRecordings(jvmId, ruleName);
-            // minus 1 because we will continue to add one more after pruning
-            if (previousRecordings.size() >= preservedArchives - 1) {
-                List<S3Object> toPrune =
-                        previousRecordings.subList(
-                                preservedArchives - 1, previousRecordings.size());
-                for (var obj : toPrune) {
-                    String path = obj.key().strip();
-                    String[] parts = path.split("/");
-                    String filename = parts[1];
-                    QuarkusTransaction.joiningExisting()
-                            .call(
-                                    () -> {
-                                        recordingHelper.deleteArchivedRecording(jvmId, filename);
-                                        return null;
-                                    });
-                }
-            }
+            long recordingId = (long) ctx.getMergedJobDataMap().get("recording");
+
             QuarkusTransaction.joiningExisting()
                     .call(
                             () -> {
-                                long recordingId =
-                                        (long) ctx.getMergedJobDataMap().get("recording");
-                                Target target =
-                                        Target.getTargetByJvmId(jvmId)
-                                                .orElseThrow(
-                                                        () ->
-                                                                new NoResultException(
-                                                                        String.format(
-                                                                                "Target %s not"
-                                                                                        + " found",
-                                                                                jvmId)));
-                                ActiveRecording recording =
-                                        recordingHelper
-                                                .getActiveRecording(target, recordingId)
-                                                .orElseThrow(
-                                                        () ->
-                                                                new RecordingMissingException(
-                                                                        String.format(
-                                                                                "Target %s did not"
-                                                                                    + " have"
-                                                                                    + " recording"
-                                                                                    + " with remote"
-                                                                                    + " ID %d",
-                                                                                jvmId,
-                                                                                recordingId)));
-                                return recordingHelper.archiveRecording(recording);
+                                requireRecording(jvmId, recordingId);
+                                return null;
                             });
+
+            pruneForIncomingArchive(jvmId, ruleName, preservedArchives);
+
+            QuarkusTransaction.joiningExisting()
+                    .call(
+                            () ->
+                                    recordingHelper.archiveRecording(
+                                            requireRecording(jvmId, recordingId)));
 
             if (retryCount > 0) {
                 ctx.getJobDetail().getJobDataMap().put("retryCount", 0);
@@ -152,6 +120,57 @@ class ScheduledArchiveJob implements Job {
             handleRetryableFailure(ctx, e, jvmId, ruleName, retryCount);
         } catch (Exception e) {
             handleRetryableFailure(ctx, e, jvmId, ruleName, retryCount);
+        }
+    }
+
+    /**
+     * Resolve the recording this job archives, which must be done within a transaction.
+     *
+     * @throws NoResultException if the target is unknown
+     * @throws RecordingMissingException if the target no longer has the recording
+     */
+    private ActiveRecording requireRecording(String jvmId, long recordingId) {
+        Target target =
+                Target.getTargetByJvmId(jvmId)
+                        .orElseThrow(
+                                () ->
+                                        new NoResultException(
+                                                String.format("Target %s not found", jvmId)));
+        return recordingHelper
+                .getActiveRecording(target, recordingId)
+                .orElseThrow(
+                        () ->
+                                new RecordingMissingException(
+                                        String.format(
+                                                "Target %s did not have recording with remote ID"
+                                                        + " %d",
+                                                jvmId, recordingId)));
+    }
+
+    /**
+     * Delete the oldest archives of the rule to make room for the one about to be added. This must
+     * only be called once the recording to archive is known to exist, since pruning for an archive
+     * that is not coming would needlessly discard data. It is deliberately not run inside the
+     * caller's transaction, since the storage operations may be slow. Each deletion is committed in
+     * a short transaction of its own.
+     */
+    private void pruneForIncomingArchive(String jvmId, String ruleName, int preservedArchives) {
+        List<S3Object> previousRecordings = previousRecordings(jvmId, ruleName);
+        // minus 1 because we will continue to add one more after pruning
+        if (previousRecordings.size() >= preservedArchives - 1) {
+            List<S3Object> toPrune =
+                    previousRecordings.subList(preservedArchives - 1, previousRecordings.size());
+            for (var obj : toPrune) {
+                String path = obj.key().strip();
+                String[] parts = path.split("/");
+                String filename = parts[1];
+                QuarkusTransaction.joiningExisting()
+                        .call(
+                                () -> {
+                                    recordingHelper.deleteArchivedRecording(jvmId, filename);
+                                    return null;
+                                });
+            }
         }
     }
 

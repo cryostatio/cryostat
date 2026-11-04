@@ -53,6 +53,10 @@ public class RulesArchiverTest extends AbstractTransactionalTestBase {
     static final String rule = ruleJson(10);
 
     static String ruleJson(int archivalPeriodSeconds) {
+        return ruleJson(archivalPeriodSeconds, 3);
+    }
+
+    static String ruleJson(int archivalPeriodSeconds, int preservedArchives) {
         return String.format(
                 """
                 {
@@ -62,13 +66,13 @@ public class RulesArchiverTest extends AbstractTransactionalTestBase {
                   "eventSpecifier": "template=Continuous,type=TARGET",
                   "archivalPeriodSeconds": %d,
                   "initialDelaySeconds": 0,
-                  "preservedArchives": 3,
+                  "preservedArchives": %d,
                   "maxAgeSeconds": 0,
                   "maxSizeBytes": 10485760,
                   "enabled": true
                 }
                 """,
-                RULE_NAME, archivalPeriodSeconds);
+                RULE_NAME, archivalPeriodSeconds, preservedArchives);
     }
 
     @AfterEach
@@ -482,6 +486,61 @@ public class RulesArchiverTest extends AbstractTransactionalTestBase {
                         webSocketClient.expectNotification(
                                 "ArchivedRecordingCreated", Duration.ofSeconds(5)),
                 "replacing the recording must not archive it a second time");
+
+        given().queryParam("clean", false)
+                .pathParam("ruleName", RULE_NAME)
+                .delete("/api/v4/rules/{ruleName}")
+                .then()
+                .statusCode(204);
+        webSocketClient.expectNotification("RuleDeleted", Duration.ofSeconds(5));
+    }
+
+    /**
+     * When the rule's recording has been deleted and the archival job fires, it re-creates the
+     * recording but archives nothing on that tick. Pruning exists to make room for an archive that
+     * is about to be added, so with no archive incoming the archives the rule has already collected
+     * must all be left in place, even when they already fill preservedArchives.
+     */
+    @Test
+    public void testNoArchiveIsPrunedWhenRecordingMissingOnArchivalTick() throws Exception {
+        int id = defineSelfCustomTarget();
+        String recordingName = String.format("auto_%s", RULE_NAME);
+
+        given().body(ruleJson(10, 2))
+                .contentType(ContentType.JSON)
+                .post("/api/v4/rules")
+                .then()
+                .statusCode(201);
+        webSocketClient.expectNotification("RuleCreated", Duration.ofSeconds(5));
+        webSocketClient.expectNotification("ActiveRecordingCreated", Duration.ofSeconds(10));
+        webSocketClient.expectNotification("ArchivedRecordingCreated", Duration.ofSeconds(15));
+        webSocketClient.expectNotification("ArchivedRecordingCreated", Duration.ofSeconds(15));
+        int originalRemoteId = ruleRecordingRemoteId(id, recordingName);
+        List<String> archivesBefore = archivedRecordingNames();
+        Assertions.assertEquals(2, archivesBefore.size());
+
+        given().pathParams(Map.of("targetId", id, "remoteId", originalRemoteId))
+                .delete("/api/v4/targets/{targetId}/recordings/{remoteId}")
+                .then()
+                .statusCode(204);
+        webSocketClient.expectNotification("ActiveRecordingDeleted", Duration.ofSeconds(5));
+
+        webSocketClient.expectNotification("ActiveRecordingCreated", Duration.ofSeconds(20));
+        Assertions.assertNotEquals(
+                originalRemoteId,
+                ruleRecordingRemoteId(id, recordingName),
+                "the missing rule recording should have been re-created");
+
+        Assertions.assertThrows(
+                TimeoutException.class,
+                () ->
+                        webSocketClient.expectNotification(
+                                "ArchivedRecordingDeleted", Duration.ofSeconds(3)),
+                "no archive may be pruned when no new archive is being added");
+        Assertions.assertEquals(
+                archivesBefore.stream().sorted().toList(),
+                archivedRecordingNames().stream().sorted().toList(),
+                "the archives already collected must be left untouched");
 
         given().queryParam("clean", false)
                 .pathParam("ruleName", RULE_NAME)
