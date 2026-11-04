@@ -38,6 +38,7 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.OneToOne;
+import jakarta.persistence.PostLoad;
 import jakarta.persistence.PostPersist;
 import jakarta.persistence.PostRemove;
 import jakarta.persistence.PostUpdate;
@@ -112,6 +113,8 @@ public class Rule extends PanacheEntity {
     @Schema(required = true)
     public boolean enabled;
 
+    transient RecordingShape recordingShape;
+
     public String getName() {
         return this.name;
     }
@@ -151,6 +154,48 @@ public class Rule extends PanacheEntity {
         return Objects.equals(name, other.name);
     }
 
+    /**
+     * The settings of a Rule that determine the recording it starts and the Targets it starts it
+     * on. A change to any of these requires the Rule to be re-activated. The remaining settings
+     * only concern the archival schedule, which is carried into existing archival jobs without
+     * disturbing the recording, or are informational.
+     */
+    record RecordingShape(
+            String eventSpecifier,
+            int maxAgeSeconds,
+            int maxSizeBytes,
+            Map<String, String> labels,
+            String matchExpression,
+            boolean enabled,
+            boolean archiver) {
+
+        static RecordingShape of(Rule rule) {
+            return new RecordingShape(
+                    rule.eventSpecifier,
+                    rule.maxAgeSeconds,
+                    rule.maxSizeBytes,
+                    rule.metadata == null ? Map.of() : Map.copyOf(rule.metadata.labels()),
+                    rule.matchExpression == null ? null : rule.matchExpression.script,
+                    rule.enabled,
+                    rule.isArchiver());
+        }
+
+        /**
+         * A Rule that has just started archiving has no archival job yet, and only activation
+         * creates one. A Rule that stops archiving needs no activation, since its archival jobs are
+         * removed.
+         */
+        boolean requiresReactivationComparedTo(RecordingShape before) {
+            return !eventSpecifier.equals(before.eventSpecifier)
+                    || maxAgeSeconds != before.maxAgeSeconds
+                    || maxSizeBytes != before.maxSizeBytes
+                    || !labels.equals(before.labels)
+                    || !Objects.equals(matchExpression, before.matchExpression)
+                    || enabled != before.enabled
+                    || (archiver && !before.archiver);
+        }
+    }
+
     @ApplicationScoped
     static class Listener {
         @Inject EventBus bus;
@@ -168,8 +213,14 @@ public class Rule extends PanacheEntity {
             }
         }
 
+        @PostLoad
+        public void postLoad(Rule rule) {
+            rule.recordingShape = RecordingShape.of(rule);
+        }
+
         @PostPersist
         public void postPersist(Rule rule) {
+            rule.recordingShape = RecordingShape.of(rule);
             RuleEvents.RuleSnapshot snapshot = captureSnapshot(rule);
             createdEvent.fire(new RuleEvents.RuleCreated(rule.id, snapshot));
             bus.publish(RULE_ADDRESS, new RuleEvent(RuleEventCategory.CREATED, rule));
@@ -177,9 +228,16 @@ public class Rule extends PanacheEntity {
 
         @PostUpdate
         public void postUpdate(Rule rule) {
+            RecordingShape before = rule.recordingShape;
+            RecordingShape after = RecordingShape.of(rule);
+            rule.recordingShape = after;
+            boolean recordingAffected =
+                    before == null || after.requiresReactivationComparedTo(before);
             RuleEvents.RuleSnapshot snapshot = captureSnapshot(rule);
             updatedEvent.fire(new RuleEvents.RuleUpdated(rule.id, snapshot));
-            bus.publish(RULE_ADDRESS, new RuleEvent(RuleEventCategory.UPDATED, rule));
+            bus.publish(
+                    RULE_ADDRESS,
+                    new RuleEvent(RuleEventCategory.UPDATED, rule, recordingAffected));
         }
 
         @PostRemove
@@ -206,11 +264,20 @@ public class Rule extends PanacheEntity {
         }
     }
 
+    /**
+     * @param recordingAffected whether the change requires the Rule to be re-activated, as opposed
+     *     to only touching settings that existing archival jobs can absorb. Always true for
+     *     anything other than an update.
+     */
     @SuppressFBWarnings("EI_EXPOSE_REP")
-    public record RuleEvent(RuleEventCategory category, Rule rule) {
+    public record RuleEvent(RuleEventCategory category, Rule rule, boolean recordingAffected) {
         public RuleEvent {
             Objects.requireNonNull(category);
             Objects.requireNonNull(rule);
+        }
+
+        public RuleEvent(RuleEventCategory category, Rule rule) {
+            this(category, rule, true);
         }
     }
 

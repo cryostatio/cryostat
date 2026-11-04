@@ -134,7 +134,7 @@ public class RuleService {
             case CREATED:
             // fall-through
             case UPDATED:
-                if (event.rule().enabled) {
+                if (event.rule().enabled && event.recordingAffected()) {
                     applyRuleToMatchingTargets(event.rule());
                 }
                 break;
