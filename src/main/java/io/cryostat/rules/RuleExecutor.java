@@ -76,6 +76,7 @@ import org.quartz.impl.matchers.GroupMatcher;
 public class RuleExecutor {
 
     static final String RULE_LABEL_KEY = "rule";
+    static final String ARCHIVAL_GROUP_PREFIX = "rule.scheduled-archive.";
 
     @Inject Logger logger;
     @Inject RecordingHelper recordingHelper;

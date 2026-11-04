@@ -54,6 +54,8 @@ import io.cryostat.recordings.ActiveRecordings.Metadata;
 import io.cryostat.recordings.RecordingHelper;
 import io.cryostat.recordings.RecordingHelper.RecordingOptions;
 import io.cryostat.recordings.RecordingHelper.RecordingReplace;
+import io.cryostat.rules.Rule.RuleEvent;
+import io.cryostat.rules.Rule.RuleEventCategory;
 import io.cryostat.targets.Target;
 
 import io.smallrye.mutiny.Uni;
@@ -72,6 +74,7 @@ import org.quartz.JobExecutionException;
 import org.quartz.JobKey;
 import org.quartz.Scheduler;
 import org.quartz.SimpleScheduleBuilder;
+import org.quartz.SimpleTrigger;
 import org.quartz.Trigger;
 import org.quartz.Trigger.TriggerState;
 import org.quartz.TriggerBuilder;
@@ -416,6 +419,236 @@ public class RuleExecutorRearchivalTest {
         activateConcurrently(target, other);
     }
 
+    /**
+     * The archival job copies preservedArchives out of the rule when it is created, so an edit to
+     * the rule must reach an already-existing job when the rule is re-activated.
+     */
+    @Test
+    void reactivationRefreshesPreservedArchivesInExistingJob() throws Exception {
+        stubRecordingStarts(OLD_REMOTE_ID, OLD_REMOTE_ID);
+        executor.activate(target, rule).await().indefinitely();
+        assertEquals(3, jobData(jobKey()).getInt("preservedArchives"));
+
+        rule.preservedArchives = 5;
+        executor.activate(target, rule).await().indefinitely();
+
+        assertEquals(
+                5,
+                jobData(jobKey()).getInt("preservedArchives"),
+                "existing job must carry the rule's current preservedArchives");
+    }
+
+    /**
+     * A healthy trigger is normally left alone, but when the rule's archival period has been edited
+     * the trigger no longer reflects the rule and must be rescheduled to the new cadence.
+     */
+    @Test
+    void reactivationReschedulesHealthyTriggerWhenPeriodChanged() throws Exception {
+        stubRecordingStarts(OLD_REMOTE_ID, OLD_REMOTE_ID);
+        executor.activate(target, rule).await().indefinitely();
+        Date nextFireBefore = quartz.getTrigger(triggerKey()).getNextFireTime();
+
+        rule.archivalPeriodSeconds = 30;
+        long beforeReschedule = System.currentTimeMillis();
+        executor.activate(target, rule).await().indefinitely();
+
+        assertEquals(30_000L, repeatInterval(triggerKey()), "trigger must use the new period");
+        assertEquals(TriggerState.NORMAL, quartz.getTriggerState(triggerKey()));
+        Date nextFireAfter = quartz.getTrigger(triggerKey()).getNextFireTime();
+        assertTrue(nextFireAfter.before(nextFireBefore), "next archive should follow new cadence");
+        assertTrue(
+                nextFireAfter.getTime() <= beforeReschedule + 30_000L + 5_000L,
+                "next archive should be due within about one new period");
+    }
+
+    /**
+     * A Rule can be edited in place without being toggled and without its Targets being
+     * rediscovered, so an UPDATED event alone must carry the edit into existing archival jobs.
+     */
+    @Test
+    void ruleUpdateRefreshesPreservedArchivesInExistingJob() throws Exception {
+        stubRecordingStarts(OLD_REMOTE_ID);
+        executor.activate(target, rule).await().indefinitely();
+
+        rule.preservedArchives = 7;
+        ruleUpdated();
+
+        assertEquals(
+                7,
+                jobData(jobKey()).getInt("preservedArchives"),
+                "UPDATED event must refresh the existing job's data");
+        assertEquals(
+                OLD_REMOTE_ID,
+                jobData(jobKey()).getLong("recording"),
+                "refreshing the rule's settings must not disturb the recording reference");
+    }
+
+    @Test
+    void ruleUpdateReschedulesHealthyTriggerWhenPeriodChanged() throws Exception {
+        stubRecordingStarts(OLD_REMOTE_ID);
+        executor.activate(target, rule).await().indefinitely();
+        Date nextFireBefore = quartz.getTrigger(triggerKey()).getNextFireTime();
+
+        rule.archivalPeriodSeconds = 30;
+        long beforeReschedule = System.currentTimeMillis();
+        ruleUpdated();
+
+        assertEquals(30_000L, repeatInterval(triggerKey()), "trigger must use the new period");
+        assertEquals(TriggerState.NORMAL, quartz.getTriggerState(triggerKey()));
+        Date nextFireAfter = quartz.getTrigger(triggerKey()).getNextFireTime();
+        assertTrue(nextFireAfter.before(nextFireBefore), "next archive should follow new cadence");
+        assertTrue(
+                nextFireAfter.getTime() <= beforeReschedule + 30_000L + 5_000L,
+                "next archive should be due within about one new period");
+    }
+
+    /**
+     * Edits unrelated to the archival schedule, ex. the description, also publish UPDATED events.
+     * They must not disturb a healthy trigger's cadence.
+     */
+    @Test
+    void ruleUpdateLeavesHealthyTriggerAloneWhenScheduleUnchanged() throws Exception {
+        stubRecordingStarts(OLD_REMOTE_ID);
+        executor.activate(target, rule).await().indefinitely();
+        Trigger before = quartz.getTrigger(triggerKey());
+        Thread.sleep(1100);
+
+        rule.description = "edited";
+        ruleUpdated();
+
+        Trigger after = quartz.getTrigger(triggerKey());
+        assertEquals(before.getStartTime(), after.getStartTime(), "trigger must not be replaced");
+        assertEquals(before.getNextFireTime(), after.getNextFireTime());
+    }
+
+    /** The same rule has one archival job per JVM it is active on and every one must be updated. */
+    @Test
+    void ruleUpdateRefreshesArchivalJobsOnEveryTarget() throws Exception {
+        stubRecordingStarts(OLD_REMOTE_ID, OLD_REMOTE_ID);
+        Target other = new Target();
+        other.jvmId = "other-jvm-id";
+        other.alias = "other-target";
+        executor.activate(target, rule).await().indefinitely();
+        executor.activate(other, rule).await().indefinitely();
+
+        rule.preservedArchives = 9;
+        rule.archivalPeriodSeconds = 30;
+        ruleUpdated();
+
+        for (String jvmId : List.of(JVM_ID, other.jvmId)) {
+            assertEquals(
+                    9,
+                    jobData(jobKey(jvmId)).getInt("preservedArchives"),
+                    "job for " + jvmId + " must carry the rule's current preservedArchives");
+            assertEquals(
+                    30_000L,
+                    repeatInterval(triggerKey(jvmId)),
+                    "trigger for " + jvmId + " must use the new period");
+        }
+    }
+
+    /** Jobs are keyed by rule name within a per-JVM group, so another rule's job is not ours. */
+    @Test
+    void ruleUpdateDoesNotTouchOtherRulesArchivalJobs() throws Exception {
+        stubRecordingStarts(OLD_REMOTE_ID, OLD_REMOTE_ID);
+        Rule other = new Rule();
+        other.name = "other_rule";
+        other.description = "";
+        other.eventSpecifier = rule.eventSpecifier;
+        other.archivalPeriodSeconds = 60;
+        other.initialDelaySeconds = 0;
+        other.preservedArchives = 3;
+        other.metadata = new Metadata(new HashMap<>());
+        other.enabled = true;
+        executor.activate(target, rule).await().indefinitely();
+        executor.activate(target, other).await().indefinitely();
+        JobKey otherJob = new JobKey(other.name, jobKey().getGroup());
+        TriggerKey otherTrigger = new TriggerKey(other.name, jobKey().getGroup());
+        Trigger otherTriggerBefore = quartz.getTrigger(otherTrigger);
+
+        rule.preservedArchives = 7;
+        rule.archivalPeriodSeconds = 30;
+        ruleUpdated();
+
+        assertEquals(3, jobData(otherJob).getInt("preservedArchives"));
+        assertEquals(60_000L, repeatInterval(otherTrigger));
+        assertEquals(
+                otherTriggerBefore.getNextFireTime(),
+                quartz.getTrigger(otherTrigger).getNextFireTime());
+    }
+
+    /** Job and trigger changes are a read-modify-write that must happen under the jvmId lock. */
+    @Test
+    void ruleUpdateRefreshesArchivalJobWhileHoldingJvmIdLock() throws Exception {
+        stubRecordingStarts(OLD_REMOTE_ID);
+        executor.activate(target, rule).await().indefinitely();
+        AtomicInteger underLock = new AtomicInteger();
+        AtomicInteger withoutLock = new AtomicInteger();
+        Scheduler spied = spy(quartz);
+        Answer<Object> countLockState =
+                inv -> {
+                    (lock.isHeld(JVM_ID) ? underLock : withoutLock).incrementAndGet();
+                    return inv.callRealMethod();
+                };
+        doAnswer(countLockState)
+                .when(spied)
+                .addJob(any(JobDetail.class), anyBoolean(), anyBoolean());
+        doAnswer(countLockState)
+                .when(spied)
+                .rescheduleJob(any(TriggerKey.class), any(Trigger.class));
+        executor.quartz = spied;
+
+        rule.preservedArchives = 7;
+        rule.archivalPeriodSeconds = 30;
+        ruleUpdated();
+
+        assertEquals(2, underLock.get(), "job data and trigger must both change under the lock");
+        assertEquals(0, withoutLock.get(), "nothing may change outside the lock");
+    }
+
+    /**
+     * An UPDATED event carries no fresh recording remoteId, so it cannot make a job that has lost
+     * its trigger viable again. Restoring it is left to re-activation, which does know the
+     * recording. The rule's own settings are still brought up to date in the job.
+     */
+    @Test
+    void ruleUpdateDoesNotResurrectDeadTrigger() throws Exception {
+        stubRecordingStarts(OLD_REMOTE_ID);
+        executor.activate(target, rule).await().indefinitely();
+        simulateStaleRecordingFailure();
+        assertEquals(TriggerState.COMPLETE, quartz.getTriggerState(triggerKey()));
+
+        rule.preservedArchives = 7;
+        ruleUpdated();
+
+        assertEquals(TriggerState.COMPLETE, quartz.getTriggerState(triggerKey()));
+        assertEquals(7, jobData(jobKey()).getInt("preservedArchives"));
+    }
+
+    /**
+     * A rule edited so that it no longer archives, ex. preservedArchives or the period set to zero,
+     * has no valid archival schedule, so its existing archival jobs must go away.
+     */
+    @Test
+    void ruleUpdateRemovesArchivalJobWhenRuleStopsArchiving() throws Exception {
+        stubRecordingStarts(OLD_REMOTE_ID);
+        executor.activate(target, rule).await().indefinitely();
+        assertTrue(quartz.checkExists(jobKey()));
+
+        rule.preservedArchives = 0;
+        ruleUpdated();
+
+        assertFalse(quartz.checkExists(jobKey()), "job must be removed for a non-archiving rule");
+    }
+
+    private void ruleUpdated() {
+        executor.handleRuleModification(new RuleEvent(RuleEventCategory.UPDATED, rule));
+    }
+
+    private long repeatInterval(TriggerKey key) throws Exception {
+        return ((SimpleTrigger) quartz.getTrigger(key)).getRepeatInterval();
+    }
+
     private void activateConcurrently(Target first, Target second) throws Exception {
         ExecutorService pool = Executors.newFixedThreadPool(2);
         try {
@@ -473,11 +706,19 @@ public class RuleExecutorRearchivalTest {
     }
 
     private JobKey jobKey() {
-        return new JobKey(rule.name, String.format("rule.scheduled-archive.%s", JVM_ID));
+        return jobKey(JVM_ID);
+    }
+
+    private JobKey jobKey(String jvmId) {
+        return new JobKey(rule.name, String.format("rule.scheduled-archive.%s", jvmId));
     }
 
     private TriggerKey triggerKey() {
-        return new TriggerKey(rule.name, String.format("rule.scheduled-archive.%s", JVM_ID));
+        return triggerKey(JVM_ID);
+    }
+
+    private TriggerKey triggerKey(String jvmId) {
+        return new TriggerKey(rule.name, String.format("rule.scheduled-archive.%s", jvmId));
     }
 
     private JobDataMap jobData(JobKey key) throws Exception {
