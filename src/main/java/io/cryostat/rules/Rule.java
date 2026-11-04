@@ -161,6 +161,7 @@ public class Rule extends PanacheEntity {
      * disturbing the recording, or are informational.
      */
     record RecordingShape(
+            String name,
             String eventSpecifier,
             int maxAgeSeconds,
             int maxSizeBytes,
@@ -171,6 +172,7 @@ public class Rule extends PanacheEntity {
 
         static RecordingShape of(Rule rule) {
             return new RecordingShape(
+                    rule.name,
                     rule.eventSpecifier,
                     rule.maxAgeSeconds,
                     rule.maxSizeBytes,
@@ -186,7 +188,8 @@ public class Rule extends PanacheEntity {
          * removed.
          */
         boolean requiresReactivationComparedTo(RecordingShape before) {
-            return !eventSpecifier.equals(before.eventSpecifier)
+            return !name.equals(before.name)
+                    || !eventSpecifier.equals(before.eventSpecifier)
                     || maxAgeSeconds != before.maxAgeSeconds
                     || maxSizeBytes != before.maxSizeBytes
                     || !labels.equals(before.labels)
