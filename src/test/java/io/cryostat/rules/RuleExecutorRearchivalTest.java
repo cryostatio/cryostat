@@ -20,16 +20,31 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyMap;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
 import java.time.Duration;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Predicate;
 
 import io.cryostat.libcryostat.templates.Template;
@@ -47,6 +62,7 @@ import org.jboss.logging.Logger;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.stubbing.Answer;
 import org.quartz.Job;
 import org.quartz.JobBuilder;
 import org.quartz.JobDataMap;
@@ -83,6 +99,7 @@ public class RuleExecutorRearchivalTest {
 
     Scheduler quartz;
     RecordingHelper recordingHelper;
+    InMemoryActivationLock lock;
     RuleExecutor executor;
     Rule rule;
     Target target;
@@ -103,10 +120,13 @@ public class RuleExecutorRearchivalTest {
         when(recordingHelper.getActiveRecording(any(Target.class), anyPredicate()))
                 .thenReturn(Optional.empty());
 
+        lock = new InMemoryActivationLock();
+
         executor = new RuleExecutor();
         executor.logger = Logger.getLogger(RuleExecutor.class);
         executor.recordingHelper = recordingHelper;
         executor.quartz = quartz;
+        executor.activationLock = lock;
         executor.connectionFailedTimeout = Duration.ofSeconds(5);
 
         target = new Target();
@@ -278,6 +298,178 @@ public class RuleExecutorRearchivalTest {
             ex.setUnscheduleFiringTrigger(true);
             throw ex;
         }
+    }
+
+    /**
+     * The archival job persists its job data after each execution. Without serialization, an
+     * execution in progress while the rule re-activates can write its stale copy of the job data
+     * back over the updated recording remoteId, so the job must not run concurrently with itself.
+     */
+    @Test
+    void archivalJobDisallowsConcurrentExecution() throws Exception {
+        stubRecordingStarts(OLD_REMOTE_ID);
+
+        executor.activate(target, rule).await().indefinitely();
+
+        assertTrue(
+                quartz.getJobDetail(jobKey()).isConcurrentExecutionDisallowed(),
+                "archival job must not execute concurrently with itself");
+        assertTrue(
+                quartz.getJobDetail(jobKey()).isPersistJobDataAfterExecution(),
+                "archival job is expected to persist its job data after execution");
+    }
+
+    /**
+     * The same physical JVM can appear as more than one Target, all sharing a jvmId, and a Rule
+     * activates against each of them. Creating or updating the archival job and its trigger is a
+     * read-modify-write on state shared by those activations, so it must happen while holding the
+     * lock for the jvmId.
+     */
+    @Test
+    void archivalJobIsScheduledWhileHoldingJvmIdLock() throws Exception {
+        stubRecordingStarts(OLD_REMOTE_ID, NEW_REMOTE_ID);
+        AtomicInteger underLock = new AtomicInteger();
+        AtomicInteger withoutLock = new AtomicInteger();
+        Scheduler spied = spy(quartz);
+        Answer<Object> countLockState =
+                inv -> {
+                    (lock.isHeld(JVM_ID) ? underLock : withoutLock).incrementAndGet();
+                    return inv.callRealMethod();
+                };
+        doAnswer(countLockState).when(spied).scheduleJob(any(JobDetail.class), any(Trigger.class));
+        doAnswer(countLockState)
+                .when(spied)
+                .addJob(any(JobDetail.class), anyBoolean(), anyBoolean());
+        executor.quartz = spied;
+
+        executor.activate(target, rule).await().indefinitely();
+        executor.activate(target, rule).await().indefinitely();
+
+        assertEquals(List.of(JVM_ID, JVM_ID), lock.acquiredKeys(), "lock must be keyed by jvmId");
+        assertEquals(2, underLock.get(), "job must be created and then updated under the lock");
+        assertEquals(0, withoutLock.get(), "job must not be changed outside the lock");
+    }
+
+    /**
+     * Two activations for Targets sharing a jvmId can interleave their slower steps, stopping and
+     * starting the rule recording, so the one that finishes last is not necessarily the one that
+     * started the live recording. The archival job must follow the recording that is actually live
+     * at the time it is bound, not the remoteId the latecomer happened to be handed earlier.
+     */
+    @Test
+    void lateActivationBindsJobToRecordingThatIsCurrentlyActive() throws Exception {
+        Target duplicate = new Target();
+        duplicate.jvmId = JVM_ID;
+        duplicate.alias = "duplicate-target";
+
+        AtomicInteger starts = new AtomicInteger();
+        AtomicLong liveRemoteId = new AtomicLong();
+        when(recordingHelper.getActiveRecording(any(Target.class), anyPredicate()))
+                .thenAnswer(
+                        inv ->
+                                liveRemoteId.get() == 0
+                                        ? Optional.empty()
+                                        : Optional.of(recording(liveRemoteId.get())));
+        when(recordingHelper.stopRecording(any(ActiveRecording.class)))
+                .thenAnswer(inv -> Uni.createFrom().item((ActiveRecording) inv.getArgument(0)));
+        stubStartRecordingAnswer(
+                () -> {
+                    int n = starts.incrementAndGet();
+                    if (n == 1) {
+                        long late = OLD_REMOTE_ID;
+                        executor.activate(duplicate, rule).await().indefinitely();
+                        return recording(late);
+                    }
+                    liveRemoteId.set(NEW_REMOTE_ID);
+                    return recording(NEW_REMOTE_ID);
+                });
+
+        executor.activate(target, rule).await().indefinitely();
+
+        assertEquals(2, starts.get(), "both activations should have started the recording");
+        assertEquals(
+                NEW_REMOTE_ID,
+                jobData(jobKey()).getLong("recording"),
+                "the job must be bound to the live recording, not the late activation's stale"
+                        + " remoteId");
+    }
+
+    /** Serialization is per jvmId, so activations against distinct JVMs must still overlap. */
+    @Test
+    void concurrentActivationsForDifferentJvmIdsAreNotSerialized() throws Exception {
+        CountDownLatch bothInside = new CountDownLatch(2);
+        AtomicInteger nextRemoteId = new AtomicInteger();
+        stubStartRecordingAnswer(
+                () -> {
+                    bothInside.countDown();
+                    if (!bothInside.await(5, TimeUnit.SECONDS)) {
+                        throw new IllegalStateException(
+                                "activations for distinct jvmIds were serialized");
+                    }
+                    return recording(nextRemoteId.incrementAndGet());
+                });
+
+        Target other = new Target();
+        other.jvmId = "other-jvm-id";
+        other.alias = "other-target";
+
+        activateConcurrently(target, other);
+    }
+
+    private void activateConcurrently(Target first, Target second) throws Exception {
+        ExecutorService pool = Executors.newFixedThreadPool(2);
+        try {
+            Future<?> a = pool.submit(() -> executor.activate(first, rule).await().indefinitely());
+            Future<?> b = pool.submit(() -> executor.activate(second, rule).await().indefinitely());
+            a.get(15, TimeUnit.SECONDS);
+            b.get(15, TimeUnit.SECONDS);
+        } finally {
+            pool.shutdownNow();
+        }
+    }
+
+    /**
+     * Test stand-in for {@link ActivationLock} that guards with in-process reentrant locks and
+     * records how it was used, since the production implementation needs a PostgreSQL database.
+     */
+    static class InMemoryActivationLock extends ActivationLock {
+        private final Map<String, ReentrantLock> locks = new ConcurrentHashMap<>();
+        private final List<String> acquired = new CopyOnWriteArrayList<>();
+
+        @Override
+        public <T> T withLock(String key, Callable<T> action) throws Exception {
+            ReentrantLock l = locks.computeIfAbsent(key, k -> new ReentrantLock());
+            l.lock();
+            try {
+                acquired.add(key);
+                return action.call();
+            } finally {
+                l.unlock();
+            }
+        }
+
+        boolean isHeld(String key) {
+            ReentrantLock l = locks.get(key);
+            return l != null && l.isHeldByCurrentThread();
+        }
+
+        List<String> acquiredKeys() {
+            return acquired;
+        }
+    }
+
+    private interface RecordingSupplier {
+        ActiveRecording get() throws Exception;
+    }
+
+    private void stubStartRecordingAnswer(RecordingSupplier supplier) throws Exception {
+        when(recordingHelper.startRecording(
+                        any(Target.class),
+                        any(RecordingReplace.class),
+                        any(Template.class),
+                        any(RecordingOptions.class),
+                        anyMap()))
+                .thenAnswer(inv -> Uni.createFrom().item(supplier.get()));
     }
 
     private JobKey jobKey() {
