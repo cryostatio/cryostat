@@ -361,10 +361,13 @@ public class RulesArchiverTest extends AbstractTransactionalTestBase {
      * A Rule can be edited in place through the API without being toggled and without its Target
      * being rediscovered. The archival job created under the old settings must pick up the edited
      * preservedArchives and archivalPeriodSeconds from the resulting Rule UPDATED event alone.
+     * Those settings only concern the archival schedule, so the rule's recording must be left
+     * running rather than being stopped and re-created.
      */
     @Test
     public void testRuleEditReachesExistingArchivalJob() throws Exception {
-        defineSelfCustomTarget();
+        int id = defineSelfCustomTarget();
+        String recordingName = String.format("auto_%s", RULE_NAME);
         JobKey jobKey = new JobKey(RULE_NAME, "rule.scheduled-archive." + this.selfJvmId);
         TriggerKey triggerKey = new TriggerKey(RULE_NAME, jobKey.getGroup());
 
@@ -381,6 +384,7 @@ public class RulesArchiverTest extends AbstractTransactionalTestBase {
                 "archival job should be scheduled for the rule",
                 () -> scheduler.checkExists(jobKey),
                 Duration.ofSeconds(10));
+        int originalRemoteId = ruleRecordingRemoteId(id, recordingName);
         Assertions.assertEquals(
                 3, scheduler.getJobDetail(jobKey).getJobDataMap().getInt("preservedArchives"));
         Assertions.assertEquals(
@@ -406,6 +410,17 @@ public class RulesArchiverTest extends AbstractTransactionalTestBase {
                         ((SimpleTrigger) scheduler.getTrigger(triggerKey)).getRepeatInterval()
                                 == 7_200_000L,
                 Duration.ofSeconds(10));
+
+        Assertions.assertThrows(
+                TimeoutException.class,
+                () ->
+                        webSocketClient.expectNotification(
+                                "ActiveRecordingCreated", Duration.ofSeconds(3)),
+                "a schedule-only edit must not re-create the rule recording");
+        Assertions.assertEquals(
+                originalRemoteId,
+                ruleRecordingRemoteId(id, recordingName),
+                "a schedule-only edit must leave the rule recording in place");
 
         given().queryParam("clean", false)
                 .pathParam("ruleName", RULE_NAME)
