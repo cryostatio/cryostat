@@ -41,6 +41,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.quartz.JobKey;
 import org.quartz.SimpleTrigger;
+import org.quartz.Trigger;
 import org.quartz.TriggerKey;
 
 @QuarkusTest
@@ -295,6 +296,63 @@ public class RulesArchiverTest extends AbstractTransactionalTestBase {
                 .all()
                 .and()
                 .assertThat()
+                .statusCode(204);
+        webSocketClient.expectNotification("RuleDeleted", Duration.ofSeconds(5));
+    }
+
+    /**
+     * Reproduces a manual test of GitHub issue #1885. The rule's recording is deleted and nothing
+     * else touches the rule or the target. Nothing re-activates a rule when its recording goes
+     * missing, so the archival job itself must notice, have the rule re-activated so that the
+     * recording is re-created, and carry on archiving. Without that, the job unschedules itself and
+     * the rule silently stops archiving for good.
+     */
+    @Test
+    public void testArchivingResumesAfterRuleRecordingIsDeletedWithoutReactivation()
+            throws Exception {
+        int id = defineSelfCustomTarget();
+        String recordingName = String.format("auto_%s", RULE_NAME);
+        JobKey jobKey = new JobKey(RULE_NAME, "rule.scheduled-archive." + this.selfJvmId);
+        TriggerKey triggerKey = new TriggerKey(RULE_NAME, jobKey.getGroup());
+
+        given().body(ruleJson(3))
+                .contentType(ContentType.JSON)
+                .post("/api/v4/rules")
+                .then()
+                .statusCode(201);
+        webSocketClient.expectNotification("RuleCreated", Duration.ofSeconds(5));
+        webSocketClient.expectNotification("ActiveRecordingCreated", Duration.ofSeconds(10));
+        webSocketClient.expectNotification("ArchivedRecordingCreated", Duration.ofSeconds(10));
+
+        int originalRemoteId = ruleRecordingRemoteId(id, recordingName);
+
+        given().pathParams(Map.of("targetId", id, "remoteId", originalRemoteId))
+                .delete("/api/v4/targets/{targetId}/recordings/{remoteId}")
+                .then()
+                .statusCode(204);
+        webSocketClient.expectNotification("ActiveRecordingDeleted", Duration.ofSeconds(5));
+
+        webSocketClient.expectNotification("ActiveRecordingCreated", Duration.ofSeconds(20));
+        int recreatedRemoteId = ruleRecordingRemoteId(id, recordingName);
+        Assertions.assertNotEquals(
+                originalRemoteId,
+                recreatedRemoteId,
+                "the rule recording should have been re-created without any other trigger");
+
+        webSocketClient.expectNotification("ArchivedRecordingCreated", Duration.ofSeconds(20));
+        awaitCondition(
+                "archival trigger should be alive again",
+                () -> scheduler.getTriggerState(triggerKey) == Trigger.TriggerState.NORMAL,
+                Duration.ofSeconds(10));
+        Assertions.assertEquals(
+                recreatedRemoteId,
+                scheduler.getJobDetail(jobKey).getJobDataMap().getLong("recording"),
+                "archival job must be bound to the re-created recording");
+
+        given().queryParam("clean", false)
+                .pathParam("ruleName", RULE_NAME)
+                .delete("/api/v4/rules/{ruleName}")
+                .then()
                 .statusCode(204);
         webSocketClient.expectNotification("RuleDeleted", Duration.ofSeconds(5));
     }
