@@ -849,6 +849,33 @@ public class RecordingHelper {
         }
     }
 
+    /**
+     * Archive a recording that is about to be stopped and replaced, and wait for the archive to be
+     * stored. Archive-on-stop is otherwise deferred until after the stop has been committed, which
+     * is too late when the recording is deleted straight after, since its data is lost. The archive
+     * and the clearing of the recording's archive-on-stop, which has now been honoured and must not
+     * archive the recording a second time when it is stopped, are committed together in a
+     * transaction of their own. This is required because the archive refers to the active recording
+     * and the replacement deletes that recording in a transaction of its own, which would otherwise
+     * commit first and orphan the archive's reference, and because holding the recording row in the
+     * caller's transaction would block the stop. The passed entity is deliberately left unmodified
+     * so that the caller's transaction does not write it back. If archiving fails nothing is
+     * committed so that the replacement can be retried.
+     */
+    public void archiveBeforeStop(ActiveRecording recording) throws Exception {
+        QuarkusTransaction.requiringNew()
+                .call(
+                        () -> {
+                            archiveRecording(recording);
+                            ActiveRecording r =
+                                    ActiveRecording.<ActiveRecording>find("id", recording.id)
+                                            .singleResult();
+                            r.archiveOnStop = false;
+                            r.persist();
+                            return null;
+                        });
+    }
+
     public Uni<ActiveRecording> stopRecording(ActiveRecording recording) throws Exception {
         return connectionManager.executeConnectedTaskUni(
                 recording.target,

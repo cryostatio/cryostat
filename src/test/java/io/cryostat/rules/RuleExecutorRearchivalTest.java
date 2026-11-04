@@ -18,15 +18,22 @@ package io.cryostat.rules;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyMap;
+import static org.mockito.ArgumentMatchers.same;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.io.IOException;
 import java.time.Duration;
 import java.util.Date;
 import java.util.HashMap;
@@ -54,6 +61,7 @@ import io.cryostat.recordings.ActiveRecordings.Metadata;
 import io.cryostat.recordings.RecordingHelper;
 import io.cryostat.recordings.RecordingHelper.RecordingOptions;
 import io.cryostat.recordings.RecordingHelper.RecordingReplace;
+import io.cryostat.recordings.RecordingState;
 import io.cryostat.rules.Rule.RuleEvent;
 import io.cryostat.rules.Rule.RuleEventCategory;
 import io.cryostat.targets.Target;
@@ -64,6 +72,7 @@ import org.jboss.logging.Logger;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.InOrder;
 import org.mockito.stubbing.Answer;
 import org.quartz.Job;
 import org.quartz.JobBuilder;
@@ -639,6 +648,115 @@ public class RuleExecutorRearchivalTest {
         ruleUpdated();
 
         assertFalse(quartz.checkExists(jobKey()), "job must be removed for a non-archiving rule");
+    }
+
+    /**
+     * A re-activation replaces the rule's recording, so what the old recording captured would be
+     * lost. It must be archived first, and only once the archive is safe may the recording be
+     * stopped and replaced.
+     */
+    @Test
+    void reactivationArchivesPriorRecordingBeforeStoppingAndReplacingIt() throws Exception {
+        ActiveRecording prior = priorRecording(OLD_REMOTE_ID, true, RecordingState.RUNNING);
+        stubPriorRecording(prior);
+        when(recordingHelper.stopRecording(same(prior))).thenReturn(Uni.createFrom().item(prior));
+        stubRecordingStarts(NEW_REMOTE_ID);
+
+        executor.activate(target, rule).await().indefinitely();
+
+        InOrder order = inOrder(recordingHelper);
+        order.verify(recordingHelper).archiveBeforeStop(same(prior));
+        order.verify(recordingHelper).stopRecording(same(prior));
+        order.verify(recordingHelper)
+                .startRecording(
+                        any(Target.class),
+                        any(RecordingReplace.class),
+                        any(Template.class),
+                        any(RecordingOptions.class),
+                        anyMap());
+    }
+
+    /**
+     * If the prior recording cannot be archived, nothing may be stopped or replaced. The recording
+     * and its data are still intact for the activation to be retried.
+     */
+    @Test
+    void reactivationDoesNotReplaceRecordingThatCouldNotBeArchived() throws Exception {
+        ActiveRecording prior = priorRecording(OLD_REMOTE_ID, true, RecordingState.RUNNING);
+        stubPriorRecording(prior);
+        doThrow(new IOException("storage unavailable"))
+                .when(recordingHelper)
+                .archiveBeforeStop(same(prior));
+        stubRecordingStarts(NEW_REMOTE_ID);
+
+        Exception failure =
+                assertThrows(
+                        Exception.class,
+                        () -> executor.activate(target, rule).await().indefinitely());
+        assertTrue(
+                failure instanceof IOException || failure.getCause() instanceof IOException,
+                "the archive failure must reach the caller so that the activation is retried");
+
+        verify(recordingHelper, never()).stopRecording(any(ActiveRecording.class));
+        verify(recordingHelper, never())
+                .startRecording(
+                        any(Target.class),
+                        any(RecordingReplace.class),
+                        any(Template.class),
+                        any(RecordingOptions.class),
+                        anyMap());
+    }
+
+    @Test
+    void reactivationDoesNotArchivePriorRecordingThatIsNotArchivedOnStop() throws Exception {
+        ActiveRecording prior = priorRecording(OLD_REMOTE_ID, false, RecordingState.RUNNING);
+        stubPriorRecording(prior);
+        when(recordingHelper.stopRecording(same(prior))).thenReturn(Uni.createFrom().item(prior));
+        stubRecordingStarts(NEW_REMOTE_ID);
+
+        executor.activate(target, rule).await().indefinitely();
+
+        verify(recordingHelper, never()).archiveBeforeStop(any(ActiveRecording.class));
+        verify(recordingHelper).stopRecording(same(prior));
+    }
+
+    /**
+     * A prior recording that is already stopped had its data archived when it was stopped, so
+     * archiving it again would only produce a duplicate.
+     */
+    @Test
+    void reactivationDoesNotArchivePriorRecordingThatIsAlreadyStopped() throws Exception {
+        ActiveRecording prior = priorRecording(OLD_REMOTE_ID, true, RecordingState.STOPPED);
+        stubPriorRecording(prior);
+        when(recordingHelper.stopRecording(same(prior))).thenReturn(Uni.createFrom().item(prior));
+        stubRecordingStarts(NEW_REMOTE_ID);
+
+        executor.activate(target, rule).await().indefinitely();
+
+        verify(recordingHelper, never()).archiveBeforeStop(any(ActiveRecording.class));
+    }
+
+    @Test
+    void firstActivationArchivesNothing() throws Exception {
+        stubRecordingStarts(OLD_REMOTE_ID);
+
+        executor.activate(target, rule).await().indefinitely();
+
+        verify(recordingHelper, never()).archiveBeforeStop(any(ActiveRecording.class));
+    }
+
+    private ActiveRecording priorRecording(
+            long remoteId, boolean archiveOnStop, RecordingState state) {
+        ActiveRecording r = recording(remoteId);
+        r.archiveOnStop = archiveOnStop;
+        r.state = state;
+        return r;
+    }
+
+    private void stubPriorRecording(ActiveRecording prior) {
+        when(recordingHelper.getActiveRecording(any(Target.class), anyPredicate()))
+                .thenReturn(Optional.of(prior))
+                .thenReturn(Optional.empty());
     }
 
     private void ruleUpdated() {

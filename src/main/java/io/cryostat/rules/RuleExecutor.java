@@ -34,6 +34,7 @@ import io.cryostat.recordings.ActiveRecording;
 import io.cryostat.recordings.RecordingHelper;
 import io.cryostat.recordings.RecordingHelper.RecordingOptions;
 import io.cryostat.recordings.RecordingHelper.RecordingReplace;
+import io.cryostat.recordings.RecordingState;
 import io.cryostat.rules.Rule.RuleEvent;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.Target.TargetDiscovery;
@@ -161,10 +162,11 @@ public class RuleExecutor {
                     recordingHelper.getActiveRecording(
                             target, r -> Objects.equals(r.name, rule.getRecordingName()));
             if (priorRecording.isPresent()) {
-                recordingHelper
-                        .stopRecording(priorRecording.get())
-                        .await()
-                        .atMost(connectionFailedTimeout);
+                ActiveRecording prior = priorRecording.get();
+                if (prior.archiveOnStop && prior.state != RecordingState.STOPPED) {
+                    recordingHelper.archiveBeforeStop(prior);
+                }
+                recordingHelper.stopRecording(prior).await().atMost(connectionFailedTimeout);
             }
             var labels = new HashMap<>(rule.metadata.labels());
             labels.put(RULE_LABEL_KEY, rule.name);

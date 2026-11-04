@@ -431,6 +431,66 @@ public class RulesArchiverTest extends AbstractTransactionalTestBase {
         webSocketClient.expectNotification("RuleDeleted", Duration.ofSeconds(5));
     }
 
+    /**
+     * Editing a rule so that its recording must be replaced stops the old recording. What it
+     * captured must be archived before it is replaced rather than lost, so one extra archive
+     * appears, it counts towards preservedArchives, and the archive is of the recording that was
+     * replaced, not of its successor.
+     */
+    @Test
+    public void testReplacedRuleRecordingIsArchivedBeforeItIsReplaced() throws Exception {
+        int id = defineSelfCustomTarget();
+        String recordingName = String.format("auto_%s", RULE_NAME);
+
+        given().body(ruleJson(3600))
+                .contentType(ContentType.JSON)
+                .post("/api/v4/rules")
+                .then()
+                .statusCode(201);
+        webSocketClient.expectNotification("RuleCreated", Duration.ofSeconds(5));
+        webSocketClient.expectNotification("ActiveRecordingCreated", Duration.ofSeconds(10));
+        int originalRemoteId = ruleRecordingRemoteId(id, recordingName);
+        Assertions.assertTrue(
+                archivedRecordingNames().isEmpty(),
+                "a long archival period means nothing is archived before the edit");
+
+        given().body("{\"maxSizeBytes\": 5242880}")
+                .contentType(ContentType.JSON)
+                .pathParam("ruleName", RULE_NAME)
+                .patch("/api/v4/rules/{ruleName}")
+                .then()
+                .statusCode(200);
+        webSocketClient.expectNotification("RuleUpdated", Duration.ofSeconds(5));
+
+        JsonObject archived =
+                webSocketClient.expectNotification(
+                        "ArchivedRecordingCreated", Duration.ofSeconds(15));
+        webSocketClient.expectNotification("ActiveRecordingCreated", Duration.ofSeconds(15));
+        Assertions.assertNotEquals(
+                originalRemoteId,
+                ruleRecordingRemoteId(id, recordingName),
+                "a recording-affecting edit must replace the rule recording");
+
+        List<String> archives = archivedRecordingNames();
+        Assertions.assertEquals(
+                1, archives.size(), "the replaced recording must have been archived exactly once");
+        Assertions.assertEquals(archivedName(archived), archives.get(0));
+
+        Assertions.assertThrows(
+                TimeoutException.class,
+                () ->
+                        webSocketClient.expectNotification(
+                                "ArchivedRecordingCreated", Duration.ofSeconds(5)),
+                "replacing the recording must not archive it a second time");
+
+        given().queryParam("clean", false)
+                .pathParam("ruleName", RULE_NAME)
+                .delete("/api/v4/rules/{ruleName}")
+                .then()
+                .statusCode(204);
+        webSocketClient.expectNotification("RuleDeleted", Duration.ofSeconds(5));
+    }
+
     private interface Check {
         boolean test() throws Exception;
     }
