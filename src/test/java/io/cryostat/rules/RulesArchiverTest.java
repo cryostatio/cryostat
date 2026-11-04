@@ -16,11 +16,16 @@
 package io.cryostat.rules;
 
 import static io.restassured.RestAssured.given;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.not;
 
 import java.io.IOException;
 import java.time.Duration;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeoutException;
+import java.util.function.Predicate;
 
 import io.cryostat.AbstractTransactionalTestBase;
 import io.cryostat.resources.S3StorageResource;
@@ -28,9 +33,11 @@ import io.cryostat.resources.S3StorageResource;
 import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
+import io.vertx.core.json.JsonObject;
 import jakarta.websocket.DeploymentException;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 @QuarkusTest
@@ -39,23 +46,26 @@ public class RulesArchiverTest extends AbstractTransactionalTestBase {
 
     static String RULE_NAME = "periodic_archiver";
 
-    static final String rule =
-            String.format(
-                    """
-                    {
-                      "name": "%s",
-                      "description": "",
-                      "matchExpression": "true",
-                      "eventSpecifier": "template=Continuous,type=TARGET",
-                      "archivalPeriodSeconds": 10,
-                      "initialDelaySeconds": 0,
-                      "preservedArchives": 3,
-                      "maxAgeSeconds": 0,
-                      "maxSizeBytes": 10485760,
-                      "enabled": true
-                    }
-                    """,
-                    RULE_NAME);
+    static final String rule = ruleJson(10);
+
+    static String ruleJson(int archivalPeriodSeconds) {
+        return String.format(
+                """
+                {
+                  "name": "%s",
+                  "description": "",
+                  "matchExpression": "true",
+                  "eventSpecifier": "template=Continuous,type=TARGET",
+                  "archivalPeriodSeconds": %d,
+                  "initialDelaySeconds": 0,
+                  "preservedArchives": 3,
+                  "maxAgeSeconds": 0,
+                  "maxSizeBytes": 10485760,
+                  "enabled": true
+                }
+                """,
+                RULE_NAME, archivalPeriodSeconds);
+    }
 
     @AfterEach
     void cleanupRulesArchiverTest() {
@@ -156,5 +166,181 @@ public class RulesArchiverTest extends AbstractTransactionalTestBase {
                 .contentType(ContentType.JSON)
                 .statusCode(200)
                 .body("size()", Matchers.equalTo(3));
+    }
+
+    /**
+     * Regression test for GitHub issue #1885. Deleting the rule's active recording and then having
+     * the rule re-activate on the target creates a replacement recording with a new remoteId. The
+     * periodic archival must keep running against the replacement recording instead of dying
+     * permanently because its Quartz job still refers to the old remoteId. Archives produced before
+     * the re-activation must be left in place, and must count towards preservedArchives so that the
+     * oldest of them is the first to be pruned once the limit is exceeded.
+     */
+    @Test
+    public void testArchivingContinuesAfterRuleRecordingIsRecreated()
+            throws TimeoutException, InterruptedException, IOException, DeploymentException {
+        int id = defineSelfCustomTarget();
+        String recordingName = String.format("auto_%s", RULE_NAME);
+
+        given().body(ruleJson(3))
+                .contentType(ContentType.JSON)
+                .post("/api/v4/rules")
+                .then()
+                .statusCode(201);
+
+        webSocketClient.expectNotification("RuleCreated", Duration.ofSeconds(5));
+        webSocketClient.expectNotification("ActiveRecordingCreated", Duration.ofSeconds(10));
+
+        // Let the first archive be produced so that the archival job is demonstrably running
+        webSocketClient.expectNotification("ArchivedRecordingCreated", Duration.ofSeconds(10));
+
+        int originalRemoteId = ruleRecordingRemoteId(id, recordingName);
+        List<String> initialArchives = archivedRecordingNames();
+        Assertions.assertEquals(
+                1, initialArchives.size(), "exactly one archive should exist before re-activation");
+        String initialArchive = initialArchives.get(0);
+
+        // Delete the rule's recording out from under the running archival job
+        given().log()
+                .all()
+                .pathParams(Map.of("targetId", id, "remoteId", originalRemoteId))
+                .delete("/api/v4/targets/{targetId}/recordings/{remoteId}")
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(204);
+        webSocketClient.expectNotification("ActiveRecordingDeleted", Duration.ofSeconds(5));
+
+        // Have the rule re-activate on the target.
+        given().log()
+                .all()
+                .body("{\"description\": \"re-trigger activation\"}")
+                .contentType(ContentType.JSON)
+                .pathParam("ruleName", RULE_NAME)
+                .patch("/api/v4/rules/{ruleName}")
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(200);
+
+        webSocketClient.expectNotification("ActiveRecordingCreated", Duration.ofSeconds(10));
+
+        int recreatedRemoteId = ruleRecordingRemoteId(id, recordingName);
+        Assertions.assertNotEquals(
+                originalRemoteId,
+                recreatedRemoteId,
+                "the rule recording should have been re-created with a new remoteId");
+
+        // Deleting the active recording and re-activating the rule must not touch archives that
+        // were already produced
+        assertThat(
+                "archive from the initial activation must survive re-activation",
+                archivedRecordingNames(),
+                hasItem(initialArchive));
+
+        // The archival schedule must survive the recording being re-created. The Quartz job was
+        // created for the original remoteId, so it must have been pointed at the replacement
+        // recording rather than failing and unscheduling itself. These are the 2nd and 3rd
+        // archives overall, so together with the initial archive the retained set is now full.
+        // Identities are taken from the notifications rather than from a storage snapshot, since
+        // the next archival job may already be running by the time a snapshot would be taken.
+        String secondArchive =
+                archivedName(
+                        webSocketClient.expectNotification(
+                                "ArchivedRecordingCreated", Duration.ofSeconds(10)));
+        String thirdArchive =
+                archivedName(
+                        webSocketClient.expectNotification(
+                                "ArchivedRecordingCreated", Duration.ofSeconds(10)));
+        assertThat(
+                "archives after re-activation must be new files",
+                List.of(secondArchive, thirdArchive),
+                not(hasItem(initialArchive)));
+
+        // The 4th archive overall exceeds preservedArchives=3. Within a single job the oldest
+        // archive is deleted before the new one is created, so the first deletion must be the
+        // archive from the initial activation. That only holds if archives from before the
+        // re-activation were correctly accounted for in the rollover.
+        JsonObject deleted =
+                webSocketClient.expectNotification(
+                        "ArchivedRecordingDeleted", Duration.ofSeconds(10));
+        Assertions.assertEquals(
+                initialArchive,
+                archivedName(deleted),
+                "the oldest archive, from the initial activation, should be pruned first");
+        webSocketClient.expectNotification("ArchivedRecordingCreated", Duration.ofSeconds(10));
+
+        // Between a job's delete and its create the archive count briefly dips to 2, and an
+        // archive-on-stop copy or a slow notification could briefly show a 4th. These transient
+        // states are acceptable, so poll for the settled state instead of sampling it once.
+        awaitArchives(
+                "archives should settle at preservedArchives=3 with the initial archive pruned",
+                names -> names.size() == 3 && !names.contains(initialArchive),
+                Duration.ofSeconds(10));
+
+        given().log()
+                .all()
+                .queryParam("clean", false)
+                .pathParam("ruleName", RULE_NAME)
+                .delete("/api/v4/rules/{ruleName}")
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(204);
+        webSocketClient.expectNotification("RuleDeleted", Duration.ofSeconds(5));
+    }
+
+    private static String archivedName(JsonObject notification) {
+        return notification.getJsonObject("message").getJsonObject("recording").getString("name");
+    }
+
+    private List<String> archivedRecordingNames() {
+        return given().when()
+                .pathParams(Map.of("jvmId", this.selfJvmId))
+                .get("/api/beta/recordings/{jvmId}")
+                .then()
+                .assertThat()
+                .statusCode(200)
+                .extract()
+                .jsonPath()
+                .getList("name", String.class);
+    }
+
+    private void awaitArchives(
+            String description, Predicate<List<String>> condition, Duration timeout)
+            throws InterruptedException {
+        long deadline = System.nanoTime() + timeout.toNanos();
+        List<String> last = List.of();
+        while (System.nanoTime() < deadline) {
+            last = archivedRecordingNames();
+            if (condition.test(last)) {
+                return;
+            }
+            Thread.sleep(250);
+        }
+        Assertions.fail(description + "; last observed archives: " + last);
+    }
+
+    private int ruleRecordingRemoteId(int targetId, String recordingName) {
+        return given().log()
+                .all()
+                .when()
+                .pathParams(Map.of("targetId", targetId))
+                .get("/api/v4/targets/{targetId}/recordings")
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(200)
+                .extract()
+                .jsonPath()
+                .getInt(String.format("find { it.name == '%s' }.remoteId", recordingName));
     }
 }
