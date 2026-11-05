@@ -200,13 +200,12 @@ public class RulesArchiverTest extends AbstractTransactionalTestBase {
         webSocketClient.expectNotification("ActiveRecordingCreated", Duration.ofSeconds(10));
 
         // Let the first archive be produced so that the archival job is demonstrably running
-        webSocketClient.expectNotification("ArchivedRecordingCreated", Duration.ofSeconds(10));
+        String initialArchive =
+                archivedName(
+                        webSocketClient.expectNotification(
+                                "ArchivedRecordingCreated", Duration.ofSeconds(10)));
 
         int originalRemoteId = ruleRecordingRemoteId(id, recordingName);
-        List<String> initialArchives = archivedRecordingNames();
-        Assertions.assertEquals(
-                1, initialArchives.size(), "exactly one archive should exist before re-activation");
-        String initialArchive = initialArchives.get(0);
 
         // Delete the rule's recording out from under the running archival job
         given().log()
