@@ -76,7 +76,7 @@ public abstract class AbstractTestBase {
 
     @Inject S3Client storage;
     @Inject Logger logger;
-    @Inject Scheduler scheduler;
+    @Inject protected Scheduler scheduler;
 
     protected int selfId = -1;
     protected String selfJvmId = "";
