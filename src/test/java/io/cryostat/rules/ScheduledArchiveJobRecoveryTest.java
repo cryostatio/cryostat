@@ -27,6 +27,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.time.Duration;
+import java.util.concurrent.Callable;
 
 import io.cryostat.rules.RuleService.PermanentFailureException;
 
@@ -35,6 +36,8 @@ import jakarta.persistence.NoResultException;
 import org.jboss.logging.Logger;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+import org.quartz.JobBuilder;
 import org.quartz.JobDataMap;
 import org.quartz.JobDetail;
 import org.quartz.JobExecutionContext;
@@ -63,17 +66,22 @@ public class ScheduledArchiveJobRecoveryTest {
 
     ScheduledArchiveJob job;
     RuleService ruleService;
+    ActivationLock activationLock;
     JobExecutionContext ctx;
     Scheduler scheduler;
     JobDataMap runningData;
-    JobDataMap storedData;
 
+    @SuppressWarnings("unchecked")
     @BeforeEach
     void setUp() throws Exception {
         ruleService = mock(RuleService.class);
+        activationLock = mock(ActivationLock.class);
+        when(activationLock.withLock(eq(JVM_ID), any(Callable.class)))
+                .thenAnswer(inv -> ((Callable<?>) inv.getArgument(1)).call());
         job = new ScheduledArchiveJob();
         job.logger = Logger.getLogger(ScheduledArchiveJob.class);
         job.ruleService = ruleService;
+        job.activationLock = activationLock;
         job.connectionFailedTimeout = Duration.ofSeconds(5);
 
         JobKey key = new JobKey(RULE_NAME, "rule.scheduled-archive." + JVM_ID);
@@ -85,10 +93,13 @@ public class ScheduledArchiveJobRecoveryTest {
         when(runningDetail.getKey()).thenReturn(key);
         when(runningDetail.getJobDataMap()).thenReturn(runningData);
 
-        storedData = new JobDataMap();
-        storedData.put("recording", NEW_REMOTE_ID);
-        JobDetail storedDetail = mock(JobDetail.class);
-        when(storedDetail.getJobDataMap()).thenReturn(storedData);
+        JobDetail storedDetail =
+                JobBuilder.newJob(ScheduledArchiveJob.class)
+                        .withIdentity(key)
+                        .usingJobData("recording", NEW_REMOTE_ID)
+                        .usingJobData("preservedArchives", 9)
+                        .usingJobData("retryCount", 3)
+                        .build();
 
         SimpleTrigger trigger = mock(SimpleTrigger.class);
         when(trigger.getKey()).thenReturn(new TriggerKey(RULE_NAME, key.getGroup()));
@@ -123,23 +134,25 @@ public class ScheduledArchiveJobRecoveryTest {
     }
 
     /**
-     * The job persists its own copy of the job data when it finishes, which would overwrite the
-     * remoteId the re-activation has just stored for the re-created recording. The running job must
-     * adopt the stored remoteId so that the next tick archives the new recording.
+     * The job must only update its retryCount in the stored job, so that the remoteId stored by the
+     * re-activation, and any other stored values, are not overwritten with the stale values the
+     * running job started with.
      */
     @Test
-    void recoveryAdoptsReboundRecordingSoItIsNotOverwrittenOnCompletion() throws Exception {
+    void recoveryPersistsOnlyRetryCountIntoStoredJob() throws Exception {
         job.onMissing(
                 ctx,
                 new ScheduledArchiveJob.RecordingMissingException("gone"),
                 JVM_ID,
                 RULE_NAME,
-                0);
+                3);
 
-        assertEquals(
-                NEW_REMOTE_ID,
-                runningData.getLong("recording"),
-                "the running job's data must carry the re-created recording's remoteId");
+        ArgumentCaptor<JobDetail> captor = ArgumentCaptor.forClass(JobDetail.class);
+        verify(scheduler).addJob(captor.capture(), eq(true), eq(true));
+        JobDataMap persisted = captor.getValue().getJobDataMap();
+        assertEquals(NEW_REMOTE_ID, persisted.getLong("recording"));
+        assertEquals(9, persisted.getInt("preservedArchives"));
+        assertEquals(0, persisted.getInt("retryCount"));
     }
 
     /** A successful recovery clears any backoff state left over from earlier failed attempts. */

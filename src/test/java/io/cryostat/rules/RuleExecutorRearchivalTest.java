@@ -313,9 +313,10 @@ public class RuleExecutorRearchivalTest {
     }
 
     /**
-     * The archival job persists its job data after each execution. Without serialization, an
-     * execution in progress while the rule re-activates can write its stale copy of the job data
-     * back over the updated recording remoteId, so the job must not run concurrently with itself.
+     * The archival job must not persist its job data wholesale after each execution, since an
+     * execution in progress while the rule re-activates or is edited would write its stale copy of
+     * the job data back over the updated recording remoteId and preservedArchives. It also must not
+     * run concurrently with itself.
      */
     @Test
     void archivalJobDisallowsConcurrentExecution() throws Exception {
@@ -326,9 +327,9 @@ public class RuleExecutorRearchivalTest {
         assertTrue(
                 quartz.getJobDetail(jobKey()).isConcurrentExecutionDisallowed(),
                 "archival job must not execute concurrently with itself");
-        assertTrue(
+        assertFalse(
                 quartz.getJobDetail(jobKey()).isPersistJobDataAfterExecution(),
-                "archival job is expected to persist its job data after execution");
+                "archival job must not overwrite concurrently updated job data after execution");
     }
 
     /**

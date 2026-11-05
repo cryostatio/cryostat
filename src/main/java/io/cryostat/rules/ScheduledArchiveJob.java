@@ -37,12 +37,10 @@ import org.hibernate.ObjectDeletedException;
 import org.jboss.logging.Logger;
 import org.quartz.DisallowConcurrentExecution;
 import org.quartz.Job;
-import org.quartz.JobDataMap;
 import org.quartz.JobDetail;
 import org.quartz.JobExecutionContext;
 import org.quartz.JobExecutionException;
-import org.quartz.PersistJobDataAfterExecution;
-import org.quartz.SchedulerException;
+import org.quartz.JobKey;
 import org.quartz.SimpleScheduleBuilder;
 import org.quartz.SimpleTrigger;
 import org.quartz.TriggerBuilder;
@@ -53,17 +51,22 @@ import software.amazon.awssdk.services.s3.model.S3Object;
  * Perform recording archival by pulling data stream from a target and copying it into a file in S3
  * object storage.
  *
+ * <p>This job deliberately does not use {@code @PersistJobDataAfterExecution}. That would write the
+ * job data as it was when the run started back over the stored job, discarding any concurrent
+ * update by {@link RuleExecutor} to the recording or preservedArchives. Instead, the job persists
+ * only its own retryCount, merged into the stored job under the {@link ActivationLock}.
+ *
  * @see io.cryostat.target.Target
  * @see io.cryostat.recordings.ActiveRecording
  * @see io.cryostat.rules.Rule
  * @see io.cryostat.rules.RuleExecutor
  */
 @DisallowConcurrentExecution
-@PersistJobDataAfterExecution
 class ScheduledArchiveJob implements Job {
 
     @Inject RecordingHelper recordingHelper;
     @Inject RuleService ruleService;
+    @Inject ActivationLock activationLock;
     @Inject Logger logger;
 
     @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_ARCHIVES)
@@ -110,6 +113,7 @@ class ScheduledArchiveJob implements Job {
 
             if (retryCount > 0) {
                 ctx.getJobDetail().getJobDataMap().put("retryCount", 0);
+                persistRetryCount(ctx, jvmId, 0);
                 logger.debugv(
                         "Archive job for rule {0} target {1} succeeded after {2} retries",
                         ruleName, jvmId, retryCount);
@@ -201,7 +205,8 @@ class ScheduledArchiveJob implements Job {
             handleRetryableFailure(ctx, e, jvmId, ruleName, retryCount);
             return;
         }
-        adoptReboundJobData(ctx);
+        ctx.getJobDetail().getJobDataMap().put("retryCount", 0);
+        persistRetryCount(ctx, jvmId, 0);
     }
 
     private void unscheduleBecauseMissing(Exception cause, String jvmId, String ruleName)
@@ -218,21 +223,31 @@ class ScheduledArchiveJob implements Job {
     }
 
     /**
-     * Re-activation updates the stored job in place, but since this job persists its own job data
-     * when it completes, that would overwrite the update. Carry the stored data over into the
-     * running job so that the next tick uses the re-created recording.
+     * Store the retryCount into the stored job, leaving all other stored job data as it is. Rule
+     * activation and rule edits update the stored job under the {@link ActivationLock}, so doing
+     * the same here means neither side can overwrite the other's update.
      */
-    private void adoptReboundJobData(JobExecutionContext ctx) {
-        JobDataMap running = ctx.getJobDetail().getJobDataMap();
+    private void persistRetryCount(JobExecutionContext ctx, String jvmId, int retryCount) {
+        JobKey key = ctx.getJobDetail().getKey();
         try {
-            JobDetail stored = ctx.getScheduler().getJobDetail(ctx.getJobDetail().getKey());
-            if (stored != null) {
-                running.putAll(stored.getJobDataMap().getWrappedMap());
-            }
-        } catch (SchedulerException e) {
-            logger.warnv(e, "Failed to read back rebound job data for {0}", ctx.getJobDetail());
+            activationLock.withLock(
+                    jvmId,
+                    () -> {
+                        JobDetail stored = ctx.getScheduler().getJobDetail(key);
+                        if (stored != null) {
+                            ctx.getScheduler()
+                                    .addJob(
+                                            stored.getJobBuilder()
+                                                    .usingJobData("retryCount", retryCount)
+                                                    .build(),
+                                            true,
+                                            true);
+                        }
+                        return null;
+                    });
+        } catch (Exception e) {
+            logger.warnv(e, "Failed to persist retry count for {0}", key);
         }
-        running.put("retryCount", 0);
     }
 
     private void handleRetryableFailure(
@@ -255,6 +270,7 @@ class ScheduledArchiveJob implements Job {
 
         int backoffSeconds = (int) Math.pow(2, retryCount);
         ctx.getJobDetail().getJobDataMap().put("retryCount", retryCount + 1);
+        persistRetryCount(ctx, jvmId, retryCount + 1);
 
         logger.warnv(
                 e,
