@@ -43,7 +43,9 @@ import org.quartz.JobExecutionException;
 import org.quartz.JobKey;
 import org.quartz.SimpleScheduleBuilder;
 import org.quartz.SimpleTrigger;
+import org.quartz.Trigger;
 import org.quartz.TriggerBuilder;
+import org.quartz.TriggerKey;
 import software.amazon.awssdk.services.s3.model.S3Exception;
 import software.amazon.awssdk.services.s3.model.S3Object;
 
@@ -281,31 +283,56 @@ class ScheduledArchiveJob implements Job {
                 maxRetries,
                 backoffSeconds);
 
-        try {
-            int intervalSeconds =
-                    (int) (((SimpleTrigger) ctx.getTrigger()).getRepeatInterval() / 1000);
-            ctx.getScheduler()
-                    .rescheduleJob(
-                            ctx.getTrigger().getKey(),
-                            TriggerBuilder.newTrigger()
-                                    .withIdentity(ctx.getTrigger().getKey())
-                                    .startAt(
-                                            new Date(
-                                                    System.currentTimeMillis()
-                                                            + backoffSeconds * 1000L))
-                                    .withSchedule(
-                                            SimpleScheduleBuilder.simpleSchedule()
-                                                    .withIntervalInSeconds(intervalSeconds)
-                                                    .repeatForever()
-                                                    .withMisfireHandlingInstructionNextWithRemainingCount())
-                                    .build());
-        } catch (org.quartz.SchedulerException se) {
-            logger.errorv(se, "Failed to reschedule job with backoff");
-        }
+        rescheduleWithBackoff(ctx, jvmId, backoffSeconds);
 
         JobExecutionException ex = new JobExecutionException(e);
         ex.setRefireImmediately(false);
         throw ex;
+    }
+
+    /**
+     * Reschedule the job's trigger to fire after the backoff delay. The trigger is read from the
+     * scheduler and replaced while holding the {@link ActivationLock}, so that its interval is the
+     * current one, which a rule edit may have changed since this execution started, and so that the
+     * replacement cannot overwrite a concurrent update. The execution context's trigger is a stale
+     * snapshot and is never used as a fallback: if the lock cannot be acquired or the current
+     * trigger cannot be read, the trigger is left as it is.
+     */
+    private void rescheduleWithBackoff(JobExecutionContext ctx, String jvmId, int backoffSeconds) {
+        TriggerKey triggerKey = ctx.getTrigger().getKey();
+        try {
+            activationLock.withLock(
+                    jvmId,
+                    () -> {
+                        Trigger current = ctx.getScheduler().getTrigger(triggerKey);
+                        if (!(current instanceof SimpleTrigger simple)) {
+                            logger.warnv(
+                                    "Current trigger {0} not found, not rescheduling with backoff",
+                                    triggerKey);
+                            return null;
+                        }
+                        int intervalSeconds = (int) (simple.getRepeatInterval() / 1000);
+                        ctx.getScheduler()
+                                .rescheduleJob(
+                                        triggerKey,
+                                        TriggerBuilder.newTrigger()
+                                                .withIdentity(triggerKey)
+                                                .startAt(
+                                                        new Date(
+                                                                System.currentTimeMillis()
+                                                                        + backoffSeconds * 1000L))
+                                                .withSchedule(
+                                                        SimpleScheduleBuilder.simpleSchedule()
+                                                                .withIntervalInSeconds(
+                                                                        intervalSeconds)
+                                                                .repeatForever()
+                                                                .withMisfireHandlingInstructionNextWithRemainingCount())
+                                                .build());
+                        return null;
+                    });
+        } catch (Exception se) {
+            logger.errorv(se, "Failed to reschedule job with backoff");
+        }
     }
 
     List<S3Object> previousRecordings(String jvmId, String ruleName) {

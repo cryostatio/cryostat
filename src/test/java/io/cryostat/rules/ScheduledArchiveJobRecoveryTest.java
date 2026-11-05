@@ -63,6 +63,7 @@ public class ScheduledArchiveJobRecoveryTest {
     static final String RULE_NAME = "test_rule";
     static final long STALE_REMOTE_ID = 5L;
     static final long NEW_REMOTE_ID = 77L;
+    static final long CURRENT_INTERVAL_MS = 60_000L;
 
     ScheduledArchiveJob job;
     RuleService ruleService;
@@ -101,12 +102,17 @@ public class ScheduledArchiveJobRecoveryTest {
                         .usingJobData("retryCount", 3)
                         .build();
 
+        TriggerKey triggerKey = new TriggerKey(RULE_NAME, key.getGroup());
         SimpleTrigger trigger = mock(SimpleTrigger.class);
-        when(trigger.getKey()).thenReturn(new TriggerKey(RULE_NAME, key.getGroup()));
+        when(trigger.getKey()).thenReturn(triggerKey);
         when(trigger.getRepeatInterval()).thenReturn(30_000L);
+
+        SimpleTrigger currentTrigger = mock(SimpleTrigger.class);
+        when(currentTrigger.getRepeatInterval()).thenReturn(CURRENT_INTERVAL_MS);
 
         scheduler = mock(Scheduler.class);
         when(scheduler.getJobDetail(key)).thenReturn(storedDetail);
+        when(scheduler.getTrigger(triggerKey)).thenReturn(currentTrigger);
 
         ctx = mock(JobExecutionContext.class);
         when(ctx.getJobDetail()).thenReturn(runningDetail);
@@ -197,6 +203,56 @@ public class ScheduledArchiveJobRecoveryTest {
                 STALE_REMOTE_ID,
                 runningData.getLong("recording"),
                 "a failed recovery must not claim a new recording");
+    }
+
+    /**
+     * The backoff reschedule must use the interval of the trigger currently in the scheduler, which
+     * a rule edit may have changed, rather than that of the stale trigger the execution started
+     * with.
+     */
+    @Test
+    void backoffRescheduleUsesCurrentTriggerInterval() throws Exception {
+        when(ruleService.activateRule(RULE_NAME, JVM_ID))
+                .thenReturn(Uni.createFrom().failure(new IllegalStateException("unreachable")));
+
+        assertThrows(
+                JobExecutionException.class,
+                () ->
+                        job.onMissing(
+                                ctx,
+                                new ScheduledArchiveJob.RecordingMissingException("gone"),
+                                JVM_ID,
+                                RULE_NAME,
+                                0));
+
+        ArgumentCaptor<Trigger> captor = ArgumentCaptor.forClass(Trigger.class);
+        verify(scheduler).rescheduleJob(any(TriggerKey.class), captor.capture());
+        assertEquals(CURRENT_INTERVAL_MS, ((SimpleTrigger) captor.getValue()).getRepeatInterval());
+    }
+
+    /**
+     * If the lock cannot be acquired the stale execution context trigger must not be used to
+     * overwrite the scheduled trigger.
+     */
+    @SuppressWarnings("unchecked")
+    @Test
+    void backoffDoesNotRescheduleFromStaleTriggerWhenLockFails() throws Exception {
+        when(ruleService.activateRule(RULE_NAME, JVM_ID))
+                .thenReturn(Uni.createFrom().failure(new IllegalStateException("unreachable")));
+        when(activationLock.withLock(eq(JVM_ID), any(Callable.class)))
+                .thenThrow(new IllegalStateException("lock timeout"));
+
+        assertThrows(
+                JobExecutionException.class,
+                () ->
+                        job.onMissing(
+                                ctx,
+                                new ScheduledArchiveJob.RecordingMissingException("gone"),
+                                JVM_ID,
+                                RULE_NAME,
+                                0));
+
+        verify(scheduler, never()).rescheduleJob(any(TriggerKey.class), any(Trigger.class));
     }
 
     /** Retries are bounded, after which the job gives up as it does for any other failure. */
