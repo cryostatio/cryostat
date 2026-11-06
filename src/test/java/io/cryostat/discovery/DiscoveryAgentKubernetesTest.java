@@ -94,7 +94,7 @@ public class DiscoveryAgentKubernetesTest extends AbstractTransactionalTestBase 
                         .when()
                         .body(requestBody)
                         .contentType(ContentType.JSON)
-                        .post("/api/v4.3/discovery/agents")
+                        .post("/api/v5/discovery/plugins/agent")
                         .then()
                         .log()
                         .all()
@@ -107,13 +107,13 @@ public class DiscoveryAgentKubernetesTest extends AbstractTransactionalTestBase 
         var pluginId = firstRegistration.getString("id");
         MatcherAssert.assertThat(pluginId, Matchers.is(Matchers.not(Matchers.emptyOrNullString())));
 
-        Long firstTargetId =
+        UUID firstTargetId =
                 QuarkusTransaction.requiringNew()
                         .call(
                                 () ->
                                         io.cryostat.targets.Target.getTargetByConnectUrl(connectUrl)
                                                 .id);
-        Long firstCredentialId =
+        UUID firstCredentialId =
                 QuarkusTransaction.requiringNew()
                         .call(
                                 () ->
@@ -128,7 +128,7 @@ public class DiscoveryAgentKubernetesTest extends AbstractTransactionalTestBase 
                 .when()
                 .body(requestBody)
                 .contentType(ContentType.JSON)
-                .post("/api/v4.3/discovery/agents")
+                .post("/api/v5/discovery/plugins/agent")
                 .then()
                 .log()
                 .all()
@@ -136,13 +136,13 @@ public class DiscoveryAgentKubernetesTest extends AbstractTransactionalTestBase 
                 .assertThat()
                 .statusCode(200);
 
-        Long secondTargetId =
+        UUID secondTargetId =
                 QuarkusTransaction.requiringNew()
                         .call(
                                 () ->
                                         io.cryostat.targets.Target.getTargetByConnectUrl(connectUrl)
                                                 .id);
-        Long secondCredentialId =
+        UUID secondCredentialId =
                 QuarkusTransaction.requiringNew()
                         .call(
                                 () ->

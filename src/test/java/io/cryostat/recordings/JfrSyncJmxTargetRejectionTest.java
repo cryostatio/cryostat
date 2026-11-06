@@ -18,6 +18,7 @@ package io.cryostat.recordings;
 import static io.restassured.RestAssured.given;
 
 import java.util.Map;
+import java.util.UUID;
 
 import io.cryostat.AbstractTransactionalTestBase;
 import io.cryostat.resources.S3StorageResource;
@@ -40,7 +41,7 @@ public class JfrSyncJmxTargetRejectionTest extends AbstractTransactionalTestBase
 
     @Test
     void testAsprofEventsRejectedForJmxTarget() {
-        int targetId = defineSelfCustomTarget();
+        UUID targetId = defineSelfCustomTarget();
 
         given().log()
                 .all()
@@ -60,7 +61,7 @@ public class JfrSyncJmxTargetRejectionTest extends AbstractTransactionalTestBase
 
     @Test
     void testOrdinaryRecordingStillSucceedsWithoutAsprofEvents() {
-        int targetId = defineSelfCustomTarget();
+        UUID targetId = defineSelfCustomTarget();
 
         int recordingId =
                 given().log()

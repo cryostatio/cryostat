@@ -1,7 +1,5 @@
-CREATE SEQUENCE IF NOT EXISTS TransactionObserverMarker_SEQ START WITH 1 INCREMENT BY 50;
-
 CREATE TABLE IF NOT EXISTS TransactionObserverMarker (
-    id BIGINT NOT NULL,
+    id UUID NOT NULL,
     marker TEXT,
     PRIMARY KEY (id)
 );

@@ -40,7 +40,7 @@ import org.junit.jupiter.api.Test;
 @TestProfile(RbacSsarTestBase.OpenshiftProfile.class)
 class RestAssertAuthorizedTest extends RbacSsarTestBase {
 
-    private static final String ANALYZE_PATH = "/api/v4.1/targets/999999/reports";
+    private static final String ANALYZE_PATH = "/api/v5/targets/no-such-jvm-id/reports";
 
     @Test
     void endpointIsRejectedWhenSsarDeniesAssertedPermission() {

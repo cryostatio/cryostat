@@ -16,6 +16,7 @@
 package io.cryostat.credentials.events;
 
 import java.util.Objects;
+import java.util.UUID;
 
 import io.cryostat.credentials.Credential;
 import io.cryostat.events.EntityCreatedEvent;
@@ -25,7 +26,7 @@ import io.cryostat.events.EntityUpdatedEvent;
 public class CredentialEvents {
 
     public record CredentialSnapshot(
-            long id, long matchExpressionId, String matchExpressionScript) {
+            UUID id, UUID matchExpressionId, String matchExpressionScript) {
         public CredentialSnapshot {
             Objects.requireNonNull(matchExpressionId);
             Objects.requireNonNull(matchExpressionScript);
@@ -35,7 +36,7 @@ public class CredentialEvents {
     public static class CredentialCreated
             extends EntityCreatedEvent<Credential, CredentialSnapshot> {
 
-        public CredentialCreated(long id, CredentialSnapshot snapshot) {
+        public CredentialCreated(UUID id, CredentialSnapshot snapshot) {
             super(id, snapshot);
         }
 
@@ -53,7 +54,7 @@ public class CredentialEvents {
     public static class CredentialUpdated
             extends EntityUpdatedEvent<Credential, CredentialSnapshot> {
 
-        public CredentialUpdated(long id, CredentialSnapshot snapshot) {
+        public CredentialUpdated(UUID id, CredentialSnapshot snapshot) {
             super(id, snapshot);
         }
 
@@ -71,7 +72,7 @@ public class CredentialEvents {
     public static class CredentialDeleted
             extends EntityDeletedEvent<Credential, CredentialSnapshot> {
 
-        public CredentialDeleted(long id, CredentialSnapshot snapshot) {
+        public CredentialDeleted(UUID id, CredentialSnapshot snapshot) {
             super(id, snapshot);
         }
 

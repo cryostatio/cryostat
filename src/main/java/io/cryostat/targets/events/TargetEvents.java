@@ -18,6 +18,7 @@ package io.cryostat.targets.events;
 import java.net.URI;
 import java.util.Map;
 import java.util.Objects;
+import java.util.UUID;
 
 import io.cryostat.events.EntityCreatedEvent;
 import io.cryostat.events.EntityDeletedEvent;
@@ -27,7 +28,7 @@ import io.cryostat.targets.Target;
 public class TargetEvents {
 
     public record TargetSnapshot(
-            long id,
+            UUID id,
             URI connectUrl,
             String alias,
             String jvmId,

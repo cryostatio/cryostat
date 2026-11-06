@@ -190,7 +190,7 @@ class GraphQLRequiresPermissionTest {
                         .contentType(ContentType.JSON)
                         .body(Map.of("query", query))
                         .when()
-                        .post("/api/v4/graphql")
+                        .post("/api/v5/graphql")
                         .then()
                         .extract()
                         .response();

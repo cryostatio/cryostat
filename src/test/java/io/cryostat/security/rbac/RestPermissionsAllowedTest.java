@@ -39,7 +39,7 @@ import org.junit.jupiter.api.Test;
 @TestProfile(RbacSsarTestBase.OpenshiftProfile.class)
 class RestPermissionsAllowedTest extends RbacSsarTestBase {
 
-    private static final String DELETE_PATH = "/api/v4/recordings/test.jfr";
+    private static final String DELETE_PATH = "/api/v5/recordings/uploads/test.jfr";
 
     @InjectMock RecordingHelper recordingHelper;
 
@@ -63,7 +63,7 @@ class RestPermissionsAllowedTest extends RbacSsarTestBase {
 
     @Test
     void endpointWithoutDeleteVerbNeverAsksAboutDelete() {
-        var response = request(Method.GET, "/api/v4/recordings", READER_TOKEN);
+        var response = request(Method.GET, "/api/v5/recordings", READER_TOKEN);
 
         assertThat(response.statusCode(), not(equalTo(403)));
         assertThat(ssarVerbs, not(hasItem("delete")));
