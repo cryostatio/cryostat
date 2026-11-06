@@ -29,6 +29,7 @@ import io.cryostat.targets.Target;
 import io.cryostat.targets.TargetConnectionManager;
 import io.cryostat.util.HttpStatusCodeIdentifier;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.quarkus.rest.client.reactive.Url;
 import io.smallrye.common.annotation.Blocking;
 import io.smallrye.mutiny.Uni;
@@ -122,6 +123,9 @@ class Health {
                         components can be reached by the Cryostat application. Also includes
                         application semantic version and build information.
                     """)
+    // SpotBugs cannot see that CDI injects a non-null Optional into dashboardURL, so the
+    // supplier passed to Optional.or() below looks like it may return null.
+    @SuppressFBWarnings("NP_OPTIONAL_RETURN_NULL")
     public ApplicationHealth health() {
         CompletableFuture<Boolean> datasourceAvailable = new CompletableFuture<>();
         CompletableFuture<Boolean> dashboardAvailable = new CompletableFuture<>();
