@@ -11,6 +11,7 @@
     ":separateMultipleMinorReleases",
     ":separatePatchReleases"
   ],
+  "baseBranchPatterns": ["main", "/^cryostat-v.*/"],
   "reviewersFromCodeOwners": true,
   "labels": [
     "dependencies",
@@ -29,6 +30,17 @@
       "enabled": true
   },
   "packageRules": [
+    {
+      "description": "Disable all dependency updates on release branches except the cryostat-web submodule; other updates there are handled via Mergify backport",
+      "matchBaseBranches": ["/^cryostat-v.*/"],
+      "enabled": false
+    },
+    {
+      "description": "Allow the cryostat-web submodule to update on release branches, tracking the matching cryostat-web release branch",
+      "matchBaseBranches": ["/^cryostat-v.*/"],
+      "matchManagers": ["git-submodules"],
+      "enabled": true
+    },
     {
       "description": "Require approval for Quarkus major and minor version updates",
       "matchManagers": [
