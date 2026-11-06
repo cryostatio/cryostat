@@ -274,7 +274,7 @@ class RecordingHelperTest extends AbstractTransactionalTestBase {
 
     @Test
     public void shouldCleanupWhenSnapshotPersistenceFails() throws Exception {
-        int targetId = defineSelfCustomTarget();
+        UUID targetId = defineSelfCustomTarget();
         shutdownScheduler();
 
         // Mock ActiveRecording so we can throw when attempting to
@@ -289,7 +289,7 @@ class RecordingHelperTest extends AbstractTransactionalTestBase {
 
             Target target =
                     QuarkusTransaction.requiringNew()
-                            .call(() -> Target.<Target>find("id", (long) targetId).singleResult());
+                            .call(() -> Target.<Target>find("id", targetId).singleResult());
 
             assertThrows(
                     SnapshotCreationException.class,
@@ -376,7 +376,7 @@ class RecordingHelperTest extends AbstractTransactionalTestBase {
 
     @Test
     public void shouldCleanupWhenSnapshotConstructionFails() throws Exception {
-        int targetId = defineSelfCustomTarget();
+        UUID targetId = defineSelfCustomTarget();
         shutdownScheduler();
 
         try (MockedStatic<ActiveRecording> recordingMock =
@@ -387,7 +387,7 @@ class RecordingHelperTest extends AbstractTransactionalTestBase {
 
             Target target =
                     QuarkusTransaction.requiringNew()
-                            .call(() -> Target.<Target>find("id", (long) targetId).singleResult());
+                            .call(() -> Target.<Target>find("id", targetId).singleResult());
 
             assertThrows(
                     SnapshotCreationException.class,

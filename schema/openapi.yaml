@@ -148,6 +148,10 @@ components:
           type: string
         services:
           $ref: '#/components/schemas/Services'
+      required:
+        - cryostatVersion
+        - build
+        - services
       type: object
     ArchivedHeapDumpDirectory:
       properties:
@@ -197,7 +201,6 @@ components:
             $ref: '#/components/schemas/ArchivedRecording'
           type: array
       required:
-        - connectUrl
         - jvmId
         - recordings
       type: object
@@ -221,9 +224,6 @@ components:
           items:
             $ref: '#/components/schemas/UnifiedLog'
           type: array
-      required:
-        - jvmId
-        - unifiedLogs
       type: object
     AsyncProfile:
       properties:
@@ -421,8 +421,7 @@ components:
     DiscoveryNode_Flat:
       properties:
         id:
-          format: int64
-          type: integer
+          $ref: '#/components/schemas/UUID'
         labels:
           items:
             $ref: '#/components/schemas/KeyValue_Flat'
@@ -562,6 +561,9 @@ components:
         url:
           format: uri
           type: string
+      required:
+        - configured
+        - available
       type: object
     Field:
       properties:
@@ -609,12 +611,25 @@ components:
         - size
         - metadata
       type: object
+    HttpServerResponse:
+      properties:
+        chunked:
+          type: boolean
+        statusCode:
+          format: int32
+          type: integer
+        statusMessage:
+          type: string
+      type: object
     InternalService:
       properties:
         available:
           type: boolean
         configured:
           type: boolean
+      required:
+        - configured
+        - available
       type: object
     JniInfo:
       properties:
@@ -737,14 +752,13 @@ components:
       type: string
     MappingResponse:
       properties:
-        id:
-          $ref: '#/components/schemas/UUID'
-        script:
-          pattern: \S
-          type: string
+        permission:
+          $ref: '#/components/schemas/Permission'
+        response:
+          $ref: '#/components/schemas/PermissionResponse'
       required:
-        - id
-        - script
+        - permission
+        - response
       type: object
     MatchExpression:
       description: |
@@ -1189,6 +1203,10 @@ components:
           $ref: '#/components/schemas/InternalService'
         reports:
           $ref: '#/components/schemas/InternalService'
+      required:
+        - dashboard
+        - datasource
+        - reports
       type: object
     SmartTrigger:
       properties:
@@ -1287,6 +1305,7 @@ components:
             $ref: '#/components/schemas/KeyValue'
           type: array
       required:
+        - id
         - connectUrl
         - alias
         - labels
@@ -1308,8 +1327,7 @@ components:
           format: uri
           type: string
         id:
-          format: int64
-          type: integer
+          $ref: '#/components/schemas/UUID'
         jvmId:
           type: string
         labels:
@@ -1317,7 +1335,6 @@ components:
             type: string
           type: object
       required:
-        - id
         - connectUrl
         - alias
         - labels
@@ -1623,6 +1640,57 @@ info:
   version: 5.0.0-snapshot
 openapi: 3.1.0
 paths:
+  /api/beta/auth/check:
+    post:
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              properties:
+                permission:
+                  type: string
+              type: object
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PermissionResponse'
+          description: OK
+        "400":
+          description: Bad Request
+      summary: Check if the caller is authorized for the given permission.
+      tags:
+        - Permission Check
+  /api/beta/auth/mapping:
+    post:
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/MappingResponse'
+                type: array
+          description: OK
+      summary: Return the permission mappings for the current user
+      tags:
+        - Permission Check
+  /api/beta/auth/permissions:
+    get:
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/Permission'
+                type: array
+          description: OK
+      summary: Return an exhaustive list of permissions known to Cryostat
+      tags:
+        - Permission Check
   /api/beta/targets/{jvmId}/recordings/{filename}/view:
     get:
       parameters:
@@ -2289,7 +2357,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/AgentRegistration'
+              $ref: '#/components/schemas/AgentRegistrationRequest'
         required: true
       responses:
         "200":
@@ -2410,7 +2478,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/DiscoveryPublication'
+              $ref: '#/components/schemas/DiscoveryPublicationRequest'
         required: true
       responses:
         "201":
@@ -2999,7 +3067,12 @@ paths:
             schema:
               properties:
                 labels:
-                  $ref: '#/components/schemas/JsonObject'
+                  description: |
+                    A JSON object of string key-value labels, sent as the raw text of
+                    the form field.
+                  examples:
+                    - '{"key":"value"}'
+                  type: string
                 maxFiles:
                   format: int32
                   type: integer
@@ -3723,7 +3796,12 @@ paths:
                 jobId:
                   type: string
                 labels:
-                  $ref: '#/components/schemas/JsonObject'
+                  description: |
+                    A JSON object of string key-value labels, sent as the raw text of
+                    the form field.
+                  examples:
+                    - '{"key":"value"}'
+                  type: string
               type: object
         required: true
       responses:
@@ -3790,6 +3868,13 @@ paths:
             application/json:
               schema: {}
           description: OK
+        "202":
+          content:
+            text/plain:
+              schema:
+                format: uuid
+                type: string
+          description: Heap dump analysis accepted; the body is the job ID
         "400":
           description: Bad Request
         "401":
@@ -4593,20 +4678,20 @@ paths:
             default: -1
             format: int64
             type: integer
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/HttpServerResponse'
-        required: true
       responses:
         "200":
           content:
             application/json:
-              schema: {}
+              schema:
+                $ref: '#/components/schemas/ArchivedRecording'
           description: OK
-        "400":
-          description: Bad Request
+        "202":
+          content:
+            text/plain:
+              schema:
+                format: uuid
+                type: string
+          description: Recording synthesis accepted; the body is the job ID
         "401":
           description: Not Authorized
         "403":
@@ -4738,12 +4823,6 @@ paths:
           schema:
             format: int64
             type: integer
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/HttpServerResponse'
-        required: true
       responses:
         "200":
           content:
@@ -4779,7 +4858,7 @@ paths:
             application/json:
               schema:
                 additionalProperties:
-                  $ref: '#/components/schemas/AnalysisResult1'
+                  $ref: '#/components/schemas/AnalysisResult'
                 type: object
           description: OK
         "401":
@@ -4808,20 +4887,14 @@ paths:
           schema:
             default: true
             type: boolean
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/HttpServerResponse'
-        required: true
       responses:
-        "200":
+        "202":
           content:
-            application/json:
-              schema: {}
-          description: OK
-        "400":
-          description: Bad Request
+            text/plain:
+              schema:
+                format: uuid
+                type: string
+          description: Target analysis accepted; the body is the job ID
         "401":
           description: Not Authorized
         "403":

@@ -47,8 +47,10 @@ import jakarta.ws.rs.core.UriBuilder;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.eclipse.microprofile.openapi.annotations.enums.SchemaType;
+import org.eclipse.microprofile.openapi.annotations.media.Content;
 import org.eclipse.microprofile.openapi.annotations.media.Schema;
 import org.eclipse.microprofile.openapi.annotations.parameters.Parameter;
+import org.eclipse.microprofile.openapi.annotations.responses.APIResponse;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestForm;
 import org.jboss.resteasy.reactive.RestPath;
@@ -176,6 +178,17 @@ public class TargetHeapDumpEndpoint {
     @Blocking
     @Transactional
     @POST
+    @APIResponse(
+            responseCode = "200",
+            description = "OK",
+            content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema()))
+    @APIResponse(
+            responseCode = "202",
+            description = "Heap dump analysis accepted; the body is the job ID",
+            content =
+                    @Content(
+                            mediaType = MediaType.TEXT_PLAIN,
+                            schema = @Schema(implementation = String.class, format = "uuid")))
     public Response analyzeHeapDump(
             HttpServerResponse response, @RestPath String jvmId, @RestPath String heapDumpId) {
         String key = DiagnosticsHelper.storageKey(jvmId, heapDumpId);

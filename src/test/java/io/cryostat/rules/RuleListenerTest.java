@@ -27,6 +27,7 @@ import static org.mockito.Mockito.verify;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.UUID;
 
 import io.cryostat.expressions.MatchExpression;
 import io.cryostat.recordings.ActiveRecordings.Metadata;
@@ -63,11 +64,11 @@ public class RuleListenerTest {
         listener.deletedEvent = mockEvent();
 
         rule = new Rule();
-        rule.id = 1L;
+        rule.id = UUID.fromString("00000000-0000-0000-0000-000000000001");
         rule.name = "test_rule";
         rule.description = "";
         rule.matchExpression = new MatchExpression("true");
-        rule.matchExpression.id = 2L;
+        rule.matchExpression.id = UUID.fromString("00000000-0000-0000-0000-000000000002");
         rule.eventSpecifier = "template=Continuous,type=TARGET";
         rule.archivalPeriodSeconds = 60;
         rule.initialDelaySeconds = 0;
@@ -173,7 +174,7 @@ public class RuleListenerTest {
         listener.postLoad(rule);
 
         rule.matchExpression = new MatchExpression("false");
-        rule.matchExpression.id = 3L;
+        rule.matchExpression.id = UUID.fromString("00000000-0000-0000-0000-000000000003");
 
         assertTrue(update().recordingAffected());
     }

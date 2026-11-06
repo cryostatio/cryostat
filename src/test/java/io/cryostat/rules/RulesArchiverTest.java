@@ -193,14 +193,18 @@ public class RulesArchiverTest extends AbstractTransactionalTestBase {
     @Test
     public void testArchivingContinuesAfterRuleRecordingIsRecreated()
             throws TimeoutException, InterruptedException, IOException, DeploymentException {
-        int id = defineSelfCustomTarget();
+        defineSelfCustomTarget();
         String recordingName = String.format("auto_%s", RULE_NAME);
 
-        given().body(ruleJson(3))
-                .contentType(ContentType.JSON)
-                .post("/api/v4/rules")
-                .then()
-                .statusCode(201);
+        String ruleId =
+                given().body(ruleJson(3))
+                        .contentType(ContentType.JSON)
+                        .post("/api/v5/rules")
+                        .then()
+                        .statusCode(201)
+                        .extract()
+                        .jsonPath()
+                        .getString("id");
 
         webSocketClient.expectNotification("RuleCreated", Duration.ofSeconds(5));
         webSocketClient.expectNotification("ActiveRecordingCreated", Duration.ofSeconds(10));
@@ -211,13 +215,13 @@ public class RulesArchiverTest extends AbstractTransactionalTestBase {
                         webSocketClient.expectNotification(
                                 "ArchivedRecordingCreated", Duration.ofSeconds(10)));
 
-        int originalRemoteId = ruleRecordingRemoteId(id, recordingName);
+        int originalRemoteId = ruleRecordingRemoteId(selfJvmId, recordingName);
 
         // Delete the rule's recording out from under the running archival job
         given().log()
                 .all()
-                .pathParams(Map.of("targetId", id, "remoteId", originalRemoteId))
-                .delete("/api/v4/targets/{targetId}/recordings/{remoteId}")
+                .pathParams(Map.of("jvmId", selfJvmId, "remoteId", originalRemoteId))
+                .delete("/api/v5/targets/{jvmId}/recordings/{remoteId}")
                 .then()
                 .log()
                 .all()
@@ -232,8 +236,8 @@ public class RulesArchiverTest extends AbstractTransactionalTestBase {
                 .all()
                 .body("{\"metadata\": {\"labels\": {\"re-trigger\": \"activation\"}}}")
                 .contentType(ContentType.JSON)
-                .pathParam("ruleName", RULE_NAME)
-                .patch("/api/v4/rules/{ruleName}")
+                .pathParam("id", ruleId)
+                .patch("/api/v5/rules/{id}")
                 .then()
                 .log()
                 .all()
@@ -243,7 +247,7 @@ public class RulesArchiverTest extends AbstractTransactionalTestBase {
 
         webSocketClient.expectNotification("ActiveRecordingCreated", Duration.ofSeconds(10));
 
-        int recreatedRemoteId = ruleRecordingRemoteId(id, recordingName);
+        int recreatedRemoteId = ruleRecordingRemoteId(selfJvmId, recordingName);
         Assertions.assertNotEquals(
                 originalRemoteId,
                 recreatedRemoteId,
@@ -299,8 +303,8 @@ public class RulesArchiverTest extends AbstractTransactionalTestBase {
         given().log()
                 .all()
                 .queryParam("clean", false)
-                .pathParam("ruleName", RULE_NAME)
-                .delete("/api/v4/rules/{ruleName}")
+                .pathParam("id", ruleId)
+                .delete("/api/v5/rules/{id}")
                 .then()
                 .log()
                 .all()
@@ -320,30 +324,34 @@ public class RulesArchiverTest extends AbstractTransactionalTestBase {
     @Test
     public void testArchivingResumesAfterRuleRecordingIsDeletedWithoutReactivation()
             throws Exception {
-        int id = defineSelfCustomTarget();
+        defineSelfCustomTarget();
         String recordingName = String.format("auto_%s", RULE_NAME);
         JobKey jobKey = new JobKey(RULE_NAME, "rule.scheduled-archive." + this.selfJvmId);
         TriggerKey triggerKey = new TriggerKey(RULE_NAME, jobKey.getGroup());
 
-        given().body(ruleJson(3))
-                .contentType(ContentType.JSON)
-                .post("/api/v4/rules")
-                .then()
-                .statusCode(201);
+        String ruleId =
+                given().body(ruleJson(3))
+                        .contentType(ContentType.JSON)
+                        .post("/api/v5/rules")
+                        .then()
+                        .statusCode(201)
+                        .extract()
+                        .jsonPath()
+                        .getString("id");
         webSocketClient.expectNotification("RuleCreated", Duration.ofSeconds(5));
         webSocketClient.expectNotification("ActiveRecordingCreated", Duration.ofSeconds(10));
         webSocketClient.expectNotification("ArchivedRecordingCreated", Duration.ofSeconds(10));
 
-        int originalRemoteId = ruleRecordingRemoteId(id, recordingName);
+        int originalRemoteId = ruleRecordingRemoteId(selfJvmId, recordingName);
 
-        given().pathParams(Map.of("targetId", id, "remoteId", originalRemoteId))
-                .delete("/api/v4/targets/{targetId}/recordings/{remoteId}")
+        given().pathParams(Map.of("jvmId", selfJvmId, "remoteId", originalRemoteId))
+                .delete("/api/v5/targets/{jvmId}/recordings/{remoteId}")
                 .then()
                 .statusCode(204);
         webSocketClient.expectNotification("ActiveRecordingDeleted", Duration.ofSeconds(5));
 
         webSocketClient.expectNotification("ActiveRecordingCreated", Duration.ofSeconds(20));
-        int recreatedRemoteId = ruleRecordingRemoteId(id, recordingName);
+        int recreatedRemoteId = ruleRecordingRemoteId(selfJvmId, recordingName);
         Assertions.assertNotEquals(
                 originalRemoteId,
                 recreatedRemoteId,
@@ -360,8 +368,8 @@ public class RulesArchiverTest extends AbstractTransactionalTestBase {
                 "archival job must be bound to the re-created recording");
 
         given().queryParam("clean", false)
-                .pathParam("ruleName", RULE_NAME)
-                .delete("/api/v4/rules/{ruleName}")
+                .pathParam("id", ruleId)
+                .delete("/api/v5/rules/{id}")
                 .then()
                 .statusCode(204);
         webSocketClient.expectNotification("RuleDeleted", Duration.ofSeconds(5));
@@ -376,17 +384,21 @@ public class RulesArchiverTest extends AbstractTransactionalTestBase {
      */
     @Test
     public void testRuleEditReachesExistingArchivalJob() throws Exception {
-        int id = defineSelfCustomTarget();
+        defineSelfCustomTarget();
         String recordingName = String.format("auto_%s", RULE_NAME);
         JobKey jobKey = new JobKey(RULE_NAME, "rule.scheduled-archive." + this.selfJvmId);
         TriggerKey triggerKey = new TriggerKey(RULE_NAME, jobKey.getGroup());
 
         // a long period so that no archival fires during the test
-        given().body(ruleJson(3600))
-                .contentType(ContentType.JSON)
-                .post("/api/v4/rules")
-                .then()
-                .statusCode(201);
+        String ruleId =
+                given().body(ruleJson(3600))
+                        .contentType(ContentType.JSON)
+                        .post("/api/v5/rules")
+                        .then()
+                        .statusCode(201)
+                        .extract()
+                        .jsonPath()
+                        .getString("id");
         webSocketClient.expectNotification("RuleCreated", Duration.ofSeconds(5));
         webSocketClient.expectNotification("ActiveRecordingCreated", Duration.ofSeconds(10));
 
@@ -394,7 +406,7 @@ public class RulesArchiverTest extends AbstractTransactionalTestBase {
                 "archival job should be scheduled for the rule",
                 () -> scheduler.checkExists(jobKey),
                 Duration.ofSeconds(10));
-        int originalRemoteId = ruleRecordingRemoteId(id, recordingName);
+        int originalRemoteId = ruleRecordingRemoteId(selfJvmId, recordingName);
         Assertions.assertEquals(
                 3, scheduler.getJobDetail(jobKey).getJobDataMap().getInt("preservedArchives"));
         Assertions.assertEquals(
@@ -402,8 +414,8 @@ public class RulesArchiverTest extends AbstractTransactionalTestBase {
 
         given().body("{\"preservedArchives\": 5, \"archivalPeriodSeconds\": 7200}")
                 .contentType(ContentType.JSON)
-                .pathParam("ruleName", RULE_NAME)
-                .patch("/api/v4/rules/{ruleName}")
+                .pathParam("id", ruleId)
+                .patch("/api/v5/rules/{id}")
                 .then()
                 .statusCode(200);
         webSocketClient.expectNotification("RuleUpdated", Duration.ofSeconds(5));
@@ -429,12 +441,12 @@ public class RulesArchiverTest extends AbstractTransactionalTestBase {
                 "a schedule-only edit must not re-create the rule recording");
         Assertions.assertEquals(
                 originalRemoteId,
-                ruleRecordingRemoteId(id, recordingName),
+                ruleRecordingRemoteId(selfJvmId, recordingName),
                 "a schedule-only edit must leave the rule recording in place");
 
         given().queryParam("clean", false)
-                .pathParam("ruleName", RULE_NAME)
-                .delete("/api/v4/rules/{ruleName}")
+                .pathParam("id", ruleId)
+                .delete("/api/v5/rules/{id}")
                 .then()
                 .statusCode(204);
         webSocketClient.expectNotification("RuleDeleted", Duration.ofSeconds(5));
@@ -448,25 +460,29 @@ public class RulesArchiverTest extends AbstractTransactionalTestBase {
      */
     @Test
     public void testReplacedRuleRecordingIsArchivedBeforeItIsReplaced() throws Exception {
-        int id = defineSelfCustomTarget();
+        defineSelfCustomTarget();
         String recordingName = String.format("auto_%s", RULE_NAME);
 
-        given().body(ruleJson(3600))
-                .contentType(ContentType.JSON)
-                .post("/api/v4/rules")
-                .then()
-                .statusCode(201);
+        String ruleId =
+                given().body(ruleJson(3600))
+                        .contentType(ContentType.JSON)
+                        .post("/api/v5/rules")
+                        .then()
+                        .statusCode(201)
+                        .extract()
+                        .jsonPath()
+                        .getString("id");
         webSocketClient.expectNotification("RuleCreated", Duration.ofSeconds(5));
         webSocketClient.expectNotification("ActiveRecordingCreated", Duration.ofSeconds(10));
-        int originalRemoteId = ruleRecordingRemoteId(id, recordingName);
+        int originalRemoteId = ruleRecordingRemoteId(selfJvmId, recordingName);
         Assertions.assertTrue(
                 archivedRecordingNames().isEmpty(),
                 "a long archival period means nothing is archived before the edit");
 
         given().body("{\"maxSizeBytes\": 5242880}")
                 .contentType(ContentType.JSON)
-                .pathParam("ruleName", RULE_NAME)
-                .patch("/api/v4/rules/{ruleName}")
+                .pathParam("id", ruleId)
+                .patch("/api/v5/rules/{id}")
                 .then()
                 .statusCode(200);
         webSocketClient.expectNotification("RuleUpdated", Duration.ofSeconds(5));
@@ -477,7 +493,7 @@ public class RulesArchiverTest extends AbstractTransactionalTestBase {
         webSocketClient.expectNotification("ActiveRecordingCreated", Duration.ofSeconds(15));
         Assertions.assertNotEquals(
                 originalRemoteId,
-                ruleRecordingRemoteId(id, recordingName),
+                ruleRecordingRemoteId(selfJvmId, recordingName),
                 "a recording-affecting edit must replace the rule recording");
 
         List<String> archives = archivedRecordingNames();
@@ -493,8 +509,8 @@ public class RulesArchiverTest extends AbstractTransactionalTestBase {
                 "replacing the recording must not archive it a second time");
 
         given().queryParam("clean", false)
-                .pathParam("ruleName", RULE_NAME)
-                .delete("/api/v4/rules/{ruleName}")
+                .pathParam("id", ruleId)
+                .delete("/api/v5/rules/{id}")
                 .then()
                 .statusCode(204);
         webSocketClient.expectNotification("RuleDeleted", Duration.ofSeconds(5));
@@ -508,24 +524,28 @@ public class RulesArchiverTest extends AbstractTransactionalTestBase {
      */
     @Test
     public void testNoArchiveIsPrunedWhenRecordingMissingOnArchivalTick() throws Exception {
-        int id = defineSelfCustomTarget();
+        defineSelfCustomTarget();
         String recordingName = String.format("auto_%s", RULE_NAME);
 
-        given().body(ruleJson(10, 2))
-                .contentType(ContentType.JSON)
-                .post("/api/v4/rules")
-                .then()
-                .statusCode(201);
+        String ruleId =
+                given().body(ruleJson(10, 2))
+                        .contentType(ContentType.JSON)
+                        .post("/api/v5/rules")
+                        .then()
+                        .statusCode(201)
+                        .extract()
+                        .jsonPath()
+                        .getString("id");
         webSocketClient.expectNotification("RuleCreated", Duration.ofSeconds(5));
         webSocketClient.expectNotification("ActiveRecordingCreated", Duration.ofSeconds(10));
         webSocketClient.expectNotification("ArchivedRecordingCreated", Duration.ofSeconds(15));
         webSocketClient.expectNotification("ArchivedRecordingCreated", Duration.ofSeconds(15));
-        int originalRemoteId = ruleRecordingRemoteId(id, recordingName);
+        int originalRemoteId = ruleRecordingRemoteId(selfJvmId, recordingName);
         List<String> archivesBefore = archivedRecordingNames();
         Assertions.assertEquals(2, archivesBefore.size());
 
-        given().pathParams(Map.of("targetId", id, "remoteId", originalRemoteId))
-                .delete("/api/v4/targets/{targetId}/recordings/{remoteId}")
+        given().pathParams(Map.of("jvmId", selfJvmId, "remoteId", originalRemoteId))
+                .delete("/api/v5/targets/{jvmId}/recordings/{remoteId}")
                 .then()
                 .statusCode(204);
         webSocketClient.expectNotification("ActiveRecordingDeleted", Duration.ofSeconds(5));
@@ -533,7 +553,7 @@ public class RulesArchiverTest extends AbstractTransactionalTestBase {
         webSocketClient.expectNotification("ActiveRecordingCreated", Duration.ofSeconds(20));
         Assertions.assertNotEquals(
                 originalRemoteId,
-                ruleRecordingRemoteId(id, recordingName),
+                ruleRecordingRemoteId(selfJvmId, recordingName),
                 "the missing rule recording should have been re-created");
 
         Assertions.assertThrows(
@@ -548,8 +568,8 @@ public class RulesArchiverTest extends AbstractTransactionalTestBase {
                 "the archives already collected must be left untouched");
 
         given().queryParam("clean", false)
-                .pathParam("ruleName", RULE_NAME)
-                .delete("/api/v4/rules/{ruleName}")
+                .pathParam("id", ruleId)
+                .delete("/api/v5/rules/{id}")
                 .then()
                 .statusCode(204);
         webSocketClient.expectNotification("RuleDeleted", Duration.ofSeconds(5));
@@ -578,7 +598,7 @@ public class RulesArchiverTest extends AbstractTransactionalTestBase {
     private List<String> archivedRecordingNames() {
         return given().when()
                 .pathParams(Map.of("jvmId", this.selfJvmId))
-                .get("/api/beta/recordings/{jvmId}")
+                .get("/api/v5/recordings/{jvmId}")
                 .then()
                 .assertThat()
                 .statusCode(200)
@@ -602,12 +622,12 @@ public class RulesArchiverTest extends AbstractTransactionalTestBase {
         Assertions.fail(description + "; last observed archives: " + last);
     }
 
-    private int ruleRecordingRemoteId(int targetId, String recordingName) {
+    private int ruleRecordingRemoteId(String jvmId, String recordingName) {
         return given().log()
                 .all()
                 .when()
-                .pathParams(Map.of("targetId", targetId))
-                .get("/api/v4/targets/{targetId}/recordings")
+                .pathParams(Map.of("jvmId", jvmId))
+                .get("/api/v5/targets/{jvmId}/recordings")
                 .then()
                 .log()
                 .all()
