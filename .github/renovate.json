@@ -31,7 +31,7 @@
   },
   "packageRules": [
     {
-      "description": "Disable all dependency updates on release branches except the cryostat-web submodule; other updates there are handled via Mergify backport",
+      "description": "Disable all dependency updates on release branches except the cryostat-web submodule and Dockerfile base images; other updates there are handled via Mergify backport",
       "matchBaseBranches": ["/^cryostat-v.*/"],
       "enabled": false
     },
@@ -39,6 +39,12 @@
       "description": "Allow the cryostat-web submodule to update on release branches, tracking the matching cryostat-web release branch",
       "matchBaseBranches": ["/^cryostat-v.*/"],
       "matchManagers": ["git-submodules"],
+      "enabled": true
+    },
+    {
+      "description": "Allow Dockerfile base image updates on release branches",
+      "matchBaseBranches": ["/^cryostat-v.*/"],
+      "matchManagers": ["dockerfile"],
       "enabled": true
     },
     {
