@@ -31,6 +31,11 @@
   },
   "packageRules": [
     {
+      "description": "Dockerfile base image updates are never gated by the dependency dashboard, on any branch",
+      "matchManagers": ["dockerfile"],
+      "dependencyDashboardApproval": false
+    },
+    {
       "description": "Disable all dependency updates on release branches except the cryostat-web submodule and Dockerfile base images; other updates there are handled via Mergify backport",
       "matchBaseBranches": ["/^cryostat-v.*/"],
       "enabled": false
