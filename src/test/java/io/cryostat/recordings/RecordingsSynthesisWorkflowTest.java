@@ -32,6 +32,7 @@ import io.cryostat.AbstractTransactionalTestBase;
 import io.cryostat.resources.S3StorageResource;
 
 import io.quarkus.test.common.QuarkusTestResource;
+import io.quarkus.test.common.http.TestHTTPEndpoint;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
 import jakarta.inject.Inject;
@@ -40,6 +41,7 @@ import org.junit.jupiter.api.Test;
 
 @QuarkusTest
 @QuarkusTestResource(value = S3StorageResource.class, restrictToAnnotatedClass = true)
+@TestHTTPEndpoint(RecordingsSynthesis.class)
 public class RecordingsSynthesisWorkflowTest extends AbstractTransactionalTestBase {
 
     @Inject RecordingHelper recordingHelper;
@@ -103,15 +105,13 @@ public class RecordingsSynthesisWorkflowTest extends AbstractTransactionalTestBa
                             () -> {
                                 try {
                                     var body =
-                                            given().basePath("/")
-                                                    .log()
+                                            given().log()
                                                     .all()
+                                                    .pathParam("jvmId", selfJvmId)
                                                     .queryParam("fromTimestamp", 1000L)
                                                     .queryParam("toTimestamp", 2000L)
                                                     .when()
-                                                    .post(
-                                                            "/api/beta/recording_synthesis/{jvmId}",
-                                                            selfJvmId)
+                                                    .post()
                                                     .then()
                                                     .log()
                                                     .all()
@@ -202,13 +202,11 @@ public class RecordingsSynthesisWorkflowTest extends AbstractTransactionalTestBa
                             () -> {
                                 try {
                                     var body =
-                                            given().basePath("/")
+                                            given().pathParam("jvmId", selfJvmId)
                                                     .queryParam("fromTimestamp", 1000L)
                                                     .queryParam("toTimestamp", 2000L)
                                                     .when()
-                                                    .post(
-                                                            "/api/beta/recording_synthesis/{jvmId}",
-                                                            selfJvmId)
+                                                    .post()
                                                     .then()
                                                     .assertThat()
                                                     .statusCode(202)
@@ -242,13 +240,13 @@ public class RecordingsSynthesisWorkflowTest extends AbstractTransactionalTestBa
 
             // Issue a second request with the same range. Must be served as an immediate 200
             // because the synthetic recording now fully covers the range
-            given().basePath("/")
-                    .log()
+            given().log()
                     .all()
+                    .pathParam("jvmId", selfJvmId)
                     .queryParam("fromTimestamp", 1000L)
                     .queryParam("toTimestamp", 2000L)
                     .when()
-                    .post("/api/beta/recording_synthesis/{jvmId}", selfJvmId)
+                    .post()
                     .then()
                     .log()
                     .all()

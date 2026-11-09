@@ -17,8 +17,6 @@ package io.cryostat.recordings;
 
 import static io.restassured.RestAssured.given;
 
-import java.util.Map;
-
 import io.cryostat.AbstractTransactionalTestBase;
 import io.cryostat.resources.S3StorageResource;
 
@@ -40,12 +38,12 @@ public class JfrSyncJmxTargetRejectionTest extends AbstractTransactionalTestBase
 
     @Test
     void testAsprofEventsRejectedForJmxTarget() {
-        int targetId = defineSelfCustomTarget();
+        defineSelfCustomTarget();
 
         given().log()
                 .all()
                 .when()
-                .pathParams(Map.of("targetId", targetId))
+                .pathParam("jvmId", selfJvmId)
                 .formParam("recordingName", "jfrSyncJmxRejectionTest")
                 .formParam("events", "template=Continuous")
                 .formParam("asprofEvents", "cpu")
@@ -60,13 +58,13 @@ public class JfrSyncJmxTargetRejectionTest extends AbstractTransactionalTestBase
 
     @Test
     void testOrdinaryRecordingStillSucceedsWithoutAsprofEvents() {
-        int targetId = defineSelfCustomTarget();
+        defineSelfCustomTarget();
 
         int recordingId =
                 given().log()
                         .all()
                         .when()
-                        .pathParams(Map.of("targetId", targetId))
+                        .pathParam("jvmId", selfJvmId)
                         .formParam("recordingName", "jfrSyncJmxRejectionSanityTest")
                         .formParam("events", "template=Continuous")
                         .post()
@@ -89,7 +87,7 @@ public class JfrSyncJmxTargetRejectionTest extends AbstractTransactionalTestBase
         given().log()
                 .all()
                 .when()
-                .pathParams(Map.of("targetId", targetId))
+                .pathParam("jvmId", selfJvmId)
                 .delete(Integer.toString(recordingId))
                 .then()
                 .log()

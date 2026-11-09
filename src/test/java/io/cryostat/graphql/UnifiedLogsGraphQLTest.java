@@ -78,7 +78,7 @@ public class UnifiedLogsGraphQLTest extends AgentTestBase {
 
     private static final String GRAPHQL_UNIFIED_LOG_CLEANUP_QUERY =
             """
-            query UnifiedLogCleanup($targetIds: [ BigInteger! ]) {
+            query UnifiedLogCleanup($targetIds: [ String! ]) {
                 targetNodes(filter: { targetIds: $targetIds }) {
                     descendantTargets {
                         target {
@@ -113,7 +113,7 @@ public class UnifiedLogsGraphQLTest extends AgentTestBase {
                         .log()
                         .all()
                         .when()
-                        .post("/api/v4/graphql")
+                        .post("/api/v5/graphql")
                         .then()
                         .log()
                         .all()
@@ -131,10 +131,10 @@ public class UnifiedLogsGraphQLTest extends AgentTestBase {
         given().log()
                 .all()
                 .when()
-                .pathParam("targetId", target.id())
+                .pathParam("jvmId", target.jvmId())
                 .queryParam("what", "gc")
                 .queryParam("decorators", "time,level")
-                .post("/api/beta/diagnostics/targets/{targetId}/unified-logging")
+                .post("/api/v5/targets/{jvmId}/diagnostics/unified-logging")
                 .then()
                 .log()
                 .all()
@@ -145,14 +145,14 @@ public class UnifiedLogsGraphQLTest extends AgentTestBase {
         generateWorkloadActivity(Duration.ofSeconds(3), Duration.ofMillis(100));
 
         // Trigger GC to create log entries
-        triggerGcAndWait(target.id());
+        triggerGcAndWait(target.jvmId());
 
         // Pull a unified log
         given().log()
                 .all()
                 .when()
-                .pathParam("targetId", target.id())
-                .post("/api/beta/diagnostics/targets/{targetId}/unified-logging/pull")
+                .pathParam("jvmId", target.jvmId())
+                .post("/api/v5/targets/{jvmId}/diagnostics/unified-logs/pull")
                 .then()
                 .log()
                 .all()
@@ -168,7 +168,7 @@ public class UnifiedLogsGraphQLTest extends AgentTestBase {
                         .log()
                         .all()
                         .when()
-                        .post("/api/v4/graphql")
+                        .post("/api/v5/graphql")
                         .then()
                         .log()
                         .all()
@@ -192,7 +192,8 @@ public class UnifiedLogsGraphQLTest extends AgentTestBase {
         JsonObject targetNode = targetNodes.getJsonObject(0);
         JsonObject targetNode_target = targetNode.getJsonObject("target");
         assertThat(
-                targetNode_target.getLong("id"), equalTo(UnifiedLogsGraphQLTest.this.target.id()));
+                targetNode_target.getString("id"),
+                equalTo(UnifiedLogsGraphQLTest.this.target.id()));
 
         JsonObject unifiedLogs = targetNode_target.getJsonObject("unifiedLogs");
         assertThat(unifiedLogs, notNullValue());

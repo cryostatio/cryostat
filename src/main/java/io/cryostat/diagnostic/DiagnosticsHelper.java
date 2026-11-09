@@ -207,10 +207,10 @@ public class DiagnosticsHelper {
         Target t =
                 QuarkusTransaction.joiningExisting()
                         .call(() -> Target.getTargetByJvmId(jvmId))
-                        .get();
+                        .orElse(null);
         if (Objects.isNull(t)) {
             log.errorv("jvmId {0} failed to resolve to target. Defaulting to uuid.", jvmId);
-            return uuid;
+            return uuid + extension;
         }
         return URLEncoder.encode(t.alias, StandardCharsets.UTF_8) + "_" + uuid + extension;
     }
@@ -558,7 +558,7 @@ public class DiagnosticsHelper {
 
     public String unifiedLogDownloadUrl(String jvmId, String filename) {
         return String.format(
-                "/api/beta/diagnostics/unified-logs/download/%s", encodedKey(jvmId, filename));
+                "/api/v5/diagnostics/unified-logs/download/%s", encodedKey(jvmId, filename));
     }
 
     public List<io.cryostat.diagnostic.Diagnostics.UnifiedLog> getUnifiedLogs(String jvmId) {
@@ -804,12 +804,12 @@ public class DiagnosticsHelper {
 
     public String threadDumpDownloadUrl(String jvmId, String filename) {
         return String.format(
-                "/api/beta/diagnostics/threaddump/download/%s", encodedKey(jvmId, filename));
+                "/api/v5/diagnostics/thread-dump/download/%s", encodedKey(jvmId, filename));
     }
 
     public String heapDumpDownloadUrl(String jvmId, String filename) {
         return String.format(
-                "/api/beta/diagnostics/heapdump/download/%s", encodedKey(jvmId, filename));
+                "/api/v5/diagnostics/heap-dump/download/%s", encodedKey(jvmId, filename));
     }
 
     public String encodedKey(String jvmId, String uuid) {

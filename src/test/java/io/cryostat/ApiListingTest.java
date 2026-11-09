@@ -91,30 +91,27 @@ public class ApiListingTest extends AbstractTestBase {
     void shouldDescribeAsynchronousJobResponses() {
         var jobs =
                 List.of(
-                        new JobResponse("/api/v4/reports/{encodedKey}", "get", "202"),
+                        new JobResponse("/api/v5/reports/{encodedKey}", "get", "202"),
                         new JobResponse(
-                                "/api/v4/targets/{targetId}/reports/{recordingId}", "get", "202"),
-                        new JobResponse("/api/v4.1/targets/{targetId}/reports", "post", "202"),
+                                "/api/v5/targets/{jvmId}/reports/{recordingId}", "get", "202"),
+                        new JobResponse("/api/v5/targets/{jvmId}/reports", "post", "202"),
                         new JobResponse(
-                                "/api/beta/diagnostics/targets/{jvmId}/heapdump/{heapDumpId}/analyze",
+                                "/api/v5/targets/{jvmId}/diagnostics/heap-dump/{heapDumpId}/analyze",
                                 "post",
                                 "202"),
-                        new JobResponse("/api/beta/recording_synthesis/{jvmId}", "post", "202"),
                         new JobResponse(
-                                "/api/v4/targets/{targetId}/recordings/{remoteId}", "patch", "200"),
+                                "/api/v5/targets/{jvmId}/recordings/synthesis", "post", "202"),
                         new JobResponse(
-                                "/api/v4/targets/{targetId}/recordings/{remoteId}/upload",
+                                "/api/v5/targets/{jvmId}/recordings/{remoteId}", "patch", "200"),
+                        new JobResponse(
+                                "/api/v5/targets/{jvmId}/recordings/{remoteId}/upload",
                                 "post",
                                 "200"),
-                        new JobResponse("/api/v4/grafana/{encodedKey}", "post", "200"),
+                        new JobResponse("/api/v5/grafana/{encodedKey}", "post", "200"),
                         new JobResponse(
-                                "/api/beta/diagnostics/targets/{targetId}/threaddump",
-                                "post",
-                                "200"),
+                                "/api/v5/targets/{jvmId}/diagnostics/thread-dump", "post", "200"),
                         new JobResponse(
-                                "/api/beta/diagnostics/targets/{targetId}/heapdump",
-                                "post",
-                                "200"));
+                                "/api/v5/targets/{jvmId}/diagnostics/heap-dump", "post", "200"));
         for (var job : jobs) {
             String response =
                     "paths.'"
@@ -133,7 +130,7 @@ public class ApiListingTest extends AbstractTestBase {
                             Matchers.equalTo("uuid"));
         }
         String stopResponse =
-                "paths.'/api/v4/targets/{targetId}/recordings/{remoteId}'.patch.responses.'204'";
+                "paths.'/api/v5/targets/{jvmId}/recordings/{remoteId}'.patch.responses.'204'";
         resp.body(stopResponse, Matchers.notNullValue())
                 .body(stopResponse + ".content", Matchers.nullValue());
     }
@@ -141,18 +138,19 @@ public class ApiListingTest extends AbstractTestBase {
     @Test
     void shouldPreserveSynchronousAndAuthorizationResponses() {
         resp.body(
-                "paths.'/api/beta/recording_synthesis/{jvmId}'.post.responses.'200'.content.'application/json'.schema.'$ref'",
+                "paths.'/api/v5/targets/{jvmId}/recordings/synthesis'.post.responses.'200'.content.'application/json'.schema.'$ref'",
                 Matchers.equalTo("#/components/schemas/ArchivedRecording"));
         for (var job :
                 List.of(
-                        new JobResponse("/api/v4/reports/{encodedKey}", "get", "200"),
+                        new JobResponse("/api/v5/reports/{encodedKey}", "get", "200"),
                         new JobResponse(
-                                "/api/v4/targets/{targetId}/reports/{recordingId}", "get", "200"),
+                                "/api/v5/targets/{jvmId}/reports/{recordingId}", "get", "200"),
                         new JobResponse(
-                                "/api/beta/diagnostics/targets/{jvmId}/heapdump/{heapDumpId}/analyze",
+                                "/api/v5/targets/{jvmId}/diagnostics/heap-dump/{heapDumpId}/analyze",
                                 "post",
                                 "200"),
-                        new JobResponse("/api/beta/recording_synthesis/{jvmId}", "post", "200"))) {
+                        new JobResponse(
+                                "/api/v5/targets/{jvmId}/recordings/synthesis", "post", "200"))) {
             String responses = "paths.'" + job.path() + "'." + job.method() + ".responses";
             resp.body(
                             responses + ".'200'.content.'application/json'.schema",

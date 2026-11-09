@@ -49,18 +49,18 @@ public class AgentJfrSyncRecordingTest extends AgentTestBase {
 
     @Test
     void testStartRecordingWithAsyncProfilerEnabled() {
-        long targetId = target.id();
+        String jvmId = target.jvmId();
 
         int recordingId =
                 given().log()
                         .all()
-                        .pathParams("targetId", targetId)
+                        .pathParams("jvmId", jvmId)
                         .when()
                         .formParam("recordingName", RECORDING_NAME)
                         .formParam("events", CONTINUOUS_TEMPLATE)
                         .formParam("duration", 10)
                         .formParam("asprofEvents", "cpu")
-                        .post("/api/v4/targets/{targetId}/recordings")
+                        .post("/api/v5/targets/{jvmId}/recordings")
                         .then()
                         .log()
                         .all()
@@ -82,9 +82,9 @@ public class AgentJfrSyncRecordingTest extends AgentTestBase {
         try {
             given().log()
                     .all()
-                    .pathParams("targetId", targetId)
+                    .pathParams("jvmId", jvmId)
                     .when()
-                    .get("/api/v4/targets/{targetId}/recordings")
+                    .get("/api/v5/targets/{jvmId}/recordings")
                     .then()
                     .log()
                     .all()
@@ -99,9 +99,9 @@ public class AgentJfrSyncRecordingTest extends AgentTestBase {
         } finally {
             given().log()
                     .all()
-                    .pathParams("targetId", targetId, "recordingId", recordingId)
+                    .pathParams("jvmId", jvmId, "remoteId", recordingId)
                     .when()
-                    .delete("/api/v4/targets/{targetId}/recordings/{recordingId}")
+                    .delete("/api/v5/targets/{jvmId}/recordings/{remoteId}")
                     .then()
                     .log()
                     .all()
@@ -112,9 +112,9 @@ public class AgentJfrSyncRecordingTest extends AgentTestBase {
 
         given().log()
                 .all()
-                .pathParams("targetId", targetId)
+                .pathParams("jvmId", jvmId)
                 .when()
-                .get("/api/v4/targets/{targetId}/recordings")
+                .get("/api/v5/targets/{jvmId}/recordings")
                 .then()
                 .log()
                 .all()
@@ -136,21 +136,20 @@ public class AgentJfrSyncRecordingTest extends AgentTestBase {
      */
     @Test
     void testJfrSyncRecordingMergesAsyncProfilerAndJdkEvents() throws Exception {
-        long targetId = target.id();
         String jvmId = target.jvmId();
         String recordingName = RECORDING_NAME + "Merge";
 
         int recordingId =
                 given().log()
                         .all()
-                        .pathParams("targetId", targetId)
+                        .pathParams("jvmId", jvmId)
                         .when()
                         .formParam("recordingName", recordingName)
                         .formParam("events", CONTINUOUS_TEMPLATE)
                         .formParam("duration", 30)
                         .formParam("archiveOnStop", true)
                         .formParam("asprofEvents", "alloc", "wall")
-                        .post("/api/v4/targets/{targetId}/recordings")
+                        .post("/api/v5/targets/{jvmId}/recordings")
                         .then()
                         .log()
                         .all()
@@ -171,9 +170,9 @@ public class AgentJfrSyncRecordingTest extends AgentTestBase {
 
             given().log()
                     .all()
-                    .pathParams("targetId", targetId)
+                    .pathParams("jvmId", jvmId)
                     .when()
-                    .post("/api/v4.3/targets/{targetId}/recordings_sync")
+                    .post("/api/v5/targets/{jvmId}/recordings-sync")
                     .then()
                     .log()
                     .all()
@@ -190,7 +189,7 @@ public class AgentJfrSyncRecordingTest extends AgentTestBase {
                             .all()
                             .pathParams("jvmId", jvmId)
                             .when()
-                            .get("/api/beta/recordings/{jvmId}")
+                            .get("/api/v5/recordings/{jvmId}")
                             .then()
                             .log()
                             .all()
@@ -220,7 +219,7 @@ public class AgentJfrSyncRecordingTest extends AgentTestBase {
                                     """
                                     SELECT COUNT(*) FROM "JFR"."jdk.CPULoad"
                                     """)
-                            .post("/api/beta/recording_analytics/{jvmId}/{filename}")
+                            .post("/api/v5/recordings/{jvmId}/{filename}/analytics")
                             .then()
                             .log()
                             .all()
@@ -258,7 +257,7 @@ public class AgentJfrSyncRecordingTest extends AgentTestBase {
                                       + (SELECT COUNT(*) FROM "JFR"."jdk.ObjectAllocationOutsideTLAB")
                                       + (SELECT COUNT(*) FROM "JFR"."jdk.ExecutionSample")
                                     """)
-                            .post("/api/beta/recording_analytics/{jvmId}/{filename}")
+                            .post("/api/v5/recordings/{jvmId}/{filename}/analytics")
                             .then()
                             .log()
                             .all()
@@ -277,9 +276,9 @@ public class AgentJfrSyncRecordingTest extends AgentTestBase {
             if (archivedFilename != null) {
                 given().log()
                         .all()
-                        .pathParams("connectUrl", target.connectUrl(), "filename", archivedFilename)
+                        .pathParams("jvmId", jvmId, "filename", archivedFilename)
                         .when()
-                        .delete("/api/beta/recordings/{connectUrl}/{filename}")
+                        .delete("/api/v5/recordings/{jvmId}/{filename}")
                         .then()
                         .log()
                         .all()
@@ -289,9 +288,9 @@ public class AgentJfrSyncRecordingTest extends AgentTestBase {
             }
             given().log()
                     .all()
-                    .pathParams("targetId", targetId, "recordingId", recordingId)
+                    .pathParams("jvmId", jvmId, "remoteId", recordingId)
                     .when()
-                    .delete("/api/v4/targets/{targetId}/recordings/{recordingId}")
+                    .delete("/api/v5/targets/{jvmId}/recordings/{remoteId}")
                     .then()
                     .log()
                     .all();
@@ -321,7 +320,7 @@ public class AgentJfrSyncRecordingTest extends AgentTestBase {
                         .contentType(ContentType.MULTIPART)
                         .multiPart("template", templateFile, "application/xml")
                         .when()
-                        .post("/api/v4/event_templates")
+                        .post("/api/v5/event-templates")
                         .then()
                         .log()
                         .all()
@@ -336,13 +335,13 @@ public class AgentJfrSyncRecordingTest extends AgentTestBase {
                         .getString("name");
 
         try {
-            long targetId = target.id();
+            String jvmId = target.jvmId();
             String recordingName = RECORDING_NAME + "CustomTemplate";
 
             int recordingId =
                     given().log()
                             .all()
-                            .pathParams("targetId", targetId)
+                            .pathParams("jvmId", jvmId)
                             .when()
                             .formParam("recordingName", recordingName)
                             .formParam(
@@ -350,7 +349,7 @@ public class AgentJfrSyncRecordingTest extends AgentTestBase {
                                     String.format("template=%s,type=CUSTOM", templateName))
                             .formParam("duration", 10)
                             .formParam("asprofEvents", "cpu")
-                            .post("/api/v4/targets/{targetId}/recordings")
+                            .post("/api/v5/targets/{jvmId}/recordings")
                             .then()
                             .log()
                             .all()
@@ -377,9 +376,9 @@ public class AgentJfrSyncRecordingTest extends AgentTestBase {
             try {
                 given().log()
                         .all()
-                        .pathParams("targetId", targetId)
+                        .pathParams("jvmId", jvmId)
                         .when()
-                        .get("/api/v4/targets/{targetId}/recordings")
+                        .get("/api/v5/targets/{jvmId}/recordings")
                         .then()
                         .log()
                         .all()
@@ -394,9 +393,9 @@ public class AgentJfrSyncRecordingTest extends AgentTestBase {
             } finally {
                 given().log()
                         .all()
-                        .pathParams("targetId", targetId, "recordingId", recordingId)
+                        .pathParams("jvmId", jvmId, "remoteId", recordingId)
                         .when()
-                        .delete("/api/v4/targets/{targetId}/recordings/{recordingId}")
+                        .delete("/api/v5/targets/{jvmId}/recordings/{remoteId}")
                         .then()
                         .log()
                         .all()
@@ -409,7 +408,7 @@ public class AgentJfrSyncRecordingTest extends AgentTestBase {
                     .all()
                     .pathParams("templateName", templateName)
                     .when()
-                    .delete("/api/v4/event_templates/{templateName}")
+                    .delete("/api/v5/event-templates/{templateName}")
                     .then()
                     .log()
                     .all();
@@ -430,19 +429,19 @@ public class AgentJfrSyncRecordingTest extends AgentTestBase {
      */
     @Test
     void testJfrSyncRecordingWithContinuousDuration() {
-        long targetId = target.id();
+        String jvmId = target.jvmId();
         String recordingName = RECORDING_NAME + "Continuous";
 
         int recordingId =
                 given().log()
                         .all()
-                        .pathParams("targetId", targetId)
+                        .pathParams("jvmId", jvmId)
                         .when()
                         .formParam("recordingName", recordingName)
                         .formParam("events", CONTINUOUS_TEMPLATE)
                         .formParam("asprofEvents", "cpu")
                         // no "duration" param -- continuous/unbounded
-                        .post("/api/v4/targets/{targetId}/recordings")
+                        .post("/api/v5/targets/{jvmId}/recordings")
                         .then()
                         .log()
                         .all()
@@ -464,10 +463,10 @@ public class AgentJfrSyncRecordingTest extends AgentTestBase {
         try {
             given().log()
                     .all()
-                    .pathParams("targetId", targetId, "recordingId", recordingId)
+                    .pathParams("jvmId", jvmId, "remoteId", recordingId)
                     .when()
                     .body("stop")
-                    .patch("/api/v4/targets/{targetId}/recordings/{recordingId}")
+                    .patch("/api/v5/targets/{jvmId}/recordings/{remoteId}")
                     .then()
                     .log()
                     .all()
@@ -477,9 +476,9 @@ public class AgentJfrSyncRecordingTest extends AgentTestBase {
 
             given().log()
                     .all()
-                    .pathParams("targetId", targetId)
+                    .pathParams("jvmId", jvmId)
                     .when()
-                    .get("/api/v4/targets/{targetId}/recordings")
+                    .get("/api/v5/targets/{jvmId}/recordings")
                     .then()
                     .log()
                     .all()
@@ -492,9 +491,9 @@ public class AgentJfrSyncRecordingTest extends AgentTestBase {
         } finally {
             given().log()
                     .all()
-                    .pathParams("targetId", targetId, "recordingId", recordingId)
+                    .pathParams("jvmId", jvmId, "remoteId", recordingId)
                     .when()
-                    .delete("/api/v4/targets/{targetId}/recordings/{recordingId}")
+                    .delete("/api/v5/targets/{jvmId}/recordings/{remoteId}")
                     .then()
                     .log()
                     .all()
@@ -506,20 +505,20 @@ public class AgentJfrSyncRecordingTest extends AgentTestBase {
 
     @Test
     void testJfrSyncRecordingWithToDiskDisabled() {
-        long targetId = target.id();
+        String jvmId = target.jvmId();
         String recordingName = RECORDING_NAME + "ToDiskFalse";
 
         int recordingId =
                 given().log()
                         .all()
-                        .pathParams("targetId", targetId)
+                        .pathParams("jvmId", jvmId)
                         .when()
                         .formParam("recordingName", recordingName)
                         .formParam("events", CONTINUOUS_TEMPLATE)
                         .formParam("duration", 10)
                         .formParam("toDisk", false)
                         .formParam("asprofEvents", "cpu")
-                        .post("/api/v4/targets/{targetId}/recordings")
+                        .post("/api/v5/targets/{jvmId}/recordings")
                         .then()
                         .log()
                         .all()
@@ -540,9 +539,9 @@ public class AgentJfrSyncRecordingTest extends AgentTestBase {
 
         given().log()
                 .all()
-                .pathParams("targetId", targetId, "recordingId", recordingId)
+                .pathParams("jvmId", jvmId, "remoteId", recordingId)
                 .when()
-                .delete("/api/v4/targets/{targetId}/recordings/{recordingId}")
+                .delete("/api/v5/targets/{jvmId}/recordings/{remoteId}")
                 .then()
                 .log()
                 .all()
@@ -553,7 +552,7 @@ public class AgentJfrSyncRecordingTest extends AgentTestBase {
 
     @Test
     void testJfrSyncRecordingWithMaxAgeAndMaxSizeBounds() {
-        long targetId = target.id();
+        String jvmId = target.jvmId();
         String recordingName = RECORDING_NAME + "MaxAgeMaxSize";
         long maxAgeSeconds = 60;
         long maxSizeBytes = 1024 * 1024;
@@ -561,7 +560,7 @@ public class AgentJfrSyncRecordingTest extends AgentTestBase {
         int recordingId =
                 given().log()
                         .all()
-                        .pathParams("targetId", targetId)
+                        .pathParams("jvmId", jvmId)
                         .when()
                         .formParam("recordingName", recordingName)
                         .formParam("events", CONTINUOUS_TEMPLATE)
@@ -570,7 +569,7 @@ public class AgentJfrSyncRecordingTest extends AgentTestBase {
                         .formParam("maxSize", maxSizeBytes)
                         .formParam("asprofEvents", "cpu")
                         // no "duration" param -- continuous, bounded instead by maxAge/maxSize
-                        .post("/api/v4/targets/{targetId}/recordings")
+                        .post("/api/v5/targets/{jvmId}/recordings")
                         .then()
                         .log()
                         .all()
@@ -591,9 +590,9 @@ public class AgentJfrSyncRecordingTest extends AgentTestBase {
         try {
             given().log()
                     .all()
-                    .pathParams("targetId", targetId)
+                    .pathParams("jvmId", jvmId)
                     .when()
-                    .get("/api/v4/targets/{targetId}/recordings")
+                    .get("/api/v5/targets/{jvmId}/recordings")
                     .then()
                     .log()
                     .all()
@@ -605,9 +604,9 @@ public class AgentJfrSyncRecordingTest extends AgentTestBase {
         } finally {
             given().log()
                     .all()
-                    .pathParams("targetId", targetId, "recordingId", recordingId)
+                    .pathParams("jvmId", jvmId, "remoteId", recordingId)
                     .when()
-                    .delete("/api/v4/targets/{targetId}/recordings/{recordingId}")
+                    .delete("/api/v5/targets/{jvmId}/recordings/{remoteId}")
                     .then()
                     .log()
                     .all()
@@ -619,19 +618,19 @@ public class AgentJfrSyncRecordingTest extends AgentTestBase {
 
     @Test
     void testJfrSyncRecordingReplaceSemantics() {
-        long targetId = target.id();
+        String jvmId = target.jvmId();
         String recordingName = RECORDING_NAME + "Replace";
 
         int firstRecordingId =
                 given().log()
                         .all()
-                        .pathParams("targetId", targetId)
+                        .pathParams("jvmId", jvmId)
                         .when()
                         .formParam("recordingName", recordingName)
                         .formParam("events", CONTINUOUS_TEMPLATE)
                         .formParam("duration", 30)
                         .formParam("asprofEvents", "cpu")
-                        .post("/api/v4/targets/{targetId}/recordings")
+                        .post("/api/v5/targets/{jvmId}/recordings")
                         .then()
                         .log()
                         .all()
@@ -651,14 +650,14 @@ public class AgentJfrSyncRecordingTest extends AgentTestBase {
             secondRecordingId =
                     given().log()
                             .all()
-                            .pathParams("targetId", targetId)
+                            .pathParams("jvmId", jvmId)
                             .when()
                             .formParam("recordingName", recordingName)
                             .formParam("events", CONTINUOUS_TEMPLATE)
                             .formParam("duration", 30)
                             .formParam("replace", "ALWAYS")
                             .formParam("asprofEvents", "alloc")
-                            .post("/api/v4/targets/{targetId}/recordings")
+                            .post("/api/v5/targets/{jvmId}/recordings")
                             .then()
                             .log()
                             .all()
@@ -680,9 +679,9 @@ public class AgentJfrSyncRecordingTest extends AgentTestBase {
 
             given().log()
                     .all()
-                    .pathParams("targetId", targetId)
+                    .pathParams("jvmId", jvmId)
                     .when()
-                    .get("/api/v4/targets/{targetId}/recordings")
+                    .get("/api/v5/targets/{jvmId}/recordings")
                     .then()
                     .log()
                     .all()
@@ -698,9 +697,9 @@ public class AgentJfrSyncRecordingTest extends AgentTestBase {
             int idToDelete = secondRecordingId >= 0 ? secondRecordingId : firstRecordingId;
             given().log()
                     .all()
-                    .pathParams("targetId", targetId, "recordingId", idToDelete)
+                    .pathParams("jvmId", jvmId, "remoteId", idToDelete)
                     .when()
-                    .delete("/api/v4/targets/{targetId}/recordings/{recordingId}")
+                    .delete("/api/v5/targets/{jvmId}/recordings/{remoteId}")
                     .then()
                     .log()
                     .all();
@@ -716,19 +715,19 @@ public class AgentJfrSyncRecordingTest extends AgentTestBase {
      */
     @Test
     void testStandaloneAsyncProfilerRejectedWhileJfrSyncRecordingRunning() throws Exception {
-        long targetId = target.id();
+        String jvmId = target.jvmId();
         String recordingName = RECORDING_NAME + "ThenStandalone";
 
         int recordingId =
                 given().log()
                         .all()
-                        .pathParams("targetId", targetId)
+                        .pathParams("jvmId", jvmId)
                         .when()
                         .formParam("recordingName", recordingName)
                         .formParam("events", CONTINUOUS_TEMPLATE)
                         .formParam("duration", 30)
                         .formParam("asprofEvents", "cpu")
-                        .post("/api/v4/targets/{targetId}/recordings")
+                        .post("/api/v5/targets/{jvmId}/recordings")
                         .then()
                         .log()
                         .all()
@@ -744,11 +743,11 @@ public class AgentJfrSyncRecordingTest extends AgentTestBase {
             Map<String, Object> requestBody = Map.of("events", List.of("cpu"), "duration", 5);
             given().log()
                     .all()
-                    .pathParams("targetId", targetId)
+                    .pathParams("jvmId", jvmId)
                     .contentType(ContentType.JSON)
                     .body(requestBody)
                     .when()
-                    .post("/api/beta/targets/{targetId}/async-profiler")
+                    .post("/api/v5/targets/{jvmId}/async-profiler")
                     .then()
                     .log()
                     .all()
@@ -758,9 +757,9 @@ public class AgentJfrSyncRecordingTest extends AgentTestBase {
         } finally {
             given().log()
                     .all()
-                    .pathParams("targetId", targetId, "recordingId", recordingId)
+                    .pathParams("jvmId", jvmId, "remoteId", recordingId)
                     .when()
-                    .delete("/api/v4/targets/{targetId}/recordings/{recordingId}")
+                    .delete("/api/v5/targets/{jvmId}/recordings/{remoteId}")
                     .then()
                     .log()
                     .all();
@@ -774,18 +773,18 @@ public class AgentJfrSyncRecordingTest extends AgentTestBase {
      */
     @Test
     void testJfrSyncRecordingRejectedWhileStandaloneAsyncProfilerRunning() throws Exception {
-        long targetId = target.id();
+        String jvmId = target.jvmId();
         String recordingName = RECORDING_NAME + "AfterStandalone";
 
         Map<String, Object> requestBody = Map.of("events", List.of("cpu"), "duration", 5);
         String profileId =
                 given().log()
                         .all()
-                        .pathParams("targetId", targetId)
+                        .pathParams("jvmId", jvmId)
                         .contentType(ContentType.JSON)
                         .body(requestBody)
                         .when()
-                        .post("/api/beta/targets/{targetId}/async-profiler")
+                        .post("/api/v5/targets/{jvmId}/async-profiler")
                         .then()
                         .log()
                         .all()
@@ -800,13 +799,13 @@ public class AgentJfrSyncRecordingTest extends AgentTestBase {
         try {
             given().log()
                     .all()
-                    .pathParams("targetId", targetId)
+                    .pathParams("jvmId", jvmId)
                     .when()
                     .formParam("recordingName", recordingName)
                     .formParam("events", CONTINUOUS_TEMPLATE)
                     .formParam("duration", 10)
                     .formParam("asprofEvents", "cpu")
-                    .post("/api/v4/targets/{targetId}/recordings")
+                    .post("/api/v5/targets/{jvmId}/recordings")
                     .then()
                     .log()
                     .all()
@@ -814,12 +813,12 @@ public class AgentJfrSyncRecordingTest extends AgentTestBase {
                     .assertThat()
                     .statusCode(400);
         } finally {
-            waitForStandaloneAsyncProfilerToStop(targetId, Duration.ofSeconds(30));
+            waitForStandaloneAsyncProfilerToStop(jvmId, Duration.ofSeconds(30));
             given().log()
                     .all()
-                    .pathParams("targetId", targetId, "profileId", profileId)
+                    .pathParams("jvmId", jvmId, "profileId", profileId)
                     .when()
-                    .delete("/api/beta/targets/{targetId}/async-profiler/{profileId}")
+                    .delete("/api/v5/targets/{jvmId}/async-profiler/{profileId}")
                     .then()
                     .log()
                     .all();
@@ -828,18 +827,18 @@ public class AgentJfrSyncRecordingTest extends AgentTestBase {
 
     @Test
     void testJfrSyncRecordingWithInvalidAsprofEventName() {
-        long targetId = target.id();
+        String jvmId = target.jvmId();
         String recordingName = RECORDING_NAME + "InvalidEvent";
 
         given().log()
                 .all()
-                .pathParams("targetId", targetId)
+                .pathParams("jvmId", jvmId)
                 .when()
                 .formParam("recordingName", recordingName)
                 .formParam("events", CONTINUOUS_TEMPLATE)
                 .formParam("duration", 10)
                 .formParam("asprofEvents", "this-is-not-a-real-event")
-                .post("/api/v4/targets/{targetId}/recordings")
+                .post("/api/v5/targets/{jvmId}/recordings")
                 .then()
                 .log()
                 .all()
@@ -855,19 +854,19 @@ public class AgentJfrSyncRecordingTest extends AgentTestBase {
      */
     @Test
     void testRecordingWithoutAsprofEventsHasNoAsprofLabel() {
-        long targetId = target.id();
+        String jvmId = target.jvmId();
         String recordingName = RECORDING_NAME + "NoAsprof";
 
         int recordingId =
                 given().log()
                         .all()
-                        .pathParams("targetId", targetId)
+                        .pathParams("jvmId", jvmId)
                         .when()
                         .formParam("recordingName", recordingName)
                         .formParam("events", CONTINUOUS_TEMPLATE)
                         .formParam("duration", 10)
                         // no "asprofEvents" param at all
-                        .post("/api/v4/targets/{targetId}/recordings")
+                        .post("/api/v5/targets/{jvmId}/recordings")
                         .then()
                         .log()
                         .all()
@@ -887,9 +886,9 @@ public class AgentJfrSyncRecordingTest extends AgentTestBase {
 
         given().log()
                 .all()
-                .pathParams("targetId", targetId, "recordingId", recordingId)
+                .pathParams("jvmId", jvmId, "remoteId", recordingId)
                 .when()
-                .delete("/api/v4/targets/{targetId}/recordings/{recordingId}")
+                .delete("/api/v5/targets/{jvmId}/recordings/{remoteId}")
                 .then()
                 .log()
                 .all()
@@ -900,7 +899,7 @@ public class AgentJfrSyncRecordingTest extends AgentTestBase {
 
     @Test
     void testJfrSyncRecordingRejectedWhenOtherRecordingsActive() {
-        long targetId = target.id();
+        String jvmId = target.jvmId();
         String firstRecordingName = RECORDING_NAME + "First";
         String jfrSyncRecordingName = RECORDING_NAME + "JfrSync";
 
@@ -908,12 +907,12 @@ public class AgentJfrSyncRecordingTest extends AgentTestBase {
         int firstRecordingId =
                 given().log()
                         .all()
-                        .pathParams("targetId", targetId)
+                        .pathParams("jvmId", jvmId)
                         .when()
                         .formParam("recordingName", firstRecordingName)
                         .formParam("events", CONTINUOUS_TEMPLATE)
                         .formParam("duration", 20)
-                        .post("/api/v4/targets/{targetId}/recordings")
+                        .post("/api/v5/targets/{jvmId}/recordings")
                         .then()
                         .log()
                         .all()
@@ -931,13 +930,13 @@ public class AgentJfrSyncRecordingTest extends AgentTestBase {
         // This should be rejected with 400 Bad Request
         given().log()
                 .all()
-                .pathParams("targetId", targetId)
+                .pathParams("jvmId", jvmId)
                 .when()
                 .formParam("recordingName", jfrSyncRecordingName)
                 .formParam("events", CONTINUOUS_TEMPLATE)
                 .formParam("duration", 10)
                 .formParam("asprofEvents", "cpu,alloc")
-                .post("/api/v4/targets/{targetId}/recordings")
+                .post("/api/v5/targets/{jvmId}/recordings")
                 .then()
                 .log()
                 .all()
@@ -948,9 +947,9 @@ public class AgentJfrSyncRecordingTest extends AgentTestBase {
         // Clean up the first recording
         given().log()
                 .all()
-                .pathParams("targetId", targetId, "recordingId", firstRecordingId)
+                .pathParams("jvmId", jvmId, "remoteId", firstRecordingId)
                 .when()
-                .delete("/api/v4/targets/{targetId}/recordings/{recordingId}")
+                .delete("/api/v5/targets/{jvmId}/recordings/{remoteId}")
                 .then()
                 .log()
                 .all()
@@ -968,14 +967,14 @@ public class AgentJfrSyncRecordingTest extends AgentTestBase {
      * so the only way to ensure the native profiler is free for subsequent tests in this class is
      * to wait for its own duration to naturally elapse.
      */
-    private static void waitForStandaloneAsyncProfilerToStop(long targetId, Duration timeout)
+    private static void waitForStandaloneAsyncProfilerToStop(String jvmId, Duration timeout)
             throws InterruptedException {
         long deadline = System.currentTimeMillis() + timeout.toMillis();
         while (System.currentTimeMillis() < deadline) {
             String status =
-                    given().pathParams("targetId", targetId)
+                    given().pathParams("jvmId", jvmId)
                             .when()
-                            .get("/api/beta/targets/{targetId}/async-profiler/status")
+                            .get("/api/v5/targets/{jvmId}/async-profiler/status")
                             .then()
                             .extract()
                             .body()

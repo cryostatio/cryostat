@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.UUID;
 
 import io.cryostat.ConfigProperties;
 import io.cryostat.DeclarativeConfiguration;
@@ -63,7 +64,7 @@ import org.jboss.resteasy.reactive.RestPath;
 import org.jboss.resteasy.reactive.RestResponse;
 import org.jboss.resteasy.reactive.RestResponse.ResponseBuilder;
 
-@Path("/api/v4/rules")
+@Path("/api/v5/rules")
 public class Rules {
 
     @ConfigProperty(name = ConfigProperties.RULES_DIR)
@@ -117,10 +118,10 @@ public class Rules {
 
     @GET
     @PermissionsAllowed(value = "automatedrules:read", inclusive = true)
-    @Path("/{name}")
-    @Operation(summary = "Get an Automated Rule by name")
-    public Rule get(@RestPath String name) {
-        return Rule.getByName(name);
+    @Path("/{id}")
+    @Operation(summary = "Get an Automated Rule by id")
+    public Rule get(@RestPath UUID id) {
+        return Rule.find("id", id).singleResult();
     }
 
     @Transactional
@@ -140,8 +141,7 @@ public class Rules {
         if (rule == null) {
             throw new BadRequestException("POST body was null");
         }
-        boolean ruleExists = Rule.getByName(rule.name) != null;
-        if (ruleExists) {
+        if (Rule.find("name", rule.name).count() > 0) {
             throw new EntityExistsException("Rule", rule.name);
         }
         if (rule.description == null) {
@@ -150,7 +150,7 @@ public class Rules {
         rule.persist();
 
         return ResponseBuilder.<Rule>created(
-                        uriInfo.getAbsolutePathBuilder().path(Long.toString(rule.id)).build())
+                        uriInfo.getAbsolutePathBuilder().path(rule.id.toString()).build())
                 .entity(rule)
                 .build();
     }
@@ -160,7 +160,7 @@ public class Rules {
     @PermissionsAllowed(
             value = {"automatedrules:write", "matchexpressions:write"},
             inclusive = true)
-    @Path("/{name}")
+    @Path("/{id}")
     @Consumes(MediaType.APPLICATION_JSON)
     @Operation(
             summary = "Update an Automated Rule",
@@ -174,12 +174,12 @@ public class Rules {
                             mediaType = MediaType.APPLICATION_JSON,
                             schema = @Schema(implementation = RuleUpdateRequest.class)))
     public Rule update(
-            @RestPath String name,
+            @RestPath UUID id,
             @QueryParam("clean") @DefaultValue("false") boolean clean,
             JsonObject body) {
-        Rule rule = Rule.getByName(name);
+        Rule rule = Rule.find("id", id).singleResult();
         if (rule == null) {
-            throw new NotFoundException("Rule with name " + name + " not found");
+            throw new NotFoundException("Rule with id " + id + " not found");
         }
 
         if (body.containsKey("name") && !Objects.equals(body.getString("name"), rule.name)) {
@@ -268,14 +268,10 @@ public class Rules {
         }
         rule.enabled = enabled;
 
-        if (Rule.getByName(rule.name) != null) {
-            return ResponseBuilder.<Rule>create(RestResponse.Status.CONFLICT).entity(rule).build();
-        }
-
         rule.persist();
 
         return ResponseBuilder.<Rule>created(
-                        uriInfo.getAbsolutePathBuilder().path(Long.toString(rule.id)).build())
+                        uriInfo.getAbsolutePathBuilder().path(rule.id.toString()).build())
                 .entity(rule)
                 .build();
     }
@@ -285,13 +281,13 @@ public class Rules {
     @PermissionsAllowed(
             value = {"automatedrules:delete", "matchexpressions:delete"},
             inclusive = true)
-    @Path("/{name}")
-    @Operation(summary = "Delete an Automated Rule by name")
+    @Path("/{id}")
+    @Operation(summary = "Delete an Automated Rule")
     public void delete(
-            @RestPath String name, @QueryParam("clean") @DefaultValue("false") boolean clean) {
-        Rule rule = Rule.getByName(name);
+            @RestPath UUID id, @QueryParam("clean") @DefaultValue("false") boolean clean) {
+        Rule rule = Rule.find("id", id).singleResult();
         if (rule == null) {
-            throw new NotFoundException("Rule with name " + name + " not found");
+            throw new NotFoundException("Rule with id " + id + " not found");
         }
         if (clean) {
             bus.send(Rule.RULE_ADDRESS + "?clean", rule);

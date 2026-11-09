@@ -495,7 +495,7 @@ public class GraphQLTestModels {
     }
 
     public static class ActiveRecording {
-        public long id;
+        public String id;
         public long remoteId;
         public String name;
         public String reportUrl;
@@ -554,7 +554,7 @@ public class GraphQLTestModels {
             if (obj == null) return false;
             if (getClass() != obj.getClass()) return false;
             ActiveRecording other = (ActiveRecording) obj;
-            return id == other.id
+            return Objects.equals(id, other.id)
                     && remoteId == other.remoteId
                     && duration == other.duration
                     && continuous == other.continuous

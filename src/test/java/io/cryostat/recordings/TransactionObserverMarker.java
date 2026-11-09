@@ -15,10 +15,11 @@
  */
 package io.cryostat.recordings;
 
-import io.quarkus.hibernate.orm.panache.PanacheEntity;
+import io.cryostat.PanacheUuidEntity;
+
 import jakarta.persistence.Entity;
 
 @Entity
-public class TransactionObserverMarker extends PanacheEntity {
+public class TransactionObserverMarker extends PanacheUuidEntity {
     public String marker;
 }

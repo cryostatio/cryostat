@@ -16,6 +16,7 @@
 package io.cryostat.ws.notifications;
 
 import java.util.Objects;
+import java.util.UUID;
 
 import io.cryostat.core.diagnostic.HeapDumpAnalysis;
 import io.cryostat.recordings.ArchivedRecordings.ArchivedRecording;
@@ -78,7 +79,7 @@ public final class NotificationPayloads {
         }
     }
 
-    public record ThreadDumpFailurePayload(String jobId, long targetId) {
+    public record ThreadDumpFailurePayload(String jobId, UUID targetId) {
         public ThreadDumpFailurePayload {
             Objects.requireNonNull(jobId);
         }

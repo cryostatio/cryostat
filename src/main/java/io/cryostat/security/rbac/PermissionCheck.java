@@ -68,6 +68,8 @@ public class PermissionCheck {
                             "credentials:delete",
                             "credentials:read",
                             "credentials:write",
+                            "customtargets:delete",
+                            "customtargets:write",
                             "diagnostics:write",
                             "discoverynodes:delete",
                             "discoverynodes:read",

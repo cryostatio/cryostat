@@ -46,12 +46,16 @@ public abstract class AbstractJfrViewTest {
 
         given().contentType(ContentType.MULTIPART)
                 .multiPart("recording", recordingFile, "application/octet-stream")
-                .post("/api/v4/recordings");
+                .post("/api/v5/recordings/uploads")
+                .then()
+                .assertThat()
+                .statusCode(Matchers.lessThan(300));
     }
 
     @AfterEach
     void cleanupRecording() {
-        given().pathParam("filename", RECORDING_FILENAME).delete("/api/v4/recordings/{filename}");
+        given().pathParams("jvmId", "uploads", "filename", RECORDING_FILENAME)
+                .delete("/api/v5/recordings/{jvmId}/{filename}");
     }
 
     @Test

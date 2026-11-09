@@ -52,7 +52,7 @@ import org.jboss.resteasy.reactive.RestPath;
 import org.jboss.resteasy.reactive.RestQuery;
 
 @ApplicationScoped
-@Path("")
+@Path("/api/v5/targets/{jvmId}/recordings/synthesis")
 public class RecordingsSynthesis {
 
     @Inject RecordingHelper recordingHelper;
@@ -65,7 +65,6 @@ public class RecordingsSynthesis {
     @PermissionsAllowed(
             value = {"archivedrecordings:read", "archivedrecordings:write"},
             inclusive = true)
-    @Path("/api/beta/recording_synthesis/{jvmId}")
     @APIResponse(
             responseCode = "200",
             description = "OK",

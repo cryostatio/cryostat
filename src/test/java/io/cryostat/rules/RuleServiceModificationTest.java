@@ -23,6 +23,7 @@ import static org.mockito.Mockito.when;
 
 import java.util.HashMap;
 import java.util.List;
+import java.util.UUID;
 
 import io.cryostat.expressions.MatchExpression;
 import io.cryostat.expressions.MatchExpressionEvaluator;
@@ -67,7 +68,7 @@ public class RuleServiceModificationTest {
         when(evaluator.getMatchedTargets(any())).thenReturn(List.of(target));
 
         rule = new Rule();
-        rule.id = 1L;
+        rule.id = UUID.fromString("00000000-0000-0000-0000-000000000001");
         rule.name = "test_rule";
         rule.description = "";
         rule.matchExpression = new MatchExpression("true");

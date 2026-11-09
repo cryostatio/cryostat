@@ -21,6 +21,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.concurrent.CompletionException;
 import java.util.stream.Collectors;
 
@@ -261,7 +262,7 @@ public class MatchExpressionEvaluator {
      * expression-relevant fields exposed, connection URI exposed as a String, etc.
      */
     private static record SimplifiedTarget(
-            long id,
+            UUID id,
             boolean agent,
             String connectUrl,
             String alias,

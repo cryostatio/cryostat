@@ -15,9 +15,9 @@
  */
 package io.cryostat.diagnostic;
 
+import io.cryostat.PanacheUuidEntity;
 import io.cryostat.targets.Target;
 
-import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
@@ -35,7 +35,7 @@ import org.hibernate.envers.Audited;
  */
 @Audited
 @Entity
-public class GarbageCollection extends PanacheEntity {
+public class GarbageCollection extends PanacheUuidEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "target_id")
