@@ -22,6 +22,9 @@ import static org.hamcrest.Matchers.not;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import java.util.List;
 
 import io.cryostat.recordings.RecordingHelper;
 
@@ -30,6 +33,7 @@ import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.TestProfile;
 import io.restassured.http.Method;
 import org.junit.jupiter.api.Test;
+import software.amazon.awssdk.services.s3.model.S3Object;
 
 /**
  * Verifies that {@code @PermissionsAllowed} on a REST endpoint is enforced in {@code OPENSHIFT}
@@ -54,6 +58,10 @@ class RestPermissionsAllowedTest extends RbacSsarTestBase {
 
     @Test
     void endpointIsPermittedWhenSsarAllowsPermission() throws Exception {
+        // the endpoint verifies the recording exists before deleting it
+        when(recordingHelper.listArchivedRecordingObjects("uploads"))
+                .thenReturn(List.of(S3Object.builder().key("uploads/test.jfr").build()));
+
         var response = request(Method.DELETE, DELETE_PATH, ADMIN_TOKEN);
 
         assertThat(response.statusCode(), equalTo(204));
