@@ -78,7 +78,7 @@ public class UnifiedLogsGraphQLTest extends AgentTestBase {
 
     private static final String GRAPHQL_UNIFIED_LOG_CLEANUP_QUERY =
             """
-            query UnifiedLogCleanup($targetIds: [ BigInteger! ]) {
+            query UnifiedLogCleanup($targetIds: [ String! ]) {
                 targetNodes(filter: { targetIds: $targetIds }) {
                     descendantTargets {
                         target {
@@ -192,7 +192,8 @@ public class UnifiedLogsGraphQLTest extends AgentTestBase {
         JsonObject targetNode = targetNodes.getJsonObject(0);
         JsonObject targetNode_target = targetNode.getJsonObject("target");
         assertThat(
-                targetNode_target.getLong("id"), equalTo(UnifiedLogsGraphQLTest.this.target.id()));
+                targetNode_target.getString("id"),
+                equalTo(UnifiedLogsGraphQLTest.this.target.id()));
 
         JsonObject unifiedLogs = targetNode_target.getJsonObject("unifiedLogs");
         assertThat(unifiedLogs, notNullValue());
