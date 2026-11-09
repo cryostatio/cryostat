@@ -84,6 +84,13 @@ public class TargetHeapDumpEndpoint {
                     """
                     Request the remote target to perform a heap dump.
                     """)
+    @APIResponse(
+            responseCode = "200",
+            description = "Heap dump requested; the body is the job ID",
+            content =
+                    @Content(
+                            mediaType = MediaType.TEXT_PLAIN,
+                            schema = @Schema(implementation = String.class, format = "uuid")))
     public String heapDump(HttpServerResponse response, @RestPath String jvmId) {
         log.tracev("Initiating heap dump for target: {0}", jvmId);
         Target target = Target.getTargetByJvmId(jvmId).orElseThrow();

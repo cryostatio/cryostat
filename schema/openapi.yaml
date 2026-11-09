@@ -3764,8 +3764,9 @@ paths:
           content:
             text/plain:
               schema:
+                format: uuid
                 type: string
-          description: OK
+          description: Heap dump requested; the body is the job ID
         "400":
           description: Bad Request
         "401":
@@ -3935,8 +3936,9 @@ paths:
           content:
             text/plain:
               schema:
+                format: uuid
                 type: string
-          description: OK
+          description: Thread dump requested; the body is the job ID
         "400":
           description: Bad Request
         "401":
