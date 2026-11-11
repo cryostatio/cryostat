@@ -26,7 +26,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 
 import io.cryostat.AgentTestBase;
-import io.cryostat.resources.AgentApplicationResource;
+import io.cryostat.resources.AgentAsyncProfilerApplicationResource;
 import io.cryostat.resources.S3StorageResource;
 
 import io.quarkus.test.common.QuarkusTestResource;
@@ -40,7 +40,9 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 @QuarkusTest
-@QuarkusTestResource(value = AgentApplicationResource.class, restrictToAnnotatedClass = true)
+@QuarkusTestResource(
+        value = AgentAsyncProfilerApplicationResource.class,
+        restrictToAnnotatedClass = true)
 @QuarkusTestResource(value = S3StorageResource.class, restrictToAnnotatedClass = true)
 public class AgentAsyncProfilerTest extends AgentTestBase {
 

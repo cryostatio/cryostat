@@ -20,7 +20,7 @@ import static io.restassured.RestAssured.given;
 import java.util.List;
 
 import io.cryostat.AgentTestBase;
-import io.cryostat.resources.AgentExternalRecordingApplicationResource;
+import io.cryostat.resources.AgentJmcAgentApplicationResource;
 import io.cryostat.resources.S3StorageResource;
 
 import io.quarkus.test.common.QuarkusTestResource;
@@ -34,7 +34,7 @@ import org.junit.jupiter.api.Test;
 
 @QuarkusTest
 @QuarkusTestResource(
-        value = AgentExternalRecordingApplicationResource.class,
+        value = AgentJmcAgentApplicationResource.class,
         restrictToAnnotatedClass = true)
 @QuarkusTestResource(value = S3StorageResource.class, restrictToAnnotatedClass = true)
 public class JMCAgentProbesTest extends AgentTestBase {

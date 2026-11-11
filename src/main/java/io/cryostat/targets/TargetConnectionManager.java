@@ -50,6 +50,7 @@ import io.cryostat.expressions.MatchExpressionEvaluator;
 import io.cryostat.recordings.RecordingHelper.SnapshotCreationException;
 import io.cryostat.targets.Target.EventKind;
 import io.cryostat.targets.Target.TargetDiscovery;
+import io.cryostat.util.HttpStatusCodeIdentifier;
 
 import com.github.benmanes.caffeine.cache.AsyncCacheLoader;
 import com.github.benmanes.caffeine.cache.AsyncLoadingCache;
@@ -67,6 +68,7 @@ import jakarta.inject.Inject;
 import jakarta.persistence.PersistenceException;
 import jakarta.validation.ValidationException;
 import jakarta.ws.rs.WebApplicationException;
+import jakarta.ws.rs.core.Response;
 import jdk.jfr.Category;
 import jdk.jfr.Event;
 import jdk.jfr.FlightRecorder;
@@ -505,20 +507,31 @@ public class TargetConnectionManager {
     /**
      * Determine the HTTP status to report to our own client for an Agent failure. Agent 4xx
      * statuses are passed through, except 401 and 403 which indicate a problem between Cryostat and
-     * the Agent rather than with the client's request. All other Agent statuses, including every
-     * 5xx, are reported as 502 Bad Gateway.
+     * the Agent itself rather than with the client's request - these are reported as 503 Service
+     * Unavailable. Agent 5xx statuses are also reported as 503, except 501 and 504 which are passed
+     * through unchanged. 502 Bad Gateway is never produced here - it is reserved globally for JMX
+     * TLS failures (see isJmxSslFailure), since Cryostat-web interprets a bare 502 as "JMX TLS
+     * certificate is untrusted".
      */
     int agentFailureStatus(Throwable t) {
+        int genericFailure = Response.Status.SERVICE_UNAVAILABLE.getStatusCode();
         int index = ExceptionUtils.indexOfType(t, AgentApiException.class);
         if (index < 0) {
-            return 502;
+            return genericFailure;
         }
         int status =
                 ((AgentApiException) ExceptionUtils.getThrowableList(t).get(index))
                         .getResponse()
                         .getStatus();
-        boolean passThrough = status >= 400 && status < 500 && status != 401 && status != 403;
-        return passThrough ? status : 502;
+        if (status == Response.Status.UNAUTHORIZED.getStatusCode()
+                || status == Response.Status.FORBIDDEN.getStatusCode()) {
+            return genericFailure;
+        }
+        boolean passThrough =
+                HttpStatusCodeIdentifier.isClientErrorCode(status)
+                        || status == Response.Status.NOT_IMPLEMENTED.getStatusCode()
+                        || status == Response.Status.GATEWAY_TIMEOUT.getStatusCode();
+        return passThrough ? status : genericFailure;
     }
 
     /**
