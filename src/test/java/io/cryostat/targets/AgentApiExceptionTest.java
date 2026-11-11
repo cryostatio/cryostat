@@ -25,40 +25,8 @@ import org.junit.jupiter.api.Test;
 class AgentApiExceptionTest {
 
     @Test
-    void testConstructorMaps401To502() {
-        AgentApiException exc = new AgentApiException(401);
-        assertEquals(502, exc.getResponse().getStatus());
-        assertEquals("Unexpected HTTP response code 401", exc.getMessage());
-    }
-
-    @Test
-    void testConstructorWithCauseMaps401To502() {
-        Throwable cause = new RuntimeException("test cause");
-        AgentApiException exc = new AgentApiException(401, cause);
-        assertEquals(502, exc.getResponse().getStatus());
-        assertEquals("Unexpected HTTP response code 401", exc.getMessage());
-        assertSame(cause, exc.getCause());
-    }
-
-    @Test
-    void testConstructorPreserves403() {
-        AgentApiException exc = new AgentApiException(403);
-        assertEquals(403, exc.getResponse().getStatus());
-        assertEquals("Unexpected HTTP response code 403", exc.getMessage());
-    }
-
-    @Test
-    void testConstructorWithCausePreserves403() {
-        Throwable cause = new RuntimeException("test cause");
-        AgentApiException exc = new AgentApiException(403, cause);
-        assertEquals(403, exc.getResponse().getStatus());
-        assertEquals("Unexpected HTTP response code 403", exc.getMessage());
-        assertSame(cause, exc.getCause());
-    }
-
-    @Test
     void testConstructorPreservesOtherStatusCodes() {
-        for (int status : new int[] {200, 400, 404, 500, 503}) {
+        for (int status : new int[] {200, 400, 401, 403, 404, 500, 501, 502, 503, 504}) {
             AgentApiException exc = new AgentApiException(status);
             assertEquals(status, exc.getResponse().getStatus());
             assertEquals(
@@ -69,7 +37,7 @@ class AgentApiExceptionTest {
     @Test
     void testConstructorWithCausePreservesOtherStatusCodes() {
         Throwable cause = new RuntimeException("test cause");
-        for (int status : new int[] {200, 400, 404, 500, 503}) {
+        for (int status : new int[] {200, 400, 401, 403, 404, 500, 501, 502, 503, 504}) {
             AgentApiException exc = new AgentApiException(status, cause);
             assertEquals(status, exc.getResponse().getStatus());
             assertEquals(
