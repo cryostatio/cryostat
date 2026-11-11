@@ -29,6 +29,19 @@
   "git-submodules": {
       "enabled": true
   },
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Track the pinned tonistiigi/binfmt QEMU image passed to docker/setup-qemu-action, independently of the action's own pinned digest",
+      "managerFilePatterns": ["/^\\.github/workflows/.+\\.ya?ml$/"],
+      "matchStrings": [
+        "image:\\s+mirror\\.gcr\\.io/tonistiigi/binfmt:(?<currentValue>qemu-v[^@\\s]+)@(?<currentDigest>sha256:[a-f0-9]+)"
+      ],
+      "depNameTemplate": "tonistiigi/binfmt",
+      "datasourceTemplate": "docker",
+      "versioningTemplate": "regex:^qemu-v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$"
+    }
+  ],
   "packageRules": [
     {
       "description": "Dockerfile base image updates are never gated by the dependency dashboard, on any branch",
