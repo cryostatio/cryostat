@@ -16,6 +16,7 @@
 package io.cryostat.targets;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
 import java.util.concurrent.CompletionException;
 
@@ -37,26 +38,32 @@ class TargetConnectionManagerAgentFailureStatusTest {
     }
 
     @Test
-    void testUnauthorizedAndForbiddenAreMappedToBadGateway() {
-        assertEquals(502, tcm.agentFailureStatus(new AgentApiException(401)));
-        assertEquals(502, tcm.agentFailureStatus(new AgentApiException(403)));
+    void testUnauthorizedAndForbiddenAreMappedToServiceUnavailable() {
+        assertEquals(503, tcm.agentFailureStatus(new AgentApiException(401)));
+        assertEquals(503, tcm.agentFailureStatus(new AgentApiException(403)));
         assertEquals(
-                502,
+                503,
                 tcm.agentFailureStatus(
                         new AgentApiException(403, new UnsupportedOperationException("op"))));
     }
 
     @Test
-    void testServerErrorsAreMappedToBadGateway() {
-        for (int status : new int[] {500, 501, 502, 503, 504}) {
-            assertEquals(502, tcm.agentFailureStatus(new AgentApiException(status)));
+    void testServerErrorsAreMappedToServiceUnavailable() {
+        for (int status : new int[] {500, 502, 503}) {
+            assertEquals(503, tcm.agentFailureStatus(new AgentApiException(status)));
         }
     }
 
     @Test
-    void testNonErrorStatusesAreMappedToBadGateway() {
+    void testNotImplementedAndGatewayTimeoutArePassedThrough() {
+        assertEquals(501, tcm.agentFailureStatus(new AgentApiException(501)));
+        assertEquals(504, tcm.agentFailureStatus(new AgentApiException(504)));
+    }
+
+    @Test
+    void testNonErrorStatusesAreMappedToServiceUnavailable() {
         for (int status : new int[] {200, 302}) {
-            assertEquals(502, tcm.agentFailureStatus(new AgentApiException(status)));
+            assertEquals(503, tcm.agentFailureStatus(new AgentApiException(status)));
         }
     }
 
@@ -69,7 +76,14 @@ class TargetConnectionManagerAgentFailureStatusTest {
     }
 
     @Test
-    void testNoAgentFailureInChainIsMappedToBadGateway() {
-        assertEquals(502, tcm.agentFailureStatus(new RuntimeException("unrelated")));
+    void testNoAgentFailureInChainIsMappedToServiceUnavailable() {
+        assertEquals(503, tcm.agentFailureStatus(new RuntimeException("unrelated")));
+    }
+
+    @Test
+    void testBadGatewayIsNeverProducedForAgentFailures() {
+        for (int status = 400; status < 600; status++) {
+            assertNotEquals(502, tcm.agentFailureStatus(new AgentApiException(status)));
+        }
     }
 }

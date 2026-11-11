@@ -23,7 +23,7 @@ import java.util.List;
 import java.util.Map;
 
 import io.cryostat.AgentTestBase;
-import io.cryostat.resources.AgentApplicationResource;
+import io.cryostat.resources.AgentAsyncProfilerApplicationResource;
 import io.cryostat.resources.S3StorageResource;
 
 import io.quarkus.test.common.QuarkusTestResource;
@@ -40,7 +40,9 @@ import org.junit.jupiter.api.Test;
  * profile feature exercised by {@link io.cryostat.asyncprofiler.AgentAsyncProfilerTest}.
  */
 @QuarkusTest
-@QuarkusTestResource(value = AgentApplicationResource.class, restrictToAnnotatedClass = true)
+@QuarkusTestResource(
+        value = AgentAsyncProfilerApplicationResource.class,
+        restrictToAnnotatedClass = true)
 @QuarkusTestResource(value = S3StorageResource.class, restrictToAnnotatedClass = true)
 public class AgentJfrSyncRecordingTest extends AgentTestBase {
 
