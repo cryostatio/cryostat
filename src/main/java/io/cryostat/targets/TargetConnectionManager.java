@@ -50,6 +50,7 @@ import io.cryostat.expressions.MatchExpressionEvaluator;
 import io.cryostat.recordings.RecordingHelper.SnapshotCreationException;
 import io.cryostat.targets.Target.EventKind;
 import io.cryostat.targets.Target.TargetDiscovery;
+import io.cryostat.util.HttpStatusCodeIdentifier;
 
 import com.github.benmanes.caffeine.cache.AsyncCacheLoader;
 import com.github.benmanes.caffeine.cache.AsyncLoadingCache;
@@ -67,6 +68,7 @@ import jakarta.inject.Inject;
 import jakarta.persistence.PersistenceException;
 import jakarta.validation.ValidationException;
 import jakarta.ws.rs.WebApplicationException;
+import jakarta.ws.rs.core.Response;
 import jdk.jfr.Category;
 import jdk.jfr.Event;
 import jdk.jfr.FlightRecorder;
@@ -512,19 +514,24 @@ public class TargetConnectionManager {
      * certificate is untrusted".
      */
     int agentFailureStatus(Throwable t) {
+        int genericFailure = Response.Status.SERVICE_UNAVAILABLE.getStatusCode();
         int index = ExceptionUtils.indexOfType(t, AgentApiException.class);
         if (index < 0) {
-            return 503;
+            return genericFailure;
         }
         int status =
                 ((AgentApiException) ExceptionUtils.getThrowableList(t).get(index))
                         .getResponse()
                         .getStatus();
-        if (status == 401 || status == 403) {
-            return 503;
+        if (status == Response.Status.UNAUTHORIZED.getStatusCode()
+                || status == Response.Status.FORBIDDEN.getStatusCode()) {
+            return genericFailure;
         }
-        boolean passThrough = (status >= 400 && status < 500) || status == 501 || status == 504;
-        return passThrough ? status : 503;
+        boolean passThrough =
+                HttpStatusCodeIdentifier.isClientErrorCode(status)
+                        || status == Response.Status.NOT_IMPLEMENTED.getStatusCode()
+                        || status == Response.Status.GATEWAY_TIMEOUT.getStatusCode();
+        return passThrough ? status : genericFailure;
     }
 
     /**
