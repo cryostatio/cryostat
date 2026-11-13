@@ -33,6 +33,12 @@ public class ConfigProperties {
             "storage.metadata.thread-dumps.storage-mode";
     public static final String STORAGE_METADATA_UNIFIED_LOGS_STORAGE_MODE =
             "storage.metadata.unified-logs.storage-mode";
+
+    public static final String STORAGE_BUCKETS_AVAILABILITY_CHECK_PERIOD =
+            "storage.buckets.availability.check.period";
+    public static final String STORAGE_BUCKETS_AVAILABILITY_CHECK_TIMEOUT =
+            "storage.buckets.availability.check.timeout";
+
     public static final String AWS_BUCKET_NAME_ARCHIVES = "storage.buckets.archives.name";
     public static final String AWS_BUCKET_NAME_METADATA = "storage.buckets.metadata.name";
     public static final String AWS_BUCKET_NAME_EVENT_TEMPLATES =

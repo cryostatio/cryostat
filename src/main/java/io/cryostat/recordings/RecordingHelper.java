@@ -226,8 +226,6 @@ public class RecordingHelper {
     CompletableFuture<URL> grafanaDatasourceURL = new CompletableFuture<>();
 
     void onStart(@Observes StartupEvent evt) {
-        buckets.createIfNecessary(archiveBucket);
-
         if (grafanaDatasourceURLProperty.isEmpty()) {
             grafanaDatasourceURL.completeExceptionally(
                     new HttpException(

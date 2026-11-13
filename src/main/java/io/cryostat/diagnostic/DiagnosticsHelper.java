@@ -154,14 +154,6 @@ public class DiagnosticsHelper {
 
     void onStart(@Observes StartupEvent evt) {
         uploadExecutor = Executors.newVirtualThreadPerTaskExecutor();
-        log.tracev("Creating heap dump bucket: {0}", heapDumpBucket);
-        buckets.createIfNecessary(heapDumpBucket);
-        log.tracev("Creating thread dump bucket: {0}", threadDumpBucket);
-        buckets.createIfNecessary(threadDumpBucket);
-        log.tracev("Creating heap dump report bucket: {0}", heapDumpReportBucket);
-        buckets.createIfNecessary(heapDumpReportBucket);
-        log.tracev("Creating unified log bucket: {0}", unifiedLogBucket);
-        buckets.createIfNecessary(unifiedLogBucket);
     }
 
     @ConsumeEvent(value = Target.TARGET_JVM_DISCOVERY, blocking = true)
