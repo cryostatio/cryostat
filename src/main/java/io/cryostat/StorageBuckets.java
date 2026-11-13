@@ -48,10 +48,10 @@ public class StorageBuckets {
     @Inject S3Client storage;
     @Inject Logger logger;
 
-    @ConfigProperty(name = "storage.buckets.attempt-create", defaultValue = "true")
+    @ConfigProperty(name = ConfigProperties.STORAGE_BUCKETS_CREATION_ENABLED)
     boolean enabled;
 
-    @ConfigProperty(name = "storage.buckets.creation-retry.period")
+    @ConfigProperty(name = ConfigProperties.STORAGE_BUCKETS_CREATION_RETRY_PERIOD)
     Duration creationRetryPeriod;
 
     private final BlockingQueue<String> buckets = new ArrayBlockingQueue<>(16);
