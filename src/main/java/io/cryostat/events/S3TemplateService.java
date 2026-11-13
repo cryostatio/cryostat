@@ -127,7 +127,7 @@ public class S3TemplateService implements MutableTemplateService {
 
     void onStart(@Observes StartupEvent evt) {
         storageBuckets
-                .createIfNecessary(bucket)
+                .waitForAvailability(bucket)
                 .thenRunAsync(
                         () -> {
                             try {

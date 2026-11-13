@@ -80,7 +80,6 @@ class BucketedEventTemplateMetadataService implements CRUDService<String, Templa
         if (!ArchivedRecordingMetadataService.METADATA_STORAGE_MODE_BUCKET.equals(storageMode)) {
             return;
         }
-        buckets.createIfNecessary(bucket);
     }
 
     @Override

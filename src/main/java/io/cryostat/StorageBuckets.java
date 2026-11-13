@@ -16,26 +16,20 @@
 package io.cryostat;
 
 import java.time.Duration;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.BlockingQueue;
+import java.time.Instant;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 
 import io.cryostat.util.HttpStatusCodeIdentifier;
 
 import io.quarkus.runtime.ShutdownEvent;
-import io.quarkus.runtime.StartupEvent;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 import software.amazon.awssdk.services.s3.S3Client;
-import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
 import software.amazon.awssdk.services.s3.model.HeadBucketRequest;
 
 /**
@@ -48,39 +42,37 @@ public class StorageBuckets {
     @Inject S3Client storage;
     @Inject Logger logger;
 
-    @ConfigProperty(name = ConfigProperties.STORAGE_BUCKETS_CREATION_ENABLED)
-    boolean enabled;
+    @ConfigProperty(name = ConfigProperties.STORAGE_BUCKETS_AVAILABILITY_CHECK_PERIOD)
+    Duration checkPeriod;
 
-    @ConfigProperty(name = ConfigProperties.STORAGE_BUCKETS_CREATION_RETRY_PERIOD)
-    Duration creationRetryPeriod;
+    @ConfigProperty(name = ConfigProperties.STORAGE_BUCKETS_AVAILABILITY_CHECK_TIMEOUT)
+    Duration checkTimeout;
 
-    private final BlockingQueue<String> buckets = new ArrayBlockingQueue<>(16);
-    private final ConcurrentHashMap<String, CompletableFuture<Void>> locks =
-            new ConcurrentHashMap<>();
-    private final ScheduledExecutorService q = Executors.newScheduledThreadPool(2);
-    private final ExecutorService pool = Executors.newCachedThreadPool();
-    private volatile boolean shutdown = false;
+    private final ExecutorService pool = Executors.newVirtualThreadPerTaskExecutor();
 
-    public CompletableFuture<Void> createIfNecessary(String bucket) {
-        if (!enabled) {
-            return CompletableFuture.completedFuture(null);
-        }
-        if (buckets.contains(bucket)) {
-            logger.debugv("Bucket \"{0}\" already queued, skipping");
-            return CompletableFuture.completedFuture(null);
-        }
-        var cf = locks.computeIfAbsent(bucket, k -> new CompletableFuture<Void>());
-        logger.debugv("Queueing bucket check/creation: \"{0}\"", bucket);
-        buckets.add(bucket);
+    public CompletableFuture<Boolean> waitForAvailability(String bucket) {
+        var cf = new CompletableFuture<Boolean>();
+        pool.submit(
+                () -> {
+                    Instant deadline = Instant.now().plus(checkTimeout);
+                    while (Instant.now().isBefore(deadline)) {
+                        try {
+                            if (exists(bucket)) {
+                                cf.complete(true);
+                                return;
+                            }
+                            Thread.sleep(checkPeriod.toMillis());
+                        } catch (Exception e) {
+                            cf.completeExceptionally(e);
+                            return;
+                        }
+                    }
+                    cf.complete(false);
+                });
         return cf;
     }
 
-    private void tryCreate(String bucket) {
-        var cf = locks.get(bucket);
-        if (cf == null) {
-            throw new IllegalStateException();
-        }
-        logger.debugv("Checking if storage bucket \"{0}\" exists ...", bucket);
+    private boolean exists(String bucket) {
         boolean exists = false;
         try {
             exists =
@@ -92,41 +84,10 @@ public class StorageBuckets {
             exists = false;
         }
         logger.debugv("Storage bucket \"{0}\" exists? {1}", bucket, exists);
-        try {
-            if (!exists) {
-                logger.debugv("Attempting to create storage bucket \"{0}\" ...", bucket);
-                storage.createBucket(CreateBucketRequest.builder().bucket(bucket).build());
-                logger.debugv("Storage bucket \"{0}\" created", bucket);
-            }
-            cf.complete(null);
-        } catch (Exception e) {
-            logger.errorv(e, "Failed to create bucket \"{0}\"", bucket);
-            q.schedule(
-                    () -> buckets.add(bucket),
-                    creationRetryPeriod.toMillis(),
-                    TimeUnit.MILLISECONDS);
-        }
-    }
-
-    void onStart(@Observes StartupEvent evt) {
-        q.submit(
-                () -> {
-                    while (!shutdown) {
-                        try {
-                            String bucket = buckets.take();
-                            pool.execute(() -> tryCreate(bucket));
-                        } catch (InterruptedException e) {
-                            break;
-                        }
-                    }
-                });
+        return exists;
     }
 
     void onStop(@Observes ShutdownEvent evt) {
-        shutdown = true;
-        q.shutdownNow();
-        locks.values().forEach(cf -> cf.complete(null));
-        locks.clear();
-        buckets.clear();
+        pool.shutdownNow();
     }
 }

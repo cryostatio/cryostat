@@ -78,7 +78,7 @@ public class S3ProbeTemplateService implements ProbeTemplateService {
 
     void onStart(@Observes StartupEvent evt) {
         storageBuckets
-                .createIfNecessary(bucket)
+                .waitForAvailability(bucket)
                 .thenRunAsync(
                         () -> {
                             try {
