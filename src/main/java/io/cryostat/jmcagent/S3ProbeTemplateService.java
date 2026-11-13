@@ -81,7 +81,7 @@ public class S3ProbeTemplateService implements ProbeTemplateService {
                 .waitForAvailability(bucket)
                 .whenCompleteAsync(
                         (created, t) -> {
-                            if (!created || t != null) {
+                            if (!Boolean.TRUE.equals(created) || t != null) {
                                 logger.warnv(
                                         t,
                                         "Storage bucket {0} did not become available for"
