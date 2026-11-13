@@ -127,9 +127,17 @@ public class S3TemplateService implements MutableTemplateService {
 
     void onStart(@Observes StartupEvent evt) {
         storageBuckets
-                .createIfNecessary(bucket)
-                .thenRunAsync(
-                        () -> {
+                .waitForAvailability(bucket)
+                .whenCompleteAsync(
+                        (created, t) -> {
+                            if (!Boolean.TRUE.equals(created) || t != null) {
+                                logger.warnv(
+                                        t,
+                                        "Storage bucket {0} did not become available for"
+                                                + " declarative event template upload",
+                                        bucket);
+                                return;
+                            }
                             try {
                                 declarativeConfiguration
                                         .walk(dir)

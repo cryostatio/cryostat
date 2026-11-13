@@ -38,14 +38,12 @@ import io.cryostat.recordings.RecordingHelper;
 import io.cryostat.security.rbac.UserAuthorizer;
 import io.cryostat.targets.Target;
 
-import io.quarkus.runtime.StartupEvent;
 import io.quarkus.security.PermissionsAllowed;
 import io.smallrye.common.annotation.Blocking;
 import io.smallrye.mutiny.Uni;
 import io.smallrye.mutiny.infrastructure.Infrastructure;
 import io.vertx.core.http.HttpServerResponse;
 import io.vertx.mutiny.core.eventbus.EventBus;
-import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import jakarta.validation.constraints.NotNull;
@@ -75,9 +73,6 @@ public class Reports {
     private static final String TARGET_ANALYSIS_LABEL_KEY = "source";
     private static final String TARGET_ANALYSIS_LABEL_VALUE = "target-analysis";
 
-    @ConfigProperty(name = ConfigProperties.REPORTS_STORAGE_CACHE_ENABLED)
-    boolean storageCacheEnabled;
-
     @ConfigProperty(name = ConfigProperties.CONNECTIONS_FAILED_TIMEOUT)
     Duration connectionFailedTimeout;
 
@@ -92,14 +87,6 @@ public class Reports {
     @Inject EventBus bus;
     @Inject UserAuthorizer userAuthorizer;
     @Inject Logger logger;
-
-    // FIXME this observer cannot be declared on the StorageCachingReportsService decorator.
-    // Refactor to put this somewhere more sensible
-    void onStart(@Observes StartupEvent evt) {
-        if (storageCacheEnabled) {
-            storageBuckets.createIfNecessary(bucket);
-        }
-    }
 
     @GET
     @Blocking

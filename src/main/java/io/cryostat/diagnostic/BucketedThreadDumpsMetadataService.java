@@ -76,7 +76,6 @@ class BucketedThreadDumpsMetadataService implements ThreadDumpsMetadataService {
         if (!METADATA_STORAGE_MODE_BUCKET.equals(storageMode)) {
             return;
         }
-        storageBuckets.createIfNecessary(bucket);
     }
 
     @Override
