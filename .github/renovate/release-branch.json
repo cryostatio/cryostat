@@ -1,0 +1,39 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": "Presets for repos that maintain cryostat-v* release branches. 'lockdown' disables all updates on release branches; call it first in extends. The default preset, release-branch.json(managerName), re-enables patch/pin/pinDigest updates for that manager on the current release branch. Update the matchBaseBranches value here whenever the active release branch changes.",
+  "lockdown": {
+    "packageRules": [
+      {
+        "description": "Disable all dependency updates on release branches by default; other updates there are handled via Mergify backport",
+        "matchBaseBranches": ["/^cryostat-v.*/"],
+        "enabled": false
+      }
+    ]
+  },
+  "default": {
+    "packageRules": [
+      {
+        "description": "Enable {{arg0}} updates on the current release branch so Renovate can classify update types",
+        "matchManagers": ["{{arg0}}"],
+        "matchBaseBranches": ["cryostat-v4.3"],
+        "enabled": true,
+        "dependencyDashboardApproval": false
+      },
+      {
+        "description": "Restrict {{arg0}} updates on the current release branch to patch, pin, and pinDigest",
+        "matchManagers": ["{{arg0}}"],
+        "matchBaseBranches": ["cryostat-v4.3"],
+        "matchUpdateTypes": [
+          "major",
+          "minor",
+          "digest",
+          "lockFileMaintenance",
+          "rollback",
+          "bump",
+          "replacement"
+        ],
+        "enabled": false
+      }
+    ]
+  }
+}
