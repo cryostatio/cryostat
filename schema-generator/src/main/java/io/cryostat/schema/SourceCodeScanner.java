@@ -47,21 +47,17 @@ public class SourceCodeScanner {
     public List<NotificationSite> scan(Path sourceDir) throws IOException {
         List<NotificationSite> sites = new ArrayList<>();
 
+        List<Path> javaFiles;
         try (Stream<Path> paths = Files.walk(sourceDir)) {
-            paths.filter(Files::isRegularFile)
-                    .filter(p -> p.toString().endsWith(".java"))
-                    .forEach(
-                            javaFile -> {
-                                try {
-                                    sites.addAll(scanFile(javaFile));
-                                } catch (IOException e) {
-                                    System.err.println(
-                                            "Error scanning file "
-                                                    + javaFile
-                                                    + ": "
-                                                    + e.getMessage());
-                                }
-                            });
+            javaFiles =
+                    paths.filter(Files::isRegularFile)
+                            .filter(p -> p.toString().endsWith(".java"))
+                            .sorted()
+                            .toList();
+        }
+
+        for (Path javaFile : javaFiles) {
+            sites.addAll(scanFile(javaFile));
         }
 
         return sites;

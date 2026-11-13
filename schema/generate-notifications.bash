@@ -31,4 +31,4 @@ echo "Generating notifications schema..."
 java -jar schema-generator/target/notification-schema-generator.jar \
     src/main/java \
     "${DIR}/notifications.yaml" \
-    "${CRYOSTAT_VERSION}" || true
+    "${CRYOSTAT_VERSION}"
