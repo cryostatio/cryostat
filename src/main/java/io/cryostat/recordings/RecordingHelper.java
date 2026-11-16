@@ -1507,7 +1507,7 @@ public class RecordingHelper {
                                 recording.setMetadata(updatedMetadata);
                                 recording.persist();
 
-                                metadataUpdatedEvent.fireAsync(
+                                metadataUpdatedEvent.fire(
                                         new ActiveRecordingEvents.ActiveRecordingMetadataUpdated(
                                                 recording.id.longValue(),
                                                 new ActiveRecordingEvents.ActiveRecordingSnapshot(
