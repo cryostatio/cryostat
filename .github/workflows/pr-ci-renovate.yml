@@ -11,13 +11,21 @@ jobs:
 
   renovate-config-validator:
     runs-on: ubuntu-latest
+    env:
+      # Pin the validator: Renovate tightens config validation between releases, so a
+      # floating version can redden this job on an unrelated PR. A customManager in
+      # .github/renovate.json tracks this value, so Renovate raises its own PR to bump it
+      # and any new validation errors surface there instead of on someone else's change.
+      # Deliberately not named RENOVATE_*, since the validator reads that prefix as
+      # self-hosted global config.
+      VALIDATOR_VERSION: 44.252.4
     steps:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
         repository: ${{ github.event.pull_request.head.repo.full_name }}
         ref: ${{ github.event.pull_request.head.ref }}
     - name: Validate repository config
-      run: npx --yes --package renovate -- renovate-config-validator --no-global .github/renovate.json
+      run: npx --yes --package "renovate@$VALIDATOR_VERSION" -- renovate-config-validator --no-global .github/renovate.json
     # renovate-config-validator can only validate a named file as a repo config, and a
     # repo config using matchBaseBranches must also declare baseBranchPatterns. The
     # release-branch presets deliberately omit it, inheriting it from the extending
@@ -47,4 +55,4 @@ jobs:
               '. + {baseBranchPatterns: $patterns}' \
             > "$staged/$(basename "$preset")"
         done
-        npx --yes --package renovate -- renovate-config-validator --no-global "$staged"/*.json
+        npx --yes --package "renovate@$VALIDATOR_VERSION" -- renovate-config-validator --no-global "$staged"/*.json
