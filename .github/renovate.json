@@ -10,8 +10,8 @@
     ":separateMajorReleases",
     ":separateMultipleMinorReleases",
     ":separatePatchReleases",
-    "local>cryostatio/cryostat//.github/renovate/release-branch:lockdown",
-    "local>cryostatio/cryostat//.github/renovate/release-branch:default(maven)"
+    "local>cryostatio/cryostat//.github/renovate/release-branch/lockdown",
+    "local>cryostatio/cryostat//.github/renovate/release-branch/default(maven)"
   ],
   "baseBranchPatterns": ["main", "/^cryostat-v.*/"],
   "reviewersFromCodeOwners": true,
