@@ -9,7 +9,9 @@
     ":docker",
     ":separateMajorReleases",
     ":separateMultipleMinorReleases",
-    ":separatePatchReleases"
+    ":separatePatchReleases",
+    "local>cryostatio/cryostat:.github/renovate/release-branch/lockdown",
+    "local>cryostatio/cryostat:.github/renovate/release-branch/default(maven)"
   ],
   "baseBranchPatterns": ["main", "/^cryostat-v.*/"],
   "reviewersFromCodeOwners": true,
@@ -47,11 +49,6 @@
       "description": "Dockerfile base image updates are never gated by the dependency dashboard, on any branch",
       "matchManagers": ["dockerfile"],
       "dependencyDashboardApproval": false
-    },
-    {
-      "description": "Disable all dependency updates on release branches except the cryostat-web submodule and Dockerfile base images; other updates there are handled via Mergify backport",
-      "matchBaseBranches": ["/^cryostat-v.*/"],
-      "enabled": false
     },
     {
       "description": "Allow the cryostat-web submodule to update on release branches, tracking the matching cryostat-web release branch",
