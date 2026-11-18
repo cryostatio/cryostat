@@ -24,6 +24,10 @@ jobs:
     # repository config, so copy it in from .github/renovate.json before validating them.
     # Fail rather than stage a preset that sets its own baseBranchPatterns, since the
     # copied-in value would silently replace it and validate something we do not ship.
+    # The {{arg0}} parameter placeholder is likewise not substituted by the validator and
+    # is rejected as an unknown manager name, so stand in a real manager for it. Which
+    # manager does not matter here: callers supply the real one via default(<manager>),
+    # and this job is only checking that the surrounding preset structure is valid.
     - name: Validate release-branch presets
       run: |
         set -euo pipefail
@@ -38,8 +42,9 @@ jobs:
             echo "::error file=$preset::preset declares its own baseBranchPatterns, which this job would overwrite with the value from .github/renovate.json; validate it another way" >&2
             exit 1
           fi
-          jq --argjson patterns "$patterns" \
-            '. + {baseBranchPatterns: $patterns}' \
-            "$preset" > "$staged/$(basename "$preset")"
+          sed 's/{{arg0}}/maven/g' "$preset" \
+            | jq --argjson patterns "$patterns" \
+              '. + {baseBranchPatterns: $patterns}' \
+            > "$staged/$(basename "$preset")"
         done
         npx --yes --package renovate -- renovate-config-validator --no-global "$staged"/*.json
