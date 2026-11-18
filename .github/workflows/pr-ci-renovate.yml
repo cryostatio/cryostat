@@ -16,4 +16,30 @@ jobs:
       with:
         repository: ${{ github.event.pull_request.head.repo.full_name }}
         ref: ${{ github.event.pull_request.head.ref }}
-    - run: npx --yes --package renovate -- renovate-config-validator
+    - name: Validate repository config
+      run: npx --yes --package renovate -- renovate-config-validator --no-global .github/renovate.json
+    # renovate-config-validator can only validate a named file as a repo config, and a
+    # repo config using matchBaseBranches must also declare baseBranchPatterns. The
+    # release-branch presets deliberately omit it, inheriting it from the extending
+    # repository config, so copy it in from .github/renovate.json before validating them.
+    # Fail rather than stage a preset that sets its own baseBranchPatterns, since the
+    # copied-in value would silently replace it and validate something we do not ship.
+    - name: Validate release-branch presets
+      run: |
+        set -euo pipefail
+        staged="$(mktemp -d)"
+        patterns="$(jq -c '.baseBranchPatterns' .github/renovate.json)"
+        if [ "$patterns" = "null" ]; then
+          echo "::error file=.github/renovate.json::baseBranchPatterns is missing, so the release-branch presets cannot be staged for validation" >&2
+          exit 1
+        fi
+        for preset in .github/renovate/release-branch/*.json; do
+          if jq -e 'has("baseBranchPatterns")' "$preset" >/dev/null; then
+            echo "::error file=$preset::preset declares its own baseBranchPatterns, which this job would overwrite with the value from .github/renovate.json; validate it another way" >&2
+            exit 1
+          fi
+          jq --argjson patterns "$patterns" \
+            '. + {baseBranchPatterns: $patterns}' \
+            "$preset" > "$staged/$(basename "$preset")"
+        done
+        npx --yes --package renovate -- renovate-config-validator --no-global "$staged"/*.json
