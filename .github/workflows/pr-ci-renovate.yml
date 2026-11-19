@@ -1,0 +1,58 @@
+name: CI renovate config
+
+on:
+  pull_request:
+    paths:
+    - '.github/renovate.json'
+    - '.github/renovate/**'
+    - '.github/workflows/pr-ci-renovate.yml'
+
+jobs:
+
+  renovate-config-validator:
+    runs-on: ubuntu-latest
+    env:
+      # Pin the validator: Renovate tightens config validation between releases, so a
+      # floating version can redden this job on an unrelated PR. A customManager in
+      # .github/renovate.json tracks this value, so Renovate raises its own PR to bump it
+      # and any new validation errors surface there instead of on someone else's change.
+      # Deliberately not named RENOVATE_*, since the validator reads that prefix as
+      # self-hosted global config.
+      VALIDATOR_VERSION: 44.252.4
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        repository: ${{ github.event.pull_request.head.repo.full_name }}
+        ref: ${{ github.event.pull_request.head.ref }}
+    - name: Validate repository config
+      run: npx --yes --package "renovate@$VALIDATOR_VERSION" -- renovate-config-validator --no-global .github/renovate.json
+    # renovate-config-validator can only validate a named file as a repo config, and a
+    # repo config using matchBaseBranches must also declare baseBranchPatterns. The
+    # release-branch presets deliberately omit it, inheriting it from the extending
+    # repository config, so copy it in from .github/renovate.json before validating them.
+    # Fail rather than stage a preset that sets its own baseBranchPatterns, since the
+    # copied-in value would silently replace it and validate something we do not ship.
+    # The {{arg0}} parameter placeholder is likewise not substituted by the validator and
+    # is rejected as an unknown manager name, so stand in a real manager for it. Which
+    # manager does not matter here: callers supply the real one via default(<manager>),
+    # and this job is only checking that the surrounding preset structure is valid.
+    - name: Validate release-branch presets
+      run: |
+        set -euo pipefail
+        staged="$(mktemp -d)"
+        patterns="$(jq -c '.baseBranchPatterns' .github/renovate.json)"
+        if [ "$patterns" = "null" ]; then
+          echo "::error file=.github/renovate.json::baseBranchPatterns is missing, so the release-branch presets cannot be staged for validation" >&2
+          exit 1
+        fi
+        for preset in .github/renovate/release-branch/*.json; do
+          if jq -e 'has("baseBranchPatterns")' "$preset" >/dev/null; then
+            echo "::error file=$preset::preset declares its own baseBranchPatterns, which this job would overwrite with the value from .github/renovate.json; validate it another way" >&2
+            exit 1
+          fi
+          sed 's/{{arg0}}/maven/g' "$preset" \
+            | jq --argjson patterns "$patterns" \
+              '. + {baseBranchPatterns: $patterns}' \
+            > "$staged/$(basename "$preset")"
+        done
+        npx --yes --package "renovate@$VALIDATOR_VERSION" -- renovate-config-validator --no-global "$staged"/*.json

@@ -1,0 +1,11 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": "Disables all dependency updates on cryostat-v* release branches. Extend this first, then extend the sibling 'default' preset once per manager that should be re-enabled on the current release branch.",
+  "packageRules": [
+    {
+      "description": "Disable all dependency updates on release branches by default; other updates there are handled via Mergify backport",
+      "matchBaseBranches": ["/^cryostat-v.*/"],
+      "enabled": false
+    }
+  ]
+}

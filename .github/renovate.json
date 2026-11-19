@@ -10,8 +10,8 @@
     ":separateMajorReleases",
     ":separateMultipleMinorReleases",
     ":separatePatchReleases",
-    "local>cryostatio/cryostat//.github/renovate/release-branch:lockdown",
-    "local>cryostatio/cryostat//.github/renovate/release-branch:default(maven)"
+    "local>cryostatio/cryostat//.github/renovate/release-branch/lockdown",
+    "local>cryostatio/cryostat//.github/renovate/release-branch/default(maven)"
   ],
   "baseBranchPatterns": ["main", "/^cryostat-v.*/"],
   "reviewersFromCodeOwners": true,
@@ -32,6 +32,16 @@
       "enabled": true
   },
   "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Track the VALIDATOR_VERSION pin that the config validator workflow passes to npx, so Renovate raises a PR to bump its own validator",
+      "managerFilePatterns": ["/^\\.github/workflows/.+\\.ya?ml$/"],
+      "matchStrings": [
+        "VALIDATOR_VERSION:\\s*(?<currentValue>\\S+)"
+      ],
+      "depNameTemplate": "renovate",
+      "datasourceTemplate": "npm"
+    },
     {
       "customType": "regex",
       "description": "Track the pinned tonistiigi/binfmt QEMU image passed to docker/setup-qemu-action, independently of the action's own pinned digest",
