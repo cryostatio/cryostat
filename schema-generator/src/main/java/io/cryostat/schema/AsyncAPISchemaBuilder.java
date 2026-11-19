@@ -15,6 +15,7 @@
  */
 package io.cryostat.schema;
 
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -133,7 +134,15 @@ public class AsyncAPISchemaBuilder {
 
         sitesByCategory.forEach(
                 (category, sites) -> {
-                    messages.put(category, buildMessage(category, sites.get(0)));
+                    List<NotificationSite> orderedSites =
+                            sites.stream()
+                                    .sorted(
+                                            Comparator.comparing(NotificationSite::getSourceFile)
+                                                    .thenComparingInt(
+                                                            NotificationSite::getLineNumber))
+                                    .toList();
+                    messages.put(
+                            category, buildMessage(category, mergePayloadSchemas(orderedSites)));
                 });
 
         components.put("messages", messages);
@@ -145,7 +154,65 @@ public class AsyncAPISchemaBuilder {
         return components;
     }
 
-    private Map<String, Object> buildMessage(String category, NotificationSite site) {
+    /**
+     * Merge the payload schemas of every notification site in a category into a single schema
+     * representing the union of all observed shapes. Different publish call sites for the same
+     * category can produce differently-shaped payloads (e.g. one site's resolvable context includes
+     * a field another's doesn't), so their properties are merged by union.
+     */
+    private Map<String, Object> mergePayloadSchemas(List<NotificationSite> sites) {
+        Map<String, Object> merged = null;
+        for (NotificationSite site : sites) {
+            Map<String, Object> schema = site.getPayloadSchema();
+            if (schema == null || schema.isEmpty()) {
+                continue;
+            }
+            merged = merged == null ? schema : mergeSchema(merged, schema);
+        }
+        return merged;
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> mergeSchema(Map<String, Object> a, Map<String, Object> b) {
+        Map<String, Object> result = new LinkedHashMap<>(a);
+
+        if (!result.containsKey("type") && b.containsKey("type")) {
+            result.put("type", b.get("type"));
+        }
+        if (!result.containsKey("description") && b.containsKey("description")) {
+            result.put("description", b.get("description"));
+        }
+
+        Object aProperties = a.get("properties");
+        Object bProperties = b.get("properties");
+        if (aProperties instanceof Map || bProperties instanceof Map) {
+            Map<String, Object> mergedProperties = new LinkedHashMap<>();
+            if (aProperties instanceof Map) {
+                mergedProperties.putAll((Map<String, Object>) aProperties);
+            }
+            if (bProperties instanceof Map) {
+                ((Map<String, Object>) bProperties)
+                        .forEach(
+                                (propName, propSchema) -> {
+                                    Object existing = mergedProperties.get(propName);
+                                    if (existing instanceof Map && propSchema instanceof Map) {
+                                        mergedProperties.put(
+                                                propName,
+                                                mergeSchema(
+                                                        (Map<String, Object>) existing,
+                                                        (Map<String, Object>) propSchema));
+                                    } else if (existing == null) {
+                                        mergedProperties.put(propName, propSchema);
+                                    }
+                                });
+            }
+            result.put("properties", mergedProperties);
+        }
+
+        return result;
+    }
+
+    private Map<String, Object> buildMessage(String category, Map<String, Object> messagePayload) {
         Map<String, Object> message = new LinkedHashMap<>();
 
         message.put("name", category);
@@ -173,7 +240,6 @@ public class AsyncAPISchemaBuilder {
         meta.put("required", List.of("category"));
         properties.put("meta", meta);
 
-        Map<String, Object> messagePayload = site.getPayloadSchema();
         if (messagePayload != null && !messagePayload.isEmpty()) {
             properties.put("message", messagePayload);
         } else {
