@@ -18,7 +18,7 @@ jobs:
       # and any new validation errors surface there instead of on someone else's change.
       # Deliberately not named RENOVATE_*, since the validator reads that prefix as
       # self-hosted global config.
-      VALIDATOR_VERSION: 44.252.4
+      VALIDATOR_VERSION: 44.252.9
     steps:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
