@@ -27,6 +27,7 @@ import io.cryostat.ConfigProperties;
 import io.cryostat.DeclarativeConfiguration;
 import io.cryostat.expressions.MatchExpression;
 import io.cryostat.recordings.ActiveRecordings.Metadata;
+import io.cryostat.security.rbac.UserAuthorizer;
 import io.cryostat.util.EntityExistsException;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -72,6 +73,7 @@ public class Rules {
     @Inject DeclarativeConfiguration declarativeConfiguration;
     @Inject EventBus bus;
     @Inject ObjectMapper mapper;
+    @Inject UserAuthorizer userAuthorizer;
     @Inject Logger logger;
 
     @Transactional
@@ -143,6 +145,9 @@ public class Rules {
         boolean ruleExists = Rule.getByName(rule.name) != null;
         if (ruleExists) {
             throw new EntityExistsException("Rule", rule.name);
+        }
+        if (rule.preservedArchives > 0) {
+            userAuthorizer.assertAuthorized("archivedrecordings", "delete");
         }
         if (rule.description == null) {
             rule.description = "";
@@ -226,6 +231,10 @@ public class Rules {
             rule.metadata = body.getJsonObject("metadata").mapTo(Metadata.class);
         }
 
+        if (rule.preservedArchives > 0) {
+            userAuthorizer.assertAuthorized("archivedrecordings", "delete");
+        }
+
         rule.persist();
 
         return rule;
@@ -270,6 +279,9 @@ public class Rules {
 
         if (Rule.getByName(rule.name) != null) {
             return ResponseBuilder.<Rule>create(RestResponse.Status.CONFLICT).entity(rule).build();
+        }
+        if (rule.preservedArchives > 0) {
+            userAuthorizer.assertAuthorized("archivedrecordings", "delete");
         }
 
         rule.persist();
