@@ -257,7 +257,7 @@ public class Diagnostics {
     @Transactional
     @Path("targets/{jvmId}/threaddump/{threadDumpId}/analyze")
     @PermissionsAllowed(
-            value = {"targets:read", "threaddumps:write"},
+            value = {"targets:read", "threaddumps:read"},
             inclusive = true)
     public ThreadDumpAnalysis analyzeThreadDump(
             @RestPath String jvmId, @RestPath String threadDumpId) throws IOException {
