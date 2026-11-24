@@ -27,6 +27,7 @@ import io.cryostat.ConfigProperties;
 import io.cryostat.DeclarativeConfiguration;
 import io.cryostat.expressions.MatchExpression;
 import io.cryostat.recordings.ActiveRecordings.Metadata;
+import io.cryostat.security.rbac.UserAuthorizer;
 import io.cryostat.util.EntityExistsException;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -72,6 +73,7 @@ public class Rules {
     @Inject DeclarativeConfiguration declarativeConfiguration;
     @Inject EventBus bus;
     @Inject ObjectMapper mapper;
+    @Inject UserAuthorizer userAuthorizer;
     @Inject Logger logger;
 
     @Transactional
@@ -144,6 +146,9 @@ public class Rules {
         if (ruleExists) {
             throw new EntityExistsException("Rule", rule.name);
         }
+        if (rule.preservedArchives > 0) {
+            userAuthorizer.assertAuthorized("archivedrecordings", "delete");
+        }
         if (rule.description == null) {
             rule.description = "";
         }
@@ -186,6 +191,13 @@ public class Rules {
             throw new BadRequestException("Rule name cannot be updated");
         }
 
+        if (body.containsKey("preservedArchives")) {
+            rule.preservedArchives = body.getInteger("preservedArchives");
+        }
+        if (rule.preservedArchives > 0) {
+            userAuthorizer.assertAuthorized("archivedrecordings", "delete");
+        }
+
         // order matters here, we want to clean before we disable
         if (body.containsKey("enabled") && !body.getBoolean("enabled") && clean) {
             bus.send(Rule.RULE_ADDRESS + "?clean", rule);
@@ -212,9 +224,6 @@ public class Rules {
         }
         if (body.containsKey("initialDelaySeconds")) {
             rule.initialDelaySeconds = body.getInteger("initialDelaySeconds");
-        }
-        if (body.containsKey("preservedArchives")) {
-            rule.preservedArchives = body.getInteger("preservedArchives");
         }
         if (body.containsKey("maxAgeSeconds")) {
             rule.maxAgeSeconds = body.getInteger("maxAgeSeconds");
@@ -270,6 +279,9 @@ public class Rules {
 
         if (Rule.getByName(rule.name) != null) {
             return ResponseBuilder.<Rule>create(RestResponse.Status.CONFLICT).entity(rule).build();
+        }
+        if (rule.preservedArchives > 0) {
+            userAuthorizer.assertAuthorized("archivedrecordings", "delete");
         }
 
         rule.persist();
