@@ -193,9 +193,9 @@ public class Rules {
 
         if (body.containsKey("preservedArchives")) {
             rule.preservedArchives = body.getInteger("preservedArchives");
-            if (rule.preservedArchives > 0) {
-                userAuthorizer.assertAuthorized("archivedrecordings", "delete");
-            }
+        }
+        if (rule.preservedArchives > 0) {
+            userAuthorizer.assertAuthorized("archivedrecordings", "delete");
         }
 
         // order matters here, we want to clean before we disable
