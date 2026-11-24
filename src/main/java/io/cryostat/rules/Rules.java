@@ -191,6 +191,13 @@ public class Rules {
             throw new BadRequestException("Rule name cannot be updated");
         }
 
+        if (body.containsKey("preservedArchives")) {
+            rule.preservedArchives = body.getInteger("preservedArchives");
+            if (rule.preservedArchives > 0) {
+                userAuthorizer.assertAuthorized("archivedrecordings", "delete");
+            }
+        }
+
         // order matters here, we want to clean before we disable
         if (body.containsKey("enabled") && !body.getBoolean("enabled") && clean) {
             bus.send(Rule.RULE_ADDRESS + "?clean", rule);
@@ -218,9 +225,6 @@ public class Rules {
         if (body.containsKey("initialDelaySeconds")) {
             rule.initialDelaySeconds = body.getInteger("initialDelaySeconds");
         }
-        if (body.containsKey("preservedArchives")) {
-            rule.preservedArchives = body.getInteger("preservedArchives");
-        }
         if (body.containsKey("maxAgeSeconds")) {
             rule.maxAgeSeconds = body.getInteger("maxAgeSeconds");
         }
@@ -229,10 +233,6 @@ public class Rules {
         }
         if (body.containsKey("metadata")) {
             rule.metadata = body.getJsonObject("metadata").mapTo(Metadata.class);
-        }
-
-        if (rule.preservedArchives > 0) {
-            userAuthorizer.assertAuthorized("archivedrecordings", "delete");
         }
 
         rule.persist();
