@@ -301,7 +301,8 @@ public class Discovery {
             // Ping the plugin before opening any transaction, so we do not hold one open across
             // the network round-trip, and so that no I/O happens within entity lifecycle callbacks.
             PrePingResult prePingResult =
-                    pingAgentCallback(callback.unauthCallback(), pingCredential)
+                    pingCredential != null
+                                    && pingAgentCallback(callback.unauthCallback(), pingCredential)
                             ? PrePingResult.REACHABLE
                             : PrePingResult.UNREACHABLE;
             plugin =
@@ -978,10 +979,15 @@ public class Discovery {
                         parameterName, remoteAddress.getHostAddress(), callbackUri));
     }
 
+    /**
+     * Resolve the stored credential referenced by the callback's user-info, or {@code null} if the
+     * callback has none. Callers that must create a new plugin require a credential, but a request
+     * that reuses an existing plugin, such as an agent activating registration refresh, does not.
+     */
     private Credential storedCredentialFrom(URI callbackUri) {
         String userInfo = callbackUri.getUserInfo();
         if (StringUtils.isBlank(userInfo)) {
-            throw new IllegalArgumentException("No stored credentials specified");
+            return null;
         }
         if (!userInfo.contains(":")) {
             throw new IllegalArgumentException(
@@ -1057,6 +1063,10 @@ public class Discovery {
                             oldPluginId);
                 }
             }
+        }
+
+        if (credential == null) {
+            throw new IllegalArgumentException("No stored credentials specified");
         }
 
         if (prePingResult == PrePingResult.UNREACHABLE) {
