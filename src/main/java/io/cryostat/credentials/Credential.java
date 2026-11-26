@@ -40,8 +40,6 @@ import jakarta.persistence.PostUpdate;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
-import org.hibernate.annotations.Cache;
-import org.hibernate.annotations.CacheConcurrencyStrategy;
 import org.hibernate.annotations.ColumnTransformer;
 import org.hibernate.envers.Audited;
 
@@ -74,7 +72,6 @@ public class Credential extends PanacheEntity {
     @JoinColumn(name = "matchExpression")
     @NotNull
     @Valid
-    @Cache(usage = CacheConcurrencyStrategy.READ_ONLY)
     public MatchExpression matchExpression;
 
     @ColumnTransformer(

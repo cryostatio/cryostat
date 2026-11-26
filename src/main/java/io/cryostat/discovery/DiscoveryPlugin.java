@@ -61,8 +61,6 @@ import jakarta.ws.rs.core.MultivaluedHashMap;
 import jakarta.ws.rs.core.MultivaluedMap;
 import jakarta.ws.rs.core.UriBuilder;
 import org.apache.commons.lang3.StringUtils;
-import org.hibernate.annotations.Cache;
-import org.hibernate.annotations.CacheConcurrencyStrategy;
 import org.hibernate.annotations.UuidGenerator;
 import org.hibernate.envers.Audited;
 import org.jboss.logging.Logger;
@@ -115,7 +113,6 @@ public class DiscoveryPlugin extends PanacheEntityBase {
             orphanRemoval = true)
     @JsonIgnore
     @Nullable
-    @Cache(usage = CacheConcurrencyStrategy.READ_ONLY)
     public Credential credential;
 
     @JsonProperty(access = JsonProperty.Access.READ_ONLY)
