@@ -30,9 +30,6 @@ import io.cryostat.recordings.ActiveRecordings.Metadata;
 import io.cryostat.security.rbac.UserAuthorizer;
 import io.cryostat.util.EntityExistsException;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonMappingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import io.quarkus.runtime.StartupEvent;
 import io.quarkus.security.PermissionsAllowed;
 import io.vertx.core.json.JsonObject;
@@ -63,6 +60,9 @@ import org.jboss.resteasy.reactive.RestForm;
 import org.jboss.resteasy.reactive.RestPath;
 import org.jboss.resteasy.reactive.RestResponse;
 import org.jboss.resteasy.reactive.RestResponse.ResponseBuilder;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.DatabindException;
+import tools.jackson.databind.ObjectMapper;
 
 @Path("/api/v4/rules")
 public class Rules {
@@ -99,13 +99,13 @@ public class Rules {
                                         return;
                                     }
                                     declarativeRule.persistAndFlush();
-                                } catch (IOException ioe) {
+                                } catch (JacksonException ioe) {
                                     logger.warn(ioe);
                                 } catch (Exception e) {
                                     logger.error(e);
                                 }
                             });
-        } catch (IOException e) {
+        } catch (JacksonException | IOException e) {
             logger.error(e);
         }
     }
@@ -259,7 +259,7 @@ public class Rules {
             @RestForm int maxSizeBytes,
             @RestForm("metadata") Optional<String> rawMetadata,
             @RestForm boolean enabled)
-            throws JsonMappingException, JsonProcessingException {
+            throws DatabindException {
         MatchExpression expr = new MatchExpression(matchExpression);
         expr.persist();
         Rule rule = new Rule();

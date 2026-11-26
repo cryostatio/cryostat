@@ -15,13 +15,13 @@
  */
 package io.cryostat;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import io.quarkus.hibernate.orm.JsonFormat;
 import io.quarkus.hibernate.orm.PersistenceUnitExtension;
 import org.hibernate.type.descriptor.WrapperOptions;
 import org.hibernate.type.descriptor.java.JavaType;
 import org.hibernate.type.format.FormatMapper;
-import org.hibernate.type.format.jackson.JacksonJsonFormatMapper;
+import org.hibernate.type.format.jackson.Jackson3JsonFormatMapper;
+import tools.jackson.databind.json.JsonMapper;
 
 @JsonFormat
 @PersistenceUnitExtension
@@ -30,8 +30,8 @@ import org.hibernate.type.format.jackson.JacksonJsonFormatMapper;
  */
 public class HibernateFormatMapperCustomization implements FormatMapper {
 
-    private final JacksonJsonFormatMapper delegate =
-            new JacksonJsonFormatMapper(new ObjectMapper().findAndRegisterModules());
+    private final Jackson3JsonFormatMapper delegate =
+            new Jackson3JsonFormatMapper(JsonMapper.builder().findAndAddModules().build());
 
     @Override
     public <T> T fromString(

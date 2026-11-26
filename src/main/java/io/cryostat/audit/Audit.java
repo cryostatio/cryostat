@@ -37,7 +37,6 @@ import io.cryostat.recordings.ArchivedRecordingInfo;
 import io.cryostat.rules.Rule;
 import io.cryostat.targets.Target;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import io.quarkus.security.PermissionsAllowed;
 import jakarta.inject.Inject;
@@ -59,6 +58,7 @@ import org.hibernate.envers.exception.RevisionDoesNotExistException;
 import org.hibernate.envers.query.AuditEntity;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestPath;
+import tools.jackson.databind.ObjectMapper;
 
 @Path("/api/beta/audit/")
 public class Audit {

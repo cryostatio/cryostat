@@ -24,8 +24,6 @@ import io.cryostat.StorageBuckets;
 import io.cryostat.recordings.ActiveRecordings.Metadata;
 import io.cryostat.util.HttpMimeType;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import io.quarkus.arc.lookup.LookupIfProperty;
 import io.quarkus.runtime.StartupEvent;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -41,6 +39,8 @@ import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.transfer.s3.S3TransferManager;
 import software.amazon.awssdk.transfer.s3.model.UploadRequest;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 
 @ApplicationScoped
 @LookupIfProperty(
@@ -69,7 +69,7 @@ class BucketedUnifiedLogsMetadataService implements UnifiedLogsMetadataService {
 
     // don't use the application-wide instance. That one serializes maps as key-value pair lists for
     // historical API reasons, but for this internal usage we just want the default behaviour.
-    private final ObjectMapper mapper = new ObjectMapper();
+    private final ObjectMapper mapper = new JsonMapper();
 
     void onStart(@Observes StartupEvent evt) {
         if (!METADATA_STORAGE_MODE_BUCKET.equals(storageMode)) {
@@ -78,7 +78,7 @@ class BucketedUnifiedLogsMetadataService implements UnifiedLogsMetadataService {
     }
 
     @Override
-    public void create(String storageKey, Metadata metadata) throws JsonProcessingException {
+    public void create(String storageKey, Metadata metadata) {
         PutObjectRequest.Builder builder =
                 PutObjectRequest.builder()
                         .bucket(bucket)

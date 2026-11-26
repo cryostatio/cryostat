@@ -23,7 +23,6 @@ import java.util.Map;
 
 import io.cryostat.AbstractTransactionalTestBase;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import io.restassured.http.ContentType;
 import io.restassured.path.json.JsonPath;
 import io.restassured.response.Response;
@@ -32,6 +31,7 @@ import io.vertx.core.json.JsonObject;
 import jakarta.inject.Inject;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * Base class for GraphQL tests providing common functionality including: - Shared fields

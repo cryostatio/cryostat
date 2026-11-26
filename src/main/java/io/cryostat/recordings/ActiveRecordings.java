@@ -38,7 +38,6 @@ import io.cryostat.targets.Target;
 import io.cryostat.util.KeyValue;
 import io.cryostat.util.ResponseDispatch;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.quarkus.security.PermissionsAllowed;
 import io.smallrye.common.annotation.Blocking;
@@ -71,6 +70,7 @@ import org.jboss.resteasy.reactive.RestForm;
 import org.jboss.resteasy.reactive.RestPath;
 import org.jboss.resteasy.reactive.RestResponse;
 import org.jboss.resteasy.reactive.RestResponse.ResponseBuilder;
+import tools.jackson.databind.ObjectMapper;
 
 @Path("/api/v4/targets/{targetId}/recordings")
 public class ActiveRecordings {

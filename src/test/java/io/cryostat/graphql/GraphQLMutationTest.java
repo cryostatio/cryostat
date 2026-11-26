@@ -25,7 +25,6 @@ import java.util.*;
 import io.cryostat.graphql.GraphQLTestModels.*;
 import io.cryostat.resources.S3StorageResource;
 
-import com.fasterxml.jackson.core.type.TypeReference;
 import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
@@ -33,6 +32,7 @@ import io.restassured.response.Response;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import org.junit.jupiter.api.Test;
+import tools.jackson.core.type.TypeReference;
 
 @QuarkusTest
 @QuarkusTestResource(value = S3StorageResource.class, restrictToAnnotatedClass = true)

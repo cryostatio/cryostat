@@ -27,7 +27,6 @@ import io.cryostat.discovery.DiscoveryNode;
 import io.cryostat.graphql.GraphQLTestModels.*;
 import io.cryostat.resources.S3StorageResource;
 
-import com.fasterxml.jackson.core.type.TypeReference;
 import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
@@ -39,6 +38,7 @@ import org.hamcrest.Matcher;
 import org.hamcrest.collection.IsIterableContainingInOrder;
 import org.hamcrest.comparator.ComparatorMatcherBuilder;
 import org.junit.jupiter.api.Test;
+import tools.jackson.core.type.TypeReference;
 
 /**
  * Tests for GraphQL read-only queries. These tests verify query syntax, filtering, response

@@ -51,7 +51,6 @@ import io.cryostat.util.KeyValue;
 import io.cryostat.util.URIUtil;
 
 import com.fasterxml.jackson.annotation.JsonView;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jwt.proc.BadJWTException;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -120,6 +119,7 @@ import org.quartz.SchedulerException;
 import org.quartz.SimpleScheduleBuilder;
 import org.quartz.TriggerBuilder;
 import org.quartz.impl.matchers.GroupMatcher;
+import tools.jackson.databind.ObjectMapper;
 
 @Path("")
 public class Discovery {

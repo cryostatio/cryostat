@@ -44,9 +44,6 @@ import io.cryostat.targets.Target.Annotations;
 import io.cryostat.targets.Target.EventKind;
 import io.cryostat.util.URIUtil;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sun.security.auth.module.UnixSystem;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.quarkus.narayana.jta.QuarkusTransaction;
@@ -79,6 +76,9 @@ import org.quartz.Scheduler;
 import org.quartz.SchedulerException;
 import org.quartz.SimpleScheduleBuilder;
 import org.quartz.TriggerBuilder;
+import tools.jackson.core.JacksonException;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
 
 /** Discovery mechanism for Docker and Podman container engines. */
 @ApplicationScoped
@@ -466,14 +466,14 @@ public abstract class ContainerDiscovery {
                                                         item.body(),
                                                         new TypeReference<
                                                                 List<ContainerSpec>>() {}));
-                                    } catch (JsonProcessingException e) {
+                                    } catch (JacksonException e) {
                                         logger.error("Json processing error", e);
                                     }
                                 },
                                 failure -> {
                                     logger.errorv(failure, "{0} API request failed", getRealm());
                                 });
-            } catch (JsonProcessingException e) {
+            } catch (JacksonException e) {
                 logger.error("Json processing error", e);
             }
         }
@@ -559,7 +559,7 @@ public abstract class ContainerDiscovery {
                                 try {
                                     result.complete(
                                             mapper.readValue(item.body(), ContainerDetails.class));
-                                } catch (JsonProcessingException e) {
+                                } catch (JacksonException e) {
                                     logger.error("Json processing error", e);
                                     result.completeExceptionally(e);
                                 }

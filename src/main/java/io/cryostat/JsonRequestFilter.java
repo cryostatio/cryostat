@@ -24,14 +24,14 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.container.ContainerRequestContext;
 import jakarta.ws.rs.container.ContainerRequestFilter;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.ext.Provider;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 
 @Provider
 /** Filter incoming request bodies or outgoing response bodies to scrub particular content. */
@@ -78,7 +78,7 @@ public class JsonRequestFilter implements ContainerRequestFilter {
                 return true;
             }
         }
-        if (node.isContainerNode()) {
+        if (node.isContainer()) {
             for (JsonNode child : node) {
                 if (containsIdField(child)) {
                     return true;

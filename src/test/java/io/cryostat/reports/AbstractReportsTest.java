@@ -23,7 +23,6 @@ import java.util.concurrent.TimeoutException;
 
 import io.cryostat.AbstractTransactionalTestBase;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import io.restassured.http.ContentType;
 import io.restassured.path.json.JsonPath;
 import io.vertx.core.json.JsonObject;
@@ -34,6 +33,7 @@ import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import tools.jackson.databind.ObjectMapper;
 
 public abstract class AbstractReportsTest extends AbstractTransactionalTestBase {
 

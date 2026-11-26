@@ -29,7 +29,6 @@ import io.cryostat.ConfigProperties;
 import io.cryostat.core.diagnostic.HeapDumpAnalysis;
 import io.cryostat.core.diagnostic.HeapDumpReportGenerator;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -41,6 +40,7 @@ import org.jboss.logging.Logger;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * Implementation for heap dump analysis report generation. Handles direct report generation or
