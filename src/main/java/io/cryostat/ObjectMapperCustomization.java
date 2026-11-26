@@ -25,6 +25,7 @@ import jakarta.inject.Singleton;
 import tools.jackson.core.JsonGenerator;
 import tools.jackson.core.Version;
 import tools.jackson.databind.BeanDescription;
+import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.SerializationConfig;
 import tools.jackson.databind.SerializationContext;
 import tools.jackson.databind.ValueSerializer;
@@ -54,6 +55,7 @@ public class ObjectMapperCustomization implements JsonMapperBuilderCustomizer {
         mapModule.setSerializerModifier(new MapSerializerModifier());
 
         builder.addModule(mapModule);
+        builder.disable(DeserializationFeature.FAIL_ON_NULL_FOR_PRIMITIVES);
     }
 
     static class MapSerializerModifier extends ValueSerializerModifier {
