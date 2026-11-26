@@ -28,6 +28,7 @@ import io.cryostat.discovery.KubeEndpointSlicesDiscovery.KubeDiscoveryNodeType;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonView;
 import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
 import io.quarkus.rest.client.reactive.QuarkusRestClientBuilder;
 import io.quarkus.rest.client.reactive.ReactiveClientHeadersFactory;
@@ -91,6 +92,7 @@ public class DiscoveryPlugin extends PanacheEntityBase {
     @GeneratedValue
     @UuidGenerator
     @NotNull
+    @JsonView(DiscoveryNode.Views.Flat.class)
     public UUID id;
 
     @OneToOne(
@@ -99,10 +101,12 @@ public class DiscoveryPlugin extends PanacheEntityBase {
             orphanRemoval = true,
             fetch = FetchType.LAZY)
     @NotNull
+    @JsonView(DiscoveryNode.Views.Flat.class)
     public DiscoveryNode realm;
 
     @Column(nullable = true, unique = true, updatable = false)
     @Convert(converter = UriConverter.class)
+    @JsonView(DiscoveryNode.Views.Flat.class)
     public URI callback;
 
     @OneToOne(
@@ -115,6 +119,7 @@ public class DiscoveryPlugin extends PanacheEntityBase {
     public Credential credential;
 
     @JsonProperty(access = JsonProperty.Access.READ_ONLY)
+    @JsonView(DiscoveryNode.Views.Flat.class)
     public boolean builtin;
 
     @Column(nullable = false)

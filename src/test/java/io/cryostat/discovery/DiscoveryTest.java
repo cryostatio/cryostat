@@ -128,4 +128,26 @@ public class DiscoveryTest extends AbstractTransactionalTestBase {
                             Matchers.equalTo("id"), Matchers.not(Matchers.blankOrNullString())));
         }
     }
+
+    @Test
+    void getDiscoveryPluginsDoesNotIncludeSubtrees() {
+        List<Map<String, Object>> plugins =
+                given().when()
+                        .get("/api/v4/discovery_plugins")
+                        .then()
+                        .assertThat()
+                        .statusCode(200)
+                        .contentType(ContentType.JSON)
+                        .extract()
+                        .jsonPath()
+                        .getList("$");
+        MatcherAssert.assertThat(plugins, Matchers.not(Matchers.empty()));
+        for (var plugin : plugins) {
+            MatcherAssert.assertThat(plugin, Matchers.hasKey("realm"));
+            MatcherAssert.assertThat(plugin.get("realm"), Matchers.instanceOf(Map.class));
+            var realm = (Map<?, ?>) plugin.get("realm");
+            MatcherAssert.assertThat(realm, Matchers.hasKey("name"));
+            MatcherAssert.assertThat(realm, Matchers.not(Matchers.hasKey("children")));
+        }
+    }
 }
