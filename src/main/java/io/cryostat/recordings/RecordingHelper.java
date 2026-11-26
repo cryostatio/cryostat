@@ -198,6 +198,8 @@ public class RecordingHelper {
     @Inject EventBus bus;
     @Inject Logger logger;
     @Inject Event<ActiveRecordingEvents.ActiveRecordingMetadataUpdated> metadataUpdatedEvent;
+    @Inject Event<ActiveRecordingEvents.ActiveRecordingStopped> stoppedEvent;
+    @Inject Event<ActiveRecordingEvents.ActiveRecordingDeleted> deletedEvent;
 
     @ConfigProperty(name = ConfigProperties.STORAGE_METADATA_ARCHIVES_STORAGE_MODE)
     String metadataStorageMode;
@@ -309,6 +311,7 @@ public class RecordingHelper {
                             "Orphaned recording detected: id={0} remoteId={1} name={2} on target"
                                     + " {3}, removing from database",
                             r.id, r.remoteId, r.name, target.connectUrl);
+                    fireDeleted(r);
                     r.delete();
                     it.remove();
                     updated |= true;
@@ -317,6 +320,7 @@ public class RecordingHelper {
             for (var descriptor : descriptors) {
                 if (previousIds.contains(descriptor.getId())) {
                     var recording = target.getRecordingById(descriptor.getId());
+                    var previousState = recording.state;
                     switch (descriptor.getState()) {
                         case CREATED:
                             recording.state = RecordingState.DELAYED;
@@ -346,6 +350,7 @@ public class RecordingHelper {
                             logger.warn(e);
                         }
                     }
+                    fireStoppedOnTransition(previousState, recording);
                     continue;
                 }
                 updated |= true;
@@ -371,6 +376,7 @@ public class RecordingHelper {
                             existingRecording.remoteId,
                             existingRecording.name);
 
+                    var previousState = existingRecording.state;
                     switch (descriptor.getState()) {
                         case CREATED:
                             existingRecording.state = RecordingState.DELAYED;
@@ -396,6 +402,7 @@ public class RecordingHelper {
                     }
 
                     existingRecording.persist();
+                    fireStoppedOnTransition(previousState, existingRecording);
                 } else {
                     // TODO is there any other metadata to attach here?
                     var recording = ActiveRecording.from(target, descriptor, new Metadata(labels));
@@ -638,6 +645,7 @@ public class RecordingHelper {
                                 + " merging state from startRecording",
                         existingRecording.id, existingRecording.remoteId, existingRecording.name);
 
+                var priorState = existingRecording.state;
                 existingRecording.name = recording.name;
                 existingRecording.state = recording.state;
                 existingRecording.duration = recording.duration;
@@ -654,6 +662,7 @@ public class RecordingHelper {
                 existingRecording.metadata = new Metadata(mergedLabels);
 
                 existingRecording.persist();
+                fireStoppedOnTransition(priorState, existingRecording);
                 recording = existingRecording;
             } else {
                 recording.persist();
@@ -895,8 +904,10 @@ public class RecordingHelper {
                                         ActiveRecording r =
                                                 ActiveRecording.find("id", recording.id)
                                                         .singleResult();
+                                        var previousState = r.state;
                                         r.state = RecordingState.STOPPED;
                                         r.persist();
+                                        fireStoppedOnTransition(previousState, r);
                                         return r;
                                     });
                 });
@@ -917,6 +928,7 @@ public class RecordingHelper {
                                 QuarkusTransaction.joiningExisting()
                                         .call(
                                                 () -> {
+                                                    fireDeleted(recording);
                                                     recording.target.activeRecordings.remove(
                                                             recording);
                                                     recording.target.persist();
@@ -926,6 +938,43 @@ public class RecordingHelper {
                                                     ActiveRecording.flush();
                                                     return recording;
                                                 }));
+    }
+
+    /**
+     * Fire an {@link ActiveRecordingEvents.ActiveRecordingStopped} event for the given recording.
+     * This must be called from within a transaction and not from an entity lifecycle callback,
+     * since building the event snapshot reads the recording's lazily-loaded target.
+     */
+    public void fireStopped(ActiveRecording recording) {
+        stoppedEvent.fire(
+                new ActiveRecordingEvents.ActiveRecordingStopped(
+                        recording.id.longValue(), snapshot(recording)));
+    }
+
+    /**
+     * Fire an {@link ActiveRecordingEvents.ActiveRecordingDeleted} event for the given recording.
+     * This must be called from within a transaction, before the recording is removed, and not from
+     * an entity lifecycle callback, since building the event snapshot reads the recording's
+     * lazily-loaded target.
+     */
+    public void fireDeleted(ActiveRecording recording) {
+        deletedEvent.fire(
+                new ActiveRecordingEvents.ActiveRecordingDeleted(
+                        recording.id.longValue(), snapshot(recording)));
+    }
+
+    private void fireStoppedOnTransition(RecordingState previous, ActiveRecording recording) {
+        if (!RecordingState.STOPPED.equals(previous)
+                && RecordingState.STOPPED.equals(recording.state)) {
+            fireStopped(recording);
+        }
+    }
+
+    private ActiveRecordingEvents.ActiveRecordingSnapshot snapshot(ActiveRecording recording) {
+        return new ActiveRecordingEvents.ActiveRecordingSnapshot(
+                recording.target.connectUrl.toString(),
+                toExternalForm(recording),
+                recording.target.jvmId);
     }
 
     public LinkedRecordingDescriptor toExternalForm(ActiveRecording recording) {

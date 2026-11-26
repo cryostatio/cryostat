@@ -231,11 +231,13 @@ class ActiveRecordingNotificationIntegrationTest extends AbstractTransactionalTe
             ActiveRecording recording = ActiveRecording.findById(recordingId);
             recording.state = RecordingState.STOPPED;
             recording.persist();
+            recordingHelper.fireStopped(recording);
         }
 
         @Transactional
         public void deleteRecording(Long recordingId) {
             ActiveRecording recording = ActiveRecording.findById(recordingId);
+            recordingHelper.fireDeleted(recording);
             recording.delete();
         }
 
