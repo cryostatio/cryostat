@@ -297,6 +297,13 @@ public class Discovery {
             // does, ping it:
             // - if it's still there reject this request as a duplicate
             // - otherwise delete the previous record and accept this new one as a replacement
+            Credential pingCredential = storedCredentialFrom(callback.callbackUri());
+            // Ping the plugin before opening any transaction, so we do not hold one open across
+            // the network round-trip, and so that no I/O happens within entity lifecycle callbacks.
+            PrePingResult prePingResult =
+                    pingAgentCallback(callback.unauthCallback(), pingCredential)
+                            ? PrePingResult.REACHABLE
+                            : PrePingResult.UNREACHABLE;
             plugin =
                     QuarkusTransaction.joiningExisting()
                             .call(
@@ -305,7 +312,8 @@ public class Discovery {
                                                     callback.callbackUri(),
                                                     callback.unauthCallback(),
                                                     realmName,
-                                                    null));
+                                                    storedCredentialFrom(callback.callbackUri()),
+                                                    prePingResult));
 
             try {
                 locations = jwtFactory.getPluginLocations(plugin);
@@ -970,10 +978,28 @@ public class Discovery {
                         parameterName, remoteAddress.getHostAddress(), callbackUri));
     }
 
-    private DiscoveryPlugin findOrCreatePlugin(
-            URI callbackUri, URI unauthCallback, String realmName, Credential credential) {
-        return findOrCreatePlugin(
-                callbackUri, unauthCallback, realmName, credential, PrePingResult.NOT_ATTEMPTED);
+    private Credential storedCredentialFrom(URI callbackUri) {
+        String userInfo = callbackUri.getUserInfo();
+        if (StringUtils.isBlank(userInfo)) {
+            throw new IllegalArgumentException("No stored credentials specified");
+        }
+        if (!userInfo.contains(":")) {
+            throw new IllegalArgumentException(
+                    String.format("Unexpected non-basic credential format, found: %s", userInfo));
+        }
+        String[] parts = userInfo.split(":");
+        if (parts.length != 2) {
+            throw new IllegalArgumentException(
+                    String.format("Unexpected basic credential format, found: %s", userInfo));
+        }
+        if (!"storedcredentials".equals(parts[0])) {
+            throw new IllegalArgumentException(
+                    String.format(
+                            "Unexpected credential format, expected \"storedcredentials\" but"
+                                    + " found: %s",
+                            parts[0]));
+        }
+        return Credential.find("id", Long.parseLong(parts[1])).singleResult();
     }
 
     private DiscoveryPlugin findOrCreatePlugin(
@@ -1046,7 +1072,6 @@ public class Discovery {
         plugin.builtin = false;
         if (credential != null) {
             plugin.credential = credential;
-            credential.discoveryPlugin = plugin;
         }
         if (prePingResult == PrePingResult.REACHABLE) {
             // Record the ping we already did so prePersist skips its own (in-transaction) ping.
@@ -1330,7 +1355,6 @@ public class Discovery {
             DiscoveryNode node, DiscoveryNode parent, boolean fromBuiltin) {}
 
     private enum PrePingResult {
-        NOT_ATTEMPTED,
         REACHABLE,
         UNREACHABLE
     }

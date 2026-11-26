@@ -60,7 +60,6 @@ import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.MultivaluedHashMap;
 import jakarta.ws.rs.core.MultivaluedMap;
 import jakarta.ws.rs.core.UriBuilder;
-import org.apache.commons.lang3.StringUtils;
 import org.hibernate.annotations.UuidGenerator;
 import org.hibernate.envers.Audited;
 import org.jboss.logging.Logger;
@@ -230,7 +229,6 @@ public class DiscoveryPlugin extends PanacheEntityBase {
     static class Listener {
 
         @Inject Logger logger;
-        @Inject PluginCallbackFactory callbackFactory;
         @Inject PluginCleanupHelper cleanupHelper;
 
         @PrePersist
@@ -243,35 +241,10 @@ public class DiscoveryPlugin extends PanacheEntityBase {
                 throw new IllegalArgumentException();
             }
             if (plugin.credential == null) {
-                var credential = getCredential(plugin);
-                plugin.credential = credential;
-                credential.discoveryPlugin = plugin;
-            } else {
-                plugin.credential.discoveryPlugin = plugin;
+                throw new IllegalArgumentException("No stored credentials specified");
             }
+            plugin.credential.discoveryPlugin = plugin;
             plugin.callback = UriBuilder.fromUri(plugin.callback).userInfo(null).build();
-            if (plugin.nextPingAt != null
-                    || plugin.lastFailedPing != null
-                    || plugin.lastSuccessfulPing != null) {
-                logger.debugv(
-                        "Skipping prePersist ping for plugin with existing state: {0} @ {1}",
-                        plugin.realm.name, plugin.callback);
-                return;
-            }
-            try {
-                logger.debugv(
-                        "Testing discovery plugin callback: {0} @ {1}",
-                        plugin.realm.name, plugin.callback);
-                callbackFactory.create(plugin).ping();
-                logger.debugv(
-                        "Registered discovery plugin: {0} @ {1}",
-                        plugin.realm.name, plugin.callback);
-            } catch (URISyntaxException e) {
-                throw new IllegalArgumentException(e);
-            } catch (Exception e) {
-                logger.error("Discovery Plugin ping failed", e);
-                throw e;
-            }
         }
 
         @PreRemove
@@ -283,35 +256,6 @@ public class DiscoveryPlugin extends PanacheEntityBase {
             } catch (Exception e) {
                 logger.warn("Error during plugin cleanup", e);
             }
-        }
-
-        private Credential getCredential(DiscoveryPlugin plugin) {
-            String userInfo = plugin.callback.getUserInfo();
-            if (StringUtils.isBlank(userInfo)) {
-                throw new IllegalArgumentException("No stored credentials specified");
-            }
-
-            if (!userInfo.contains(":")) {
-                throw new IllegalArgumentException(
-                        String.format(
-                                "Unexpected non-basic credential format, found: %s", userInfo));
-            }
-
-            String[] parts = userInfo.split(":");
-            if (parts.length != 2) {
-                throw new IllegalArgumentException(
-                        String.format("Unexpected basic credential format, found: %s", userInfo));
-            }
-
-            if (!"storedcredentials".equals(parts[0])) {
-                throw new IllegalArgumentException(
-                        String.format(
-                                "Unexpected credential format, expected \"storedcredentials\" but"
-                                        + " found: %s",
-                                parts[0]));
-            }
-
-            return Credential.find("id", Long.parseLong(parts[1])).singleResult();
         }
     }
 
