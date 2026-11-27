@@ -29,9 +29,6 @@ import io.cryostat.recordings.RecordingHelper;
 import io.cryostat.util.HttpMimeType;
 import io.cryostat.util.HttpStatusCodeIdentifier;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import io.smallrye.mutiny.Uni;
 import io.smallrye.mutiny.infrastructure.Infrastructure;
 import jakarta.annotation.Priority;
@@ -50,6 +47,9 @@ import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.transfer.s3.S3TransferManager;
 import software.amazon.awssdk.transfer.s3.model.UploadRequest;
+import tools.jackson.core.JacksonException;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * Tiered caching layer for automated analysis reports. Uses S3 object storage to cache automated
@@ -167,7 +167,7 @@ class StorageCachingReportsService implements ReportsService {
                                                             "Bad S3 report storage response: %d",
                                                             sc)));
                                 }
-                            } catch (JsonProcessingException jpe) {
+                            } catch (JacksonException jpe) {
                                 throw new CompletionException(jpe);
                             }
                         });
@@ -185,7 +185,7 @@ class StorageCachingReportsService implements ReportsService {
                             try (var res = new BufferedInputStream(storage.getObject(req))) {
                                 return mapper.readValue(
                                         res, new TypeReference<Map<String, AnalysisResult>>() {});
-                            } catch (IOException ioe) {
+                            } catch (JacksonException | IOException ioe) {
                                 throw new CompletionException(ioe);
                             }
                         });

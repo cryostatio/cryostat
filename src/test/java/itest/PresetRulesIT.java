@@ -23,8 +23,6 @@ import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import io.quarkus.test.junit.QuarkusIntegrationTest;
 import io.restassured.response.Response;
 import io.vertx.core.json.JsonArray;
@@ -33,6 +31,9 @@ import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 
 @QuarkusIntegrationTest
 public class PresetRulesIT {
@@ -71,10 +72,10 @@ public class PresetRulesIT {
         Files.write(tempFile, response.asByteArray());
         File file = tempFile.toFile();
 
-        ObjectMapper mapper = new ObjectMapper();
+        ObjectMapper mapper = new JsonMapper();
         JsonNode json = mapper.readTree(file);
 
-        MatcherAssert.assertThat(json.get("name").asText(), Matchers.equalTo(ruleName));
+        MatcherAssert.assertThat(json.get("name").asString(), Matchers.equalTo(ruleName));
         MatcherAssert.assertThat(json.get("enabled").asBoolean(), Matchers.is(false));
     }
 }

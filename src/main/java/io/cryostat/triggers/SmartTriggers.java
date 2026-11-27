@@ -28,7 +28,6 @@ import io.cryostat.targets.TargetUpdateService;
 import io.cryostat.ws.MessagingServer;
 import io.cryostat.ws.Notification;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.quarkus.security.PermissionsAllowed;
 import io.vertx.mutiny.core.eventbus.EventBus;
@@ -46,6 +45,7 @@ import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestForm;
 import org.jboss.resteasy.reactive.RestPath;
+import tools.jackson.databind.ObjectMapper;
 
 @Path("/")
 public class SmartTriggers {

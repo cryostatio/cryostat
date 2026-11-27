@@ -481,6 +481,49 @@ public class AuditTest extends AuditTestBase {
     }
 
     @Test
+    public void testGetRevisionDetailIncludesDiscoveryNodeRows() {
+        defineSelfCustomTarget();
+
+        Number revisionNumber =
+                given().queryParam("pageSize", 1)
+                        .when()
+                        .get("revisions")
+                        .then()
+                        .assertThat()
+                        .statusCode(200)
+                        .extract()
+                        .path("revisions[0].rev");
+
+        Assertions.assertNotNull(revisionNumber, "Revision number should not be null");
+
+        given().log()
+                .all()
+                .when()
+                .get("revisions/{rev}", revisionNumber.longValue())
+                .then()
+                .log()
+                .all()
+                .assertThat()
+                .statusCode(200)
+                .and()
+                .contentType(ContentType.JSON)
+                .and()
+                .body("entities.keySet()", Matchers.hasItem("DiscoveryNode"))
+                .body(
+                        "entities.DiscoveryNode",
+                        Matchers.allOf(
+                                Matchers.instanceOf(List.class), Matchers.not(Matchers.empty())))
+                .body("entities.DiscoveryNode[0].id", Matchers.notNullValue())
+                .body("entities.DiscoveryNode[0].name", Matchers.not(Matchers.blankOrNullString()))
+                .body(
+                        "entities.DiscoveryNode[0].nodeType",
+                        Matchers.not(Matchers.blankOrNullString()))
+                .body("entities.DiscoveryNode[0].revtype", Matchers.notNullValue())
+                .body("entities.DiscoveryNode[0]", Matchers.not(Matchers.hasKey("children")))
+                .body("entities.DiscoveryNode[0]", Matchers.not(Matchers.hasKey("target")));
+    }
+
+    @Test
     public void testGetRevisionsAfterCreatingTarget() {
         long startTime = System.currentTimeMillis();
         defineSelfCustomTarget();

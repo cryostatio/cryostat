@@ -33,7 +33,6 @@ import io.cryostat.expressions.MatchExpression.TargetMatcher;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.TargetConnectionManager;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.runtime.StartupEvent;
 import io.quarkus.security.PermissionsAllowed;
@@ -64,6 +63,8 @@ import org.jboss.resteasy.reactive.RestPath;
 import org.jboss.resteasy.reactive.RestResponse;
 import org.jboss.resteasy.reactive.RestResponse.ResponseBuilder;
 import org.projectnessie.cel.tools.ScriptException;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 
 @Path("/api/v4/credentials")
 public class Credentials {
@@ -97,7 +98,7 @@ public class Credentials {
                                     logger.error("Failed to create credentials from file", e);
                                 }
                             });
-        } catch (IOException e) {
+        } catch (JacksonException | IOException e) {
             logger.error(e);
         }
     }

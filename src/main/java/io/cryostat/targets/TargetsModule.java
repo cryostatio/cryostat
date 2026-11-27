@@ -19,16 +19,18 @@ import io.cryostat.core.net.JFRConnectionToolkit;
 import io.cryostat.libcryostat.sys.Environment;
 import io.cryostat.libcryostat.sys.FileSystem;
 
-import io.quarkus.arc.DefaultBean;
+import jakarta.annotation.Priority;
 import jakarta.enterprise.inject.Produces;
+import jakarta.enterprise.inject.Reserve;
 import jakarta.inject.Singleton;
 import org.jboss.logging.Logger;
 
 @Singleton
 public class TargetsModule {
 
+    @Priority(0)
     @Produces
-    @DefaultBean
+    @Reserve
     public JFRConnectionToolkit provideJfrConnectionToolkit() {
         Logger log = Logger.getLogger(JFRConnectionToolkit.class);
         return new JFRConnectionToolkit(log::warn, new FileSystem(), new Environment());

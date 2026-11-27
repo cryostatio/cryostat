@@ -361,7 +361,7 @@ class RbacHttpAuthenticationMechanismTest {
 
     @Test
     void testAgentStampStrippedWhenForwardedUserPresent() {
-        var headers = io.vertx.core.http.impl.headers.HeadersMultiMap.headers();
+        var headers = io.vertx.core.MultiMap.caseInsensitiveMultiMap();
         headers.add(ProxyHeaders.AGENT_AUTH, GATEWAY_SECRET);
         headers.add(ProxyHeaders.FORWARDED_USER, "admin");
         headers.add(ProxyHeaders.FORWARDED_TOKEN, "my-token");

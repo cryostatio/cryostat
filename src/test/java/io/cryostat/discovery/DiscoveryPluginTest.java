@@ -162,6 +162,83 @@ public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
     }
 
     @Test
+    void rejectsNewPluginWithoutStoredCredentials() {
+        given().log()
+                .all()
+                .when()
+                .body(
+                        Map.of(
+                                "realm",
+                                "no_credentials_test_realm",
+                                "callback",
+                                baseUrl + "health/liveness"))
+                .contentType(ContentType.JSON)
+                .post("/api/v4/discovery")
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(400);
+    }
+
+    @Test
+    void repeatRegistrationWithoutCredentialsReusesExistingPlugin() {
+        var credentialId =
+                given().log()
+                        .all()
+                        .when()
+                        .formParams(
+                                Map.of(
+                                        "username",
+                                        "user",
+                                        "password",
+                                        "pass",
+                                        "matchExpression",
+                                        "target.connectUrl == '" + baseUrl + "health/liveness'"))
+                        .contentType(ContentType.URLENC)
+                        .post("/api/v4/credentials")
+                        .then()
+                        .assertThat()
+                        .statusCode(201)
+                        .extract()
+                        .jsonPath()
+                        .getLong("id");
+
+        var realmName = "reuse_test_realm";
+        var credentialedCallback =
+                String.format(
+                        "http://storedcredentials:%d@localhost:%d/health/liveness",
+                        credentialId, baseUrl.getPort());
+        var firstId =
+                given().when()
+                        .body(Map.of("realm", realmName, "callback", credentialedCallback))
+                        .contentType(ContentType.JSON)
+                        .post("/api/v4/discovery")
+                        .then()
+                        .assertThat()
+                        .statusCode(200)
+                        .extract()
+                        .jsonPath()
+                        .getString("id");
+
+        var plainCallback = String.format("http://localhost:%d/health/liveness", baseUrl.getPort());
+        var secondId =
+                given().when()
+                        .body(Map.of("realm", realmName, "callback", plainCallback))
+                        .contentType(ContentType.JSON)
+                        .post("/api/v4/discovery")
+                        .then()
+                        .assertThat()
+                        .statusCode(200)
+                        .extract()
+                        .jsonPath()
+                        .getString("id");
+
+        MatcherAssert.assertThat(secondId, Matchers.equalTo(firstId));
+    }
+
+    @Test
     void workflow() {
         // store credentials
         var credentialId =

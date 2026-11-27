@@ -22,7 +22,6 @@ import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.stream.Stream;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.ws.rs.container.ContainerRequestContext;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
@@ -31,6 +30,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.Mockito;
+import tools.jackson.databind.json.JsonMapper;
 
 public class JsonRequestFilterTest {
     private JsonRequestFilter filter;
@@ -39,7 +39,7 @@ public class JsonRequestFilterTest {
     @BeforeEach
     void setUp() {
         filter = new JsonRequestFilter();
-        filter.objectMapper = new ObjectMapper();
+        filter.objectMapper = new JsonMapper();
         requestContext = mock(ContainerRequestContext.class);
     }
 

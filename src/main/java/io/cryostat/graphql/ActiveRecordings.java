@@ -351,20 +351,10 @@ public class ActiveRecordings {
 
     public static class MetadataLabels {
 
-        private Map<String, String> labels;
-
-        public MetadataLabels() {}
-
-        public MetadataLabels(Map<String, String> labels) {
-            this.labels = new HashMap<>(labels);
-        }
+        public Map<String, String> labels = new HashMap<>();
 
         public Map<String, String> getLabels() {
             return new HashMap<>(labels);
-        }
-
-        public void setLabels(Map<String, String> labels) {
-            this.labels = new HashMap<>(labels);
         }
     }
 

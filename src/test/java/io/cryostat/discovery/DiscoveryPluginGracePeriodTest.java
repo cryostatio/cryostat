@@ -26,6 +26,7 @@ import java.util.UUID;
 
 import io.cryostat.AbstractTransactionalTestBase;
 import io.cryostat.ConfigProperties;
+import io.cryostat.credentials.Credential;
 import io.cryostat.discovery.DiscoveryPlugin.PluginCallback;
 import io.cryostat.targets.AgentClient;
 
@@ -63,6 +64,8 @@ public class DiscoveryPluginGracePeriodTest extends AbstractTransactionalTestBas
         mockCallback = mock(PluginCallback.class);
         Mockito.reset(callbackFactory);
         when(callbackFactory.create(any(DiscoveryPlugin.class))).thenReturn(mockCallback);
+        when(callbackFactory.create(any(URI.class), any(Credential.class)))
+                .thenReturn(mockCallback);
     }
 
     private UUID createPluginInCommittedTransaction(
@@ -82,6 +85,7 @@ public class DiscoveryPluginGracePeriodTest extends AbstractTransactionalTestBas
                                             String.format(
                                                     "http://storedcredentials:%d@localhost:9999/nonexistent",
                                                     credentialId));
+                            plugin.credential = Credential.findById(credentialId);
                             plugin.builtin = false;
                             plugin.consecutiveFailures = consecutiveFailures;
                             plugin.persist();
@@ -577,6 +581,7 @@ public class DiscoveryPluginGracePeriodTest extends AbstractTransactionalTestBas
                                                     String.format(
                                                             "http://storedcredentials:%d@localhost:9999/nonexistent",
                                                             credentialId));
+                                    plugin.credential = Credential.findById(credentialId);
                                     plugin.builtin = false;
                                     plugin.consecutiveFailures = 1;
                                     plugin.backoffMultiplier = 2;

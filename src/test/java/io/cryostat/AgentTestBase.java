@@ -46,6 +46,8 @@ public abstract class AgentTestBase extends AbstractTestBase {
 
     static final Duration DISCOVERY_PERIOD = Duration.ofSeconds(30);
     static final Duration DISCOVERY_TIMEOUT = Duration.ofMinutes(5);
+    static final Duration GC_RETRY_TIMEOUT = Duration.ofMinutes(2);
+    static final Duration GC_RETRY_INTERVAL = Duration.ofSeconds(5);
 
     protected static volatile ExecutorService WORKER = Executors.newCachedThreadPool();
 
@@ -265,14 +267,31 @@ public abstract class AgentTestBase extends AbstractTestBase {
         }
     }
 
+    /**
+     * Requests a garbage collection on the target, retrying while the request does not succeed
+     * within {@link #GC_RETRY_TIMEOUT}. The request can time out server-side (HTTP 504) when the
+     * agent is slow to respond, so retries are spaced by {@link #GC_RETRY_INTERVAL}. Once the
+     * request succeeds, waits for the resulting log entries to be written.
+     */
     protected void triggerGcAndWait(long targetId) throws InterruptedException {
-        given().pathParam("targetId", targetId)
-                .when()
-                .post("/api/beta/diagnostics/targets/{targetId}/gc")
-                .then()
-                .assertThat()
-                .statusCode(204);
-        Thread.sleep(10000);
+        long deadline = System.nanoTime() + GC_RETRY_TIMEOUT.toNanos();
+        int status;
+        do {
+            status =
+                    given().pathParam("targetId", targetId)
+                            .when()
+                            .post("/api/beta/diagnostics/targets/{targetId}/gc")
+                            .then()
+                            .extract()
+                            .statusCode();
+            if (status == 204) {
+                Thread.sleep(10000);
+                return;
+            }
+            Thread.sleep(GC_RETRY_INTERVAL.toMillis());
+        } while (System.nanoTime() < deadline);
+        MatcherAssert.assertThat(
+                "GC request did not succeed within " + GC_RETRY_TIMEOUT, status, Matchers.is(204));
     }
 
     @AfterAll

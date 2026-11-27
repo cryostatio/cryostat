@@ -509,7 +509,10 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
     private void applyEndpointDiscoveryEvent(EndpointDiscoveryEvent evt) {
         String namespace = evt.namespace;
         DiscoveryNode realm = DiscoveryNode.getRealm(REALM).orElseThrow();
-        realm = entityManager.find(DiscoveryNode.class, realm.id, LockModeType.PESSIMISTIC_WRITE);
+        realm =
+                Objects.requireNonNull(
+                        entityManager.find(
+                                DiscoveryNode.class, realm.id, LockModeType.PESSIMISTIC_WRITE));
         DiscoveryNode lockedRealm = realm;
         DiscoveryNode nsNode =
                 DiscoveryNode.getChild(lockedRealm, n -> n.name.equals(namespace))

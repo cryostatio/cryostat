@@ -27,13 +27,14 @@ import io.cryostat.libcryostat.sys.FileSystem;
 import io.cryostat.recordings.LongRunningRequestGenerator;
 import io.cryostat.util.SemVer;
 
-import io.quarkus.arc.DefaultBean;
 import io.smallrye.common.annotation.Identifier;
 import io.vertx.mutiny.core.Vertx;
 import io.vertx.mutiny.ext.web.client.WebClient;
+import jakarta.annotation.Priority;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.context.RequestScoped;
 import jakarta.enterprise.inject.Produces;
+import jakarta.enterprise.inject.Reserve;
 import jakarta.inject.Singleton;
 import org.apache.commons.codec.binary.Base64;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
@@ -59,14 +60,16 @@ public class Producers {
 
     @Produces
     @ApplicationScoped
-    @DefaultBean
+    @Priority(0)
+    @Reserve
     public static Clock produceClock() {
         return new Clock();
     }
 
     @Produces
     @ApplicationScoped
-    @DefaultBean
+    @Priority(0)
+    @Reserve
     public static FileSystem produceFileSystem() {
         return new FileSystem();
     }
@@ -78,22 +81,24 @@ public class Producers {
         return new Base64(0, null, true);
     }
 
+    @Priority(0)
     @Produces
     // RequestScoped so that each individual report generation request has its own interruptible
     // generator with an independent task queueing thread which dispatches to the shared common pool
     @RequestScoped
-    @DefaultBean
+    @Reserve
     public static InterruptibleReportGenerator produceInterruptibleReportGenerator() {
         boolean singleThread = Runtime.getRuntime().availableProcessors() < 2;
         return new InterruptibleReportGenerator(
                 singleThread ? Executors.newSingleThreadExecutor() : ForkJoinPool.commonPool());
     }
 
+    @Priority(0)
     @Produces
     // RequestScoped so that each individual report generation request has its own interruptible
     // generator with an independent task queueing thread which dispatches to the shared common pool
     @RequestScoped
-    @DefaultBean
+    @Reserve
     public static HeapDumpReportGenerator produceHeapDumpReportGenerator() {
         boolean singleThread = Runtime.getRuntime().availableProcessors() < 2;
         return new HeapDumpReportGenerator(
@@ -102,20 +107,23 @@ public class Producers {
 
     @Produces
     @ApplicationScoped
-    @DefaultBean
+    @Priority(0)
+    @Reserve
     public static RuleFilterParser produceRuleFilterParser() {
         return new RuleFilterParser();
     }
 
+    @Priority(0)
     @Produces
     @RequestScoped
-    @DefaultBean
+    @Reserve
     public static LongRunningRequestGenerator produceArchiveRequestGenerator() {
         return new LongRunningRequestGenerator();
     }
 
+    @Priority(0)
     @Produces
-    @DefaultBean
+    @Reserve
     public WebClient produceWebClient(Vertx vertx) {
         return WebClient.create(vertx);
     }
@@ -132,7 +140,8 @@ public class Producers {
     @ApplicationScoped
     public static S3Presigner produceS3Presigner(
             @ConfigProperty(name = "quarkus.s3.endpoint-override") String endpointOverride,
-            @ConfigProperty(name = "quarkus.s3.dualstack") boolean dualstack,
+            @ConfigProperty(name = "quarkus.s3.dualstack", defaultValue = "false")
+                    boolean dualstack,
             @ConfigProperty(name = "quarkus.s3.aws.region") String region,
             @ConfigProperty(name = "quarkus.s3.path-style-access") boolean pathStyleAccess) {
         S3Presigner.Builder builder =
@@ -153,7 +162,8 @@ public class Producers {
 
     @Produces
     @ApplicationScoped
-    @DefaultBean
+    @Priority(0)
+    @Reserve
     public static ScriptHost produceScriptHost() {
         return ScriptHost.newBuilder().registry(JacksonRegistry.newRegistry()).build();
     }

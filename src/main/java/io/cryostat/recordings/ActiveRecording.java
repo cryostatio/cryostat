@@ -41,7 +41,6 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PostPersist;
-import jakarta.persistence.PostRemove;
 import jakarta.persistence.PostUpdate;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
@@ -185,8 +184,6 @@ public class ActiveRecording extends PanacheEntity {
         @Inject Logger logger;
         @Inject RecordingHelper recordingHelper;
         @Inject Event<ActiveRecordingEvents.ActiveRecordingCreated> createdEvent;
-        @Inject Event<ActiveRecordingEvents.ActiveRecordingStopped> stoppedEvent;
-        @Inject Event<ActiveRecordingEvents.ActiveRecordingDeleted> deletedEvent;
 
         @ConfigProperty(name = ConfigProperties.EXTERNAL_RECORDINGS_DELAY)
         Duration externalRecordingDelay;
@@ -214,17 +211,9 @@ public class ActiveRecording extends PanacheEntity {
 
         @PostUpdate
         public void postUpdate(ActiveRecording activeRecording) {
-            if (RecordingState.STOPPED.equals(activeRecording.state)) {
-                stoppedEvent.fire(
-                        new ActiveRecordingEvents.ActiveRecordingStopped(
-                                activeRecording.id.longValue(),
-                                new ActiveRecordingEvents.ActiveRecordingSnapshot(
-                                        activeRecording.target.connectUrl.toString(),
-                                        recordingHelper.toExternalForm(activeRecording),
-                                        activeRecording.target.jvmId)));
-                if (activeRecording.archiveOnStop) {
-                    doArchive(activeRecording);
-                }
+            if (RecordingState.STOPPED.equals(activeRecording.state)
+                    && activeRecording.archiveOnStop) {
+                doArchive(activeRecording);
             }
         }
 
@@ -256,17 +245,6 @@ public class ActiveRecording extends PanacheEntity {
                     },
                     externalRecordingDelay.toMillis(),
                     TimeUnit.MILLISECONDS);
-        }
-
-        @PostRemove
-        public void postRemove(ActiveRecording activeRecording) {
-            deletedEvent.fire(
-                    new ActiveRecordingEvents.ActiveRecordingDeleted(
-                            activeRecording.id.longValue(),
-                            new ActiveRecordingEvents.ActiveRecordingSnapshot(
-                                    activeRecording.target.connectUrl.toString(),
-                                    recordingHelper.toExternalForm(activeRecording),
-                                    activeRecording.target.jvmId)));
         }
     }
 }

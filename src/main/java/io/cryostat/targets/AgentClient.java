@@ -55,9 +55,6 @@ import io.cryostat.recordings.RecordingState;
 import io.cryostat.targets.AgentJFRService.StartRecordingRequest;
 import io.cryostat.util.HttpStatusCodeIdentifier;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.rest.client.reactive.QuarkusRestClientBuilder;
@@ -79,6 +76,9 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.openapi.annotations.media.Schema;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.client.handlers.RedirectHandler;
+import tools.jackson.core.JacksonException;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * Client layer for HTTP(S) communications with Cryostat Agent instances. See
@@ -138,7 +138,7 @@ public class AgentClient {
                             try (r;
                                     var is = (InputStream) r.getEntity()) {
                                 return mapper.readValue(is, MBeanMetrics.class);
-                            } catch (IOException e) {
+                            } catch (JacksonException | IOException e) {
                                 throw new AgentApiException(
                                         Response.Status.BAD_GATEWAY.getStatusCode(), e);
                             }
@@ -241,7 +241,7 @@ public class AgentClient {
                                         // returnType
                                         return null;
                                     }));
-        } catch (JsonProcessingException e) {
+        } catch (JacksonException e) {
             logger.error("invokeMBeanOperation request failed", e);
             return Uni.createFrom().failure(e);
         }

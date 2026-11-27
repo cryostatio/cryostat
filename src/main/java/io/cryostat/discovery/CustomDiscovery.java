@@ -21,6 +21,7 @@ import java.net.URISyntaxException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -218,10 +219,11 @@ public class CustomDiscovery {
                                 target.discoveryNode = node;
                                 DiscoveryNode realm = DiscoveryNode.getRealm(REALM).orElseThrow();
                                 realm =
-                                        entityManager.find(
-                                                DiscoveryNode.class,
-                                                realm.id,
-                                                LockModeType.PESSIMISTIC_WRITE);
+                                        Objects.requireNonNull(
+                                                entityManager.find(
+                                                        DiscoveryNode.class,
+                                                        realm.id,
+                                                        LockModeType.PESSIMISTIC_WRITE));
 
                                 node.parent = realm;
                                 target.persist();

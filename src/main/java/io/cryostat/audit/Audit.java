@@ -37,9 +37,10 @@ import io.cryostat.recordings.ArchivedRecordingInfo;
 import io.cryostat.rules.Rule;
 import io.cryostat.targets.Target;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import io.quarkus.security.PermissionsAllowed;
+import jakarta.annotation.PostConstruct;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
 import jakarta.ws.rs.BadRequestException;
@@ -59,6 +60,9 @@ import org.hibernate.envers.exception.RevisionDoesNotExistException;
 import org.hibernate.envers.query.AuditEntity;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestPath;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 
 @Path("/api/beta/audit/")
 public class Audit {
@@ -81,8 +85,27 @@ public class Audit {
     };
 
     @Inject EntityManager em;
-    @Inject ObjectMapper mapper;
+    @Inject ObjectMapper injectedMapper;
     @Inject Logger logger;
+
+    private ObjectMapper mapper;
+
+    @PostConstruct
+    void init() {
+        mapper =
+                ((JsonMapper) injectedMapper)
+                        .rebuild()
+                        .addMixIn(DiscoveryNode.class, DiscoveryNodeAuditMixIn.class)
+                        .build();
+    }
+
+    /**
+     * Excludes the {@code @NotAudited} lazy associations of {@link DiscoveryNode} from audit
+     * serialization. {@code target} is audited as its own {@link Target} entity, and {@code
+     * children} are audited as their own {@link DiscoveryNode} rows.
+     */
+    @JsonIgnoreProperties({"target", "children"})
+    abstract static class DiscoveryNodeAuditMixIn {}
 
     // does not return audit log metadata like username, so audit:read permission is not required
     @GET
@@ -471,7 +494,7 @@ public class Audit {
                             entityMap.putAll(converted);
                         }
                         simplifiedEntities.add(entityMap);
-                    } catch (IllegalArgumentException e) {
+                    } catch (IllegalArgumentException | JacksonException e) {
                         logger.debugv(
                                 e,
                                 "Failed to convert entity {0} to map, skipping",

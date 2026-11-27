@@ -19,14 +19,14 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import io.vertx.core.MultiMap;
 import io.vertx.core.http.HttpServerRequest;
-import io.vertx.core.http.impl.headers.HeadersMultiMap;
 import io.vertx.ext.web.RoutingContext;
 
 /**
  * Builds mock {@link RoutingContext}s whose {@code getHeader} reads through to a real {@link
- * HeadersMultiMap}, so that header mutation performed by the code under test (e.g. stripping the
- * agent provenance stamp) is visible to subsequent reads, as it would be on a real request.
+ * MultiMap}, so that header mutation performed by the code under test (e.g. stripping the agent
+ * provenance stamp) is visible to subsequent reads, as it would be on a real request.
  */
 final class MockRequests {
 
@@ -36,14 +36,14 @@ final class MockRequests {
         if (headerNameValuePairs.length % 2 != 0) {
             throw new IllegalArgumentException("Expected an even number of name/value arguments");
         }
-        var headers = HeadersMultiMap.headers();
+        var headers = MultiMap.caseInsensitiveMultiMap();
         for (int i = 0; i < headerNameValuePairs.length; i += 2) {
             headers.add(headerNameValuePairs[i], headerNameValuePairs[i + 1]);
         }
         return context(headers);
     }
 
-    static RoutingContext context(HeadersMultiMap headers) {
+    static RoutingContext context(MultiMap headers) {
         var ctx = mock(RoutingContext.class);
         var req = mock(HttpServerRequest.class);
         when(ctx.request()).thenReturn(req);

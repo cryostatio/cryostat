@@ -30,7 +30,6 @@ import io.cryostat.recordings.ArchivedRecordingMetadataService;
 import io.cryostat.util.CRUDService;
 import io.cryostat.util.HttpMimeType;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import io.quarkus.arc.lookup.LookupIfProperty;
 import io.quarkus.runtime.StartupEvent;
 import io.smallrye.common.annotation.Identifier;
@@ -48,6 +47,7 @@ import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.transfer.s3.S3TransferManager;
 import software.amazon.awssdk.transfer.s3.model.UploadRequest;
+import tools.jackson.databind.ObjectMapper;
 
 @ApplicationScoped
 @LookupIfProperty(
